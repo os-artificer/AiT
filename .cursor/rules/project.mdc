@@ -1,0 +1,27 @@
+---
+description: AiT layout, build commands, and agent boundaries
+alwaysApply: true
+---
+
+# AiT project rules
+
+Go CLI (**AI Terminal**). Module: `github.com/os-artificer/AiT`.
+
+## Commands
+
+- `make build` → `bin/ait` from `./cmd/ait`
+- `make test` / `make vet` / `make fmt` — run after Go edits
+
+## Layout
+
+- `cmd/ait`: minimal `main` only
+- `internal/app/ait`: application entry (`Run`, CLI, core logic)
+- `pkg/`: only code meant for external import
+- Follow per-directory `README.md` for `api/`, `configs/`, `deployments/`, etc.
+
+## Scope
+
+- Match existing style (tabs in Go, `.editorconfig`)
+- No drive-by refactors; no new markdown unless asked
+- Do not commit unless the user requests it
+- Do not edit `.git/` or add secrets
