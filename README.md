@@ -81,7 +81,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | 目录 | 用途 |
 |------|------|
 | `cmd/ait` | 主程序入口 |
-| `internal/app/ait` | Cobra CLI（`login`、`list`、`load`、`session` 等） |
+| `internal/ait` | Cobra CLI（`login`、`list`、`load`、`session` 等） |
 | `internal/pkg` | 实现库（`store`、`session`、`sshclient`、`ai`、`sync`…） |
 | `configs` | `ait.example.yaml` 配置模板 |
 | `docs` | [design.md](docs/design.md) 设计文档 |

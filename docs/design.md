@@ -3,7 +3,7 @@
 
 ## 现状
 
-项目仅有占位实现：[`internal/app/ait/app.go`](internal/app/ait/app.go) 打印 banner，[`go.mod`](go.mod) 无第三方依赖。所有功能需从零搭建，但目录约定已明确（`cmd/ait` 薄入口 → `internal/app/ait` + `internal/pkg`）。
+项目 CLI 入口：[`internal/ait/root.go`](internal/ait/root.go)（`Run` + cobra root），[`go.mod`](go.mod) 无第三方依赖。所有功能需从零搭建，但目录约定已明确（`cmd/ait` 薄入口 → `internal/ait` + `internal/pkg`）。
 
 ## 目标 CLI 形态
 
@@ -35,7 +35,7 @@ ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
 
 ```mermaid
 flowchart TB
-  subgraph cli [internal/app/ait]
+  subgraph cli [internal/ait]
     Run[Run args]
     Commands[login list load suspend sync config session]
   end
@@ -177,8 +177,8 @@ CREATE TABLE app_meta (
 
 | 路径 | 职责 |
 |------|------|
-| [`internal/app/ait/`](internal/app/ait/) | `Run` → cobra root；注册子命令 |
-| `internal/app/ait/cmd_*.go` | `login`, `list`, `load`, `suspend`, `sync`, `config`, `session` 命令 |
+| [`internal/ait/`](internal/ait/) | `Run` → cobra root；注册子命令 |
+| `internal/ait/cmd_*.go` | `login`, `list`, `load`, `suspend`, `sync`, `config`, `session` 命令 |
 | `internal/pkg/tmux/` | 远程 tmux 探测、`new-session` / `attach` / `detach` / `has-session` 封装 |
 | `internal/pkg/store/` | SQLite 打开、迁移、CRUD |
 | `internal/pkg/session/` | 会话生命周期：创建、挂起、加载、**切换**、列表 |
@@ -329,7 +329,7 @@ sequenceDiagram
 
 - **单元测试**：`store` CRUD（`:memory:` SQLite）、`terminal` scrollback 截断/回放、`ai` mock HTTP
 - **集成测试**：`sshclient` 用 `httptest` 或跳过标签；`//go:build integration` + docker testcontainers 可选后续
-- 保持 [`internal/app/ait/app_test.go`](internal/app/ait/app_test.go)  smoke test 更新为 `Run([]string{"--help"})`
+- 保持 [`internal/ait/app_test.go`](internal/ait/app_test.go)  smoke test 更新为 `Run([]string{"--help"})`
 
 ## 实施阶段（建议顺序）
 
