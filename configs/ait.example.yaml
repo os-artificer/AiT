@@ -1,0 +1,13 @@
+# AiT example configuration
+# Copy to your config dir (see docs/design.md) as config.yaml
+
+session:
+  # Authentication cache TTL for load/switch without re-entering password
+  auth_ttl: 168h
+
+deepseek:
+  base_url: https://api.deepseek.com
+  model: deepseek-chat
+
+# API key: ait config set deepseek.api_key <your-key>
+# (stored in OS keyring, not in this file)
