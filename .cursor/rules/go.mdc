@@ -8,7 +8,7 @@ alwaysApply: false
 
 - Indent with **tabs**; run `make fmt` (or `go fmt ./...`) on touched packages
 - Tests: `*_test.go` beside implementation; keep `make test` green
-- `internal/` packages are module-private — app code belongs in `internal/app/ait`, not duplicated in `cmd/`
+- `internal/` packages are module-private — app code belongs in `internal/ait`, not duplicated in `cmd/`
 - Prefer standard library; add dependencies only when needed
 - Error handling: return errors from `Run` and callers; avoid silent `catch` patterns
 

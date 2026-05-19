@@ -28,8 +28,8 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 
 | Path | Role |
 |------|------|
-| `cmd/ait/main.go` | Thin `main` — delegates to `internal/app/ait.Run` |
-| `internal/app/ait/` | Cobra root and subcommands (`cmd_*.go`, `root.go`, `context.go`) |
+| `cmd/ait/main.go` | Thin `main` — delegates to `internal/ait.Run` |
+| `internal/ait/` | Cobra root and subcommands (`cmd_*.go`, `root.go`, `context.go`) |
 | `internal/pkg/store/` | SQLite schema, migrations, session CRUD |
 | `internal/pkg/session/` | Login, load, suspend, switch, delete, list |
 | `internal/pkg/sshclient/` | Dial, PTY interactive loop, `!!` / `\ait suspend` |
@@ -45,7 +45,7 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `docs/` | `design.md` architecture and behavior |
 | `scripts/`, `build/` | Build and CI helpers |
 
-Prefer extending `internal/pkg/*` and `internal/app/ait` over new top-level directories.
+Prefer extending `internal/pkg/*` and `internal/ait` over new top-level directories.
 
 ## Conventions
 
@@ -71,7 +71,7 @@ In SSH: `!! <question>` for AI; `\ait suspend` to suspend and save state.
 
 ## Pitfalls
 
-- Keep `cmd/ait` thin — all logic in `internal/app/ait` and `internal/pkg`.
+- Keep `cmd/ait` thin — all logic in `internal/ait` and `internal/pkg`.
 - `sshclient` uses `InsecureIgnoreHostKey` today — do not weaken further; prefer adding `known_hosts` support when touching auth.
 - **Default mode** does not keep remote processes alive; only `--tmux` does.
 - **`session switch` from local shell** cannot suspend an active SSH; user must `\ait suspend` inside the session first.

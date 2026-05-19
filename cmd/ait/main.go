@@ -19,7 +19,7 @@ package main
 import (
 	"os"
 
-	"github.com/os-artificer/AiT/internal/app/ait"
+	"github.com/os-artificer/AiT/internal/ait"
 )
 
 func main() {

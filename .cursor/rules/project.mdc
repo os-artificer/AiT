@@ -15,7 +15,7 @@ Go CLI (**AI Terminal**). Module: `github.com/os-artificer/AiT`.
 ## Layout
 
 - `cmd/ait`: minimal `main` only
-- `internal/app/ait`: application entry (`Run`, CLI, core logic)
+- `internal/ait`: application entry (`Run`, CLI, core logic)
 - `pkg/`: only code meant for external import
 - Follow per-directory `README.md` for `api/`, `configs/`, `deployments/`, etc.
 
