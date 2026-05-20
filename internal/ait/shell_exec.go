@@ -18,21 +18,25 @@ package ait
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
+	"github.com/os-artificer/AiT/internal/pkg/sshargs"
 	"github.com/os-artificer/AiT/internal/pkg/sshclient"
 )
 
 // PrintShellHelp writes help for the ait shell REPL (AiT> prompt).
 func PrintShellHelp(w io.Writer) {
-	const help = `AiT shell — type commands directly, press Enter to run (no !ait prefix):
+	const header = `AiT shell — type commands directly, press Enter to run (no !ait prefix):
 
   help              show this help
   exit, quit        leave AiT shell
 
-  login --host H [--user U] [--port 22] [--alias A] [--identity PATH] [--password P] [--tmux]
+  login [flags] destination [command ...]   (full flags: ait login --help)
+`
+	shellWriteTTY(w, header)
+	_ = WriteLoginHelpShort(w)
+	const rest = `
   load <id|alias> [--tmux] [--password P]
   list              list saved sessions
   config, sync, session, suspend  — same as: ait <command> ...
@@ -43,11 +47,15 @@ Prompts:
   AiT Local>        local mode inside SSH (!ait local)
 
 Examples:
+  login myserver
+  login -p 2222 root@192.168.1.1 -i ~/.ssh/id_rsa
+  login -J bastion internal.host uptime
+  login --alias prod --tmux user@prod
   login --host 192.168.1.1 --user root
   load myserver
   list
 `
-	shellWriteTTY(w, help)
+	shellWriteTTY(w, rest)
 }
 
 // ExecuteShellLine runs one REPL line. Returns exitREPL true when the user typed exit/quit.
@@ -76,17 +84,15 @@ func ExecuteShellLine(ctx context.Context, mgr *session.Manager, line string) (e
 }
 
 func shellLogin(ctx context.Context, mgr *session.Manager, args []string) error {
-	host, alias, user, identity, password, port, tmux, err := parseLoginArgs(args)
+	spec, err := sshargs.Parse(args)
 	if err != nil {
 		return err
 	}
-	if host == "" {
-		return fmt.Errorf("--host is required")
+	resolved, err := sshargs.Resolve(spec)
+	if err != nil {
+		return err
 	}
-	return mgr.Login(ctx, session.LoginOpts{
-		Alias: alias, Host: host, Port: port, User: user,
-		IdentityPath: identity, Password: password, Tmux: tmux,
-	})
+	return mgr.Login(ctx, loginOptsFromResolved(resolved))
 }
 
 func shellLoad(ctx context.Context, mgr *session.Manager, args []string) error {

@@ -21,8 +21,16 @@ make build
 # Deepseek API Key（存入系统钥匙串，不写配置文件）
 ./bin/ait config set deepseek.api_key <your-key>
 
-# 登录并保存会话
-./bin/ait login --host example.com --user deploy --alias prod
+# 登录：完整参数说明见 help（逐项列出 OpenSSH 与 AiT flags）
+./bin/ait login --help
+
+# 交互登录并保存会话
+./bin/ait login deploy@example.com --alias prod
+./bin/ait login -p 2222 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
+./bin/ait login -J bastion app.internal
+
+# 一次性远程命令（类似 ssh host cmd，默认不写库）
+./bin/ait login deploy@example.com uptime
 
 # 列出 / 恢复 / 切换会话
 ./bin/ait list
@@ -46,7 +54,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | 命令 | 说明 |
 |------|------|
 | `ait shell` | 交互模式（`AiT> `）：可直接 `login`、`list`、`help` 等；`exit` 退出 |
-| `ait login` | 连接主机并自动保存会话（`--host` 必填） |
+| `ait login` | 连接主机；`ait login --help` 查看全部 flags（-p/-l/-i/-F/-J/-o 等）；`host cmd` 为一次性执行 |
 | `ait list` | 列出已保存会话 |
 | `ait load <id\|alias>` | 恢复会话；过期需 `--password` |
 | `ait suspend` | 说明：在 SSH 内使用 `!ait suspend` |

@@ -19,6 +19,8 @@ package ait
 import (
 	"reflect"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/sshargs"
 )
 
 func TestParseShellLine(t *testing.T) {
@@ -32,12 +34,12 @@ func TestParseShellLine(t *testing.T) {
 	}
 }
 
-func TestParseLoginArgs(t *testing.T) {
-	host, alias, user, _, _, port, tmux, err := parseLoginArgs([]string{"--host", "h", "--alias", "a", "--port", "2222", "--tmux"})
+func TestParseLoginArgsLegacy(t *testing.T) {
+	spec, err := sshargs.Parse([]string{"--host", "h", "--alias", "a", "--port", "2222", "--tmux"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if host != "h" || alias != "a" || user != "" || port != 2222 || !tmux {
-		t.Errorf("host=%q alias=%q port=%d tmux=%v", host, alias, port, tmux)
+	if spec.Destination != "h" || spec.Alias != "a" || spec.LegacyPort != 2222 || !spec.Tmux {
+		t.Fatalf("spec=%+v", spec)
 	}
 }

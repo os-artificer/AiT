@@ -49,8 +49,19 @@ type LoginOpts struct {
 	Port         int
 	User         string
 	IdentityPath string
-	Password     string
-	Tmux         bool
+	// IdentityExplicit is true when the user passed -i on the CLI.
+	IdentityExplicit bool
+	Password         string
+	Tmux             bool
+
+	RemoteCommand []string
+
+	ProxyJump             []string
+	ProxyCommand          string
+	KnownHostsPath        string
+	StrictHostKeyChecking string
+	ConnectTimeout        time.Duration
+	BatchMode             bool
 }
 
 // Manager orchestrates session lifecycle.
@@ -69,16 +80,94 @@ func normalizePort(port int) int {
 	return port
 }
 
-// Login connects and saves session.
+// Login connects and saves session (or runs a one-shot remote command).
 func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	opts.Port = normalizePort(opts.Port)
+	if len(opts.RemoteCommand) > 0 && opts.Tmux {
+		return fmt.Errorf("cannot use --tmux with a remote command")
+	}
+
+	sshOpts := sshclient.Options{
+		Host: opts.Host, Port: opts.Port, User: opts.User,
+		IdentityPath: opts.IdentityPath, IdentityExplicit: opts.IdentityExplicit,
+		Password: opts.Password, UseAgent: true,
+		ProxyJump: opts.ProxyJump, ProxyCommand: opts.ProxyCommand,
+		KnownHostsPath: opts.KnownHostsPath, StrictHostKeyChecking: opts.StrictHostKeyChecking,
+		ConnectTimeout: opts.ConnectTimeout, BatchMode: opts.BatchMode,
+	}
+
+	client, err := m.dialLogin(sshOpts, opts.Password, opts.Host)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	if len(opts.RemoteCommand) > 0 {
+		return m.loginRunOnce(ctx, client, opts)
+	}
+	return m.loginInteractive(ctx, client, opts, sshOpts)
+}
+
+func shouldPromptSSHPassword(sshOpts sshclient.Options, cliPassword string) bool {
+	if sshOpts.BatchMode || cliPassword != "" {
+		return false
+	}
+	if sshOpts.IdentityExplicit {
+		return false
+	}
+	return true
+}
+
+func isSSHAuthFailure(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "knownhosts") ||
+		strings.Contains(msg, "host key") ||
+		strings.Contains(msg, "hostkey") ||
+		strings.Contains(msg, "key is unknown") ||
+		strings.Contains(msg, "host key verification failed") ||
+		strings.Contains(msg, "possible mitm") {
+		return false
+	}
+	return strings.Contains(msg, "unable to authenticate") ||
+		strings.Contains(msg, "permission denied") ||
+		strings.Contains(msg, "no supported authentication") ||
+		strings.Contains(msg, "no authentication method")
+}
+
+func (m *Manager) dialLogin(sshOpts sshclient.Options, password, host string) (*sshclient.Client, error) {
+	client, err := sshclient.DialChain(sshOpts)
+	if err != nil && shouldPromptSSHPassword(sshOpts, password) && isSSHAuthFailure(err) {
+		user := sshOpts.User
+		if user == "" {
+			user = "user"
+		}
+		if p, perr := promptPassword(fmt.Sprintf("Password for %s@%s: ", user, host)); perr == nil && p != "" {
+			sshOpts.Password = p
+			client, err = sshclient.DialChain(sshOpts)
+		}
+	}
+	return client, err
+}
+
+func (m *Manager) loginRunOnce(ctx context.Context, client *sshclient.Client, opts LoginOpts) error {
+	if opts.Alias != "" {
+		if err := m.persistLoginSession(client, opts); err != nil {
+			return err
+		}
+	}
+	cmdline := sshclient.BuildRemoteCommandLine(opts.RemoteCommand)
+	return client.RunRemoteCommand(ctx, cmdline)
+}
+
+func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client, opts LoginOpts, sshOpts sshclient.Options) error {
 	id := uuid.New().String()
 	var reuseChangedConn bool
 	if opts.Alias != "" {
 		if existing, err := m.Store.GetSession(opts.Alias); err == nil {
 			id = existing.ID
-			// If the alias is being reused for a different remote endpoint,
-			// the cached scrollback/cwd no longer make sense.
 			if existing.Host != opts.Host ||
 				normalizePort(existing.Port) != opts.Port ||
 				(opts.User != "" && existing.Username != opts.User) {
@@ -92,27 +181,10 @@ func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 		}
 		_ = m.Store.DeleteSessionState(id)
 	}
+
+	authMethod := sshclient.DetectAuthMethod(sshOpts)
 	ttl, _ := m.Config.AuthTTL()
 	expires := time.Now().Add(ttl).Unix()
-
-	sshOpts := sshclient.Options{
-		Host: opts.Host, Port: opts.Port, User: opts.User,
-		IdentityPath: opts.IdentityPath, Password: opts.Password, UseAgent: true,
-	}
-	// Dial first so we never persist a session that does not authenticate.
-	client, err := sshclient.Dial(sshOpts)
-	if err != nil && opts.Password == "" {
-		if p, perr := promptPassword(fmt.Sprintf("Password for %s@%s: ", sshOpts.User, opts.Host)); perr == nil && p != "" {
-			opts.Password = p
-			sshOpts.Password = p
-			client, err = sshclient.Dial(sshOpts)
-		}
-	}
-	if err != nil {
-		return err
-	}
-	authMethod := sshclient.DetectAuthMethod(sshOpts)
-
 	tmuxName := tmux.SessionName(id)
 	sess := &store.Session{
 		ID: id, Alias: opts.Alias, Host: opts.Host, Port: opts.Port,
@@ -122,7 +194,6 @@ func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 		Status: store.StatusSuspended,
 	}
 	if err := m.Store.UpsertSession(sess); err != nil {
-		client.Close()
 		return err
 	}
 	if opts.Password != "" {
@@ -133,17 +204,34 @@ func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	if opts.Tmux {
 		if err := tmux.Ensure(client.Conn(), tmuxName); err != nil {
 			m.clearSessionOnFailure(id)
-			client.Close()
 			return fmt.Errorf("tmux: %w (is tmux installed on remote?)", err)
 		}
 	}
 
 	initialCmds := sshclient.RemotePromptInitialCommands(sess.Username, sess.Host)
-	err = m.runInteractive(ctx, client, sess, initialCmds)
+	err := m.runInteractive(ctx, client, sess, initialCmds)
 	if err != nil {
 		m.clearSessionOnFailure(id)
 	}
 	return err
+}
+
+func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts) error {
+	_ = client
+	id := uuid.New().String()
+	if opts.Alias != "" {
+		if existing, err := m.Store.GetSession(opts.Alias); err == nil {
+			id = existing.ID
+		}
+	}
+	ttl, _ := m.Config.AuthTTL()
+	expires := time.Now().Add(ttl).Unix()
+	sess := &store.Session{
+		ID: id, Alias: opts.Alias, Host: opts.Host, Port: normalizePort(opts.Port),
+		Username: opts.User, IdentityPath: opts.IdentityPath,
+		AuthExpiresAt: expires, Status: store.StatusSuspended,
+	}
+	return m.Store.UpsertSession(sess)
 }
 
 // Load restores a saved session.

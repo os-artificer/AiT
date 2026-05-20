@@ -17,48 +17,30 @@
 package ait
 
 import (
-	"fmt"
-
-	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/spf13/cobra"
 )
 
 func newLoginCmd() *cobra.Command {
-	var (
-		alias    string
-		host     string
-		port     int
-		user     string
-		identity string
-		password string
-		tmux     bool
-	)
 	cmd := &cobra.Command{
-		Use:   "login",
-		Short: "Log in to a host and save session",
+		Use:                   "login [flags] destination [command [argument ...]]",
+		Short:                 "Log in to a host (OpenSSH-compatible) and save session",
+		Long:                  "Connect to a remote host using OpenSSH-compatible flags. Run 'ait login --help' for flag details and examples.",
+		DisableFlagsInUseLine: true,
+		DisableFlagParsing:    true,
+		SilenceUsage:          true,
+		SilenceErrors:         true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if host == "" {
-				return fmt.Errorf("--host is required")
+			if loginHelpRequested(args) {
+				return WriteLoginHelp(cmd.OutOrStdout())
 			}
-			mgr, err := newManager()
-			if err != nil {
-				return err
-			}
-			defer mgr.Store.Close()
 			ctx, cancel := commandContext()
 			defer cancel()
-			return mgr.Login(ctx, session.LoginOpts{
-				Alias: alias, Host: host, Port: port, User: user,
-				IdentityPath: identity, Password: password, Tmux: tmux,
-			})
+			return runLogin(ctx, args)
 		},
 	}
-	cmd.Flags().StringVar(&alias, "alias", "", "session alias")
-	cmd.Flags().StringVar(&host, "host", "", "remote host (required)")
-	cmd.Flags().IntVar(&port, "port", 22, "SSH port")
-	cmd.Flags().StringVar(&user, "user", "", "SSH user")
-	cmd.Flags().StringVar(&identity, "identity", "", "private key path")
-	cmd.Flags().StringVar(&password, "password", "", "SSH password")
-	cmd.Flags().BoolVar(&tmux, "tmux", false, "use remote tmux for session persistence")
+	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
+		_ = WriteLoginHelp(c.OutOrStdout())
+	})
+	_ = cmd.Flags().MarkHidden("help")
 	return cmd
 }

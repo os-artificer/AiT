@@ -1,4 +1,4 @@
-.PHONY: all build test vet fmt clean
+.PHONY: all build test vet fmt clean test-cross
 
 BINARY_NAME := ait
 BUILD_DIR   := bin
@@ -12,6 +12,10 @@ build:
 
 test:
 	go test ./...
+
+test-cross:
+	GOOS=windows GOARCH=amd64 go build ./...
+	GOOS=darwin GOARCH=amd64 go build ./...
 
 vet:
 	go vet ./...

@@ -59,7 +59,9 @@ Prefer extending `internal/pkg/*` and `internal/ait` over new top-level director
 ## CLI quick reference
 
 ```text
-ait login --host H [--alias] [--user] [--port] [--identity] [--password] [--tmux]
+ait login [ssh-options] destination [cmd ...] [--alias] [--tmux] [--password]
+# ssh-options: -p -l -i -F -J -o ... ; legacy --host/--user still supported
+# Requires OpenSSH client (ssh) on PATH for ssh -G config resolution (all platforms)
 ait list | load <id|alias> [--tmux] [--password]
 ait session switch [id|alias] [--tmux]
 ait session delete <id|alias> | ait session delete all [--force]
@@ -72,7 +74,7 @@ Prompts: `AiT>` (`ait shell`), `AiT user@host>` (SSH remote), `AiT Local>` (`!ai
 ## Pitfalls
 
 - Keep `cmd/ait` thin — all logic in `internal/ait` and `internal/pkg`.
-- `sshclient` uses `InsecureIgnoreHostKey` today — do not weaken further; prefer adding `known_hosts` support when touching auth.
+- `login` resolves `~/.ssh/config` via `ssh -G`; data plane is Go `x/crypto/ssh`. Set `AIT_SSH_INSECURE=1` only for dev.
 - **Default mode** does not keep remote processes alive; only `--tmux` does.
 - **`session switch` from local shell** cannot suspend an active SSH; user must `\ait suspend` inside the session first.
 - `third_party/` is for vendored tools, not primary app code.

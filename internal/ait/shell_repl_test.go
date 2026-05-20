@@ -79,8 +79,8 @@ func TestExecuteShellLineHelp(t *testing.T) {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
 	PrintShellHelp(&buf)
-	if !strings.Contains(buf.String(), "login --host") {
-		t.Error("help should mention login")
+	if !strings.Contains(buf.String(), "login") || !strings.Contains(buf.String(), "-p port") {
+		t.Error("help should mention login flags")
 	}
 }
 

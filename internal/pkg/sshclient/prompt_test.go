@@ -34,9 +34,10 @@ func TestRemotePromptInitialCommands(t *testing.T) {
 	if len(cmds) != 1 {
 		t.Fatalf("cmds = %v", cmds)
 	}
-	for _, part := range []string{"export PS1=", "u@h", "PROMPT="} {
-		if !strings.Contains(cmds[0], part) {
-			t.Errorf("export line missing %q: %s", part, cmds[0])
+	line := cmds[0]
+	for _, part := range []string{"stty -echo", "export PS1=", "u@h", "PROMPT=", "033[1A", "stty echo"} {
+		if !strings.Contains(line, part) {
+			t.Errorf("setup line missing %q: %s", part, line)
 		}
 	}
 	if len(RemotePromptInitialCommands("", "h")) != 0 {
