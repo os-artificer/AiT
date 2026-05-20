@@ -37,5 +37,7 @@ func newManager() (*session.Manager, error) {
 	if c, err := ai.NewClient(cfg); err == nil {
 		aiClient = c
 	}
-	return &session.Manager{Store: st, Config: cfg, AI: aiClient}, nil
+	mgr := &session.Manager{Store: st, Config: cfg, AI: aiClient}
+	mgr.MetaCLI = ExecuteMeta
+	return mgr, nil
 }

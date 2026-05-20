@@ -19,7 +19,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **SSH sessions**: `login`, `list`, `load`, `suspend`, `session switch`, `session delete`
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; 7-day auth TTL (keyring for secrets)
 - **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
-- **AI**: Deepseek via OpenAI-compatible API (`internal/pkg/ai`); in-session `!!` prompts; install hints when `rsync`/`scp`/`tmux` missing
+- **AI**: Deepseek via OpenAI-compatible API (`internal/pkg/ai`); in-session `!ait ai` / `!!` prompts; `!ait local`/`!ait remote` local mode; install hints when `rsync`/`scp`/`tmux` missing
 - **Sync**: `ait sync` — rsync → scp → SFTP (`internal/pkg/sync`)
 
 Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml).
@@ -32,7 +32,7 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/ait/` | Cobra root and subcommands (`cmd_*.go`, `root.go`, `context.go`) |
 | `internal/pkg/store/` | SQLite schema, migrations, session CRUD |
 | `internal/pkg/session/` | Login, load, suspend, switch, delete, list |
-| `internal/pkg/sshclient/` | Dial, PTY interactive loop, `!!` / `\ait suspend` |
+| `internal/pkg/sshclient/` | Dial, PTY loop, `!ait` meta (`ai`/`local`/`remote`/`suspend`), `!!` alias |
 | `internal/pkg/tmux/` | Remote tmux ensure/attach/detach |
 | `internal/pkg/terminal/` | Scrollback buffer and replay |
 | `internal/pkg/ai/` | Deepseek client |
@@ -67,7 +67,7 @@ ait sync <src> <dst> [--session <id|alias>]
 ait config set|get <key> [<value>]
 ```
 
-In SSH: `!! <question>` for AI; `\ait suspend` to suspend and save state.
+Prompts: `AiT>` (`ait shell`), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). In SSH: `!ait help`; `!ait <subcmd>` for local CLI; `!ait ai` / `!!`; `!ait local` / `remote`; `!ait suspend`. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`).
 
 ## Pitfalls
 

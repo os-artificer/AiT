@@ -31,6 +31,7 @@ func newRootCmd() *cobra.Command {
 		Long:  "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant.",
 	}
 	root.AddCommand(
+		newShellCmd(),
 		newLoginCmd(),
 		newListCmd(),
 		newLoadCmd(),

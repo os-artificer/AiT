@@ -21,7 +21,7 @@ import "github.com/spf13/cobra"
 func newSuspendCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "suspend",
-		Short: "Suspend current session (use \\ait suspend inside SSH)",
+		Short: "Suspend current session (use !ait suspend inside SSH)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mgr, err := newManager()
 			if err != nil {

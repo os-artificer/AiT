@@ -21,24 +21,22 @@ import (
 	"testing"
 )
 
-// drive feeds the whole input through a fresh scanner and returns the
-// concatenated forwarded bytes plus all completed meta lines.
-func drive(input string) (forwarded string, metaLines []string) {
-	s := newMetaScanner()
-	var fwd strings.Builder
+func drive(input string, aiAvailable bool) (forwarded string, echoed string, metaLines []string) {
+	s := newMetaScanner(aiAvailable)
+	var fwd, ech strings.Builder
 	for i := 0; i < len(input); i++ {
-		out, line, ok := s.Feed(input[i])
+		out, echo, line, ok := s.Feed(input[i])
 		fwd.Write(out)
+		ech.Write(echo)
 		if ok {
 			metaLines = append(metaLines, line)
 		}
 	}
-	return fwd.String(), metaLines
+	return fwd.String(), ech.String(), metaLines
 }
 
 func TestMetaScanner_BashHistoryWithArgsPassthrough(t *testing.T) {
-	// `!!ls` is bash's history-and-append shortcut and must NOT be meta.
-	fwd, meta := drive("!!ls\n")
+	fwd, _, meta := drive("!!ls\n", true)
 	if fwd != "!!ls\n" {
 		t.Errorf("forward=%q want %q", fwd, "!!ls\n")
 	}
@@ -47,8 +45,28 @@ func TestMetaScanner_BashHistoryWithArgsPassthrough(t *testing.T) {
 	}
 }
 
+func TestMetaScanner_BashHistoryWithArgsCapturedWhenAIDisabled(t *testing.T) {
+	fwd, _, meta := drive("!!ls\n", false)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!!ls" {
+		t.Errorf("meta=%v want [!!ls]", meta)
+	}
+}
+
+func TestMetaScanner_AitPrefixCapturedWhenAIDisabled(t *testing.T) {
+	fwd, _, meta := drive("!ait local\n", false)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait local" {
+		t.Errorf("meta=%v want [!ait local]", meta)
+	}
+}
+
 func TestMetaScanner_BashHistoryColonModifierPassthrough(t *testing.T) {
-	fwd, meta := drive("!!:gs/x/y/\n")
+	fwd, _, meta := drive("!!:gs/x/y/\n", true)
 	if fwd != "!!:gs/x/y/\n" {
 		t.Errorf("forward=%q", fwd)
 	}
@@ -58,8 +76,7 @@ func TestMetaScanner_BashHistoryColonModifierPassthrough(t *testing.T) {
 }
 
 func TestMetaScanner_BangBangAloneIsMeta(t *testing.T) {
-	// `!!<Enter>` enters meta (empty prompt). The bytes are NOT forwarded.
-	fwd, meta := drive("!!\n")
+	fwd, _, meta := drive("!!\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -69,7 +86,7 @@ func TestMetaScanner_BangBangAloneIsMeta(t *testing.T) {
 }
 
 func TestMetaScanner_BangBangSpaceQuery(t *testing.T) {
-	fwd, meta := drive("!! how to grep\n")
+	fwd, _, meta := drive("!! how to grep\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty (meta capture)", fwd)
 	}
@@ -78,9 +95,58 @@ func TestMetaScanner_BangBangSpaceQuery(t *testing.T) {
 	}
 }
 
-func TestMetaScanner_BackslashAStartedWordPassthrough(t *testing.T) {
-	// `\artifact` must not be eaten. The opener is `\ait ` (with space).
-	fwd, meta := drive("\\artifact\n")
+func TestMetaScanner_AitAIQuery(t *testing.T) {
+	fwd, _, meta := drive("!ait ai how to grep\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait ai how to grep" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
+func TestMetaScanner_AitLocal(t *testing.T) {
+	fwd, _, meta := drive("!ait local\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait local" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
+func TestMetaScanner_AitRemote(t *testing.T) {
+	fwd, _, meta := drive("!ait remote\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait remote" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
+func TestMetaScanner_AitSuspend(t *testing.T) {
+	fwd, _, meta := drive("!ait suspend\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait suspend" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
+func TestMetaScanner_LegacyBackslashAitPassthrough(t *testing.T) {
+	fwd, _, meta := drive("\\ait suspend\n", true)
+	if fwd != "\\ait suspend\n" {
+		t.Errorf("forward=%q want passthrough", fwd)
+	}
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta: %v", meta)
+	}
+}
+
+func TestMetaScanner_BackslashArtifactPassthrough(t *testing.T) {
+	fwd, _, meta := drive("\\artifact\n", true)
 	if fwd != "\\artifact\n" {
 		t.Errorf("forward=%q", fwd)
 	}
@@ -89,33 +155,8 @@ func TestMetaScanner_BackslashAStartedWordPassthrough(t *testing.T) {
 	}
 }
 
-func TestMetaScanner_AitSuspend(t *testing.T) {
-	fwd, meta := drive("\\ait suspend\n")
-	if fwd != "" {
-		t.Errorf("forward=%q want empty", fwd)
-	}
-	if len(meta) != 1 || meta[0] != `\ait suspend` {
-		t.Errorf("meta=%v", meta)
-	}
-}
-
-func TestMetaScanner_MidVimBackslashAfterNewline(t *testing.T) {
-	// Inside vim insert mode, user types Enter then types `\a` then `bc<Enter>`.
-	// Because we only track LOCAL atLineStart, this DOES still enter holding;
-	// but since `\abc<Enter>` is not a strict prefix of any opener, it must
-	// be flushed and forwarded verbatim before any meta dispatch happens.
-	fwd, meta := drive("\\abc\n")
-	if fwd != "\\abc\n" {
-		t.Errorf("forward=%q", fwd)
-	}
-	if len(meta) != 0 {
-		t.Errorf("unexpected meta: %v", meta)
-	}
-}
-
 func TestMetaScanner_NotAtLineStart(t *testing.T) {
-	// Typing `x!!y` (after `x`, atLineStart=false) must pass through.
-	fwd, meta := drive("x!!y\n")
+	fwd, _, meta := drive("x!!y\n", true)
 	if fwd != "x!!y\n" {
 		t.Errorf("forward=%q", fwd)
 	}
@@ -125,15 +166,13 @@ func TestMetaScanner_NotAtLineStart(t *testing.T) {
 }
 
 func TestMetaScanner_RunawayMetaLineBailsOut(t *testing.T) {
-	// A meta line longer than metaMaxLine is bailed out: bytes are flushed
-	// and no meta event fires.
 	var sb strings.Builder
 	sb.WriteString("!! ")
 	for i := 0; i < metaMaxLine+50; i++ {
 		sb.WriteByte('x')
 	}
 	sb.WriteByte('\n')
-	fwd, meta := drive(sb.String())
+	fwd, _, meta := drive(sb.String(), true)
 	if len(meta) != 0 {
 		t.Errorf("expected no meta dispatch for runaway line, got %v", meta)
 	}
@@ -143,7 +182,7 @@ func TestMetaScanner_RunawayMetaLineBailsOut(t *testing.T) {
 }
 
 func TestMetaScanner_TwoMetasInARow(t *testing.T) {
-	fwd, meta := drive("!! one\n!! two\n")
+	fwd, _, meta := drive("!! one\n!! two\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q", fwd)
 	}
@@ -152,23 +191,67 @@ func TestMetaScanner_TwoMetasInARow(t *testing.T) {
 	}
 }
 
+func TestMetaScanner_MetaLineLocalEcho(t *testing.T) {
+	_, echo, meta := drive("!! how\n", true)
+	if len(meta) != 1 {
+		t.Fatalf("meta=%v", meta)
+	}
+	if echo != "!! how\n" {
+		t.Errorf("echo=%q want %q", echo, "!! how\n")
+	}
+}
+
+func TestMetaScanner_CtrlUThenBangBang(t *testing.T) {
+	fwd, _, meta := drive("\x15!! how\n", true)
+	if fwd != "\x15" {
+		t.Errorf("forward=%q want \\x15 only", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!! how" {
+		t.Errorf("meta=%v want [!! how]", meta)
+	}
+}
+
 func TestMetaScanner_PrefixCandidateHelpers(t *testing.T) {
-	if !metaPrefixCandidate("\\") {
-		t.Error(`"\\" should be candidate`)
+	if !metaPrefixCandidate("!") {
+		t.Error(`"!" should be candidate`)
 	}
-	if !metaPrefixCandidate("\\ait") {
-		t.Error(`"\\ait" should be candidate`)
+	if !metaPrefixCandidate("!ait") {
+		t.Error(`"!ait" should be candidate`)
 	}
-	if metaPrefixCandidate("\\ait ") {
-		t.Error(`exact match should not be reported as candidate`)
+	if !metaPrefixCandidate("!ait ai") {
+		t.Error(`"!ait ai" should be candidate`)
 	}
-	if metaPrefixCandidate("\\zzz") {
-		t.Error(`"\\zzz" should not be candidate`)
+	if metaPrefixCandidate("!ait ai ") {
+		t.Error(`exact match "!ait ai " should not be reported as candidate`)
+	}
+	if metaPrefixCandidate("!zzz") {
+		t.Error(`"!zzz" should not be candidate`)
 	}
 	if _, ok := metaPrefixMatch("!! "); !ok {
 		t.Error(`"!! " should match`)
 	}
-	if _, ok := metaPrefixMatch("\\ait"); ok {
-		t.Error(`"\\ait" (no trailer) should not match`)
+	if _, ok := metaPrefixMatch("!ait remote\n"); !ok {
+		t.Error(`"!ait remote\n" should match`)
+	}
+}
+
+func TestAIPromptFromMetaLine(t *testing.T) {
+	tests := []struct {
+		line   string
+		prompt string
+		isAI   bool
+	}{
+		{"!! how to grep", "how to grep", true},
+		{"!!", "", true},
+		{"!ait ai how to grep", "how to grep", true},
+		{"!ait ai", "", true},
+		{"!ait suspend", "", false},
+		{"!ait local", "", false},
+	}
+	for _, tc := range tests {
+		p, ok := aiPromptFromMetaLine(tc.line)
+		if ok != tc.isAI || p != tc.prompt {
+			t.Errorf("aiPromptFromMetaLine(%q) = (%q, %v), want (%q, %v)", tc.line, p, ok, tc.prompt, tc.isAI)
+		}
 	}
 }

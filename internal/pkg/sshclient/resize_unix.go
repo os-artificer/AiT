@@ -23,13 +23,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
 
-// watchResize forwards local SIGWINCH events to the remote PTY.
+// watchResize forwards local SIGWINCH events to the remote PTY and local shell.
 // Returns a stop function that must be called to clean up.
-func watchResize(sess *ssh.Session, fd int) func() {
+func watchResize(h resizeHandler, fd int) func() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGWINCH)
 	stop := make(chan struct{})
@@ -38,7 +37,7 @@ func watchResize(sess *ssh.Session, fd int) func() {
 			select {
 			case <-ch:
 				if cols, rows, err := term.GetSize(fd); err == nil {
-					_ = sess.WindowChange(rows, cols)
+					h.onResize(cols, rows)
 				}
 			case <-stop:
 				return

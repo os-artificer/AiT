@@ -3,7 +3,7 @@
 
 ## 现状
 
-项目 CLI 入口：[`internal/ait/root.go`](internal/ait/root.go)（`Run` + cobra root），[`go.mod`](go.mod) 无第三方依赖。所有功能需从零搭建，但目录约定已明确（`cmd/ait` 薄入口 → `internal/ait` + `internal/pkg`）。
+项目 CLI 入口：[`internal/ait/root.go`](internal/ait/root.go)（`Run` + cobra root）。依赖见 [`go.mod`](go.mod)（cobra、modernc sqlite、`golang.org/x/crypto/ssh`、`creack/pty`、go-openai、keyring、pkg/sftp 等）。目录约定：`cmd/ait` 薄入口 → `internal/ait` + `internal/pkg`。
 
 ## 目标 CLI 形态
 
@@ -20,7 +20,7 @@ ait sync <src> <dst> [--session ID]
 ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
 ```
 
-交互 SSH 内：以 **`!!` 行前缀** 唤起 Deepseek 助手；非 `!!` 行照常发往远程。
+交互 SSH 内：以 **`!ait ai <问题>`**（推荐）或 **`!! <问题>`**（兼容别名）唤起 Deepseek；**`!ait local` / `!ait remote`** 切换本地/远程输入模式（SSH 不断开）；**`!ait suspend`** 挂起。未配置 API Key 时，行首 `!!` / `!ait` 在本地 fail-closed，不进入远程 shell。详见下文 [会话内 meta 协议](#会话内-meta-协议ait--) 与 [本地模式](#本地模式ait-local--remote)。
 
 ### 两种恢复模式（默认 vs `--tmux`）
 
@@ -120,7 +120,7 @@ ait session switch prod         # 按 alias/id 切换
 ait session switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 ```
 
-**交互 SSH 内：** `\ait switch [alias]` 或 `Ctrl+]` 后 `w`，效果与同一会话管理器调用。
+**交互 SSH 内：** 会话切换以 CLI `ait session switch` 为主；挂起使用 `!ait suspend`。
 
 **与 `load` 区别：** `load` 仅连接目标；`switch` 保证当前会话先挂起保存，避免丢失当前 scrollback/cwd，并更新 `app_meta.current_session_id`。
 
@@ -193,6 +193,36 @@ CREATE TABLE app_meta (
 
 ## 关键流程
 
+### 提示符（AiT> / AiT Local> / AiT user@host>）
+
+| 场景 | 提示符 | 设置方式 |
+|------|--------|----------|
+| `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](internal/pkg/sshclient/prompt.go) |
+| SSH 远程 | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](internal/pkg/sshclient/prompt.go) 在 `load`/`login` 后注入远程 shell |
+| SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode.go`](internal/pkg/sshclient/localmode.go)） |
+
+**`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
+
+### 会话内 meta 协议（!ait / !!）
+
+实现位于 [`internal/pkg/sshclient/metascanner.go`](internal/pkg/sshclient/metascanner.go) 与 [`client.go`](internal/pkg/sshclient/client.go) 的 `forwardStdin` / `handleMetaLine`。已弃用 `\ait` 前缀。
+
+| 命令 | 行为 |
+|------|------|
+| `!ait help` / `!ait` | 打印会话内命令与可本地执行的 CLI 说明 |
+| `!ait <子命令> …` | 在本地执行对应 `ait` CLI（如 `!ait list`）；`login`/`load` 请用 `ait shell` |
+| `!ait ai <问题>` | 调用 Deepseek，结果打印到本地终端，不转发远程 |
+| `!! <问题>` | 上列别名（`!!` 后须有空格） |
+| `!ait local` | 进入本地模式（见下节） |
+| `!ait remote` | 退出本地模式，恢复远程 stdin |
+| `!ait suspend` | 挂起会话（等同 CLI `suspend`） |
+
+**识别规则：**
+
+- 字节级 `metaScanner`：严格匹配 opener（`!ait ai `、`!ait local`、`!! ` 等）；行内出现 `!` 亦进入 holding，避免远程 zsh 在无换行提示符下吞掉 `!ait`。
+- `aiAvailable == false`（未配置 API Key）时 fail-closed：行首 `!!…` / `!ait…` 不进远程；仅**非空** AI 问题才 stderr 提示配置 key；空问题只打印 usage。
+- meta 行由本地 echo，不写入远程 PTY；用户可见消息经 `termPrintln` / `aitModeNotice` 使用 `termEOL`（`\r\n`）适配 raw TTY。
+
 ### login
 
 ```mermaid
@@ -206,13 +236,15 @@ sequenceDiagram
   CLI->>SSH: Dial + PTY
   loop interactive
     User->>SSH: input
-    alt line starts with !!
-      SSH->>CLI: AI assist
-      CLI-->>User: suggestion
-    else suspend command
-      CLI->>DB: save state
-      CLI->>SSH: close
-    else
+    alt meta line !ait / !!
+      SSH->>SSH: handleMetaLine
+      opt AI question
+        SSH->>CLI: Deepseek assist
+        CLI-->>User: suggestion
+      opt local / remote / suspend
+        SSH->>SSH: local mode or suspend
+      end
+    else normal input
       SSH->>User: remote IO
     end
   end
@@ -221,9 +253,33 @@ sequenceDiagram
 - 认证顺序：`--identity` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 - 连接成功即写入/更新会话记录（满足「自动保存会话」）
 
+### 本地模式（!ait local / remote）
+
+SSH 连接与子 shell **保持**；stdin 在本地 PTY 与远程 `stdin` 间切换，远程 stdout 在本地模式下暂停显示（仍写入 scrollback）。
+
+```mermaid
+flowchart LR
+  User[User stdin] --> fwd[forwardStdin]
+  fwd --> branch{localMode active?}
+  branch -->|yes| localWrite[localShell.write]
+  branch -->|no| remoteIn[sess.StdinPipe]
+  remoteOut[remote stdout] --> pause{pauseRemoteOut}
+  pause -->|false| termOut[os.Stdout]
+  pause -->|true| scrollOnly[scrollback only]
+```
+
+| 主题 | 说明 |
+|------|------|
+| 子进程 | [`localmode.go`](internal/pkg/sshclient/localmode.go)：`creack/pty` 启动 `$SHELL`（Windows 为 `ComSpec`） |
+| 提示符 | 常量 `AiT Local> `；bash `PS1` 使用 `\[\]…\[\]`；环境变量 `AIT_LOCAL_MODE=1`、`PS1`、`PROMPT`（Windows cmd 另设 `PROMPT`） |
+| 静默设置 | **不向终端打印** `export PS1=…` 等 setup 行：bash 用 `--rcfile` 临时 rc；zsh 用 `ZDOTDIR` 最小 `.zshrc`（source 用户 rc 后再次 `export PROMPT`）；临时目录在 `stop()` 时删除 |
+| 生命周期 | `enterLocalMode` / `exitLocalMode` / `onLocalShellExit`；`closing` 抑制预期 ptmx 关闭错误 |
+| 尺寸 | [`resize.go`](internal/pkg/sshclient/resize.go)：SIGWINCH 同步本地 PTY 与远程 `WindowChange` |
+| 高级 | 用户可在 `.zshrc` 中检测 `AIT_LOCAL_MODE=1` 自定义主题（可能覆盖 `PROMPT`） |
+
 ### suspend / list / load
 
-- **suspend**：`\ait suspend` 或约定快捷键；tmux 模式先 detach；写 `session_state`（可选 scrollback/cwd）→ 关 SSH
+- **suspend**：`!ait suspend`；tmux 模式先 detach；写 `session_state`（可选 scrollback/cwd）→ 关 SSH
 - **list**：输出 `id`, `alias`, `host`, `user`, `status`, `tmux`, `auth_expires_at`（剩余天数）
 - **load**：TTL 校验 →（过期则读密码）→ 重连 → 默认回放+cwd 或 `--tmux` attach → 更新 `current_session_id`
 - **switch**：若 `current_session_id` 存在且与目标不同 → `Suspend(current)` → `Load(target)`；目标与当前相同则 no-op 并提示
@@ -295,11 +351,11 @@ sequenceDiagram
 
 ### AI 助手（会话内）
 
-- 检测到行首 `!!`（去除前缀后 trim）→ 不调远程，而是：
-  - 上下文：最近 N 行 scrollback（脱敏）、`GOOS`、当前 `remote_cwd`、用户问题
-  - 调用 Deepseek chat completions
-  - 结果打印到本地终端（不自动执行，避免误操作；可提供 `!!run` 后续扩展）
-- **安装建议**：`platform.LookPath(cmd)==err` 时，prompt 包含 OS 版本探测（`runtime.GOOS` + 读 `/etc/os-release` 或 `sw_vers` / `ver`）→ 返回 brew/apt/choco/winget 等建议
+与 [会话内 meta 协议](#会话内-meta-协议ait--) 一致；补充实现细节：
+
+- 上下文：最近 N 行 scrollback（脱敏）、`GOOS`、当前 `remote_cwd`、用户问题
+- 结果打印到本地终端（不自动执行，避免误操作）
+- **安装建议**：`platform.LookPath(cmd)==err` 时，prompt 包含 OS 版本探测 → 返回 brew/apt/choco/winget 等建议
 
 ## 跨平台要点
 
