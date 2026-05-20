@@ -21,13 +21,12 @@ package sshclient
 import (
 	"time"
 
-	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
 
 // watchResize polls window size on Windows (no SIGWINCH) and pushes changes
-// to the remote PTY.
-func watchResize(sess *ssh.Session, fd int) func() {
+// to the remote PTY and local shell.
+func watchResize(h resizeHandler, fd int) func() {
 	stop := make(chan struct{})
 	go func() {
 		lastCols, lastRows, _ := term.GetSize(fd)
@@ -43,7 +42,7 @@ func watchResize(sess *ssh.Session, fd int) func() {
 					continue
 				}
 				if cols != lastCols || rows != lastRows {
-					_ = sess.WindowChange(rows, cols)
+					h.onResize(cols, rows)
 					lastCols, lastRows = cols, rows
 				}
 			}

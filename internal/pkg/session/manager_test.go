@@ -17,8 +17,11 @@
 package session
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,8 +89,60 @@ func TestDeleteAllWithForce(t *testing.T) {
 
 func TestListEmpty(t *testing.T) {
 	m := newTestManager(t)
-	if err := m.List(); err != nil {
+	if err := m.List(io.Discard); err != nil {
 		t.Fatalf("List: %v", err)
+	}
+}
+
+func TestListTableColumns(t *testing.T) {
+	m := newTestManager(t)
+	now := time.Now().Unix()
+	s1 := &store.Session{
+		ID: "id-active", Alias: "active-one", Host: "h1", Port: 22, Username: "u",
+		AuthMethod: store.AuthMethodKey, AuthExpiresAt: now + 100*3600,
+		Status: store.StatusActive,
+	}
+	s2 := &store.Session{
+		ID: "id-susp", Alias: "susp-one", Host: "h2", Port: 22, Username: "u",
+		AuthMethod: store.AuthMethodKey, AuthExpiresAt: now + 200*3600,
+		Status: store.StatusSuspended,
+	}
+	if err := m.Store.UpsertSession(s1); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Store.UpsertSession(s2); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := m.List(&buf); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "auth:") {
+		t.Fatal("list output must not contain auth: prefix")
+	}
+	if !strings.Contains(out, "REMAINING") {
+		t.Fatal("list output missing REMAINING header")
+	}
+	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+	if len(lines) < 3 {
+		t.Fatalf("expected header + 2 rows, got %d lines:\n%s", len(lines), out)
+	}
+	const rem1, rem2 = "100h0m0s", "200h0m0s"
+	var col1, col2 int
+	for _, line := range lines[1:] {
+		switch {
+		case strings.Contains(line, rem1):
+			col1 = strings.Index(line, rem1)
+		case strings.Contains(line, rem2):
+			col2 = strings.Index(line, rem2)
+		}
+	}
+	if col1 <= 0 || col2 <= 0 {
+		t.Fatalf("missing remaining values in output:\n%s", out)
+	}
+	if col1 != col2 {
+		t.Fatalf("REMAINING column misaligned: %d vs %d\n%s", col1, col2, out)
 	}
 }
 

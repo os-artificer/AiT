@@ -21,10 +21,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/google/uuid"
@@ -56,6 +58,8 @@ type Manager struct {
 	Store  *store.Store
 	Config *config.Config
 	AI     *ai.Client
+	// MetaCLI runs ait subcommands from in-session !ait lines (set by internal/ait).
+	MetaCLI func(args []string) error
 }
 
 func normalizePort(port int) int {
@@ -134,7 +138,8 @@ func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 		}
 	}
 
-	err = m.runInteractive(ctx, client, sess, nil)
+	initialCmds := sshclient.RemotePromptInitialCommands(sess.Username, sess.Host)
+	err = m.runInteractive(ctx, client, sess, initialCmds)
 	if err != nil {
 		m.clearSessionOnFailure(id)
 	}
@@ -187,6 +192,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	}
 
 	var initialCmds []string
+	initialCmds = append(sshclient.RemotePromptInitialCommands(sess.Username, sess.Host), initialCmds...)
 	if st != nil && st.RemoteCwd != "" && pathsafe.RemotePath(st.RemoteCwd) && !sess.TmuxEnabled {
 		initialCmds = append(initialCmds, "cd "+pathsafe.QuoteShellSingle(st.RemoteCwd))
 	}
@@ -297,6 +303,7 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 		TmuxName:        tmuxName,
 		InitialCommands: initialCmds,
 		AI:              m.AI,
+		OnMetaCLI:       m.MetaCLI,
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
 			return m.suspend(sess.ID, scroll, cwd, cols, rows)
 		},
@@ -330,10 +337,10 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 func (m *Manager) SuspendCurrent() error {
 	id, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if id == "" {
-		return fmt.Errorf("no current session; use \\ait suspend inside SSH or ait load first")
+		return fmt.Errorf("no current session; use !ait suspend inside SSH or ait load first")
 	}
 	fmt.Println("Suspend from the local shell is not supported.")
-	fmt.Println("Reconnect to the session and run \\ait suspend inside SSH.")
+	fmt.Println("Reconnect to the session and run !ait suspend inside SSH.")
 	return nil
 }
 
@@ -360,7 +367,7 @@ func (m *Manager) Switch(ctx context.Context, target string, useTmux bool, passw
 		case gerr == nil && cur.Status == store.StatusActive:
 			if !force {
 				return fmt.Errorf(
-					"current session %s is still active; suspend it first inside SSH with \\ait suspend, or use --force",
+					"current session %s is still active; suspend it first inside SSH with !ait suspend, or use --force",
 					cur.AliasOrID(),
 				)
 			}
@@ -456,31 +463,33 @@ func (m *Manager) DeleteAll(force bool) error {
 	return m.Store.DeleteAllSessions()
 }
 
-// List prints sessions.
-func (m *Manager) List() error {
+// List prints sessions to w as a left-aligned table.
+func (m *Manager) List(w io.Writer) error {
 	list, err := m.Store.ListSessions()
 	if err != nil {
 		return err
 	}
 	if len(list) == 0 {
-		fmt.Println("No saved sessions.")
+		fmt.Fprintln(w, "No saved sessions.")
 		return nil
 	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tTARGET\tSTATUS\tTMUX\tREMAINING")
 	now := time.Now().Unix()
 	for _, s := range list {
 		remain := time.Duration(s.AuthExpiresAt-now) * time.Second
-		authLabel := remain.Round(time.Hour).String()
+		remainingLabel := remain.Round(time.Hour).String()
 		if remain <= 0 {
-			authLabel = "expired"
+			remainingLabel = "expired"
 		}
-		tmuxFlag := ""
+		tmuxCol := "-"
 		if s.TmuxEnabled {
-			tmuxFlag = " tmux"
+			tmuxCol = "tmux"
 		}
-		fmt.Printf("%s  %s@%s:%d  %s%s  auth:%s\n",
-			s.AliasOrID(), s.Username, s.Host, s.Port, s.Status, tmuxFlag, authLabel)
+		fmt.Fprintf(tw, "%s\t%s@%s:%d\t%s\t%s\t%s\n",
+			s.AliasOrID(), s.Username, s.Host, s.Port, s.Status, tmuxCol, remainingLabel)
 	}
-	return nil
+	return tw.Flush()
 }
 
 func quotePath(p string) string {

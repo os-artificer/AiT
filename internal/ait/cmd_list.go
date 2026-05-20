@@ -28,7 +28,7 @@ func newListCmd() *cobra.Command {
 				return err
 			}
 			defer mgr.Store.Close()
-			return mgr.List()
+			return mgr.List(cmd.OutOrStdout())
 		},
 	}
 }

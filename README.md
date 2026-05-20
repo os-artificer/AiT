@@ -8,7 +8,7 @@
 
 - SQLite 保存会话；TTL 内 `load` / `switch` 可免密重连（**仅在你重新输入密码时才会刷新** TTL，见 `session.auth_ttl`）
 - 可选 `--tmux` 在远程保活 shell；默认仅保存连接信息并在重连时恢复 scrollback / 工作目录
-- Deepseek 会话内助手（`!!`）与缺失系统命令时的安装建议
+- Deepseek 会话内助手（`!ait ai` / `!!`）、本地模式（`!ait local`）与缺失系统命令时的安装建议
 - `sync` 子命令：优先 `rsync` / `scp`，回退 SFTP
 
 架构与行为详见 **[docs/design.md](docs/design.md)**。
@@ -45,10 +45,11 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 | 命令 | 说明 |
 |------|------|
+| `ait shell` | 交互模式（`AiT> `）：可直接 `login`、`list`、`help` 等；`exit` 退出 |
 | `ait login` | 连接主机并自动保存会话（`--host` 必填） |
 | `ait list` | 列出已保存会话 |
 | `ait load <id\|alias>` | 恢复会话；过期需 `--password` |
-| `ait suspend` | 说明：在 SSH 内使用 `\ait suspend` |
+| `ait suspend` | 说明：在 SSH 内使用 `!ait suspend` |
 | `ait session switch [id\|alias]` | 切换会话（先挂起当前再加载目标） |
 | `ait session delete <id\|alias>` | 删除单个会话 |
 | `ait session delete all` | 删除全部会话（需确认，`--force` 跳过） |
@@ -57,14 +58,27 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 常用标志：`--tmux`（远程 tmux 保活）、`--port`、`--identity`、`--password`、`--alias`。`session switch --force` 可在当前会话仍标记为 active 时强制切换（**不会**保存当前 scrollback/cwd）。
 
+### 提示符
+
+| 场景 | 提示符 |
+|------|--------|
+| `ait shell` | `AiT> ` |
+| SSH 远程 | `AiT <user>@<host> ` |
+| `!ait local` | `AiT Local> ` |
+
 **安全与 SSH：** 默认校验 `~/.ssh/known_hosts`；新主机需先 `ssh-keyscan -H <host> >> ~/.ssh/known_hosts`。开发可设 `AIT_SSH_INSECURE=1` 跳过校验（勿用于生产）。`--password` 会出现在进程列表中，生产环境优先用钥匙串/交互提示。
 
 ### SSH 交互内
 
 | 输入 | 作用 |
 |------|------|
-| `!! <问题>` | 调用 Deepseek（需已设置 API Key；最近终端输出会发往 API，勿在含密钥的会话中使用） |
-| `\ait suspend` | 挂起：保存 scrollback / 远程 cwd，断开连接 |
+| `!ait help` / `!ait` | 打印会话内命令与可本地执行的 `ait` CLI 说明 |
+| `!ait <子命令> …` | 在本地执行 `ait` 子命令（如 `!ait list`）；`login`/`load` 需先退出 SSH |
+| `!ait ai <问题>` | 调用 Deepseek（推荐） |
+| `!! <问题>` | 同上（兼容别名；`!!` 后须有空格） |
+| `!ait local` | 本地模式：命令在本机执行，SSH 保持连接；提示符为 `AiT Local> ` |
+| `!ait remote` | 退出本地模式，恢复向远程发送输入 |
+| `!ait suspend` | 挂起：保存 scrollback / 远程 cwd，断开连接 |
 
 ## 数据与配置位置
 
@@ -112,6 +126,6 @@ github.com/os-artificer/AiT
 
 - 未使用 `--tmux` 时，挂起后**不保证**远程进程继续运行。
 - 密码会话的 `ait sync` 走内置 SFTP（不用系统 `rsync`/`scp` 的非交互密码）。
-- 从本机执行 `ait session switch` 前，若仍在 SSH 中，请先用 `\ait suspend` 保存当前会话，或使用 `--force`（不保存当前状态）。
+- 从本机执行 `ait session switch` 前，若仍在 SSH 中，请先用 `!ait suspend` 保存当前会话，或使用 `--force`（不保存当前状态）。
 
 代理与贡献说明见 [AGENTS.md](AGENTS.md)。

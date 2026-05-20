@@ -22,4 +22,7 @@ func TestRunHelp(t *testing.T) {
 	if err := Run([]string{"--help"}); err != nil {
 		t.Fatalf("Run(--help): %v", err)
 	}
+	if err := Run([]string{"shell", "--help"}); err != nil {
+		t.Fatalf("Run(shell --help): %v", err)
+	}
 }

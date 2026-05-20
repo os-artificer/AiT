@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
@@ -50,11 +51,13 @@ type Options struct {
 
 // Client is an SSH connection with optional interactive shell.
 type Client struct {
-	conn      *ssh.Client
-	agentConn net.Conn
-	opts      Options
-	scroll    *terminal.Buffer
-	remoteCwd string
+	conn           *ssh.Client
+	agentConn      net.Conn
+	opts           Options
+	scroll         *terminal.Buffer
+	remoteCwd      string
+	localShell     localShell
+	pauseRemoteOut atomic.Bool
 }
 
 // Dial connects to the remote host.
@@ -189,9 +192,13 @@ type InteractiveOpts struct {
 	InitialCommands []string
 	AI              *ai.Client
 	OnSuspend       func(scroll *terminal.Buffer, cwd string, cols, rows int) error
+	// OnMetaCLI runs ait CLI subcommands from !ait <args> (args exclude the prefix).
+	OnMetaCLI func(args []string) error
 }
 
-// RunInteractive runs shell with meta lines (\ait suspend) and the !! AI prefix.
+const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set deepseek.api_key <key>"
+
+// RunInteractive runs shell with meta lines (!ait suspend, !ait ai, !ait local/remote) and !! alias.
 func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error {
 	sess, err := c.conn.NewSession()
 	if err != nil {
@@ -260,7 +267,7 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		}
 	}
 
-	stopResize := watchResize(sess, fd)
+	stopResize := watchResize(newSessionResize(sess, c), fd)
 	defer stopResize()
 
 	// Brief pause so the remote shell is ready before injecting cd commands.
@@ -284,7 +291,9 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 			n, err := r.Read(buf)
 			if n > 0 {
 				_, _ = c.scroll.Write(buf[:n])
-				_, _ = os.Stdout.Write(buf[:n])
+				if !c.pauseRemoteOut.Load() {
+					_, _ = os.Stdout.Write(buf[:n])
+				}
 			}
 			if err != nil {
 				return
@@ -364,12 +373,11 @@ func startStdinReader() (<-chan stdinByte, func()) {
 }
 
 // forwardStdin pipes stdin to the remote shell, deferring meta-line handling
-// to a metaScanner. Meta openers are only recognized at the start of a line
-// AND require a strict full prefix match (see metaPrefixes), so bash !!
-// history expansion, words like "\\artifact", or anything typed inside vim
-// after a newline are left untouched.
+// to a metaScanner. When AI is configured, strict openers preserve bash !!
+// history (e.g. !!ls). When AI is unavailable, line-start !! is captured
+// locally so it never reaches remote histexpand.
 func (c *Client) forwardStdin(ctx context.Context, stdin io.Writer, stdinCh <-chan stdinByte, opts InteractiveOpts) error {
-	scan := newMetaScanner()
+	scan := newMetaScanner(opts.AI != nil)
 	for {
 		select {
 		case <-ctx.Done():
@@ -381,16 +389,27 @@ func (c *Client) forwardStdin(ctx context.Context, stdin io.Writer, stdinCh <-ch
 			if sb.err != nil {
 				return sb.err
 			}
-			fwd, line, hasLine := scan.Feed(sb.b)
-			if len(fwd) > 0 {
-				if _, err := stdin.Write(fwd); err != nil {
-					return err
-				}
+			fwd, echo, line, hasLine := scan.Feed(sb.b)
+			if len(echo) > 0 {
+				_, _ = os.Stdout.Write(echo)
 			}
 			if hasLine {
 				if err := c.handleMetaLine(ctx, stdin, line, opts); err != nil {
 					return err
 				}
+				continue
+			}
+			if len(fwd) == 0 {
+				continue
+			}
+			if c.localShell.active() {
+				if err := c.localShell.write(fwd); err != nil {
+					return err
+				}
+				continue
+			}
+			if _, err := stdin.Write(fwd); err != nil {
+				return err
 			}
 		}
 	}
@@ -399,7 +418,7 @@ func (c *Client) forwardStdin(ctx context.Context, stdin io.Writer, stdinCh <-ch
 func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line string, opts InteractiveOpts) error {
 	line = strings.TrimSpace(line)
 	switch {
-	case line == `\ait suspend`:
+	case line == `!ait suspend`:
 		if opts.OnSuspend != nil {
 			fd := int(os.Stdin.Fd())
 			cols, rows, _ := term.GetSize(fd)
@@ -417,30 +436,139 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 		}
 		_ = c.conn.Close()
 		return io.EOF
-	case strings.HasPrefix(line, "!!"):
-		prompt := strings.TrimSpace(strings.TrimPrefix(line, "!!"))
-		if prompt == "" {
-			fmt.Fprintln(os.Stdout, "usage: !! <question>")
-			return nil
-		}
-		if opts.AI == nil {
-			fmt.Fprintln(os.Stdout, "AI not configured (ait config set deepseek.api_key <key>)")
-			return nil
-		}
-		promptCopy := prompt
-		go func() {
-			ans, err := opts.AI.Assist(ctx, promptCopy, c.scroll.RecentLines(50), c.remoteCwd)
-			if err != nil {
-				fmt.Fprintf(os.Stdout, "\nAI error: %v\n", err)
-			} else {
-				fmt.Fprintf(os.Stdout, "\n--- AiT ---\n%s\n-----------\n", ans)
-			}
-		}()
-		return nil
+	case line == `!ait local`:
+		return c.enterLocalMode()
+	case line == `!ait remote`:
+		return c.exitLocalMode()
 	default:
-		fmt.Fprintf(os.Stdout, "AiT: unknown meta command %q (try \\ait suspend or !! <question>)\n", line)
-		_, _ = stdin.Write([]byte(line + "\n"))
+		prompt, isAI := aiPromptFromMetaLine(line)
+		if isAI {
+			if prompt == "" {
+				termPrintln(os.Stdout, "usage: !ait ai <question> (or !! <question>)")
+				return nil
+			}
+			if opts.AI == nil {
+				termPrintln(os.Stderr, aiNotConfiguredMsg)
+				return nil
+			}
+			promptCopy := prompt
+			go func() {
+				ans, err := opts.AI.Assist(ctx, promptCopy, c.scroll.RecentLines(50), c.remoteCwd)
+				if err != nil {
+					termPrintf(os.Stdout, "AI error: %v", err)
+				} else {
+					termPrintf(os.Stdout, "--- AiT ---\n%s\n-----------", ans)
+				}
+			}()
+			return nil
+		}
+		if line == `!ait` || line == `!ait help` {
+			return c.runMetaCLI(opts, nil)
+		}
+		if strings.HasPrefix(line, "!ait ") {
+			args := strings.Fields(strings.TrimPrefix(line, "!ait "))
+			return c.runMetaCLI(opts, args)
+		}
+		termPrintln(os.Stdout, "AiT: unknown meta command (try !ait help)")
 		return nil
+	}
+}
+
+func (c *Client) runMetaCLI(opts InteractiveOpts, args []string) error {
+	if opts.OnMetaCLI == nil {
+		termPrintln(os.Stdout, "AiT: meta CLI not available (try !ait help)")
+		return nil
+	}
+	if err := opts.OnMetaCLI(args); err != nil {
+		termPrintf(os.Stderr, "AiT: %v", err)
+	}
+	return nil
+}
+
+// termEOL is the line ending for messages written while stdin is in raw mode.
+// LF-only would leave the cursor at the previous column ("staircase" layout).
+const termEOL = "\r\n"
+
+func termPrintln(w io.Writer, s string) {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\n", termEOL)
+	if !strings.HasSuffix(s, termEOL) {
+		s += termEOL
+	}
+	_, _ = io.WriteString(w, s)
+}
+
+func termPrintf(w io.Writer, format string, args ...any) {
+	termPrintln(w, fmt.Sprintf(format, args...))
+}
+
+// aitModeNotice prints a multi-line AiT status block on stderr. It also emits
+// a newline on stdout so a partial remote prompt or meta echo does not share a
+// line with the local shell's init output (e.g. nvm).
+func aitModeNotice(lines ...string) {
+	_, _ = os.Stdout.Write([]byte(termEOL))
+	var b strings.Builder
+	b.WriteString(termEOL)
+	for _, line := range lines {
+		b.WriteString("AiT: ")
+		b.WriteString(line)
+		b.WriteString(termEOL)
+	}
+	b.WriteString(termEOL)
+	_, _ = os.Stderr.WriteString(b.String())
+}
+
+func (c *Client) enterLocalMode() error {
+	if c.localShell.running() {
+		aitModeNotice("already in local mode (type !ait remote to return)")
+		return nil
+	}
+	if c.localShell.active() {
+		c.localShell.stop()
+	}
+	fd := int(os.Stdin.Fd())
+	cols, rows := termSize(fd)
+	c.pauseRemoteOut.Store(true)
+	if err := c.localShell.start(cols, rows, c.onLocalShellExit); err != nil {
+		c.pauseRemoteOut.Store(false)
+		return fmt.Errorf("local shell: %w", err)
+	}
+	aitModeNotice(
+		"local mode",
+		"Prompt is \""+LocalPrompt+"\" (commands run on this machine; SSH stays connected).",
+		"Type !ait remote to return.",
+	)
+	return nil
+}
+
+func (c *Client) onLocalShellExit() {
+	c.pauseRemoteOut.Store(false)
+	aitModeNotice("local shell exited — remote mode restored.")
+}
+
+func (c *Client) exitLocalMode() error {
+	if !c.localShell.running() {
+		if c.localShell.active() {
+			c.localShell.stop()
+		}
+		aitModeNotice("not in local mode (type !ait local to switch)")
+		return nil
+	}
+	c.localShell.stop()
+	c.pauseRemoteOut.Store(false)
+	remote := RemotePrompt(c.opts.User, c.opts.Host)
+	aitModeNotice("remote mode — prompt " + remote)
+	return nil
+}
+
+func aiPromptFromMetaLine(line string) (prompt string, isAI bool) {
+	switch {
+	case strings.HasPrefix(line, "!!"):
+		return strings.TrimSpace(strings.TrimPrefix(line, "!!")), true
+	case strings.HasPrefix(line, "!ait ai"):
+		return strings.TrimSpace(strings.TrimPrefix(line, "!ait ai")), true
+	default:
+		return "", false
 	}
 }
 
