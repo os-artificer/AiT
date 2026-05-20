@@ -45,8 +45,17 @@ type Options struct {
 	Port         int
 	User         string
 	IdentityPath string
-	Password     string
-	UseAgent     bool
+	// IdentityExplicit is true when the user passed -i on the CLI.
+	IdentityExplicit bool
+	Password         string
+	UseAgent         bool
+
+	ProxyJump             []string
+	ProxyCommand          string
+	KnownHostsPath        string
+	StrictHostKeyChecking string
+	ConnectTimeout        time.Duration
+	BatchMode             bool
 }
 
 // Client is an SSH connection with optional interactive shell.
@@ -76,18 +85,22 @@ func Dial(opts Options) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	hkc, err := hostKeyCallback()
+	hkc, err := hostKeyCallbackFor(opts)
 	if err != nil {
 		if agentConn != nil {
 			_ = agentConn.Close()
 		}
 		return nil, err
 	}
+	timeout := opts.ConnectTimeout
+	if timeout == 0 {
+		timeout = 15 * time.Second
+	}
 	cfg := &ssh.ClientConfig{
 		User:            opts.User,
 		Auth:            auth,
 		HostKeyCallback: hkc,
-		Timeout:         15 * time.Second,
+		Timeout:         timeout,
 	}
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 	conn, err := ssh.Dial("tcp", addr, cfg)
@@ -108,23 +121,37 @@ func buildAuth(opts Options) ([]ssh.AuthMethod, net.Conn, error) {
 		methods = append(methods, ssh.Password(opts.Password))
 	}
 
-	if opts.IdentityPath != "" {
-		signer, err := loadSigner(opts.IdentityPath, opts.Password)
-		if err != nil {
-			return nil, agentConn, err
-		}
-		methods = append(methods, ssh.PublicKeys(signer))
-	} else {
+	tryDefaultKeys := func() {
 		home, _ := os.UserHomeDir()
 		for _, name := range []string{"id_ed25519", "id_rsa"} {
 			p := filepath.Join(home, ".ssh", name)
+			if opts.IdentityPath != "" && p == opts.IdentityPath {
+				continue
+			}
 			if _, err := os.Stat(p); err == nil {
 				if signer, err := loadSigner(p, opts.Password); err == nil {
 					methods = append(methods, ssh.PublicKeys(signer))
-					break
+					return
 				}
 			}
 		}
+	}
+
+	if opts.IdentityPath != "" {
+		if _, err := os.Stat(opts.IdentityPath); err != nil {
+			if opts.IdentityExplicit {
+				return nil, agentConn, fmt.Errorf("identity file not found: %s", opts.IdentityPath)
+			}
+			tryDefaultKeys()
+		} else if signer, err := loadSigner(opts.IdentityPath, opts.Password); err == nil {
+			methods = append(methods, ssh.PublicKeys(signer))
+		} else if opts.IdentityExplicit {
+			return nil, agentConn, err
+		} else {
+			tryDefaultKeys()
+		}
+	} else {
+		tryDefaultKeys()
 	}
 
 	if opts.UseAgent {
@@ -149,10 +176,14 @@ func loadSigner(path, passphrase string) (ssh.Signer, error) {
 	if err != nil {
 		return nil, err
 	}
+	signer, err := ssh.ParsePrivateKey(b)
+	if err == nil {
+		return signer, nil
+	}
 	if passphrase != "" {
 		return ssh.ParsePrivateKeyWithPassphrase(b, []byte(passphrase))
 	}
-	return ssh.ParsePrivateKey(b)
+	return nil, err
 }
 
 // Conn returns underlying ssh.Client.
@@ -198,6 +229,11 @@ type InteractiveOpts struct {
 
 const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set deepseek.api_key <key>"
 
+const (
+	shellReadyDelay           = 280 * time.Millisecond
+	initialCommandSettleDelay = 120 * time.Millisecond
+)
+
 // RunInteractive runs shell with meta lines (!ait suspend, !ait ai, !ait local/remote) and !! alias.
 func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error {
 	sess, err := c.conn.NewSession()
@@ -222,8 +258,12 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	}()
 
 	cols, rows, _ := term.GetSize(fd)
+	echo := uint32(1)
+	if len(opts.InitialCommands) > 0 {
+		echo = 0 // restored by stty echo in setup command
+	}
 	modes := ssh.TerminalModes{
-		ssh.ECHO:          1,
+		ssh.ECHO:          echo,
 		ssh.TTY_OP_ISPEED: 14400,
 		ssh.TTY_OP_OSPEED: 14400,
 	}
@@ -270,20 +310,6 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	stopResize := watchResize(newSessionResize(sess, c), fd)
 	defer stopResize()
 
-	// Brief pause so the remote shell is ready before injecting cd commands.
-	time.Sleep(150 * time.Millisecond)
-
-	for _, line := range opts.InitialCommands {
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			continue
-		}
-		if _, err := stdin.Write([]byte(line + "\n")); err != nil {
-			sess.Close()
-			return err
-		}
-	}
-
 	var wg sync.WaitGroup
 	copyOut := func(r io.Reader) {
 		buf := make([]byte, 32*1024)
@@ -309,9 +335,22 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	}
 	defer shutdown()
 
+	if len(opts.InitialCommands) > 0 {
+		c.pauseRemoteOut.Store(true)
+	}
 	wg.Add(2)
 	go func() { defer wg.Done(); copyOut(stdout) }()
 	go func() { defer wg.Done(); copyOut(stderr) }()
+
+	// Wait for login shell / .bashrc to finish while output is suppressed.
+	time.Sleep(shellReadyDelay)
+
+	if err := c.injectInitialCommands(stdin, opts.InitialCommands); err != nil {
+		return err
+	}
+	if len(opts.InitialCommands) > 0 {
+		c.pauseRemoteOut.Store(false)
+	}
 
 	waitCh := make(chan error, 1)
 	go func() { waitCh <- sess.Wait() }()
@@ -333,6 +372,26 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		}
 		return err
 	}
+}
+
+// injectInitialCommands sends setup lines (PS1 export, cd restore) while
+// suppressing their echo on the local terminal.
+func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
+	if len(cmds) == 0 {
+		return nil
+	}
+
+	for _, line := range cmds {
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
+			continue
+		}
+		if _, err := stdin.Write([]byte(line + "\n")); err != nil {
+			return err
+		}
+	}
+	time.Sleep(initialCommandSettleDelay)
+	return nil
 }
 
 // stdinByte is one byte plus a sticky error from os.Stdin.

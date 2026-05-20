@@ -8,8 +8,11 @@
 ## 目标 CLI 形态
 
 ```text
-ait login [--alias NAME] --host H [--user U] [--port 22] [--identity PATH] [--password]
-        [--tmux]              # 可选：远程 tmux 保活（默认关闭）
+ait login [ssh-options] destination [command ...] [--alias NAME] [--password] [--tmux]
+        # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
+        # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
+        # 带 command 时为一次性执行（类似 ssh host cmd），默认不写 SQLite
+        # 旧写法 --host/--user 仍兼容
 ait list
 ait load <id|alias> [--tmux]  # 7 天内免密恢复；过期后提示输入 SSH 密码/密钥口令
 ait suspend                   # 交互中挂起；--tmux 时 detach 远程 tmux
@@ -231,7 +234,7 @@ sequenceDiagram
   participant CLI as ait_login
   participant DB as sqlite
   participant SSH as sshclient
-  User->>CLI: ait login --host ...
+  User->>CLI: ait login user@host ...
   CLI->>DB: upsert session
   CLI->>SSH: Dial + PTY
   loop interactive
@@ -250,8 +253,11 @@ sequenceDiagram
   end
 ```
 
-- 认证顺序：`--identity` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
-- 连接成功即写入/更新会话记录（满足「自动保存会话」）
+- **配置解析**：`internal/pkg/sshargs` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
+- **拨号**：`sshclient.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
+- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；默认不写 SQLite（`--alias` 时仍 upsert）
+- 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
+- 交互 login 成功即写入/更新会话记录
 
 ### 本地模式（!ait local / remote）
 

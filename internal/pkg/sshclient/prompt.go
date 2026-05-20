@@ -44,11 +44,13 @@ func remotePromptPS1(user, host string) string {
 	return bashPS1(RemotePrompt(user, host))
 }
 
-// remotePromptExportLine returns a POSIX one-liner to set PS1/PROMPT on the remote shell.
-func remotePromptExportLine(user, host string) string {
+// remotePromptSetupLine sets PS1/PROMPT while echo is off, clears the default prompt line,
+// then restores stty echo (single injected line; output suppressed until setup ends).
+func remotePromptSetupLine(user, host string) string {
 	display := RemotePrompt(user, host)
 	ps1 := remotePromptPS1(user, host)
-	return "export PS1='" + ps1 + "'; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + display + "'"
+	return "stty -echo 2>/dev/null; export PS1='" + ps1 + "'; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + display + "'" +
+		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null; stty echo 2>/dev/null"
 }
 
 // RemotePromptInitialCommands returns commands to inject after the remote shell starts.
@@ -56,5 +58,5 @@ func RemotePromptInitialCommands(user, host string) []string {
 	if user == "" || host == "" {
 		return nil
 	}
-	return []string{remotePromptExportLine(user, host)}
+	return []string{remotePromptSetupLine(user, host)}
 }

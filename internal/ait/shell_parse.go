@@ -19,6 +19,8 @@ package ait
 import (
 	"fmt"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/sshargs"
 )
 
 // parseShellLine splits a REPL line into words, respecting single-quoted segments.
@@ -55,56 +57,18 @@ func parseShellLine(line string) ([]string, error) {
 	return args, nil
 }
 
-// parseLoginArgs parses login flags from REPL arguments (after the "login" token).
+// parseLoginArgs parses login argv via sshargs (OpenSSH-compatible).
 func parseLoginArgs(args []string) (host, alias, user, identity, password string, port int, tmux bool, err error) {
-	port = 22
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--host":
-			i++
-			if i >= len(args) {
-				return "", "", "", "", "", 0, false, fmt.Errorf("--host requires a value")
-			}
-			host = args[i]
-		case "--alias":
-			i++
-			if i >= len(args) {
-				return "", "", "", "", "", 0, false, fmt.Errorf("--alias requires a value")
-			}
-			alias = args[i]
-		case "--user":
-			i++
-			if i >= len(args) {
-				return "", "", "", "", "", 0, false, fmt.Errorf("--user requires a value")
-			}
-			user = args[i]
-		case "--port":
-			i++
-			if i >= len(args) {
-				return "", "", "", "", "", 0, false, fmt.Errorf("--port requires a value")
-			}
-			if _, err = fmt.Sscanf(args[i], "%d", &port); err != nil {
-				return "", "", "", "", "", 0, false, fmt.Errorf("invalid --port: %w", err)
-			}
-		case "--identity":
-			i++
-			if i >= len(args) {
-				return "", "", "", "", "", 0, false, fmt.Errorf("--identity requires a value")
-			}
-			identity = args[i]
-		case "--password":
-			i++
-			if i >= len(args) {
-				return "", "", "", "", "", 0, false, fmt.Errorf("--password requires a value")
-			}
-			password = args[i]
-		case "--tmux":
-			tmux = true
-		default:
-			return "", "", "", "", "", 0, false, fmt.Errorf("unknown login flag %q", args[i])
-		}
+	spec, err := sshargs.Parse(args)
+	if err != nil {
+		return "", "", "", "", "", 0, false, err
 	}
-	return host, alias, user, identity, password, port, tmux, nil
+	resolved, err := sshargs.Resolve(spec)
+	if err != nil {
+		return "", "", "", "", "", 0, false, err
+	}
+	return resolved.Host, resolved.Alias, resolved.User, resolved.IdentityPath,
+		resolved.Password, resolved.Port, resolved.Tmux, nil
 }
 
 // parseLoadArgs parses load arguments: load <id|alias> [--tmux] [--password P].
