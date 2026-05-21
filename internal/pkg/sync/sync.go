@@ -25,7 +25,8 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
-	"github.com/os-artificer/AiT/internal/pkg/sshclient"
+	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
+
 	"github.com/pkg/sftp"
 )
 
@@ -37,22 +38,27 @@ type Options struct {
 	AI  *ai.Client
 }
 
-// Run syncs files using rsync, scp, or SFTP fallback.
-// Password-authenticated sessions use the in-process SFTP client because
-// non-interactive rsync/scp cannot read AiT's keyring-backed password.
+// Run copies opts.Src to opts.Dst using rsync, scp, or in-process SFTP.
+// ctx cancels the transfer. Password-authenticated opts.SSH always uses SFTP because
+// external rsync/scp cannot read AiT's keyring-backed password.
+// Errors: ctx.Err; sshclient.Dial/SFTP failures; rsync/scp exit errors; fmt.Errorf when
+// neither rsync nor scp is on PATH (optionally includes AI install suggestions).
 func Run(ctx context.Context, opts Options) error {
 	if opts.SSH.Password != "" {
 		return runSFTP(ctx, opts)
 	}
+
 	if _, err := platform.LookPath("rsync"); err == nil {
 		return runRsync(ctx, opts)
 	}
 	if _, err := platform.LookPath("scp"); err == nil {
 		return runScp(ctx, opts)
 	}
+
 	if err := runSFTP(ctx, opts); err == nil {
 		return nil
 	}
+
 	if opts.AI != nil {
 		suggestion, serr := opts.AI.SuggestInstall(ctx, "rsync")
 		if serr == nil {
@@ -70,12 +76,14 @@ func sshArgs(o sshclient.Options) []string {
 	} else if kh := sshclient.KnownHostsPath(); kh != "" {
 		args = append(args, "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile="+kh)
 	}
+
 	if o.Password != "" {
 		args = append(args, "-o", "PreferredAuthentications=password", "-o", "PubkeyAuthentication=no")
 	}
 	if o.IdentityPath != "" {
 		args = append(args, "-i", o.IdentityPath)
 	}
+
 	port := o.Port
 	if port == 0 {
 		port = 22
@@ -106,6 +114,7 @@ func runRsync(ctx context.Context, opts Options) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
+
 	return cmd.Run()
 }
 
@@ -115,6 +124,7 @@ func runScp(ctx context.Context, opts Options) error {
 	cmd := exec.CommandContext(ctx, "scp", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	return cmd.Run()
 }
 
@@ -122,32 +132,38 @@ func runSFTP(ctx context.Context, opts Options) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+
 	client, err := sshclient.Dial(opts.SSH)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
 	sftpClient, err := sftp.NewClient(client.Conn())
 	if err != nil {
 		return err
 	}
 	defer sftpClient.Close()
+
 	user, host, remotePath, err := parseRemoteDest(opts.Dst)
 	if err != nil {
 		return err
 	}
 	_ = user
 	_ = host
+
 	f, err := os.Open(opts.Src)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+
 	remote, err := sftpClient.Create(remotePath)
 	if err != nil {
 		return err
 	}
 	defer remote.Close()
+
 	_, err = remote.ReadFrom(f)
 	return err
 }
@@ -172,6 +188,7 @@ func parseRemoteDest(dst string) (user, host, path string, err error) {
 		userHost = dst[:i]
 		path = dst[i+1:]
 	}
+
 	if at := strings.LastIndex(userHost, "@"); at >= 0 {
 		user = userHost[:at]
 		host = userHost[at+1:]
@@ -181,6 +198,7 @@ func parseRemoteDest(dst string) (user, host, path string, err error) {
 	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
 		host = host[1 : len(host)-1]
 	}
+
 	if host == "" {
 		return "", "", "", fmt.Errorf("invalid remote path %q", dst)
 	}

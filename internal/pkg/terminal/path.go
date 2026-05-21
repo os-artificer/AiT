@@ -27,13 +27,15 @@ import (
 
 var scrollbackBaseName = regexp.MustCompile(`^[a-zA-Z0-9-]+\.log$`)
 
-// ScrollbackFileName returns the canonical scrollback filename for a session.
+// ScrollbackFileName returns the canonical scrollback sidecar basename for sessionID
+// (sessionID + ".log").
 func ScrollbackFileName(sessionID string) string {
 	return sessionID + ".log"
 }
 
 // ResolveScrollbackPath maps a stored basename (or legacy full path) to a file
 // under dir and rejects paths outside that directory.
+// Returns fmt.Errorf for empty stored, invalid basename, or path traversal attempts.
 func ResolveScrollbackPath(dir, stored string) (string, error) {
 	if stored == "" {
 		return "", fmt.Errorf("empty scrollback path")
@@ -42,10 +44,12 @@ func ResolveScrollbackPath(dir, stored string) (string, error) {
 	if !scrollbackBaseName.MatchString(base) {
 		return "", fmt.Errorf("invalid scrollback filename %q", base)
 	}
+
 	dirAbs, err := filepath.Abs(dir)
 	if err != nil {
 		return "", err
 	}
+
 	full := filepath.Join(dirAbs, base)
 	fullAbs, err := filepath.Abs(full)
 	if err != nil {

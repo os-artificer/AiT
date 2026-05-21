@@ -6,6 +6,7 @@ alwaysApply: false
 
 # Go conventions
 
+- **File layout, constants, exported godoc, readability**: follow [go-structure.mdc](go-structure.mdc); line width 150, nesting ≤2, readability-first, function block spacing — see §8–§11; required when generating or refactoring Go code
 - Indent with **tabs**; run `make fmt` (or `go fmt ./...`) on touched packages
 - Tests: `*_test.go` beside implementation; keep `make test` green
 - `internal/` packages are module-private — app code belongs in `internal/ait`, not duplicated in `cmd/`

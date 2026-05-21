@@ -16,11 +16,13 @@
 
 package store
 
-// AliasOrID returns alias or short id for display.
+// AliasOrID returns the session alias when set, otherwise the first 8 characters of ID
+// (or the full ID when shorter). Used for tables and user-facing labels.
 func (s *Session) AliasOrID() string {
 	if s.Alias != "" {
 		return s.Alias
 	}
+
 	if len(s.ID) > 8 {
 		return s.ID[:8]
 	}

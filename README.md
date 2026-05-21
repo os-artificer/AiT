@@ -11,7 +11,7 @@
 - Deepseek 会话内助手（`!ait ai` / `!!`）、本地模式（`!ait local`）与缺失系统命令时的安装建议
 - `sync` 子命令：优先 `rsync` / `scp`，回退 SFTP
 
-架构与行为详见 **[docs/design.md](docs/design.md)**。
+架构与行为详见 **[docs/exec-plans/design.md](docs/exec-plans/design.md)**。
 
 ## 快速开始
 
@@ -103,11 +103,12 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | 目录 | 用途 |
 |------|------|
 | `cmd/ait` | 主程序入口 |
-| `internal/ait` | Cobra CLI（`login`、`list`、`load`、`session` 等） |
-| `internal/pkg` | 实现库（`store`、`session`、`sshclient`、`ai`、`sync`…） |
+| `internal/ait` | Cobra CLI、`ait shell` REPL（`login`、`list`、`load`、`session` 等） |
+| `internal/pkg` | 实现库：`store`、`session`、`ssh/args`、`ssh/client`、`ai`、`sync`、`config`、`creds`、`pathsafe`…（详见 [AGENTS.md](AGENTS.md)） |
 | `configs` | `ait.example.yaml` 配置模板 |
-| `docs` | [design.md](docs/design.md) 设计文档 |
+| `docs/exec-plans` | [design.md](docs/exec-plans/design.md) 架构与行为；归档的 Cursor 执行方案 |
 | `pkg` | 对外可导入库（当前未使用） |
+| `.cursor/rules` | Cursor / Agent 规则（含 Go 编码规范 `go-structure.mdc`） |
 | `build`、`scripts` | 构建与 CI |
 
 其余目录遵循 [golang-standards/project-layout](https://github.com/golang-standards/project-layout)，见各目录 `README.md`。
@@ -115,14 +116,17 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 ## 开发
 
 ```bash
-make build    # 编译到 bin/ait
-make test     # 运行测试
-make vet      # 静态检查
-make fmt      # 格式化
+make build       # 编译到 bin/ait
+make test        # 运行测试
+make vet         # 静态检查
+make fmt         # 格式化
+make test-cross  # Windows / macOS 交叉编译门禁
 ./bin/ait --help
 ```
 
 需要 **Go 1.25+**。
+
+架构细节见 [docs/exec-plans/design.md](docs/exec-plans/design.md)；在本仓库用 Agent 或贡献 Go 代码时请参阅 [AGENTS.md](AGENTS.md)（包布局与 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) 编码规范）。Cursor 方案归档见 [docs/exec-plans/](docs/exec-plans/)。
 
 ## 模块路径
 

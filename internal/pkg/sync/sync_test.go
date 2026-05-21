@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/pkg/sshclient"
+	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 )
 
 func TestShellQuote(t *testing.T) {

@@ -24,7 +24,8 @@ import (
 
 const appName = "ait"
 
-// DataDir returns the per-user data directory for AiT.
+// DataDir returns the per-user AiT data directory, creating it with mode 0700 when missing.
+// Returns the path, or os.UserHomeDir / MkdirAll errors.
 func DataDir() (string, error) {
 	var base string
 	switch runtime.GOOS {
@@ -51,13 +52,15 @@ func DataDir() (string, error) {
 			base = filepath.Join(home, ".local", "share", appName)
 		}
 	}
+
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		return "", err
 	}
 	return base, nil
 }
 
-// ConfigDir returns the per-user config directory.
+// ConfigDir returns the per-user AiT config directory, creating it with mode 0700 when missing.
+// Returns the path, or os.UserHomeDir / MkdirAll errors.
 func ConfigDir() (string, error) {
 	var base string
 	switch runtime.GOOS {
@@ -84,13 +87,15 @@ func ConfigDir() (string, error) {
 			base = filepath.Join(home, ".config", appName)
 		}
 	}
+
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		return "", err
 	}
 	return base, nil
 }
 
-// DBPath returns the SQLite database path.
+// DBPath returns the default SQLite database file path under DataDir.
+// Returns the joined path, or DataDir errors.
 func DBPath() (string, error) {
 	dir, err := DataDir()
 	if err != nil {
@@ -99,12 +104,14 @@ func DBPath() (string, error) {
 	return filepath.Join(dir, "ait.db"), nil
 }
 
-// ScrollbackDir returns the directory for scrollback sidecar files.
+// ScrollbackDir returns the scrollback sidecar directory under DataDir, created with mode 0700.
+// Returns the path, or DataDir / MkdirAll errors.
 func ScrollbackDir() (string, error) {
 	dir, err := DataDir()
 	if err != nil {
 		return "", err
 	}
+
 	p := filepath.Join(dir, "scrollback")
 	if err := os.MkdirAll(p, 0o700); err != nil {
 		return "", err

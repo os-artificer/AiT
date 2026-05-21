@@ -25,18 +25,21 @@ import (
 // remotePathRe allows absolute paths safe for POSIX cd (no metacharacters).
 var remotePathRe = regexp.MustCompile(`^[A-Za-z0-9_./~-]+$`)
 
-// RemotePath reports whether p is safe to pass to a remote cd command.
+// RemotePath reports whether p is safe to embed in a remote cd command: absolute path,
+// no "..", and only [A-Za-z0-9_./~-] characters.
 func RemotePath(p string) bool {
 	if p == "" || !strings.HasPrefix(p, "/") {
 		return false
 	}
+
 	if strings.Contains(p, "..") {
 		return false
 	}
 	return remotePathRe.MatchString(p)
 }
 
-// QuoteShellSingle quotes s for POSIX sh single-quoted strings.
+// QuoteShellSingle returns s wrapped in POSIX single quotes, escaping embedded apostrophes.
+// Safe for embedding in remote sh -c style command lines.
 func QuoteShellSingle(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

@@ -1,0 +1,443 @@
+/**
+ * Copyright 2026 AiT authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+**/
+
+package client
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
+	"github.com/os-artificer/AiT/internal/pkg/tmux"
+
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/term"
+)
+
+// Options for SSH dial.
+type Options struct {
+	Host         string
+	Port         int
+	User         string
+	IdentityPath string
+	// IdentityExplicit is true when the user passed -i on the CLI.
+	IdentityExplicit bool
+	Password         string
+	UseAgent         bool
+
+	ProxyJump             []string
+	ProxyCommand          string
+	KnownHostsPath        string
+	StrictHostKeyChecking string
+	ConnectTimeout        time.Duration
+	BatchMode             bool
+}
+
+// Client is an SSH connection with optional interactive shell.
+type Client struct {
+	conn           *ssh.Client
+	agentConn      net.Conn
+	opts           Options
+	scroll         *terminal.Buffer
+	remoteCwd      string
+	localShell     localShell
+	pauseRemoteOut atomic.Bool
+}
+
+// Conn returns the underlying golang.org/x/crypto/ssh client connection.
+func (c *Client) Conn() *ssh.Client {
+	return c.conn
+}
+
+// Scrollback returns the in-memory terminal output buffer for this session.
+func (c *Client) Scrollback() *terminal.Buffer {
+	return c.scroll
+}
+
+// RemoteCwd returns the last captured remote working directory (from suspend or pwd probe).
+// May be empty until the interactive loop updates it.
+func (c *Client) RemoteCwd() string {
+	return c.remoteCwd
+}
+
+// RunCommand runs cmd without a PTY and returns combined stdout/stderr as a string.
+// Returns NewSession errors, or the remote command exit/error from CombinedOutput.
+func (c *Client) RunCommand(cmd string) (string, error) {
+	sess, err := c.conn.NewSession()
+	if err != nil {
+		return "", err
+	}
+	defer sess.Close()
+	out, err := sess.CombinedOutput(cmd)
+	return string(out), err
+}
+
+// InteractiveOpts configures interactive session.
+type InteractiveOpts struct {
+	SessionID   string
+	TmuxEnabled bool
+	TmuxName    string
+	// InitialCommands are sent into the interactive shell stdin right after
+	// the shell starts (e.g. "cd /restored/path"). Each entry is sent as a
+	// separate line.
+	InitialCommands []string
+	AI              *ai.Client
+	OnSuspend       func(scroll *terminal.Buffer, cwd string, cols, rows int) error
+	// OnMetaCLI runs ait CLI subcommands from !ait <args> (args exclude the prefix).
+	OnMetaCLI func(args []string) error
+}
+
+const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set deepseek.api_key <key>"
+
+const (
+	shellReadyDelay           = 280 * time.Millisecond
+	initialCommandSettleDelay = 120 * time.Millisecond
+)
+
+// RunInteractive runs a PTY shell with !ait / !! meta handling, optional tmux, and AI/local modes.
+// ctx cancels the session loop. Requires a TTY on stdin. Returns terminal, session, tmux, or OnSuspend errors.
+func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error {
+	sess, err := c.conn.NewSession()
+	if err != nil {
+		return err
+	}
+
+	fd := int(os.Stdin.Fd())
+
+	if !term.IsTerminal(fd) {
+		sess.Close()
+		return fmt.Errorf("stdin is not a terminal")
+	}
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		sess.Close()
+		return fmt.Errorf("terminal: %w", err)
+	}
+	defer func() {
+		if oldState != nil {
+			_ = term.Restore(fd, oldState)
+		}
+	}()
+
+	cols, rows, _ := term.GetSize(fd)
+
+	echo := uint32(1)
+	if len(opts.InitialCommands) > 0 {
+		echo = 0 // restored by stty echo in setup command
+	}
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          echo,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}
+	if err := sess.RequestPty("xterm-256color", rows, cols, modes); err != nil {
+		sess.Close()
+		return err
+	}
+	if cols > 0 && rows > 0 {
+		_ = sess.WindowChange(rows, cols)
+	}
+
+	stdin, err := sess.StdinPipe()
+	if err != nil {
+		sess.Close()
+		return err
+	}
+	stdout, err := sess.StdoutPipe()
+	if err != nil {
+		sess.Close()
+		return err
+	}
+	stderr, err := sess.StderrPipe()
+	if err != nil {
+		sess.Close()
+		return err
+	}
+
+	if opts.TmuxEnabled {
+		if err := tmux.Ensure(c.conn, opts.TmuxName); err != nil {
+			sess.Close()
+			return err
+		}
+		if err := sess.Start(tmux.AttachCommand(opts.TmuxName)); err != nil {
+			sess.Close()
+			return err
+		}
+	} else {
+		if err := sess.Shell(); err != nil {
+			sess.Close()
+			return err
+		}
+	}
+
+	stopResize := watchResize(newSessionResize(sess, c), fd)
+
+	defer stopResize()
+
+	var wg sync.WaitGroup
+
+	copyOut := func(r io.Reader) {
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := r.Read(buf)
+			if n > 0 {
+				_, _ = c.scroll.Write(buf[:n])
+				if !c.pauseRemoteOut.Load() {
+					_, _ = os.Stdout.Write(buf[:n])
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	stdinCh, stopStdin := startStdinReader()
+
+	shutdown := func() {
+		stopStdin()
+		_ = sess.Close()
+		wg.Wait()
+	}
+	defer shutdown()
+
+	if len(opts.InitialCommands) > 0 {
+		c.pauseRemoteOut.Store(true)
+	}
+	wg.Add(2)
+	go func() { defer wg.Done(); copyOut(stdout) }()
+	go func() { defer wg.Done(); copyOut(stderr) }()
+
+	// Wait for login shell / .bashrc to finish while output is suppressed.
+	time.Sleep(shellReadyDelay)
+
+	if err := c.injectInitialCommands(stdin, opts.InitialCommands); err != nil {
+		return err
+	}
+	if len(opts.InitialCommands) > 0 {
+		c.pauseRemoteOut.Store(false)
+	}
+
+	waitCh := make(chan error, 1)
+
+	go func() { waitCh <- sess.Wait() }()
+
+	done := make(chan error, 1)
+	go func() { done <- c.forwardStdin(ctx, stdin, stdinCh, opts) }()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-waitCh:
+		if err != nil && err != io.EOF {
+			return err
+		}
+		return nil
+	case err := <-done:
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+}
+
+// injectInitialCommands sends setup lines (PS1 export, cd restore) while
+// suppressing their echo on the local terminal.
+func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
+	if len(cmds) == 0 {
+		return nil
+	}
+
+	for _, line := range cmds {
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
+			continue
+		}
+		if _, err := stdin.Write([]byte(line + "\n")); err != nil {
+			return err
+		}
+	}
+
+	time.Sleep(initialCommandSettleDelay)
+	return nil
+}
+
+// stdinByte is one byte plus a sticky error from os.Stdin.
+type stdinByte struct {
+	b   byte
+	err error
+}
+
+// forwardStdin pipes stdin to the remote shell, deferring meta-line handling
+// to a metaScanner. When AI is configured, strict openers preserve bash !!
+// history (e.g. !!ls). When AI is unavailable, line-start !! is captured
+// locally so it never reaches remote histexpand.
+func (c *Client) forwardStdin(ctx context.Context, stdin io.Writer, stdinCh <-chan stdinByte, opts InteractiveOpts) error {
+	scan := newMetaScanner(opts.AI != nil)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case sb, ok := <-stdinCh:
+			if !ok {
+				return io.EOF
+			}
+			res := c.processForwardStdinByte(ctx, stdin, sb, scan, opts)
+			if res.action == fwdStdinReturn {
+				return res.err
+			}
+		}
+	}
+}
+
+func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line string, opts InteractiveOpts) error {
+	line = strings.TrimSpace(line)
+	switch {
+	case line == `!ait suspend`:
+		if err := c.handleSuspendMeta(stdin, opts); err != nil {
+			return err
+		}
+		_ = c.conn.Close()
+		return io.EOF
+	case line == `!ait local`:
+		return c.enterLocalMode()
+	case line == `!ait remote`:
+		return c.exitLocalMode()
+
+	default:
+
+		prompt, isAI := aiPromptFromMetaLine(line)
+		if isAI {
+			return c.handleAIMetaLine(ctx, stdin, prompt, opts)
+		}
+
+		if line == `!ait` || line == `!ait help` {
+			return c.runMetaCLI(stdin, opts, nil)
+		}
+		if strings.HasPrefix(line, "!ait ") {
+			args := strings.Fields(strings.TrimPrefix(line, "!ait "))
+			return c.runMetaCLI(stdin, opts, args)
+		}
+		termPrintln(os.Stdout, "AiT: unknown meta command (try !ait help)")
+		c.finishMetaInteraction(stdin)
+		return nil
+	}
+}
+
+func (c *Client) runMetaCLI(stdin io.Writer, opts InteractiveOpts, args []string) error {
+	if opts.OnMetaCLI == nil {
+		termPrintln(os.Stdout, "AiT: meta CLI not available (try !ait help)")
+		c.finishMetaInteraction(stdin)
+		return nil
+	}
+	if err := opts.OnMetaCLI(args); err != nil {
+		termPrintf(os.Stderr, "AiT: %v", err)
+	}
+	c.finishMetaInteraction(stdin)
+	return nil
+}
+
+func (c *Client) enterLocalMode() error {
+	if c.localShell.running() {
+		aitModeNotice("already in local mode (type !ait remote to return)")
+		return nil
+	}
+
+	if c.localShell.active() {
+		c.localShell.stop()
+	}
+
+	fd := int(os.Stdin.Fd())
+	cols, rows := termSize(fd)
+
+	c.pauseRemoteOut.Store(true)
+	if err := c.localShell.start(cols, rows, c.onLocalShellExit); err != nil {
+		c.pauseRemoteOut.Store(false)
+		return fmt.Errorf("local shell: %w", err)
+	}
+
+	aitModeNotice(
+		"local mode",
+		"Prompt is \""+LocalPrompt+"\" (commands run on this machine; SSH stays connected).",
+		"Type !ait remote to return.",
+	)
+	return nil
+}
+
+func (c *Client) onLocalShellExit() {
+	c.pauseRemoteOut.Store(false)
+	aitModeNotice("local shell exited — remote mode restored.")
+}
+
+func (c *Client) exitLocalMode() error {
+	if c.localShell.running() {
+		c.localShell.stop()
+		c.pauseRemoteOut.Store(false)
+		remote := RemotePrompt(c.opts.User, c.opts.Host)
+		aitModeNotice("remote mode — prompt " + remote)
+		return nil
+	}
+
+	if c.localShell.active() {
+		c.localShell.stop()
+	}
+
+	aitModeNotice("not in local mode (type !ait local to switch)")
+	return nil
+}
+
+// captureRemoteCwd reads cwd from the interactive shell (tmux pane path or pwd marker).
+func (c *Client) captureRemoteCwd(stdin io.Writer, opts InteractiveOpts) string {
+	if opts.TmuxEnabled {
+		if p, err := tmux.PanePath(c.conn, opts.TmuxName); err == nil {
+			return strings.TrimSpace(p)
+		}
+	}
+
+	const begin, end = ".__AITPWD__.", ".__AITPWDEND__."
+	snap := c.scroll.String()
+	cmd := fmt.Sprintf("printf '%%s%%s%%s\\n' '%s' \"$(pwd -P 2>/dev/null || pwd)\" '%s'\n", begin, end)
+	_, _ = stdin.Write([]byte(cmd))
+	for i := 0; i < 100; i++ {
+		time.Sleep(20 * time.Millisecond)
+		if p := parsePwdMarker(c.scroll.String(), snap, begin, end); p != "" {
+			return p
+		}
+	}
+	return ""
+}
+
+// Close closes the SSH agent connection (if any) and the underlying ssh.Client.
+// Returns the ssh.Client Close error when a connection was open.
+func (c *Client) Close() error {
+	if c.agentConn != nil {
+		_ = c.agentConn.Close()
+		c.agentConn = nil
+	}
+
+	if c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}

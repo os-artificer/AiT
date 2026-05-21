@@ -1,0 +1,163 @@
+---
+description: Go 文件组织、行宽/嵌套/可读性、函数内职责块空行、常量与导出 godoc（生成/重构必遵）
+alwaysApply: true
+---
+
+# Go 文件组织与编码规范
+
+生成或重构 Go 代码时**必须**遵守以下约定。模块路径：`github.com/os-artificer/AiT`。
+
+## 总则：可读性优先
+
+本文件全部约定以**可读性为最高优先级**。与其它条款冲突时，默认选择更易读的写法。
+
+仅在确有性能瓶颈、且优化会牺牲可读性时例外；须在改动处用简短注释说明性能理由。禁止为炫技牺牲清晰度。
+
+## 1. import 顺序
+
+三组，组间各空一行：
+
+1. 标准库
+2. 本项目包（`github.com/os-artificer/AiT/...`）
+3. 第三方包
+
+`make fmt` / `goimports` 后确认组间空行仍在。
+
+```go
+import (
+	"context"
+	"fmt"
+
+	"github.com/os-artificer/AiT/internal/pkg/store"
+
+	"github.com/spf13/cobra"
+)
+```
+
+## 2. 文件内声明顺序
+
+自上而下：
+
+1. 包注释（如有）
+2. 文件级 `const` / `var`（全局常量、变量）
+3. 带方法的 `struct` 定义
+4. 该 struct 的方法（见第 3 条可见性排序）
+
+## 3. 函数按可见性排序
+
+- **包级函数**：导出（大写开头）在前，未导出在后。
+- **方法**：同一 receiver 上，导出方法在前，未导出在后。
+
+## 4. 非 struct 函数独立文件
+
+无 receiver 的包级函数放在独立文件中（如 `*_helpers.go`、`*_parse.go`），仍遵守第 3 条排序。
+
+例外：`cmd/ait/main.go` 仅保留极简 `main`。
+
+## 5. 禁止硬编码
+
+魔法字符串、数字、重复字面量须提为命名常量：
+
+- **多文件共享**：包内统一文件（如 `constants.go`）或该子包约定的单一常量文件。
+- **仅本文件使用**：放在该文件首部 `const` / `var` 块（第 2 条顺序之前或与文件级声明一起）。
+
+## 6. 单 struct 单文件
+
+每个 `.go` 文件最多包含**一个**带方法定义的 struct。
+
+纯数据结构（无方法，或仅作 JSON/SQL/配置字段承载）不受限；可集中在 `types.go` 或与相关逻辑同包分文件。
+
+## 7. 导出函数注释
+
+所有包级**导出**函数、方法须有完整 godoc：
+
+- 功能说明
+- 每个参数的含义与限制
+- 返回值说明
+- 若返回 `error`，注释中列出**可能**的错误条件（类型或场景）
+
+```go
+// Login starts an SSH session for dest.
+// host is the SSH destination; alias, if non-empty, must be unique in the store.
+// Returns store.ErrNotFound if alias is unknown, or a dial/auth error from ssh/client.
+func Login(ctx context.Context, host, alias string) (*Session, error) { ... }
+```
+
+参考：[Go Doc Comments](https://go.dev/doc/comment)
+
+## 8. 行宽
+
+- 单行（含注释）不超过 **150** 个字符。
+- 超长时：拆行、提取变量或辅助函数、缩短命名；避免无意义换行。
+- `go fmt` 不检查行宽；生成/重构后需目视或 IDE 标尺（`.editorconfig` 中 `max_line_length = 150`）确认。
+
+## 9. 嵌套层级
+
+- 控制流（`if` / `for` / `switch` / `select`）嵌套**最多 2 层**；第 3 层及以上须重构。
+- **如非必要**不超 2 层：协议解析、状态机等确实需要更深嵌套时允许，须加一行注释说明为何不能扁平化。
+- 优先：提前 `return` / `continue` / `break`、卫语句、提取未导出函数（遵守 §4 独立文件约定）。
+
+```go
+// 不推荐：3 层嵌套
+for _, s := range sessions {
+	if s.Active {
+		if s.Tmux {
+			attach(s)
+		}
+	}
+}
+
+// 推荐：卫语句，至多 2 层
+for _, s := range sessions {
+	if !s.Active || !s.Tmux {
+		continue
+	}
+	attach(s)
+}
+```
+
+## 10. 可读性优先（细则）
+
+- 与其它条款冲突时，默认选**更易读**的写法（见总则）。
+- 性能优化（内联、减少分配、合并循环等）仅在 profiling 或明确热点路径上采用；改动处注释性能理由。
+- 禁止：过度一行写法、晦涩缩写、无注释的深嵌套。
+
+## 11. 函数内职责块空行
+
+同一函数内，按**职责阶段**分块，块与块之间保留**恰好一行**空行，便于扫读。
+
+**典型分块**：
+
+- 入参校验 / 默认值
+- 资源获取（open、dial、NewSession）
+- 核心业务逻辑
+- 清理（defer、关闭连接）
+
+**不必**额外空行：
+
+- 紧密相关的 2–3 行（如 `err := f(); if err != nil { return err }`）
+- 同一 `switch` / `case` 内连续赋值
+- 函数体极短（约 ≤5 行）且仅单一职责
+
+`go fmt` 不会自动插入职责空行；生成/重构后需目视检查。
+
+```go
+func Load(ctx context.Context, id string) error {
+	if id == "" {
+		return fmt.Errorf("empty id")
+	}
+
+	sess, err := m.store.GetSession(id)
+	if err != nil {
+		return err
+	}
+
+	client, err := m.dial(sess)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	return m.attach(ctx, client, sess)
+}
+```
