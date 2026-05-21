@@ -1,11 +1,14 @@
 # `/docs`
 
-项目设计与方案文档。
+Project design and planning documents.
 
-| 路径 | 说明 |
-|------|------|
-| [exec-plans/](exec-plans/) | 架构文档与可归档的 Cursor 执行方案 |
-| [exec-plans/design.md](exec-plans/design.md) | AiT 架构与行为（主文档） |
-| [exec-plans/README.md](exec-plans/README.md) | 本目录用途与归档约定 |
+**Languages:** English (this page) · [简体中文](README.zh-CN.md)
 
-用户向导读 [README.md](../README.md)。Agent 与贡献者向导读 [AGENTS.md](../AGENTS.md)。
+| Path | Description |
+|------|-------------|
+| [design.md](design.md) | AiT architecture and behavior (primary) |
+| [user-manual.md](user-manual.md) | User manual (post-install configuration and commands) |
+| [../CHANGELOG.md](../CHANGELOG.md) | Product and CLI changelog (repository root) |
+| `docs/<topic>.md` | Archived Cursor execution plans (`kebab-case`; see [`.cursor/rules/docs-exec-plans.mdc`](../.cursor/rules/docs-exec-plans.mdc)) |
+
+End users: [README.md](../README.md), [user-manual.md](user-manual.md). Code layout: [AGENTS.md](../AGENTS.md).

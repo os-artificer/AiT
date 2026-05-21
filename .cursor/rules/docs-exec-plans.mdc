@@ -1,24 +1,30 @@
 ---
-description: 归档 Cursor 执行方案到 docs/exec-plans；架构文档见 design.md
+description: 归档 Cursor 执行方案到 docs/ 根目录；架构见 design.md / design.zh-CN.md
 alwaysApply: true
 ---
 
-# docs/exec-plans 与方案归档
+# docs 方案归档
 
 ## 架构文档
 
-产品架构与行为以 [docs/exec-plans/design.md](docs/exec-plans/design.md) 为准（非 `docs/design.md`）。
+产品架构与行为以 [docs/design.md](docs/design.md)（英文）、[docs/design.zh-CN.md](docs/design.zh-CN.md)（中文）为准。
 
-目录说明：[docs/exec-plans/README.md](docs/exec-plans/README.md)。
+常驻文档索引见 [docs/README.md](docs/README.md)、[docs/README.zh-CN.md](docs/README.zh-CN.md)。
 
 ## 归档 Cursor 方案
 
 当用户要求**归档**方案，或已确认的计划实施完毕且用户需要保留文档时：
 
-1. 将方案正文写入 `docs/exec-plans/<name>.md`（仓库内副本）。
+1. 将方案正文写入 `docs/<name>.md`（仓库内副本）。
 2. 文件名使用清晰的 `kebab-case` 英文；可选 `YYYY-MM-DD-topic.md`；避免与现有文件重名。
 3. 归档内容为可读的方案说明（目标、步骤、验收）；可省略 Cursor plan frontmatter 中的 `todos` 状态块。
-4. **不要**修改 `/root/.cursor/plans/` 或用户附件中的 plan 文件路径；仅在 `docs/exec-plans/` 新建或更新。
-5. 用户未要求归档时，**不要**主动向 `docs/exec-plans/` 添加文件。
+4. **不要**修改 `/root/.cursor/plans/` 或用户附件中的 plan 文件路径；仅在 `docs/` 根目录新建或更新归档文件。
+5. 用户未要求归档时，**不要**主动向 `docs/` 添加方案文件。
 
-更新 `design.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[AGENTS.md](AGENTS.md) 中的链接。
+**禁止覆盖的保留文件名**（不得用作归档目标）：
+
+- `design.md`、`design.zh-CN.md`
+- `user-manual.md`、`user-manual.zh-CN.md`
+- `README.md`、`README.zh-CN.md`
+
+更新 `design.md` / `design.zh-CN.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[README.zh-CN.md](README.zh-CN.md)、[AGENTS.md](AGENTS.md)、[AGENTS.zh-CN.md](AGENTS.zh-CN.md) 中的同语言链接。

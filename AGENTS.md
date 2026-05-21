@@ -1,5 +1,7 @@
 # AiT — Agent orientation
 
+**Languages:** English (this page) · [简体中文](AGENTS.zh-CN.md)
+
 **AiT** (AI Terminal) is a Go CLI: an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, Deepseek assistant, and cross-host file sync. Module: `github.com/os-artificer/AiT`. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
 
 ## Build and test
@@ -24,7 +26,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **Sync**: `ait sync` — rsync → scp → SFTP (`internal/pkg/sync`)
 - **OpenSSH config**: `login`/`load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 
-Full design: [`docs/exec-plans/design.md`](docs/exec-plans/design.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans: [`docs/exec-plans/`](docs/exec-plans/) per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
+Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
 
 ## Where code lives
 
@@ -51,7 +53,7 @@ Full design: [`docs/exec-plans/design.md`](docs/exec-plans/design.md). Example c
 | `internal/pkg/pathsafe/` | Session ID and path validation (scrollback sidecars) |
 | `pkg/` | Reserved for public importable libs (empty today) |
 | `configs/` | `ait.example.yaml` |
-| `docs/exec-plans/` | [`design.md`](docs/exec-plans/design.md) architecture; archived Cursor execution plans |
+| `docs/` | [`design.md`](docs/design.md), [`user-manual.md`](docs/user-manual.md) |
 | `.cursor/rules/` | Cursor rules; Go structure: [`go-structure.mdc`](.cursor/rules/go-structure.mdc) |
 | `scripts/`, `build/` | Build and CI helpers |
 
@@ -87,6 +89,7 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 
 ## Conventions
 
+- **Human contributors**: [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow and Go coding standards.
 - **Go coding standards**: when generating or refactoring Go, follow [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) — import groups (stdlib / module / third-party), one method-bearing struct per file, package-level functions in separate `*_helpers.go`, line width 150 (`.editorconfig`), nesting ≤2, blank line between responsibility blocks inside functions (§11), full godoc on exports.
 - **Formatting**: tabs for Go; run `make fmt` before finishing Go changes.
 - **Tests**: `*_test.go` beside implementation; `make test` must pass. Store tests use `:memory:` SQLite.
