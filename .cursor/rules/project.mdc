@@ -18,7 +18,7 @@ Go CLI (**AI Terminal**). Module: `github.com/os-artificer/AiT`.
 - `internal/ait`: application entry (`Run`, CLI, core logic)
 - `pkg/`: only code meant for external import
 - Follow per-directory `README.md` for `api/`, `configs/`, `deployments/`, etc.
-- Product docs: [AGENTS.md](AGENTS.md), [docs/exec-plans/design.md](docs/exec-plans/design.md); archive Cursor plans to [docs/exec-plans/](docs/exec-plans/) per [docs-exec-plans.mdc](docs-exec-plans.mdc)
+- Product docs: [AGENTS.md](AGENTS.md), [docs/design.md](docs/design.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
 
 ## Scope
 
