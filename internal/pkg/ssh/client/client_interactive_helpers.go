@@ -1,0 +1,238 @@
+/**
+ * Copyright 2026 AiT authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+**/
+
+package client
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
+	"github.com/os-artificer/AiT/internal/pkg/tmux"
+
+	xterm "golang.org/x/term"
+)
+
+// termEOL is the line ending for messages written while stdin is in raw mode.
+// LF-only would leave the cursor at the previous column ("staircase" layout).
+const termEOL = "\r\n"
+
+// startStdinReader spawns a goroutine reading os.Stdin one byte at a time.
+// The returned channel is closed when stdin reaches EOF or an error occurs.
+// stop() asks the goroutine to exit; the goroutine may still be blocked in
+// the read syscall until the next byte arrives or the process exits.
+func startStdinReader() (<-chan stdinByte, func()) {
+	out := make(chan stdinByte, 32)
+	stop := make(chan struct{})
+	go func() {
+		defer close(out)
+		buf := make([]byte, 1)
+		for {
+			n, err := os.Stdin.Read(buf)
+			if n > 0 {
+				select {
+				case out <- stdinByte{b: buf[0]}:
+				case <-stop:
+					return
+				}
+			}
+			if err != nil {
+				select {
+				case out <- stdinByte{err: err}:
+				case <-stop:
+				}
+				return
+			}
+		}
+	}()
+	return out, func() { close(stop) }
+}
+
+func termPrintln(w io.Writer, s string) {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\n", termEOL)
+	if !strings.HasSuffix(s, termEOL) {
+		s += termEOL
+	}
+	_, _ = io.WriteString(w, s)
+}
+
+func termPrintf(w io.Writer, format string, args ...any) {
+	termPrintln(w, fmt.Sprintf(format, args...))
+}
+
+// finishMetaInteraction ends local meta output and asks the remote shell to redraw PS1.
+func (c *Client) finishMetaInteraction(stdin io.Writer) {
+	_, _ = os.Stdout.Write([]byte(termEOL))
+	c.refreshRemotePrompt(stdin)
+}
+
+func (c *Client) refreshRemotePrompt(stdin io.Writer) {
+	if stdin == nil || c.localShell.active() {
+		return
+	}
+	_, _ = stdin.Write([]byte("\r"))
+}
+
+// aitModeNotice prints a multi-line AiT status block on stderr. It also emits
+// a newline on stdout so a partial remote prompt or meta echo does not share a
+// line with the local shell's init output (e.g. nvm).
+func aitModeNotice(lines ...string) {
+	_, _ = os.Stdout.Write([]byte(termEOL))
+
+	var b strings.Builder
+	b.WriteString(termEOL)
+	for _, line := range lines {
+		b.WriteString("AiT: ")
+		b.WriteString(line)
+		b.WriteString(termEOL)
+	}
+	b.WriteString(termEOL)
+	_, _ = os.Stderr.WriteString(b.String())
+}
+
+func aiPromptFromMetaLine(line string) (prompt string, isAI bool) {
+	switch {
+	case strings.HasPrefix(line, "!!"):
+		return strings.TrimSpace(strings.TrimPrefix(line, "!!")), true
+	case strings.HasPrefix(line, "!ait ai"):
+		return strings.TrimSpace(strings.TrimPrefix(line, "!ait ai")), true
+	default:
+		return "", false
+	}
+}
+
+// forwardStdinAction describes how one stdin byte should be handled.
+type forwardStdinAction int
+
+const (
+	fwdStdinContinue forwardStdinAction = iota
+	fwdStdinReturn
+)
+
+type forwardStdinResult struct {
+	action forwardStdinAction
+	err    error
+}
+
+func (c *Client) processForwardStdinByte(
+	ctx context.Context,
+	stdin io.Writer,
+	sb stdinByte,
+	scan *metaScanner,
+	opts InteractiveOpts,
+) forwardStdinResult {
+	if sb.err != nil {
+		return forwardStdinResult{action: fwdStdinReturn, err: sb.err}
+	}
+
+	fwd, echo, line, hasLine := scan.Feed(sb.b)
+	if len(echo) > 0 {
+		_, _ = os.Stdout.Write(echo)
+	}
+
+	if hasLine {
+		err := c.handleMetaLine(ctx, stdin, line, opts)
+		if err != nil {
+			return forwardStdinResult{action: fwdStdinReturn, err: err}
+		}
+		return forwardStdinResult{action: fwdStdinContinue}
+	}
+
+	if len(fwd) == 0 {
+		return forwardStdinResult{action: fwdStdinContinue}
+	}
+
+	if c.localShell.active() {
+		err := c.localShell.write(fwd)
+		if err != nil {
+			return forwardStdinResult{action: fwdStdinReturn, err: err}
+		}
+		return forwardStdinResult{action: fwdStdinContinue}
+	}
+
+	if _, err := stdin.Write(fwd); err != nil {
+		return forwardStdinResult{action: fwdStdinReturn, err: err}
+	}
+	return forwardStdinResult{action: fwdStdinContinue}
+}
+
+func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, prompt string, opts InteractiveOpts) error {
+	if prompt == "" {
+		termPrintln(os.Stdout, "usage: !ait ai <question> (or !! <question>)")
+		c.finishMetaInteraction(stdin)
+		return nil
+	}
+
+	if opts.AI == nil {
+		termPrintln(os.Stderr, aiNotConfiguredMsg)
+		c.finishMetaInteraction(stdin)
+		return nil
+	}
+
+	promptCopy := prompt
+	c.finishMetaInteraction(stdin)
+	go func() {
+		ans, err := opts.AI.Assist(ctx, promptCopy, c.scroll.RecentLines(50), c.remoteCwd)
+		if err != nil {
+			termPrintf(os.Stdout, "AI error: %v", err)
+		} else {
+			termPrintf(os.Stdout, "--- AiT ---\n%s\n-----------", ans)
+		}
+		c.finishMetaInteraction(stdin)
+	}()
+	return nil
+}
+
+func (c *Client) handleSuspendMeta(stdin io.Writer, opts InteractiveOpts) error {
+	if opts.OnSuspend == nil {
+		return nil
+	}
+
+	fd := int(os.Stdin.Fd())
+	cols, rows, _ := xterm.GetSize(fd)
+
+	if opts.TmuxEnabled {
+		_ = tmux.Detach(c.conn, opts.TmuxName)
+	}
+
+	cwd := c.captureRemoteCwd(stdin, opts)
+	if cwd != "" && pathsafe.RemotePath(cwd) {
+		c.remoteCwd = cwd
+	}
+
+	c.scroll.StripSubstrings(".__AITPWD__.", ".__AITPWDEND__")
+	return opts.OnSuspend(c.scroll, c.remoteCwd, cols, rows)
+}
+
+func parsePwdMarker(full, before, begin, end string) string {
+	if len(full) <= len(before) {
+		return ""
+	}
+	chunk := full[len(before):]
+	i := strings.Index(chunk, begin)
+	if i < 0 {
+		return ""
+	}
+	j := strings.Index(chunk[i+len(begin):], end)
+	if j < 0 {
+		return ""
+	}
+	return strings.TrimSpace(chunk[i+len(begin) : i+len(begin)+j])
+}

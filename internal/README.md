@@ -1,21 +1,40 @@
 # `/internal`
 
-Private application and library code. This is the code you don't want others importing in their applications or libraries. Note that this layout pattern is enforced by the Go compiler itself. See the Go 1.4 [`release notes`](https://golang.org/doc/go1.4#internalpackages) for more details. Note that you are not limited to the top level `internal` directory. You can have more than one `internal` directory at any level of your project tree.
+Private application and library code. The Go compiler enforces that code outside this module cannot import `internal/` packages.
 
-You can optionally add a bit of extra structure to your internal packages to separate your shared and non-shared internal code. It's not required (especially for smaller projects), but it's nice to have visual clues showing the intended package use. Your actual application code can go in `/internal/ait` (this project’s CLI) and shared libraries in `/internal/pkg` (e.g., `/internal/pkg/store`).
+This project follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout):
 
-Examples:
+- **`/internal/ait`** — AiT CLI and `ait shell` REPL (Cobra commands, line parsing, meta delegation).
+- **`/internal/pkg`** — Shared libraries used only by `ait`.
 
-* https://github.com/hashicorp/terraform/tree/main/internal
-* https://github.com/influxdata/influxdb/tree/master/internal
-* https://github.com/perkeep/perkeep/tree/master/internal
-* https://github.com/jaegertracing/jaeger/tree/main/internal
-* https://github.com/moby/moby/tree/master/internal
-* https://github.com/satellity/satellity/tree/main/internal
-* https://github.com/minio/minio/tree/master/internal
+## `/internal/ait`
+
+| Package | Role |
+|---------|------|
+| `ait` (root) | `Run`, `ExitCode` — entry from `cmd/ait` |
+| `ait/app` | Store/config/AI bootstrap, `NewManager`, signal context |
+| `ait/cli` | Cobra commands (`login`, `list`, `load`, `shell`, …) |
+| `ait/login` | Login parse/resolve, help text, remote exit codes |
+| `ait/shell` | `ait shell` REPL, TTY I/O, line execution |
+| `ait/meta` | In-session `!ait` delegation (`!ait list`, etc.) |
+
+Helpers live in `*_helpers.go` beside each package’s main files.
 
 ## `/internal/pkg`
 
-Examples:
+| Package | Role |
+|---------|------|
+| `ssh/args` | Parse `ait login` argv; `ssh -G` resolve to connection options |
+| `session` | Login, load, suspend, switch, delete, list |
+| `store` | SQLite sessions and `session_state` |
+| `ssh/client` | SSH dial, PTY, `!ait` / `!!`, local mode, host keys |
+| `terminal` | Scrollback buffer and replay |
+| `tmux` | Remote tmux attach/detach |
+| `ai` | Deepseek client |
+| `sync` | rsync / scp / SFTP file sync |
+| `platform` | Data dirs, OpenSSH path, `LookPath` |
+| `config` | YAML configuration |
+| `creds` | OS keyring for secrets |
+| `pathsafe` | Safe session IDs and scrollback paths |
 
-* https://github.com/hashicorp/waypoint/tree/main/internal/pkg
+See [AGENTS.md](../AGENTS.md) for file-level layout (especially `ssh/client`) and [docs/exec-plans/design.md](../docs/exec-plans/design.md) for behavior and data model.

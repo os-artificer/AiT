@@ -18,14 +18,7 @@ package config
 
 import (
 	"errors"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
-
-	"github.com/os-artificer/AiT/internal/pkg/platform"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -47,64 +40,9 @@ type Config struct {
 	} `yaml:"deepseek"`
 }
 
-// Load reads config from disk or returns defaults.
-func Load() (*Config, error) {
-	cfg := defaults()
-	dir, err := platform.ConfigDir()
-	if err != nil {
-		return cfg, err
-	}
-	path := filepath.Join(dir, "config.yaml")
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return cfg, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err := yaml.Unmarshal(b, cfg); err != nil {
-		return nil, err
-	}
-	if cfg.Deepseek.BaseURL == "" {
-		cfg.Deepseek.BaseURL = DefaultDeepseekBase
-	}
-	if cfg.Deepseek.Model == "" {
-		cfg.Deepseek.Model = DefaultDeepseekModel
-	}
-	return cfg, nil
-}
-
-func validateDeepseekBaseURL(raw string) error {
-	if os.Getenv("AIT_ALLOW_CUSTOM_AI_URL") == "1" {
-		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "https" || u.Host == "" {
-			return errors.New("deepseek.base_url must be a valid https URL")
-		}
-		return nil
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return err
-	}
-	if u.Scheme != "https" {
-		return errors.New("deepseek.base_url must use https")
-	}
-	host := strings.ToLower(u.Hostname())
-	if host != "api.deepseek.com" {
-		return errors.New("deepseek.base_url host must be api.deepseek.com (set AIT_ALLOW_CUSTOM_AI_URL=1 to override)")
-	}
-	return nil
-}
-
-func defaults() *Config {
-	cfg := &Config{}
-	cfg.Session.AuthTTL = DefaultAuthTTL.String()
-	cfg.Deepseek.BaseURL = DefaultDeepseekBase
-	cfg.Deepseek.Model = DefaultDeepseekModel
-	return cfg
-}
-
-// AuthTTL parses session.auth_ttl from config.
+// AuthTTL parses session.auth_ttl as a duration. Nil or empty config uses DefaultAuthTTL.
+// Invalid duration strings return DefaultAuthTTL and the parse error; values are clamped to
+// MinAuthTTL and MaxAuthTTL.
 func (c *Config) AuthTTL() (time.Duration, error) {
 	if c == nil || c.Session.AuthTTL == "" {
 		return DefaultAuthTTL, nil
@@ -113,6 +51,7 @@ func (c *Config) AuthTTL() (time.Duration, error) {
 	if err != nil {
 		return DefaultAuthTTL, err
 	}
+
 	if d < MinAuthTTL {
 		d = MinAuthTTL
 	}
@@ -122,25 +61,9 @@ func (c *Config) AuthTTL() (time.Duration, error) {
 	return d, nil
 }
 
-// Save writes config to disk atomically.
-func Save(cfg *Config) error {
-	dir, err := platform.ConfigDir()
-	if err != nil {
-		return err
-	}
-	b, err := yaml.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	final := filepath.Join(dir, "config.yaml")
-	tmp := filepath.Join(dir, ".config.yaml.tmp")
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, final)
-}
-
-// SetKey sets a dotted key like session.auth_ttl or deepseek.model.
+// SetKey sets a dotted configuration key on c. Supported keys: session.auth_ttl,
+// deepseek.base_url, deepseek.model. value is validated before assignment.
+// Errors: time.ParseDuration for auth_ttl; validateDeepseekBaseURL errors; unknown key.
 func (c *Config) SetKey(key, value string) error {
 	switch key {
 	case "session.auth_ttl":
@@ -161,7 +84,8 @@ func (c *Config) SetKey(key, value string) error {
 	return nil
 }
 
-// GetKey returns a config value by dotted key.
+// GetKey returns the string value for a dotted key (session.auth_ttl, deepseek.base_url,
+// deepseek.model). Returns ("", errors.New("unknown config key")) for unsupported keys.
 func (c *Config) GetKey(key string) (string, error) {
 	switch key {
 	case "session.auth_ttl":

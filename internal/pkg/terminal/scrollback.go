@@ -17,7 +17,6 @@
 package terminal
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,9 +31,9 @@ type Buffer struct {
 	data strings.Builder
 }
 
-// Write appends output and keeps the buffer bounded to maxInMemory bytes.
-// The returned n always reflects len(p) so callers behave normally even
-// when the underlying buffer drops older bytes.
+// Write appends p to the scrollback buffer, dropping oldest data to stay within maxInMemory.
+// Returns (len(p), err); n is always len(p) on success so io.Writer callers see normal behavior.
+// Errors: strings.Builder write failures (unexpected).
 func (b *Buffer) Write(p []byte) (int, error) {
 	full := len(p)
 	b.mu.Lock()
@@ -49,32 +48,32 @@ func (b *Buffer) Write(p []byte) (int, error) {
 
 	// Otherwise drop oldest bytes from current content to fit (data + p).
 	if b.data.Len()+len(p) > maxInMemory {
-		s := b.data.String()
-		keep := maxInMemory - len(p)
-		if keep < len(s) {
-			s = trimUTF8Tail(s, keep)
-		}
+		s := trimBufferForAppend(b.data.String(), len(p), maxInMemory)
 		b.data.Reset()
 		b.data.WriteString(s)
 	}
+
 	if _, err := b.data.Write(p); err != nil {
 		return 0, err
 	}
 	return full, nil
 }
 
-// String returns captured output.
+// String returns a copy of all captured terminal output under the buffer lock.
+// b must be non-nil.
 func (b *Buffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.data.String()
 }
 
-// StripSubstrings removes every occurrence of each fragment from the buffer.
+// StripSubstrings removes every occurrence of each non-empty fragment from the buffer.
+// Empty fragments in fragments are ignored.
 func (b *Buffer) StripSubstrings(fragments ...string) {
 	if len(fragments) == 0 {
 		return
 	}
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	s := b.data.String()
@@ -88,65 +87,34 @@ func (b *Buffer) StripSubstrings(fragments ...string) {
 	b.data.WriteString(s)
 }
 
-// RecentLines returns the last n lines without splitting the whole buffer.
+// RecentLines returns the last n logical lines of scrollback (trailing newline ignored).
+// Returns "" when n <= 0 or the buffer is empty.
 func (b *Buffer) RecentLines(n int) string {
 	if n <= 0 {
 		return ""
 	}
+
 	s := b.String()
 	if s == "" {
 		return ""
 	}
-	count := 0
+
 	end := len(s)
 	// Trim trailing newline so it doesn't count as an extra empty line.
 	if end > 0 && s[end-1] == '\n' {
 		end--
 	}
-	i := end
-	for i > 0 {
-		if s[i-1] == '\n' {
-			count++
-			if count == n {
-				return s[i:end]
-			}
-		}
-		i--
-	}
-	return s[:end]
+	return lastNLinesFrom(s, end, n)
 }
 
-// SaveToFile writes scrollback to path.
+// SaveToFile writes the buffer contents to path, creating parent directories (0700) and
+// the file with mode 0600. Errors: MkdirAll or WriteFile failures.
 func (b *Buffer) SaveToFile(path string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	return os.WriteFile(path, []byte(b.data.String()), 0o600)
-}
-
-// LoadFromFile reads scrollback from path (bounded to maxInMemory).
-func LoadFromFile(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, maxInMemory))
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
-// Replay prints scrollback to stdout.
-func Replay(data string) {
-	if data == "" {
-		return
-	}
-	os.Stdout.WriteString(data)
-	if !strings.HasSuffix(data, "\n") {
-		os.Stdout.WriteString("\n")
-	}
 }

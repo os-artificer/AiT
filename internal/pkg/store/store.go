@@ -19,12 +19,11 @@ package store
 import (
 	"database/sql"
 	"errors"
-	"net/url"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -77,7 +76,9 @@ type Store struct {
 	db *sql.DB
 }
 
-// Open opens or creates the database at the default path.
+// Open opens or creates the SQLite session store at the platform default database path.
+// Returns a Store with schema migrated, or an error from platform.DBPath, directory creation,
+// sql.Open, or migrate.
 func Open() (*Store, error) {
 	path, err := platform.DBPath()
 	if err != nil {
@@ -86,38 +87,28 @@ func Open() (*Store, error) {
 	return OpenPath(path)
 }
 
-func buildDSN(path string) string {
-	if path == ":memory:" {
-		return "file::memory:?mode=memory&_pragma=foreign_keys(1)"
-	}
-	u := url.URL{
-		Scheme:   "file",
-		Path:     filepath.ToSlash(path),
-		RawQuery: "_pragma=foreign_keys(1)",
-	}
-	return u.String()
-}
-
-// OpenPath opens SQLite at path (":memory:" for tests).
+// OpenPath opens SQLite at path. Use ":memory:" for in-process tests.
+// path is the database file path; parent directories are created (except for
+// :memory:) with mode 0700. A non-memory file is chmod 0600 after migrate.
+// Returns a Store with schema applied.
+// Errors: directory creation; sql.Open; migrate failure (db is closed).
 func OpenPath(path string) (*Store, error) {
-	if path != ":memory:" {
-		dir := filepath.Dir(path)
-		if dir != "" && dir != "." {
-			if err := os.MkdirAll(dir, 0o700); err != nil {
-				return nil, err
-			}
-		}
+	if err := ensureDBParentDir(path); err != nil {
+		return nil, err
 	}
+
 	db, err := sql.Open("sqlite", buildDSN(path))
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db}
+
 	if err := s.migrate(); err != nil {
 		db.Close()
 		return nil, err
 	}
+
 	if path != ":memory:" {
 		_ = os.Chmod(path, 0o600)
 	}
@@ -162,22 +153,27 @@ func (s *Store) migrate() error {
 	return nil
 }
 
-// Close closes the database.
+// Close closes the underlying database connection.
+// Returns the error from sql.DB.Close, if any.
 func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// UpsertSession inserts or updates a session.
+// UpsertSession inserts a new session or updates an existing row by id.
+// sess must be non-nil with a non-empty ID; CreatedAt is set on first insert and UpdatedAt on every call.
+// Returns a database error from Exec, if any.
 func (s *Store) UpsertSession(sess *Session) error {
 	now := time.Now().Unix()
 	if sess.CreatedAt == 0 {
 		sess.CreatedAt = now
 	}
 	sess.UpdatedAt = now
+
 	tmux := 0
 	if sess.TmuxEnabled {
 		tmux = 1
 	}
+
 	_, err := s.db.Exec(`
 		INSERT INTO sessions (
 			id, alias, host, port, username, identity_path, auth_method,
@@ -195,7 +191,9 @@ func (s *Store) UpsertSession(sess *Session) error {
 	return err
 }
 
-// GetSession loads a session by id or alias (id match takes precedence).
+// GetSession loads a session by UUID id or unique alias. Id lookup takes precedence over alias.
+// Returns the session, ErrSessionNotFound if neither matches, ErrSessionAmbiguous if id and alias
+// refer to different rows, or a database error.
 func (s *Store) GetSession(idOrAlias string) (*Session, error) {
 	byID, errID := s.getSessionWhere(`id = ?`, idOrAlias)
 	if errID == nil {
@@ -205,6 +203,7 @@ func (s *Store) GetSession(idOrAlias string) (*Session, error) {
 		}
 		return byID, nil
 	}
+
 	if !errors.Is(errID, ErrSessionNotFound) {
 		return nil, errID
 	}
@@ -219,29 +218,8 @@ func (s *Store) getSessionWhere(clause string, arg string) (*Session, error) {
 	return scanSession(row)
 }
 
-func scanSession(row *sql.Row) (*Session, error) {
-	var sess Session
-	var alias, identity, tmuxName sql.NullString
-	var tmuxEnabled int
-	err := row.Scan(
-		&sess.ID, &alias, &sess.Host, &sess.Port, &sess.Username,
-		&identity, &sess.AuthMethod, &sess.AuthExpiresAt, &tmuxEnabled,
-		&tmuxName, &sess.CreatedAt, &sess.UpdatedAt, &sess.Status,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrSessionNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	sess.Alias = alias.String
-	sess.IdentityPath = identity.String
-	sess.TmuxSession = tmuxName.String
-	sess.TmuxEnabled = tmuxEnabled == 1
-	return &sess, nil
-}
-
-// ListSessions returns all sessions ordered by updated_at desc.
+// ListSessions returns all saved sessions, newest updated_at first.
+// Returns an empty slice when none exist, or a database error from Query/Scan.
 func (s *Store) ListSessions() ([]*Session, error) {
 	rows, err := s.db.Query(`
 		SELECT id, alias, host, port, username, identity_path, auth_method,
@@ -252,6 +230,7 @@ func (s *Store) ListSessions() ([]*Session, error) {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var out []*Session
 	for rows.Next() {
 		var sess Session
@@ -264,6 +243,7 @@ func (s *Store) ListSessions() ([]*Session, error) {
 		); err != nil {
 			return nil, err
 		}
+
 		sess.Alias = alias.String
 		sess.IdentityPath = identity.String
 		sess.TmuxSession = tmuxName.String
@@ -273,18 +253,22 @@ func (s *Store) ListSessions() ([]*Session, error) {
 	return out, rows.Err()
 }
 
-// DeleteSession removes one session (and its state) in a single transaction.
+// DeleteSession removes a session and its session_state row in one transaction.
+// idOrAlias is resolved via GetSession. Returns ErrSessionNotFound, GetSession errors,
+// or a database/transaction error.
 func (s *Store) DeleteSession(idOrAlias string) error {
 	sess, err := s.GetSession(idOrAlias)
 	if err != nil {
 		return err
 	}
 	id := sess.ID
+
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
 	if _, err := tx.Exec(`DELETE FROM session_state WHERE session_id = ?`, id); err != nil {
 		return err
 	}
@@ -296,32 +280,38 @@ func (s *Store) DeleteSession(idOrAlias string) error {
 	if n == 0 {
 		return ErrSessionNotFound
 	}
+
 	return tx.Commit()
 }
 
-// DeleteSessionState removes only the session_state row for id, if any.
+// DeleteSessionState removes the suspend snapshot for session id, if present.
+// id is the session UUID, not an alias. Returns a database error from Exec, if any.
 func (s *Store) DeleteSessionState(id string) error {
 	_, err := s.db.Exec(`DELETE FROM session_state WHERE session_id = ?`, id)
 	return err
 }
 
-// DeleteAllSessions removes all sessions and state in a single transaction.
+// DeleteAllSessions removes every session and session_state row in one transaction.
+// Returns a database or transaction error; does not return ErrSessionNotFound.
 func (s *Store) DeleteAllSessions() error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
 	if _, err := tx.Exec(`DELETE FROM session_state`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM sessions`); err != nil {
 		return err
 	}
+
 	return tx.Commit()
 }
 
-// SaveSessionState upserts suspend snapshot.
+// SaveSessionState upserts the suspend snapshot for st.SessionID.
+// st must be non-nil with a non-empty SessionID. Returns a database error from Exec, if any.
 func (s *Store) SaveSessionState(st *SessionState) error {
 	_, err := s.db.Exec(`
 		INSERT INTO session_state (session_id, cols, rows, remote_cwd, scrollback_path, suspended_at)
@@ -333,7 +323,8 @@ func (s *Store) SaveSessionState(st *SessionState) error {
 	return err
 }
 
-// GetSessionState loads suspend snapshot.
+// GetSessionState loads the suspend snapshot for sessionID.
+// Returns (nil, nil) when no snapshot exists, the state, or a database error other than no rows.
 func (s *Store) GetSessionState(sessionID string) (*SessionState, error) {
 	row := s.db.QueryRow(`
 		SELECT session_id, cols, rows, remote_cwd, scrollback_path, suspended_at
@@ -349,6 +340,7 @@ func (s *Store) GetSessionState(sessionID string) (*SessionState, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if cols.Valid {
 		st.Cols = int(cols.Int64)
 	}
@@ -360,7 +352,8 @@ func (s *Store) GetSessionState(sessionID string) (*SessionState, error) {
 	return &st, nil
 }
 
-// SetMeta sets an app_meta key.
+// SetMeta sets or replaces an application metadata key (e.g. MetaCurrentSession).
+// Returns a database error from Exec, if any.
 func (s *Store) SetMeta(key, value string) error {
 	_, err := s.db.Exec(`
 		INSERT INTO app_meta (key, value) VALUES (?, ?)
@@ -369,7 +362,8 @@ func (s *Store) SetMeta(key, value string) error {
 	return err
 }
 
-// GetMeta gets an app_meta key.
+// GetMeta returns the value for key, or "" when the key is absent.
+// Returns a database error from QueryRow other than sql.ErrNoRows.
 func (s *Store) GetMeta(key string) (string, error) {
 	var v string
 	err := s.db.QueryRow(`SELECT value FROM app_meta WHERE key = ?`, key).Scan(&v)
@@ -379,23 +373,18 @@ func (s *Store) GetMeta(key string) (string, error) {
 	return v, err
 }
 
-// UpdateStatus updates session status.
+// UpdateStatus sets status and updated_at for session id.
+// id is the session UUID. Returns a database error from Exec, if any.
 func (s *Store) UpdateStatus(id, status string) error {
 	_, err := s.db.Exec(`UPDATE sessions SET status=?, updated_at=? WHERE id=?`,
 		status, time.Now().Unix(), id)
 	return err
 }
 
-// RefreshAuthExpiry updates auth_expires_at.
+// RefreshAuthExpiry sets auth_expires_at and updated_at for session id.
+// expiresAt is Unix seconds. Returns a database error from Exec, if any.
 func (s *Store) RefreshAuthExpiry(id string, expiresAt int64) error {
 	_, err := s.db.Exec(`UPDATE sessions SET auth_expires_at=?, updated_at=? WHERE id=?`,
 		expiresAt, time.Now().Unix(), id)
 	return err
-}
-
-func nullStr(s string) interface{} {
-	if s == "" {
-		return nil
-	}
-	return s
 }

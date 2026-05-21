@@ -8,6 +8,7 @@ trim_trailing_whitespace = true
 
 [{*.go,Makefile,.gitmodules,go.mod,go.sum}]
 indent_style = tab
+max_line_length = 150
 
 [*.md]
 indent_style = tab

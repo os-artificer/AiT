@@ -48,6 +48,7 @@ var ringOpen = defaultOpen
 
 func defaultOpen() (keyring.Keyring, error) {
 	cfg := keyring.Config{ServiceName: serviceName}
+
 	if os.Getenv(envBackend) == "file" {
 		dir := os.Getenv(envFileDir)
 		if dir == "" {
@@ -62,29 +63,34 @@ func defaultOpen() (keyring.Keyring, error) {
 			return "ait-test", nil
 		}
 	}
+
 	return keyring.Open(cfg)
 }
 
 func openRing() (keyring.Keyring, error) { return ringOpen() }
 
-// SetSessionUnlock stores unlock material for a session (password/passphrase).
+// SetSessionUnlock stores password or key passphrase for sessionID in the OS keyring.
+// Returns keyring open or Set errors.
 func SetSessionUnlock(sessionID, secret string) error {
 	kr, err := openRing()
 	if err != nil {
 		return err
 	}
+
 	return kr.Set(keyring.Item{
 		Key:  sessionKey(sessionID),
 		Data: []byte(secret),
 	})
 }
 
-// GetSessionUnlock retrieves unlock material.
+// GetSessionUnlock returns stored unlock material for sessionID.
+// Returns the secret, or keyring open/Get errors (including keyring.ErrKeyNotFound).
 func GetSessionUnlock(sessionID string) (string, error) {
 	kr, err := openRing()
 	if err != nil {
 		return "", err
 	}
+
 	item, err := kr.Get(sessionKey(sessionID))
 	if err != nil {
 		return "", err
@@ -92,12 +98,14 @@ func GetSessionUnlock(sessionID string) (string, error) {
 	return string(item.Data), nil
 }
 
-// DeleteSessionUnlock removes unlock material for a session.
+// DeleteSessionUnlock removes unlock material for sessionID from the keyring.
+// Returns keyring open or Remove errors.
 func DeleteSessionUnlock(sessionID string) error {
 	kr, err := openRing()
 	if err != nil {
 		return err
 	}
+
 	return kr.Remove(sessionKey(sessionID))
 }
 
@@ -105,24 +113,28 @@ func sessionKey(sessionID string) string {
 	return fmt.Sprintf("session/%s/unlock", sessionID)
 }
 
-// SetDeepseekAPIKey stores the Deepseek API key.
+// SetDeepseekAPIKey stores the Deepseek API key in the OS keyring.
+// Returns keyring open or Set errors.
 func SetDeepseekAPIKey(key string) error {
 	kr, err := openRing()
 	if err != nil {
 		return err
 	}
+
 	return kr.Set(keyring.Item{
 		Key:  "deepseek/api_key",
 		Data: []byte(key),
 	})
 }
 
-// GetDeepseekAPIKey retrieves the Deepseek API key.
+// GetDeepseekAPIKey returns the Deepseek API key from the OS keyring.
+// Returns the key, or keyring open/Get errors (including keyring.ErrKeyNotFound).
 func GetDeepseekAPIKey() (string, error) {
 	kr, err := openRing()
 	if err != nil {
 		return "", err
 	}
+
 	item, err := kr.Get("deepseek/api_key")
 	if err != nil {
 		return "", err

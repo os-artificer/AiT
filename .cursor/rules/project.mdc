@@ -18,9 +18,11 @@ Go CLI (**AI Terminal**). Module: `github.com/os-artificer/AiT`.
 - `internal/ait`: application entry (`Run`, CLI, core logic)
 - `pkg/`: only code meant for external import
 - Follow per-directory `README.md` for `api/`, `configs/`, `deployments/`, etc.
+- Product docs: [AGENTS.md](AGENTS.md), [docs/exec-plans/design.md](docs/exec-plans/design.md); archive Cursor plans to [docs/exec-plans/](docs/exec-plans/) per [docs-exec-plans.mdc](docs-exec-plans.mdc)
 
 ## Scope
 
+- Go code generation/refactoring: follow [go-structure.mdc](go-structure.mdc) (import order, file layout, constants, exported godoc, line length, nesting, readability, function block spacing)
 - Match existing style (tabs in Go, `.editorconfig`)
 - No drive-by refactors; no new markdown unless asked
 - Do not commit unless the user requests it

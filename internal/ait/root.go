@@ -14,44 +14,29 @@
  * limitations under the License.
 **/
 
-// Package ait implements the AiT CLI application.
+// Package ait implements the AiT CLI application entry.
 package ait
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/os-artificer/AiT/internal/ait/cli"
+	"github.com/os-artificer/AiT/internal/ait/login"
 )
 
-func newRootCmd() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "ait",
-		Short:         "AiT — AI Terminal (SSH client)",
-		Long:          "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant.",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.AddCommand(
-		newShellCmd(),
-		newLoginCmd(),
-		newListCmd(),
-		newLoadCmd(),
-		newSuspendCmd(),
-		newSyncCmd(),
-		newConfigCmd(),
-		newSessionCmd(),
-	)
-	return root
-}
-
 // Run is the application entry invoked from cmd/ait.
+// args are os.Args[1:] passed to the Cobra root command.
+// Returns Cobra RunE errors (login, session, sync, etc.) printed to stderr before return.
 func Run(args []string) error {
-	root := newRootCmd()
-	root.SetArgs(args)
-	if err := root.Execute(); err != nil {
+	if err := cli.Execute(args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 	return nil
+}
+
+// ExitCode returns the process exit code if err is from a remote command.
+func ExitCode(err error) (int, bool) {
+	return login.ExitCode(err)
 }

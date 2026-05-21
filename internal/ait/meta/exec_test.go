@@ -1,0 +1,98 @@
+/**
+ * Copyright 2026 AiT authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+**/
+
+package meta
+
+import (
+	"bytes"
+	"io"
+	"os"
+	"strings"
+	"testing"
+)
+
+func TestPrintMetaHelp(t *testing.T) {
+	var buf bytes.Buffer
+	PrintMetaHelp(&buf)
+	out := buf.String()
+	for _, want := range []string{"help", "ai <question>", "local", "suspend", "!ait list", "ait shell"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help missing %q:\n%s", want, out)
+		}
+	}
+	if !strings.Contains(out, "\r\n") {
+		t.Error("help should use CRLF")
+	}
+}
+
+func TestExecuteHelp(t *testing.T) {
+	SetExecutorWriters(func([]string, io.Writer, io.Writer) error { return nil })
+	if err := Execute(nil); err != nil {
+		t.Fatalf("Execute(nil): %v", err)
+	}
+	if err := Execute([]string{"help"}); err != nil {
+		t.Fatalf("Execute(help): %v", err)
+	}
+}
+
+func TestExecuteBlockedLogin(t *testing.T) {
+	err := Execute([]string{"login", "--host", "h"})
+	if err == nil {
+		t.Fatal("expected error for login in session")
+	}
+	if !strings.Contains(err.Error(), "exit the SSH") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestExecuteSubcommandUsesCRLFStdout(t *testing.T) {
+	SetExecutorWriters(func(args []string, stdout, _ io.Writer) error {
+		if len(args) != 1 || args[0] != "list" {
+			t.Fatalf("args=%v", args)
+		}
+		if _, ok := stdout.(*crlfWriter); !ok {
+			t.Fatalf("stdout type %T, want *crlfWriter", stdout)
+		}
+		_, err := io.WriteString(stdout, "ID\tTARGET\nrow1\tu@h:22\nrow2\tu@h:22\n")
+		return err
+	})
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+
+	err = Execute([]string{"list"})
+	w.Close()
+	os.Stdout = oldStdout
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	_ = r.Close()
+
+	got := buf.String()
+	if !strings.Contains(got, "\r\n") {
+		t.Fatalf("stdout missing CRLF: %q", got)
+	}
+	if strings.Count(got, "\r\n") < 3 {
+		t.Fatalf("want at least 3 CRLF lines, got %q", got)
+	}
+}

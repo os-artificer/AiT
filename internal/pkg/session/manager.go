@@ -25,21 +25,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
-	"github.com/os-artificer/AiT/internal/pkg/sshclient"
+	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
-	"golang.org/x/term"
+
+	"github.com/google/uuid"
 )
 
 // LoginOpts for new connection.
@@ -73,14 +72,9 @@ type Manager struct {
 	MetaCLI func(args []string) error
 }
 
-func normalizePort(port int) int {
-	if port == 0 {
-		return 22
-	}
-	return port
-}
-
-// Login connects and saves session (or runs a one-shot remote command).
+// Login dials the remote host, runs an interactive shell or a one-shot remote command, and persists a session profile.
+// ctx cancels dial and interactive I/O. opts must include Host; RemoteCommand and Tmux cannot be combined.
+// Returns dial/auth errors, store errors, fmt.Errorf for invalid flag combinations, or sshclient.RemoteExitError for one-shot exits.
 func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	opts.Port = normalizePort(opts.Port)
 	if len(opts.RemoteCommand) > 0 && opts.Tmux {
@@ -108,35 +102,6 @@ func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	return m.loginInteractive(ctx, client, opts, sshOpts)
 }
 
-func shouldPromptSSHPassword(sshOpts sshclient.Options, cliPassword string) bool {
-	if sshOpts.BatchMode || cliPassword != "" {
-		return false
-	}
-	if sshOpts.IdentityExplicit {
-		return false
-	}
-	return true
-}
-
-func isSSHAuthFailure(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "knownhosts") ||
-		strings.Contains(msg, "host key") ||
-		strings.Contains(msg, "hostkey") ||
-		strings.Contains(msg, "key is unknown") ||
-		strings.Contains(msg, "host key verification failed") ||
-		strings.Contains(msg, "possible mitm") {
-		return false
-	}
-	return strings.Contains(msg, "unable to authenticate") ||
-		strings.Contains(msg, "permission denied") ||
-		strings.Contains(msg, "no supported authentication") ||
-		strings.Contains(msg, "no authentication method")
-}
-
 func (m *Manager) dialLogin(sshOpts sshclient.Options, password, host string) (*sshclient.Client, error) {
 	client, err := sshclient.DialChain(sshOpts)
 	if err != nil && shouldPromptSSHPassword(sshOpts, password) && isSSHAuthFailure(err) {
@@ -158,6 +123,7 @@ func (m *Manager) loginRunOnce(ctx context.Context, client *sshclient.Client, op
 			return err
 		}
 	}
+
 	cmdline := sshclient.BuildRemoteCommandLine(opts.RemoteCommand)
 	return client.RunRemoteCommand(ctx, cmdline)
 }
@@ -196,6 +162,7 @@ func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client
 	if err := m.Store.UpsertSession(sess); err != nil {
 		return err
 	}
+
 	if opts.Password != "" {
 		_ = creds.SetSessionUnlock(id, opts.Password)
 	}
@@ -224,6 +191,7 @@ func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts) 
 			id = existing.ID
 		}
 	}
+
 	ttl, _ := m.Config.AuthTTL()
 	expires := time.Now().Add(ttl).Unix()
 	sess := &store.Session{
@@ -234,7 +202,9 @@ func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts) 
 	return m.Store.UpsertSession(sess)
 }
 
-// Load restores a saved session.
+// Load reconnects to a saved session by id or alias, optionally enabling tmux and supplying a password override.
+// ctx cancels dial and the interactive session. password, when non-empty, is cached in the keyring after a successful dial.
+// Returns store.ErrSessionNotFound, resolve/dial errors, tmux.Ensure errors, or errors from the interactive loop.
 func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, password string) error {
 	sess, err := m.Store.GetSession(idOrAlias)
 	if err != nil {
@@ -246,6 +216,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 			return err
 		}
 	}
+
 	pass, prompted, err := m.resolvePassword(sess, password)
 	if err != nil {
 		return err
@@ -258,6 +229,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	if err != nil {
 		return err
 	}
+
 	// Only cache freshly-entered passwords (CLI flag override OR interactive
 	// prompt) after a successful dial. Reusing a keyring-cached password
 	// must not rewrite the same value. TTL is refreshed only when the user
@@ -269,15 +241,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	}
 
 	st, _ := m.Store.GetSessionState(sess.ID)
-	if st != nil && st.ScrollbackPath != "" {
-		if dir, derr := platform.ScrollbackDir(); derr == nil {
-			if path, perr := terminal.ResolveScrollbackPath(dir, st.ScrollbackPath); perr == nil {
-				if data, lerr := terminal.LoadFromFile(path); lerr == nil {
-					terminal.Replay(data)
-				}
-			}
-		}
-	}
+	m.replayScrollbackIfPresent(st)
 
 	var initialCmds []string
 	initialCmds = append(sshclient.RemotePromptInitialCommands(sess.Username, sess.Host), initialCmds...)
@@ -300,16 +264,20 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	return m.runInteractive(ctx, client, sess, initialCmds)
 }
 
-// SSHOptionsForSession builds dial options for a saved session (e.g. sync).
+// SSHOptionsForSession builds sshclient.Options for a saved session (e.g. ait sync).
+// idOrAlias is resolved via the store; passwordOverride bypasses the keyring when non-empty.
+// Returns sshclient.Options and store lookup or password-resolution errors.
 func (m *Manager) SSHOptionsForSession(idOrAlias, passwordOverride string) (sshclient.Options, error) {
 	sess, err := m.Store.GetSession(idOrAlias)
 	if err != nil {
 		return sshclient.Options{}, err
 	}
+
 	pass, _, err := m.resolvePassword(sess, passwordOverride)
 	if err != nil {
 		return sshclient.Options{}, err
 	}
+
 	return sshclient.Options{
 		Host: sess.Host, Port: normalizePort(sess.Port), User: sess.Username,
 		IdentityPath: sess.IdentityPath, Password: pass, UseAgent: true,
@@ -329,10 +297,12 @@ func (m *Manager) removeScrollbackFile(stored string) {
 	if err != nil {
 		return
 	}
+
 	path, err := terminal.ResolveScrollbackPath(dir, stored)
 	if err != nil {
 		return
 	}
+
 	_ = os.Remove(path)
 }
 
@@ -344,11 +314,13 @@ func (m *Manager) resolvePassword(sess *store.Session, override string) (string,
 	if override != "" {
 		return override, true, nil
 	}
+
 	if time.Now().Unix() <= sess.AuthExpiresAt {
 		if p, err := creds.GetSessionUnlock(sess.ID); err == nil && p != "" {
 			return p, false, nil
 		}
 	}
+
 	if sess.AuthMethod == store.AuthMethodPassword {
 		p, err := promptPassword(fmt.Sprintf("Password for %s@%s (auth expired): ", sess.Username, sess.Host))
 		if err != nil {
@@ -356,6 +328,7 @@ func (m *Manager) resolvePassword(sess *store.Session, override string) (string,
 		}
 		return p, true, nil
 	}
+
 	if sess.IdentityPath != "" {
 		p, err := promptPassword(fmt.Sprintf("Passphrase for key %s (auth expired): ", sess.IdentityPath))
 		if err != nil {
@@ -364,16 +337,6 @@ func (m *Manager) resolvePassword(sess *store.Session, override string) (string,
 		return p, true, nil
 	}
 	return "", false, nil
-}
-
-func promptPassword(msg string) (string, error) {
-	fmt.Fprint(os.Stderr, msg)
-	b, err := term.ReadPassword(int(syscall.Stdin))
-	fmt.Fprintln(os.Stderr)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
 }
 
 func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, sess *store.Session, initialCmds []string) error {
@@ -385,6 +348,7 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 	if err := m.Store.UpdateStatus(sess.ID, store.StatusActive); err != nil {
 		return err
 	}
+
 	err := client.RunInteractive(ctx, sshclient.InteractiveOpts{
 		SessionID:       sess.ID,
 		TmuxEnabled:     sess.TmuxEnabled,
@@ -407,10 +371,12 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 	if err != nil {
 		return err
 	}
+
 	path := filepath.Join(dir, id+".log")
 	if err := scroll.SaveToFile(path); err != nil {
 		return err
 	}
+
 	st := &store.SessionState{
 		SessionID: id, Cols: cols, Rows: rows,
 		RemoteCwd: cwd, ScrollbackPath: terminal.ScrollbackFileName(id), SuspendedAt: time.Now().Unix(),
@@ -418,10 +384,12 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 	if err := m.Store.SaveSessionState(st); err != nil {
 		return err
 	}
+
 	return m.Store.UpdateStatus(id, store.StatusSuspended)
 }
 
-// SuspendCurrent explains how to suspend when invoked from the local shell.
+// SuspendCurrent prints guidance when suspend is requested from the local AiT shell (not inside SSH).
+// Returns fmt.Errorf when no current session is recorded in store meta.
 func (m *Manager) SuspendCurrent() error {
 	id, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if id == "" {
@@ -432,19 +400,21 @@ func (m *Manager) SuspendCurrent() error {
 	return nil
 }
 
-// Switch changes from current session to target. The target may be an ID or
-// alias; it is resolved before any state change so that comparisons against
-// the persisted current_session_id (always a UUID) are correct.
+// Switch moves the active session to target (id or alias), optionally forcing past an still-active current session.
+// ctx, useTmux, and password behave like Load. force skips the active-session guard and marks the current row suspended.
+// Returns store lookup errors, fmt.Errorf when the current session is active and force is false, or Load errors.
 func (m *Manager) Switch(ctx context.Context, target string, useTmux bool, password string, force bool) error {
 	tgt, err := m.Store.GetSession(target)
 	if err != nil {
 		return err
 	}
+
 	current, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if current == tgt.ID {
 		fmt.Println("already on session", tgt.AliasOrID())
 		return nil
 	}
+
 	if current != "" {
 		cur, gerr := m.Store.GetSession(current)
 		switch {
@@ -453,20 +423,17 @@ func (m *Manager) Switch(ctx context.Context, target string, useTmux bool, passw
 			// Switch/Load doesn't re-run this lookup.
 			_ = m.Store.SetMeta(store.MetaCurrentSession, "")
 		case gerr == nil && cur.Status == store.StatusActive:
-			if !force {
-				return fmt.Errorf(
-					"current session %s is still active; suspend it first inside SSH with !ait suspend, or use --force",
-					cur.AliasOrID(),
-				)
+			if err := m.warnOrBlockActiveSwitch(cur, force); err != nil {
+				return err
 			}
-			fmt.Fprintln(os.Stderr, "warning: switching without suspend; marking current session suspended")
-			_ = m.Store.UpdateStatus(cur.ID, store.StatusSuspended)
 		}
 	}
+
 	return m.Load(ctx, tgt.ID, useTmux || tgt.TmuxEnabled, password)
 }
 
-// PickSession interactively lists sessions.
+// PickSession lists saved sessions on stdout and reads a selection from stdin.
+// Returns the chosen session UUID, fmt.Errorf for empty/invalid input or no sessions, or store list errors.
 func (m *Manager) PickSession() (string, error) {
 	list, err := m.Store.ListSessions()
 	if err != nil {
@@ -475,9 +442,11 @@ func (m *Manager) PickSession() (string, error) {
 	if len(list) == 0 {
 		return "", fmt.Errorf("no saved sessions")
 	}
+
 	for i, s := range list {
 		fmt.Printf("  %d) %s  %s@%s:%d  [%s]\n", i+1, s.AliasOrID(), s.Username, s.Host, s.Port, s.Status)
 	}
+
 	fmt.Print("Select session (number, id, or alias): ")
 	reader := bufio.NewReader(os.Stdin)
 	line, err := reader.ReadString('\n')
@@ -488,6 +457,7 @@ func (m *Manager) PickSession() (string, error) {
 	if line == "" {
 		return "", fmt.Errorf("invalid selection")
 	}
+
 	var n int
 	if _, err := fmt.Sscanf(line, "%d", &n); err == nil {
 		if n < 1 || n > len(list) {
@@ -501,12 +471,14 @@ func (m *Manager) PickSession() (string, error) {
 	return "", fmt.Errorf("invalid selection")
 }
 
-// Delete removes one session.
+// Delete removes one session after optional confirmation (unless force is true).
+// Clears keyring unlock material and scrollback sidecar files. Returns store lookup/delete errors.
 func (m *Manager) Delete(idOrAlias string, force bool) error {
 	sess, err := m.Store.GetSession(idOrAlias)
 	if err != nil {
 		return err
 	}
+
 	if !force {
 		fmt.Printf("Delete session %s (%s@%s)? [y/N] ", sess.AliasOrID(), sess.Username, sess.Host)
 		reader := bufio.NewReader(os.Stdin)
@@ -516,6 +488,7 @@ func (m *Manager) Delete(idOrAlias string, force bool) error {
 			return nil
 		}
 	}
+
 	st, _ := m.Store.GetSessionState(sess.ID)
 	if st != nil && st.ScrollbackPath != "" {
 		m.removeScrollbackFile(st.ScrollbackPath)
@@ -525,10 +498,12 @@ func (m *Manager) Delete(idOrAlias string, force bool) error {
 	if current == sess.ID {
 		_ = m.Store.SetMeta(store.MetaCurrentSession, "")
 	}
+
 	return m.Store.DeleteSession(sess.ID)
 }
 
-// DeleteAll removes all sessions.
+// DeleteAll removes every session after optional confirmation (unless force is true).
+// Clears per-session keyring entries and scrollback files. Returns store.DeleteAllSessions errors.
 func (m *Manager) DeleteAll(force bool) error {
 	if !force {
 		fmt.Print("Delete ALL sessions? [y/N] ")
@@ -539,6 +514,7 @@ func (m *Manager) DeleteAll(force bool) error {
 			return nil
 		}
 	}
+
 	list, _ := m.Store.ListSessions()
 	for _, s := range list {
 		st, _ := m.Store.GetSessionState(s.ID)
@@ -547,11 +523,13 @@ func (m *Manager) DeleteAll(force bool) error {
 		}
 		_ = creds.DeleteSessionUnlock(s.ID)
 	}
+
 	_ = m.Store.SetMeta(store.MetaCurrentSession, "")
 	return m.Store.DeleteAllSessions()
 }
 
-// List prints sessions to w as a left-aligned table.
+// List writes a tab-separated table of saved sessions to w (or a short message when empty).
+// Returns store.ListSessions or tabwriter flush errors.
 func (m *Manager) List(w io.Writer) error {
 	list, err := m.Store.ListSessions()
 	if err != nil {
@@ -561,6 +539,7 @@ func (m *Manager) List(w io.Writer) error {
 		fmt.Fprintln(w, "No saved sessions.")
 		return nil
 	}
+
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "ID\tTARGET\tSTATUS\tTMUX\tREMAINING")
 	now := time.Now().Unix()
@@ -578,8 +557,4 @@ func (m *Manager) List(w io.Writer) error {
 			s.AliasOrID(), s.Username, s.Host, s.Port, s.Status, tmuxCol, remainingLabel)
 	}
 	return tw.Flush()
-}
-
-func quotePath(p string) string {
-	return pathsafe.QuoteShellSingle(p)
 }

@@ -23,12 +23,14 @@ import (
 	"strings"
 )
 
-// LookPath wraps exec.LookPath.
+// LookPath searches PATH for name using exec.LookPath.
+// Returns the executable path, or exec.ErrNotFound when absent.
 func LookPath(name string) (string, error) {
 	return exec.LookPath(name)
 }
 
-// OSDescription returns a short OS description for AI prompts.
+// OSDescription returns a short OS description string for AI prompts (sw_vers, ver, /etc/os-release, or GOOS).
+// Never fails; falls back to runtime.GOOS when probes are unavailable.
 func OSDescription() string {
 	switch runtime.GOOS {
 	case "darwin":
