@@ -39,7 +39,7 @@ AiT 是 Go CLI，目录遵循 [golang-standards/project-layout](https://github.c
 |------|------|
 | [`cmd/ait`](cmd/ait) | 主程序入口；**仅**保留极简 `main` |
 | [`internal/ait`](internal/ait) | 应用入口（`Run`、Cobra CLI、`ait shell` REPL 等） |
-| [`internal/pkg/*`](internal/pkg) | 实现库：`store`、`session`、`ssh`、`ai`、`sync`、`config`、`creds` 等 |
+| [`internal/pkg/*`](internal/pkg) | 实现库：`store`、`session`、`ssh`、`ai`、`transfer`、`config`、`creds` 等 |
 | [`pkg/`](pkg/) | 仅供**外部模块**导入的库（当前为空） |
 | [`configs/`](configs/) | 配置模板（如 `ait.example.yaml`） |
 

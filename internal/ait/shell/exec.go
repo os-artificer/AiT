@@ -43,7 +43,7 @@ func PrintHelp(w io.Writer) {
 	const rest = `
   load <id|alias> [--tmux] [--password P]
   list              list saved sessions
-  config, sync, session, suspend  — same as: ait <command> ...
+  config, get, put, session, suspend  — same as: ait <command> ...
 
 Prompts:
   AiT>              not connected (this shell)
@@ -52,7 +52,7 @@ Prompts:
 
 Examples:
   login myserver
-  login -p 2222 root@192.168.1.1 -i ~/.ssh/id_rsa
+  login -p 22 root@192.168.1.1 -i ~/.ssh/id_rsa
   login -J bastion internal.host uptime
   login --alias prod --tmux user@prod
   login --host 192.168.1.1 --user root

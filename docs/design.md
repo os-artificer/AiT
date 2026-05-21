@@ -22,7 +22,8 @@ ait suspend                   # Suspend interactively; with --tmux, detach remot
 ait session switch [id|alias] # Switch to another session; interactive picker when omitted
 ait session delete all        # Delete all saved sessions and local sidecars
 ait session delete <id|alias> # Delete one session
-ait sync <src> <dst> [--session ID]
+ait get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like login (see get/put section)
+ait put [ssh-flags] <paths...>
 ait config set|get ...        # Includes session.auth_ttl (default 168h = 7 days)
 ```
 
@@ -59,7 +60,7 @@ flowchart TB
     Creds[creds keyring]
     Config[config yaml]
     Plat[platform paths openssh]
-    Sync[sync rsync sftp]
+    Transfer[transfer sftp]
     PathSafe[pathsafe paths]
     Tmux[tmux remote]
   end
@@ -71,12 +72,11 @@ flowchart TB
   Sess --> Term
   Sess --> Tmux
   Commands --> AI
-  Commands --> Sync
+  Commands --> Transfer
   Commands --> Config
   SSHArgs --> Plat
   SSHArgs --> SSH
-  Sync --> Plat
-  Sync --> SSH
+  Transfer --> SSH
   AI --> Creds
   AI --> Config
   AI --> Plat
@@ -214,7 +214,7 @@ CREATE TABLE app_meta (
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback.go`, `scrollback_io.go`, `path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Deepseek | `client.go`, `client_helpers.go` |
-| [`internal/pkg/sync/`](../internal/pkg/sync/) | rsync/scp/SFTP | `sync.go` |
+| [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file) | `transfer.go`, `parse.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | Data dirs, OpenSSH, `LookPath` | `paths.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML config | `config.go`, `config_load.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
@@ -230,7 +230,7 @@ CREATE TABLE app_meta (
 | Scenario | Prompt | How it is set |
 |----------|--------|----------------|
 | `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt.go) |
-| SSH remote | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) injected after `load`/`login` |
+| SSH remote | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) single-line inject after `load`/`login`; setup does not printf the prompt remotely—local writes it once and `copyOut` drops a duplicate precmd line (no extra Enter); filter hides setup echo (independent of standalone `ait get`/`put` SFTP) |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode.go`](../internal/pkg/ssh/client/localmode.go)) |
 
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.
@@ -248,6 +248,8 @@ Implementation: [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/c
 | `!ait local` | Enter local mode (below) |
 | `!ait remote` | Leave local mode; restore remote stdin |
 | `!ait suspend` | Suspend session (same as CLI `suspend`) |
+| `!ait get <remote> <local>` | Download one file via SFTP on the **current** SSH connection (no re-auth) |
+| `!ait put <local> <remote>` | Upload one file via SFTP on the **current** SSH connection (no re-auth) |
 
 **Detection rules:**
 
@@ -377,13 +379,24 @@ sequenceDiagram
 - Deterministic session name `ait-<session_id>` avoids colliding with manual tmux sessions
 - Windows clients may still `load --tmux`; remote hosts are typically Linux/macOS
 
-### sync
+### get / put
 
-1. `LookPath("rsync")` → if present, build `rsync -e ssh …` (session host/user/identity injected into `-e`)
-2. Else `scp`; else **built-in SFTP** (`ssh.NewSFTPClient` or `pkg/sftp`)
-3. If all unavailable or execution fails because the command is missing → `ai.SuggestInstall`
+Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over `golang.org/x/crypto/ssh`). **Single regular files only**; directories return a clear error. **`Put`** calls SFTP `MkdirAll` on the remote parent directory before `Create`. Errors are wrapped with `local file` / `remote file` prefixes; remote `IsNotExist` includes a hint to check the remote path and parent directory (SFTP servers often report `file does not exist` when a parent path is missing).
 
-Path semantics: `user@host:/path` versus local paths match `scp`; `--session` reuses saved connection parameters.
+| Mode | Command | Authentication |
+|------|---------|----------------|
+| Standalone CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/args/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/args/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go) (same auth path as login, including password prompt) |
+| In SSH session | `!ait get …` / `!ait put …` | Reuses the live connection from [`handleMetaLine`](../internal/pkg/ssh/client/client.go) / [`client_transfer.go`](../internal/pkg/ssh/client/client_transfer.go); **no second dial** |
+
+**Standalone flags and paths** (flags and paths may appear in **any order**; glued forms such as `-p22`, `-i~/.ssh/id` are supported):
+
+- OpenSSH-compatible: `-p`, `-l`, `-i`, `-F`, `-J`, `-o`, legacy `--host`/`--user`/`--port`/`--identity`, plus `--password`
+- AiT: `--session <id|alias>` (saved session; remote path may be bare `/path` on that host)
+- **Two paths**: `user@host:/remote/file` + local path, in either order
+- **Three paths**: `destination` + remote file path + local path (any order), e.g. `ait get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
+- **Two paths + `--session`**: local and remote server paths (order-independent; local path detected via `./` prefix or existing local file)
+
+**In-session** (`!ait get` / `!ait put`): two server-relative paths only; no SSH flags.
 
 ### AI assistant (in-session)
 
@@ -397,8 +410,8 @@ Aligned with [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ai
 
 | Platform | PTY / terminal | Data dir | Common missing commands |
 |----------|----------------|----------|-------------------------|
-| Linux | creack/pty plus raw mode | XDG data home | rsync package `rsync` |
-| macOS | Same | Application Support | `brew install rsync` |
+| Linux | creack/pty plus raw mode | XDG data home | `tmux` on remote when using `--tmux` |
+| macOS | Same | Application Support | `brew install tmux` (remote) |
 | Windows | ConPTY; OpenSSH bundled | LocalAppData | `winget` / OpenSSH optional feature |
 
 Build tags: `//go:build linux || darwin` versus `windows` split PTY implementations; `make test` runs full suite on Linux CI; Windows targets must at least pass `go build`.
@@ -412,7 +425,7 @@ Direct dependencies:
 - `golang.org/x/crypto/ssh`, `golang.org/x/term` — SSH and terminal
 - `github.com/99designs/keyring` — secret/password cache
 - `github.com/google/uuid` — session IDs
-- `github.com/pkg/sftp` — sync SFTP fallback
+- `github.com/pkg/sftp` — file transfer (get/put)
 - `github.com/sashabaranov/go-openai` — Deepseek (OpenAI-compatible)
 - `gopkg.in/yaml.v3` — configuration
 
@@ -429,7 +442,7 @@ Prefer stdlib plus `x/` extensions when adding dependencies; follow project rule
 | `ssh/args` | parse/resolve, `ssh -G` (skip when local `ssh` unavailable) |
 | `session` | TTL/password prompt logic |
 | `ait` | REPL, shell line parsing, login help |
-| `terminal`, `ai`, `config`, `sync`, `platform`, `pathsafe` | Unit tests |
+| `terminal`, `ai`, `config`, `transfer`, `platform`, `pathsafe` | Unit tests |
 
 Gates: `make test`, `make vet`; `make test-cross` runs windows/darwin `go build`.
 
@@ -441,7 +454,7 @@ Capabilities implemented in the current tree:
 - [x] `login` / interactive SSH, `ssh/args` plus `ssh/client` (including ProxyJump/Command)
 - [x] `suspend` / `list` / `load` / `session switch` / `session delete`
 - [x] `--tmux` remote keep-alive
-- [x] `sync` (rsync → scp → SFTP) and in-session AI (`!ait ai` / `!!`)
+- [x] `get` / `put` (SFTP, single file) and in-session AI (`!ait ai` / `!!`)
 - [x] Cross-platform builds (including Windows OpenSSH probing, split proxy/resize files)
 
 ## Risks and mitigations

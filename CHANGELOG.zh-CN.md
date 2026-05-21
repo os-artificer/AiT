@@ -14,8 +14,12 @@
 - 可选远程 `--tmux` 保活（`ait-<session_id>`）
 - 会话内 `!ait`：`ai` / `!!`、`local` / `remote`、`suspend` 与 help
 - Deepseek 助手（`!ait ai`）
-- 文件同步 `ait sync`（rsync → scp → SFTP 回退）
+- 文件传输 `ait get` / `ait put`（SFTP，单文件）；会话内 `!ait get` / `!ait put`
 - 本地入口 `ait shell` REPL（`AiT>` 提示符）
+
+### 【变更】
+
+- **破坏性变更：** 移除 `ait sync`，请改用 `ait get` / `ait put`
 
 ### 【优化】
 

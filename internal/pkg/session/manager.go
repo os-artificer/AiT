@@ -102,6 +102,12 @@ func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	return m.loginInteractive(ctx, client, opts, sshOpts)
 }
 
+// DialSSH connects with DialChain and prompts for a password when authentication fails and no password was supplied.
+// hostLabel is used only in the password prompt (e.g. user@host).
+func (m *Manager) DialSSH(sshOpts sshclient.Options, passwordOverride, hostLabel string) (*sshclient.Client, error) {
+	return m.dialLogin(sshOpts, passwordOverride, hostLabel)
+}
+
 func (m *Manager) dialLogin(sshOpts sshclient.Options, password, host string) (*sshclient.Client, error) {
 	client, err := sshclient.DialChain(sshOpts)
 	if err != nil && shouldPromptSSHPassword(sshOpts, password) && isSSHAuthFailure(err) {
@@ -264,7 +270,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	return m.runInteractive(ctx, client, sess, initialCmds)
 }
 
-// SSHOptionsForSession builds sshclient.Options for a saved session (e.g. ait sync).
+// SSHOptionsForSession builds sshclient.Options for a saved session (e.g. ait get, ait put).
 // idOrAlias is resolved via the store; passwordOverride bypasses the keyring when non-empty.
 // Returns sshclient.Options and store lookup or password-resolution errors.
 func (m *Manager) SSHOptionsForSession(idOrAlias, passwordOverride string) (sshclient.Options, error) {

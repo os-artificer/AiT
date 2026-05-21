@@ -32,7 +32,7 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 |------------|-----|-------------------|
 | AI assistant | In-session `!ait ai` / `!!` (Deepseek); install suggestions when commands are missing | No built-in assistant; separate tools required |
 | Local mode | `!ait local` / `!ait remote` switch input target while SSH stays connected | Local and remote work in separate terminals |
-| File sync | `ait sync` reuses saved session connection parameters (prefers `rsync` / `scp`, falls back to SFTP) | Must assemble rsync/scp SSH options manually |
+| File transfer | `ait get` / `ait put` (SFTP, single file); `!ait get` / `!ait put` reuse the live SSH session | Must assemble scp/rsync SSH options manually |
 
 ### Local entry point
 

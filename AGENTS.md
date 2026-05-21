@@ -2,7 +2,7 @@
 
 **Languages:** English (this page) · [简体中文](AGENTS.zh-CN.md)
 
-**AiT** (AI Terminal) is a Go CLI: an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, Deepseek assistant, and cross-host file sync. Module: `github.com/os-artificer/AiT`. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
+**AiT** (AI Terminal) is a Go CLI: an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, Deepseek assistant, and SFTP file get/put. Module: `github.com/os-artificer/AiT`. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
 
 ## Build and test
 
@@ -23,7 +23,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
 - **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
 - **AI**: Deepseek via OpenAI-compatible API (`internal/pkg/ai`); in-session `!ait ai` / `!!`; `!ait local`/`!ait remote`; install hints when `rsync`/`scp`/`tmux` missing
-- **Sync**: `ait sync` — rsync → scp → SFTP (`internal/pkg/sync`)
+- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH
 - **OpenSSH config**: `login`/`load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 
 Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
@@ -46,7 +46,7 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/tmux/` | Remote tmux ensure/attach/detach |
 | `internal/pkg/terminal/` | Scrollback buffer, replay, path resolution (`scrollback.go`, `scrollback_io.go`, `path.go`, helpers) |
 | `internal/pkg/ai/` | Deepseek client (`client.go`, `client_helpers.go`) |
-| `internal/pkg/sync/` | rsync/scp/SFTP sync |
+| `internal/pkg/transfer/` | SFTP get/put (single file) |
 | `internal/pkg/platform/` | Data/config dirs, `OpenSSHPath`, `LookPath`, OS paths |
 | `internal/pkg/config/` | YAML config (`config.go` types; `config_load.go` Load/Save) |
 | `internal/pkg/creds/` | OS keyring (API key, session unlock) |
@@ -108,7 +108,8 @@ ait login [ssh-options] destination [cmd ...] [--alias] [--tmux] [--password]
 ait list | load <id|alias> [--tmux] [--password]
 ait session switch [id|alias] [--tmux] [--force]
 ait session delete <id|alias> | ait session delete all [--force]
-ait sync <src> <dst> [--session <id|alias>]
+ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain; flags/paths any order
+ait put [ssh-flags] <paths...>
 ait config set|get <key> [<value>]
 ```
 

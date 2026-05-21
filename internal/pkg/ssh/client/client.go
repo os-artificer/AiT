@@ -56,13 +56,17 @@ type Options struct {
 
 // Client is an SSH connection with optional interactive shell.
 type Client struct {
-	conn           *ssh.Client
-	agentConn      net.Conn
-	opts           Options
-	scroll         *terminal.Buffer
-	remoteCwd      string
-	localShell     localShell
-	pauseRemoteOut atomic.Bool
+	conn                *ssh.Client
+	agentConn           net.Conn
+	opts                Options
+	scroll              *terminal.Buffer
+	remoteCwd           string
+	localShell          localShell
+	pauseRemoteOut      atomic.Bool
+	lastRemoteOut       atomic.Int64
+	remoteSetupSuppress atomic.Bool
+	remotePromptShown   atomic.Bool
+	setupFilter         setupOutputFilter
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.
@@ -197,14 +201,26 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 
 	var wg sync.WaitGroup
 
+	user := c.opts.User
+	host := c.opts.Host
+	promptMarker := remoteSetupPromptMarker(user, host)
+
 	copyOut := func(r io.Reader) {
 		buf := make([]byte, 32*1024)
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {
-				_, _ = c.scroll.Write(buf[:n])
+				c.touchRemoteOut()
+				chunk := c.filterRemoteOutputChunk(buf[:n], user, host, promptMarker)
+				if chunk == nil {
+					if err != nil {
+						return
+					}
+					continue
+				}
+				_, _ = c.scroll.Write(chunk)
 				if !c.pauseRemoteOut.Load() {
-					_, _ = os.Stdout.Write(buf[:n])
+					_, _ = os.Stdout.Write(chunk)
 				}
 			}
 			if err != nil {
@@ -224,6 +240,8 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 
 	if len(opts.InitialCommands) > 0 {
 		c.pauseRemoteOut.Store(true)
+		c.remoteSetupSuppress.Store(true)
+		c.setupFilter = setupOutputFilter{}
 	}
 	wg.Add(2)
 	go func() { defer wg.Done(); copyOut(stdout) }()
@@ -236,7 +254,7 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		return err
 	}
 	if len(opts.InitialCommands) > 0 {
-		c.pauseRemoteOut.Store(false)
+		c.finishRemoteSetup(stdin, c.opts.User, c.opts.Host)
 	}
 
 	waitCh := make(chan error, 1)
@@ -269,6 +287,8 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 		return nil
 	}
 
+	injectAt := time.Now()
+
 	for _, line := range cmds {
 		line = strings.TrimRight(line, "\r\n")
 		if line == "" {
@@ -280,6 +300,7 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 	}
 
 	time.Sleep(initialCommandSettleDelay)
+	c.waitRemoteOutputQuietAfter(injectAt, remoteOutputQuietPeriod, remoteOutputQuietMaxWait)
 	return nil
 }
 
@@ -334,6 +355,14 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 
 		if line == `!ait` || line == `!ait help` {
 			return c.runMetaCLI(stdin, opts, nil)
+		}
+		if cmd, args, isXfer := transferArgsFromMetaLine(line); isXfer {
+			switch cmd {
+			case "get":
+				return c.handleTransferGet(ctx, stdin, args)
+			case "put":
+				return c.handleTransferPut(ctx, stdin, args)
+			}
 		}
 		if strings.HasPrefix(line, "!ait ") {
 			args := strings.Fields(strings.TrimPrefix(line, "!ait "))

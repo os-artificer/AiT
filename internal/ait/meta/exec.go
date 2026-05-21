@@ -47,11 +47,12 @@ func PrintMetaHelp(w io.Writer) {
   local             local mode (prompt: AiT Local>)
   remote            return to remote shell (prompt: AiT user@host>)
   suspend           suspend session and disconnect
+  get <remote> <local>   download file (reuses SSH, no re-auth)
+  put <local> <remote>   upload file (reuses SSH, no re-auth)
 
 Run ait CLI locally (examples):
   !ait list
   !ait config get <key>
-  !ait sync <src> <dst>
   !ait session delete <id|alias>
 
 For login/load use: ait shell (AiT> prompt), not from inside SSH.
