@@ -22,7 +22,8 @@ ait suspend                   # 交互中挂起；--tmux 时 detach 远程 tmux
 ait session switch [id|alias] # 切换到另一会话；无参数时交互选择
 ait session delete all        # 删除全部已保存会话及本地 sidecar
 ait session delete <id|alias> # 删除指定会话
-ait sync <src> <dst> [--session ID]
+ait get [ssh-flags] <paths...>   # OpenSSH 参数；路径/顺序见 get/put 小节
+ait put [ssh-flags] <paths...>
 ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
 ```
 
@@ -59,7 +60,7 @@ flowchart TB
     Creds[creds keyring]
     Config[config yaml]
     Plat[platform paths openssh]
-    Sync[sync rsync sftp]
+    Transfer[transfer sftp]
     PathSafe[pathsafe paths]
     Tmux[tmux remote]
   end
@@ -71,12 +72,11 @@ flowchart TB
   Sess --> Term
   Sess --> Tmux
   Commands --> AI
-  Commands --> Sync
+  Commands --> Transfer
   Commands --> Config
   SSHArgs --> Plat
   SSHArgs --> SSH
-  Sync --> Plat
-  Sync --> SSH
+  Transfer --> SSH
   AI --> Creds
   AI --> Config
   AI --> Plat
@@ -214,7 +214,7 @@ CREATE TABLE app_meta (
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback.go`, `scrollback_io.go`, `path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Deepseek | `client.go`, `client_helpers.go` |
-| [`internal/pkg/sync/`](../internal/pkg/sync/) | rsync/scp/SFTP | `sync.go` |
+| [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | 数据目录、OpenSSH、`LookPath` | `paths.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置 | `config.go`, `config_load.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
@@ -230,7 +230,7 @@ CREATE TABLE app_meta (
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
 | `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt.go) |
-| SSH 远程 | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) 在 `load`/`login` 后注入远程 shell |
+| SSH 远程 | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) 在 `load`/`login` 后单行注入；setup 不在远程 printf 提示符，由本地写出一次，`copyOut` 丢弃 precmd 重复行（无需再按 Enter）；本地过滤隐藏 setup 回显（与独立 `ait get`/`put` 的 SFTP 无关） |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode.go`](../internal/pkg/ssh/client/localmode.go)） |
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
@@ -248,6 +248,8 @@ CREATE TABLE app_meta (
 | `!ait local` | 进入本地模式（见下节） |
 | `!ait remote` | 退出本地模式，恢复远程 stdin |
 | `!ait suspend` | 挂起会话（等同 CLI `suspend`） |
+| `!ait get <remote> <local>` | 经 SFTP 从当前 SSH 连接下载单个文件（不重新认证） |
+| `!ait put <local> <remote>` | 经 SFTP 向当前 SSH 连接上传单个文件（不重新认证） |
 
 **识别规则：**
 
@@ -377,13 +379,24 @@ sequenceDiagram
 - 会话名确定性：`ait-<session_id>`，避免与用户手工 tmux 冲突
 - Windows 本地客户端仍可 `load --tmux`，但远程主机通常为 Linux/macOS
 
-### sync
+### get / put
 
-1. `LookPath("rsync")` → 存在则构造 `rsync -e ssh ...`（会话的 host/user/identity 注入 `-e`）
-2. 否则 `scp`；再否则 **内置 SFTP**（`ssh.NewSFTPClient` 或 `pkg/sftp`）
-3. 三者皆不可用或执行失败且原因为「命令不存在」→ 调 `ai.SuggestInstall`
+实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（基于 `golang.org/x/crypto/ssh` 的 SFTP）。**仅支持单个普通文件**；目录会返回明确错误。**`Put`** 在 `Create` 前对远程父目录执行 SFTP `MkdirAll`。错误带 `local file` / `remote file` 前缀；远端 `IsNotExist` 会提示检查远程路径与父目录（SFTP 在父目录不存在时常报 `file does not exist`）。
 
-路径语义：`user@host:/path` 与本地路径，与 `scp` 一致；`--session` 复用已保存会话的连接参数。
+| 模式 | 命令 | 认证 |
+|------|------|------|
+| 独立 CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/args/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/args/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go)（与 login 相同认证，含密码提示） |
+| SSH 会话内 | `!ait get …` / `!ait put …` | 复用 [`handleMetaLine`](../internal/pkg/ssh/client/client.go) / [`client_transfer.go`](../internal/pkg/ssh/client/client_transfer.go) 的**当前连接**，**不二次拨号** |
+
+**独立 CLI 参数与路径**（flag 与路径**顺序无关**；支持粘连如 `-p22`、`-i~/.ssh/id`）：
+
+- OpenSSH 兼容：`-p`、`-l`、`-i`、`-F`、`-J`、`-o`、旧式 `--host`/`--user`/`--port`/`--identity`，以及 `--password`
+- AiT：`--session <id|alias>`（已保存会话；远程路径可为该主机上的裸 `/path`）
+- **两个路径**：`user@host:/remote/file` 与本地路径，顺序任意
+- **三个路径**：`destination` + 远程文件路径 + 本地路径（顺序任意），例如 `ait get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
+- **两个路径 + `--session`**：本地路径与远程服务器路径（顺序无关；通过 `./` 或本地已存在文件识别本地路径）
+
+**会话内**（`!ait get` / `!ait put`）：仅两个服务器相对路径；不支持 SSH flag。
 
 ### AI 助手（会话内）
 
@@ -397,8 +410,8 @@ sequenceDiagram
 
 | 平台 | PTY / 终端 | 数据目录 | 常见缺失命令 |
 |------|------------|----------|----------------|
-| Linux | creack/pty + raw mode | XDG data home | rsync 包名 `rsync` |
-| macOS | 同上 | Application Support | `brew install rsync` |
+| Linux | creack/pty + raw mode | XDG data home | 远程 `--tmux` 需 `tmux` |
+| macOS | 同上 | Application Support | 远程 `brew install tmux` |
 | Windows | ConPTY；OpenSSH 内置 | LocalAppData | `winget` / OpenSSH 功能 |
 
 构建标签：`//go:build linux || darwin` 与 `windows` 分离 PTY 实现；`make test` 在 Linux CI 全量，Windows 目标至少 `go build` 通过。
@@ -412,7 +425,7 @@ sequenceDiagram
 - `golang.org/x/crypto/ssh`、`golang.org/x/term` — SSH 与终端
 - `github.com/99designs/keyring` — 密钥/密码缓存
 - `github.com/google/uuid` — 会话 ID
-- `github.com/pkg/sftp` — sync SFTP 回退
+- `github.com/pkg/sftp` — 文件传输（get/put）
 - `github.com/sashabaranov/go-openai` — Deepseek（OpenAI 兼容）
 - `gopkg.in/yaml.v3` — 配置
 
@@ -429,7 +442,7 @@ sequenceDiagram
 | `ssh/args` | parse/resolve、`ssh -G`（需本机 `ssh` 时 skip） |
 | `session` | TTL/密码提示逻辑 |
 | `ait` | REPL、shell 行解析、login help |
-| `terminal`, `ai`, `config`, `sync`, `platform`, `pathsafe` | 单元测试 |
+| `terminal`, `ai`, `config`, `transfer`, `platform`, `pathsafe` | 单元测试 |
 
 门禁：`make test`、`make vet`；`make test-cross` 对 windows/darwin `go build`。
 
@@ -441,7 +454,7 @@ sequenceDiagram
 - [x] `login` / 交互 SSH、`ssh/args` + `ssh/client`（含 ProxyJump/Command）
 - [x] `suspend` / `list` / `load` / `session switch` / `session delete`
 - [x] `--tmux` 远程保活
-- [x] `sync`（rsync → scp → SFTP）与会话内 AI（`!ait ai` / `!!`）
+- [x] `get` / `put`（SFTP，单文件）与会话内 AI（`!ait ai` / `!!`）
 - [x] 跨平台构建（含 Windows OpenSSH 探测、分文件 proxy/resize）
 
 ## 风险与缓解

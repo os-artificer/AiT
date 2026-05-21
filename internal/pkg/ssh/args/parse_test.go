@@ -22,21 +22,21 @@ import (
 )
 
 func TestParseSSHStyle(t *testing.T) {
-	spec, err := Parse([]string{"-p", "2222", "-i", "~/.ssh/id_ed25519", "deploy@10.0.0.5"})
+	spec, err := Parse([]string{"-p", "22", "-i", "~/.ssh/id_ed25519", "deploy@10.0.0.5"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spec.Port != 2222 || spec.Identity != "~/.ssh/id_ed25519" || spec.Destination != "deploy@10.0.0.5" {
+	if spec.Port != 22 || spec.Identity != "~/.ssh/id_ed25519" || spec.Destination != "deploy@10.0.0.5" {
 		t.Fatalf("spec=%+v", spec)
 	}
 }
 
 func TestParseFlagsAfterDestination(t *testing.T) {
-	spec, err := Parse([]string{"-p", "60528", "root@ylgeeker.com", "-i", "~/.ssh/id_ed25519"})
+	spec, err := Parse([]string{"-p", "22", "root@ylgeeker.com", "-i", "~/.ssh/id_ed25519"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spec.Port != 60528 || spec.Identity != "~/.ssh/id_ed25519" || spec.Destination != "root@ylgeeker.com" {
+	if spec.Port != 22 || spec.Identity != "~/.ssh/id_ed25519" || spec.Destination != "root@ylgeeker.com" {
 		t.Fatalf("spec=%+v", spec)
 	}
 	if len(spec.RemoteCommand) != 0 {
@@ -46,17 +46,17 @@ func TestParseFlagsAfterDestination(t *testing.T) {
 
 func TestParseFlagsAnyOrder(t *testing.T) {
 	cases := [][]string{
-		{"-p", "60528", "root@h", "-i", "~/.ssh/key"},
-		{"-i", "~/.ssh/key", "root@h", "-p", "60528"},
-		{"root@h", "-p", "60528", "-i", "~/.ssh/key"},
-		{"-p60528", "root@h", "-i~/.ssh/key"},
+		{"-p", "22", "root@h", "-i", "~/.ssh/key"},
+		{"-i", "~/.ssh/key", "root@h", "-p", "22"},
+		{"root@h", "-p", "22", "-i", "~/.ssh/key"},
+		{"-p22", "root@h", "-i~/.ssh/key"},
 	}
 	for _, argv := range cases {
 		spec, err := Parse(argv)
 		if err != nil {
 			t.Fatalf("%v: %v", argv, err)
 		}
-		if spec.Port != 60528 || spec.Identity != "~/.ssh/key" || spec.Destination != "root@h" {
+		if spec.Port != 22 || spec.Identity != "~/.ssh/key" || spec.Destination != "root@h" {
 			t.Fatalf("%v: spec=%+v", argv, spec)
 		}
 		if len(spec.RemoteCommand) != 0 {
@@ -66,11 +66,11 @@ func TestParseFlagsAnyOrder(t *testing.T) {
 }
 
 func TestParseGluedPort(t *testing.T) {
-	spec, err := Parse([]string{"-p60528", "user@host"})
+	spec, err := Parse([]string{"-p22", "user@host"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spec.Port != 60528 || spec.Destination != "user@host" {
+	if spec.Port != 22 || spec.Destination != "user@host" {
 		t.Fatalf("spec=%+v", spec)
 	}
 }
@@ -146,7 +146,7 @@ func TestParseDestination(t *testing.T) {
 		port       int
 	}{
 		{"user@example.com", "user", "example.com", 0},
-		{"example.com:2222", "", "example.com", 2222},
+		{"example.com:22", "", "example.com", 22},
 		{"ssh://bob@host:44/path", "bob", "host", 44},
 		{"user@[2001:db8::1]:22", "user", "2001:db8::1", 22},
 	}

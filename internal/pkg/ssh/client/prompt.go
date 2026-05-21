@@ -30,6 +30,11 @@ func RemotePrompt(user, host string) string {
 	return fmt.Sprintf("AiT %s@%s> ", user, host)
 }
 
+// remoteSetupPromptMarker returns the substring used to detect AiT remote prompt readiness.
+func remoteSetupPromptMarker(user, host string) string {
+	return RemotePrompt(user, host)
+}
+
 // bashPS1 wraps a display prompt for bash readline width counting.
 func bashPS1(display string) string {
 	return `\[\]` + display + `\[\]`
@@ -46,12 +51,22 @@ func remotePromptPS1(user, host string) string {
 }
 
 // remotePromptSetupLine sets PS1/PROMPT while echo is off, clears the default prompt line,
-// then restores stty echo (single injected line; output suppressed until setup ends).
+// then restores stty echo (single injected line; local filter suppresses any leaked echo).
 func remotePromptSetupLine(user, host string) string {
 	display := RemotePrompt(user, host)
 	ps1 := remotePromptPS1(user, host)
 	return "stty -echo 2>/dev/null; export PS1='" + ps1 + "'; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + display + "'" +
 		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null; stty echo 2>/dev/null"
+}
+
+// RemoteSetupStripFragments returns scrollback/filter fragments for remote PS1 setup leakage.
+func RemoteSetupStripFragments(user, host string) []string {
+	return []string{
+		"stty -echo 2>/dev/null",
+		remotePromptSetupLine(user, host),
+		"export PS1='" + remotePromptPS1(user, host) + "'",
+		"export PROMPT='" + RemotePrompt(user, host) + "'",
+	}
 }
 
 // RemotePromptInitialCommands returns shell setup lines to set PS1/PROMPT after the remote shell starts.

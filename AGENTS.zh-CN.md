@@ -2,7 +2,7 @@
 
 **语言：** [English](AGENTS.md) · 简体中文（本文）
 
-**AiT**（AI Terminal）为 Go CLI：具备 SQLite 会话持久化、可选远程 tmux 保活、Deepseek 助手与跨主机文件同步的 AI 增强 SSH 客户端。模块：`github.com/os-artificer/AiT`。目录布局遵循 [golang-standards/project-layout](https://github.com/golang-standards/project-layout)。
+**AiT**（AI Terminal）为 Go CLI：具备 SQLite 会话持久化、可选远程 tmux 保活、Deepseek 助手与 SFTP 文件 get/put 的 AI 增强 SSH 客户端。模块：`github.com/os-artificer/AiT`。目录布局遵循 [golang-standards/project-layout](https://github.com/golang-standards/project-layout)。
 
 ## 构建与测试
 
@@ -23,7 +23,7 @@ make test-cross  # windows + darwin go build
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
 - **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）
 - **AI**：通过 OpenAI 兼容 API 接入 Deepseek（`internal/pkg/ai`）；会话内 `!ait ai` / `!!`；`!ait local`/`!ait remote`；系统命令缺失时提供安装建议
-- **同步**：`ait sync` — rsync → scp → SFTP（`internal/pkg/sync`）
+- **传输**：`ait get` / `ait put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH
 - **OpenSSH 配置**：`login`/`load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
 
 完整设计：[`docs/design.zh-CN.md`](docs/design.zh-CN.md)。配置示例：[`configs/ait.example.yaml`](configs/ait.example.yaml)。Cursor 方案归档至 `docs/<kebab-case>.md`（见 [`.cursor/rules/docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc)）。
@@ -46,7 +46,7 @@ make test-cross  # windows + darwin go build
 | `internal/pkg/tmux/` | 远程 tmux 确保/附着/分离 |
 | `internal/pkg/terminal/` | scrollback 缓冲区、回放、路径解析 |
 | `internal/pkg/ai/` | Deepseek 客户端 |
-| `internal/pkg/sync/` | rsync/scp/SFTP 同步 |
+| `internal/pkg/transfer/` | SFTP get/put（单文件） |
 | `internal/pkg/platform/` | 数据/配置目录、`OpenSSHPath`、`LookPath` |
 | `internal/pkg/config/` | YAML 配置 |
 | `internal/pkg/creds/` | 操作系统密钥环 |
@@ -105,7 +105,8 @@ ait login [ssh-options] destination [cmd ...] [--alias] [--tmux] [--password]
 ait list | load <id|alias> [--tmux] [--password]
 ait session switch [id|alias] [--tmux] [--force]
 ait session delete <id|alias> | ait session delete all [--force]
-ait sync <src> <dst> [--session <id|alias>]
+ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain；flag/路径顺序任意
+ait put [ssh-flags] <paths...>
 ait config set|get <key> [<value>]
 ```
 

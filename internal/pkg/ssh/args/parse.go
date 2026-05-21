@@ -87,7 +87,7 @@ func Parse(argv []string) (Spec, error) {
 				s.RemoteCommand = append(s.RemoteCommand, arg)
 				continue
 			}
-			next, err := applyFlag(&s, argv, i)
+			next, err := applyFlag(&s, argv, i, "login")
 			if err != nil {
 				return Spec{}, err
 			}

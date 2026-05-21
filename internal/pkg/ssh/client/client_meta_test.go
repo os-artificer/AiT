@@ -179,6 +179,23 @@ func TestHandleMetaLineListFinishesStdout(t *testing.T) {
 	}
 }
 
+func TestHandleMetaLineTransferSkipsOnMetaCLI(t *testing.T) {
+	var called bool
+	c := &Client{}
+	err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, "!ait get /tmp/r ./l", InteractiveOpts{
+		OnMetaCLI: func(args []string) error {
+			called = true
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("OnMetaCLI must not run for !ait get")
+	}
+}
+
 func TestMetascannerHelpLine(t *testing.T) {
 	fwd, _, meta := drive("!ait help\n", true)
 	if len(fwd) != 0 {

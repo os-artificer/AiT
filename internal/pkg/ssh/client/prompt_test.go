@@ -32,7 +32,7 @@ func TestRemotePrompt(t *testing.T) {
 func TestRemotePromptInitialCommands(t *testing.T) {
 	cmds := RemotePromptInitialCommands("u", "h")
 	if len(cmds) != 1 {
-		t.Fatalf("cmds = %v", cmds)
+		t.Fatalf("cmds = %v, want single setup line", cmds)
 	}
 	line := cmds[0]
 	for _, part := range []string{"stty -echo", "export PS1=", "u@h", "PROMPT=", "033[1A", "stty echo"} {
@@ -40,7 +40,20 @@ func TestRemotePromptInitialCommands(t *testing.T) {
 			t.Errorf("setup line missing %q: %s", part, line)
 		}
 	}
+	if strings.Contains(line, "printf '\\033[1A\\033[2K\\r%s'") {
+		t.Errorf("setup line should not printf display: %s", line)
+	}
 	if len(RemotePromptInitialCommands("", "h")) != 0 {
 		t.Error("empty user should return nil")
+	}
+}
+
+func TestRemoteSetupStripFragments(t *testing.T) {
+	frags := RemoteSetupStripFragments("u", "h")
+	if len(frags) < 2 {
+		t.Fatalf("fragments = %v", frags)
+	}
+	if !strings.Contains(frags[0], "stty -echo") {
+		t.Errorf("first fragment = %q", frags[0])
 	}
 }
