@@ -37,4 +37,4 @@ Helpers live in `*_helpers.go` beside each package’s main files.
 | `creds` | OS keyring for secrets |
 | `pathsafe` | Safe session IDs and scrollback paths |
 
-See [AGENTS.md](../AGENTS.md) for file-level layout (especially `ssh/client`) and [docs/exec-plans/design.md](../docs/exec-plans/design.md) for behavior and data model.
+See [AGENTS.md](../AGENTS.md) for file-level layout (especially `ssh/client`) and [docs/design.md](../docs/design.md) for behavior and data model.
