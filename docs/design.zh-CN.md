@@ -262,21 +262,22 @@ sequenceDiagram
   participant User
   participant CLI as ait_login
   participant DB as sqlite
-  participant SSH as ssh/client
-  User->>CLI: ait login user@host ...
+  participant SSH as ssh_client
+  User->>CLI: ait login user@host
   CLI->>DB: upsert session
-  CLI->>SSH: Dial + PTY
+  CLI->>SSH: Dial and PTY
   loop interactive
     User->>SSH: input
-    alt meta line !ait / !!
+    alt meta 行
       SSH->>SSH: handleMetaLine
-      opt AI question
+      opt AI 提问
         SSH->>CLI: Deepseek assist
         CLI-->>User: suggestion
-      opt local / remote / suspend
+      end
+      opt 本地或挂起
         SSH->>SSH: local mode or suspend
       end
-    else normal input
+    else 普通输入
       SSH->>User: remote IO
     end
   end
