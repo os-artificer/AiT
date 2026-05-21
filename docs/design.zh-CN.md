@@ -1,9 +1,11 @@
 
 # AiT：架构与行为说明
 
-本文档描述**当前主干**已实现的行为与包结构（非待办计划）。用户向导读 [`README.md`](../../README.md)；Agent 向导读 [`AGENTS.md`](../../AGENTS.md)。
+**语言：** [English](design.md) · 简体中文（本文）
 
-CLI 入口：[`internal/ait/root.go`](../../internal/ait/root.go)（`Run` + cobra root）。依赖见 [`go.mod`](../../go.mod)。目录：`cmd/ait` 薄入口 → `internal/ait` + `internal/pkg`。
+本文档描述**当前主干**已实现的行为与包结构（非待办计划）。用户向导读 [`README.zh-CN.md`](../README.zh-CN.md)、[`docs/user-manual.zh-CN.md`](user-manual.zh-CN.md)；代码结构向导读 [`AGENTS.zh-CN.md`](../AGENTS.zh-CN.md)。
+
+CLI 入口：[`internal/ait/root.go`](../internal/ait/root.go)（`Run` + cobra root）。依赖见 [`go.mod`](../go.mod)。目录：`cmd/ait` 薄入口 → `internal/ait` + `internal/pkg`。
 
 ## CLI 形态
 
@@ -12,10 +14,10 @@ ait shell                                    # AiT> REPL（login/list/load 等�
 ait login [ssh-options] destination [command ...] [--alias NAME] [--password] [--tmux]
         # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
         # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
-        # 带 command 时为一次性执行（类似 ssh host cmd），默认不写 SQLite
-        # 旧写法 --host/--user 仍兼容
+        # 带 command 时为一次性执行（类似 ssh host cmd），默认不持久化至 SQLite
+        # 旧写法 --host/--user 仍向后兼容
 ait list
-ait load <id|alias> [--tmux]  # 7 天内免密恢复；过期后提示输入 SSH 密码/密钥口令
+ait load <id|alias> [--tmux]  # 认证 TTL 内免凭据恢复；过期后提示输入 SSH 密码/密钥口令
 ait suspend                   # 交互中挂起；--tmux 时 detach 远程 tmux
 ait session switch [id|alias] # 切换到另一会话；无参数时交互选择
 ait session delete all        # 删除全部已保存会话及本地 sidecar
@@ -24,7 +26,7 @@ ait sync <src> <dst> [--session ID]
 ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
 ```
 
-交互 SSH 内：以 **`!ait ai <问题>`**（推荐）或 **`!! <问题>`**（兼容别名）唤起 Deepseek；**`!ait local` / `!ait remote`** 切换本地/远程输入模式（SSH 不断开）；**`!ait suspend`** 挂起。未配置 API Key 时，行首 `!!` / `!ait` 在本地 fail-closed，不进入远程 shell。详见下文 [会话内 meta 协议](#会话内-meta-协议ait--) 与 [本地模式](#本地模式ait-local--remote)。
+交互 SSH 内：以 **`!ait ai <问题>`**（建议使用）或 **`!! <问题>`**（向后兼容别名）唤起 Deepseek；**`!ait local` / `!ait remote`** 切换本地/远程输入模式（SSH 连接保持）；**`!ait suspend`** 挂起会话。未配置 API Key 时，行首 `!!` / `!ait` 在本地 fail-closed，不进入远程 shell。说明见下文 [会话内 meta 协议](#会话内-meta-协议ait--) 与 [本地模式](#本地模式ait-local--remote)。
 
 ### 两种恢复模式（默认 vs `--tmux`）
 
@@ -150,7 +152,7 @@ ait session switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 
 ## 数据模型（SQLite）
 
-文件位置（[`internal/pkg/platform`](../../internal/pkg/platform)）：
+文件位置（[`internal/pkg/platform`](../internal/pkg/platform)）：
 
 - Linux: `~/.local/share/ait/ait.db`
 - macOS: `~/Library/Application Support/ait/ait.db`
@@ -199,27 +201,27 @@ CREATE TABLE app_meta (
 
 | 路径 | 职责 | 主要文件（示例） |
 |------|------|------------------|
-| [`internal/ait/`](../../internal/ait/) | CLI entry | `root.go` |
-| [`internal/ait/cli/`](../../internal/ait/cli/) | Cobra 子命令 | `root.go`, `login.go`, `shell.go`, … |
-| [`internal/ait/app/`](../../internal/ait/app/) | Manager 引导 | `manager.go`, `context.go` |
-| [`internal/ait/login/`](../../internal/ait/login/) | login 解析与帮助 | `run.go`, `help.go` |
-| [`internal/ait/shell/`](../../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
-| [`internal/ait/meta/`](../../internal/ait/meta/) | 会话内 `!ait` | `exec.go` |
-| [`internal/pkg/ssh/args/`](../../internal/pkg/ssh/args/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
-| [`internal/pkg/session/`](../../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
-| [`internal/pkg/store/`](../../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go` |
-| [`internal/pkg/terminal/`](../../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback.go`, `scrollback_io.go`, `path.go` |
-| [`internal/pkg/tmux/`](../../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
-| [`internal/pkg/ai/`](../../internal/pkg/ai/) | Deepseek | `client.go`, `client_helpers.go` |
-| [`internal/pkg/sync/`](../../internal/pkg/sync/) | rsync/scp/SFTP | `sync.go` |
-| [`internal/pkg/platform/`](../../internal/pkg/platform/) | 数据目录、OpenSSH、`LookPath` | `paths.go`, `openssh.go`, `exec.go` |
-| [`internal/pkg/config/`](../../internal/pkg/config/) | YAML 配置 | `config.go`, `config_load.go` |
-| [`internal/pkg/creds/`](../../internal/pkg/creds/) | OS keyring | `keyring.go` |
-| [`internal/pkg/pathsafe/`](../../internal/pkg/pathsafe/) | 会话/路径校验 | `path.go` |
-| [`configs/ait.example.yaml`](../../configs/ait.example.yaml) | 配置模板（密钥走 keyring） | — |
+| [`internal/ait/`](../internal/ait/) | CLI entry | `root.go` |
+| [`internal/ait/cli/`](../internal/ait/cli/) | Cobra 子命令 | `root.go`, `login.go`, `shell.go`, … |
+| [`internal/ait/app/`](../internal/ait/app/) | Manager 引导 | `manager.go`, `context.go` |
+| [`internal/ait/login/`](../internal/ait/login/) | login 解析与帮助 | `run.go`, `help.go` |
+| [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
+| [`internal/ait/meta/`](../internal/ait/meta/) | 会话内 `!ait` | `exec.go` |
+| [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
+| [`internal/pkg/session/`](../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
+| [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go` |
+| [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback.go`, `scrollback_io.go`, `path.go` |
+| [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
+| [`internal/pkg/ai/`](../internal/pkg/ai/) | Deepseek | `client.go`, `client_helpers.go` |
+| [`internal/pkg/sync/`](../internal/pkg/sync/) | rsync/scp/SFTP | `sync.go` |
+| [`internal/pkg/platform/`](../internal/pkg/platform/) | 数据目录、OpenSSH、`LookPath` | `paths.go`, `openssh.go`, `exec.go` |
+| [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置 | `config.go`, `config_load.go` |
+| [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
+| [`internal/pkg/pathsafe/`](../internal/pkg/pathsafe/) | 会话/路径校验 | `path.go` |
+| [`configs/ait.example.yaml`](../configs/ait.example.yaml) | 配置模板（密钥走 keyring） | — |
 
-`pkg/` 暂不放公开 API。包级辅助函数放在 `*_helpers.go`；带方法的 struct 单文件（见 [`go-structure.mdc`](../../.cursor/rules/go-structure.mdc)）。
+`pkg/` 暂不放公开 API。包级辅助函数放在 `*_helpers.go`；带方法的 struct 单文件（见 [`go-structure.mdc`](../.cursor/rules/go-structure.mdc)）。
 
 ## 关键流程
 
@@ -227,15 +229,15 @@ CREATE TABLE app_meta (
 
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
-| `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../../internal/pkg/ssh/client/prompt.go) |
-| SSH 远程 | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../../internal/pkg/ssh/client/prompt.go) 在 `load`/`login` 后注入远程 shell |
-| SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode.go`](../../internal/pkg/ssh/client/localmode.go)） |
+| `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt.go) |
+| SSH 远程 | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) 在 `load`/`login` 后注入远程 shell |
+| SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode.go`](../internal/pkg/ssh/client/localmode.go)） |
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
 
 ### 会话内 meta 协议（!ait / !!）
 
-实现位于 [`internal/pkg/ssh/client/metascanner.go`](../../internal/pkg/ssh/client/metascanner.go) 与 [`client.go`](../../internal/pkg/ssh/client/client.go) 的 `forwardStdin` / `handleMetaLine`。已弃用 `\ait` 前缀。
+实现位于 [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/client/metascanner.go) 与 [`client.go`](../internal/pkg/ssh/client/client.go) 的 `forwardStdin` / `handleMetaLine`。已弃用 `\ait` 前缀。
 
 | 命令 | 行为 |
 |------|------|
@@ -282,7 +284,7 @@ sequenceDiagram
 
 - **配置解析**：`internal/pkg/ssh/args` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
-- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；默认不写 SQLite（`--alias` 时仍 upsert）
+- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；默认不持久化至 SQLite（指定 `--alias` 时仍 upsert）
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 - 交互 login 成功即写入/更新会话记录
 
@@ -303,11 +305,11 @@ flowchart LR
 
 | 主题 | 说明 |
 |------|------|
-| 子进程 | [`localmode.go`](../../internal/pkg/ssh/client/localmode.go)：`creack/pty` 启动 `$SHELL`（Windows 为 `ComSpec`） |
+| 子进程 | [`localmode.go`](../internal/pkg/ssh/client/localmode.go)：`creack/pty` 启动 `$SHELL`（Windows 为 `ComSpec`） |
 | 提示符 | 常量 `AiT Local> `；bash `PS1` 使用 `\[\]…\[\]`；环境变量 `AIT_LOCAL_MODE=1`、`PS1`、`PROMPT`（Windows cmd 另设 `PROMPT`） |
 | 静默设置 | **不向终端打印** `export PS1=…` 等 setup 行：bash 用 `--rcfile` 临时 rc；zsh 用 `ZDOTDIR` 最小 `.zshrc`（source 用户 rc 后再次 `export PROMPT`）；临时目录在 `stop()` 时删除 |
 | 生命周期 | `enterLocalMode` / `exitLocalMode` / `onLocalShellExit`；`closing` 抑制预期 ptmx 关闭错误 |
-| 尺寸 | [`resize.go`](../../internal/pkg/ssh/client/resize.go)：SIGWINCH 同步本地 PTY 与远程 `WindowChange` |
+| 尺寸 | [`resize.go`](../internal/pkg/ssh/client/resize.go)：SIGWINCH 同步本地 PTY 与远程 `WindowChange` |
 | 高级 | 用户可在 `.zshrc` 中检测 `AIT_LOCAL_MODE=1` 自定义主题（可能覆盖 `PROMPT`） |
 
 ### suspend / list / load
@@ -451,6 +453,6 @@ sequenceDiagram
 ## 交付物
 
 - 可执行 `bin/ait`（`make build`）
-- [`configs/ait.example.yaml`](../../configs/ait.example.yaml) 配置模板
-- 用户说明：[`README.md`](../../README.md)；Agent：[`AGENTS.md`](../../AGENTS.md)
+- [`configs/ait.example.yaml`](../configs/ait.example.yaml) 配置模板
+- 用户说明：[`README.zh-CN.md`](../README.zh-CN.md)、[`docs/user-manual.zh-CN.md`](user-manual.zh-CN.md)；代码结构：[`AGENTS.zh-CN.md`](../AGENTS.zh-CN.md)
 - `make test` / `make vet` / `make test-cross` 通过
