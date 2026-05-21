@@ -52,7 +52,7 @@ func defaultHostKeyConfirm(prompt string) bool {
 	return ans == "yes" || ans == "y"
 }
 
-// KnownHostsPath returns the path to ~/.ssh/known_hosts for sync/rsync -e ssh helpers.
+// KnownHostsPath returns the path to ~/.ssh/known_hosts for SSH host key verification.
 // Returns "" when os.UserHomeDir fails.
 func KnownHostsPath() string {
 	home, err := os.UserHomeDir()

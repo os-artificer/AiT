@@ -17,7 +17,7 @@ This document describes post-install configuration, commands, prompts, data loca
 
 # Interactive login and persist session
 ./bin/ait login deploy@example.com --alias prod
-./bin/ait login -p 2222 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
+./bin/ait login -p 22 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
 ./bin/ait login -J bastion app.internal
 
 # One-shot remote command (like ssh host cmd; not persisted to SQLite by default)
@@ -28,8 +28,11 @@ This document describes post-install configuration, commands, prompts, data loca
 ./bin/ait load prod
 ./bin/ait session switch staging
 
-# File sync (reuse saved session)
-./bin/ait sync ./local prod:/remote/path --session prod
+# File transfer (OpenSSH flags; paths and flags in any order)
+./bin/ait get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log
+./bin/ait get deploy@10.0.0.5 /var/log/app.log ./app.log
+./bin/ait get ./app.log /var/log/app.log --session prod
+./bin/ait put -l root ./bin/app user@host:/usr/local/bin/app
 ```
 
 Optional config template:
@@ -53,7 +56,8 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait session switch [id\|alias]` | Switch session (suspend current, then load target) |
 | `ait session delete <id\|alias>` | Delete one session |
 | `ait session delete all` | Delete all sessions (confirmation; `--force` to skip) |
-| `ait sync <src> <dst>` | Cross-host sync (`--session` reuses connection) |
+| `ait get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ait get --help` |
+| `ait put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
 | `ait config set/get <key>` | Configuration; `deepseek.api_key` uses keyring |
 
 Common flags: `--tmux` (remote keep-alive), `--port`, `--identity`, `--password`, `--alias`. `session switch --force` switches while current session is still active (does not save scrollback/cwd).
@@ -87,6 +91,8 @@ By default, `~/.ssh/known_hosts` is enforced. For new hosts, run `ssh-keyscan -H
 | `!ait local` | Local mode: run commands on local machine; SSH stays connected |
 | `!ait remote` | Exit local mode; resume remote input |
 | `!ait suspend` | Suspend: save scrollback and remote cwd; disconnect |
+| `!ait get <remote> <local>` | Download one file over current SSH (no re-auth) |
+| `!ait put <local> <remote>` | Upload one file over current SSH (no re-auth) |
 
 ---
 
@@ -105,7 +111,11 @@ API keys and SSH password cache use the **OS keyring**, not plaintext SQLite.
 ## Limitations
 
 - Without `--tmux`, remote processes are not guaranteed to survive after suspend.
-- `ait sync` with password auth uses built-in SFTP (not non-interactive system `rsync`/`scp`).
+- `ait get` / `ait put` support single files only (not directories).
+- `ait put` creates missing **parent directories** on the remote host before uploading the file.
+- Transfer errors are prefixed with `local file` or `remote file` so you can tell which side failed. A message like `file does not exist` or `no such file or directory` on **put** often means the remote path or parent directory is wrong (not that the local file is missing).
+- Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
+- In SSH, `!ait get` / `!ait put` reuse the live connection (two paths only, no flags).
 - Before `ait session switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
 
 ---

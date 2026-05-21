@@ -27,7 +27,7 @@ import (
 
 // Run is the application entry invoked from cmd/ait.
 // args are os.Args[1:] passed to the Cobra root command.
-// Returns Cobra RunE errors (login, session, sync, etc.) printed to stderr before return.
+// Returns Cobra RunE errors (login, session, get, put, etc.) printed to stderr before return.
 func Run(args []string) error {
 	if err := cli.Execute(args); err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -23,10 +23,11 @@ import (
 )
 
 // applyFlag consumes one flag at argv[i] and returns the index of the next token.
-func applyFlag(s *Spec, argv []string, i int) (int, error) {
+// cmdLabel names the subcommand in error text (e.g. login, get, put).
+func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 	arg := argv[i]
 	if msg, ok := unsupportedFlags[arg]; ok {
-		return i, fmt.Errorf("%s is not supported by ait login; use the system ssh client", msg)
+		return i, fmt.Errorf("%s is not supported by ait %s; use the system ssh client", msg, cmdLabel)
 	}
 	if noopFlags[arg] {
 		return i, nil
@@ -149,7 +150,7 @@ func applyFlag(s *Spec, argv []string, i int) (int, error) {
 	}
 }
 
-// applyGluedFlag handles OpenSSH glued forms like -p60528 or -i~/.ssh/id_ed25519.
+// applyGluedFlag handles OpenSSH glued forms like -p22 or -i~/.ssh/id_ed25519.
 func applyGluedFlag(s *Spec, arg string) (glued bool, err error) {
 	if len(arg) < 3 || arg[0] != '-' {
 		return false, nil

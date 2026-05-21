@@ -20,35 +20,30 @@ import (
 	"context"
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
-	syncpkg "github.com/os-artificer/AiT/internal/pkg/sync"
 
 	"github.com/spf13/cobra"
 )
 
-func newSyncCmd() *cobra.Command {
-	var sessionID string
+func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "sync <src> <dst>",
-		Short: "Sync files across hosts (rsync/scp/sftp)",
-		Args:  cobra.ExactArgs(2),
+		Use:                   "get [flags] <paths...>",
+		Short:                 "Download a file from a remote host (OpenSSH-compatible)",
+		Long:                  "Download one file via SFTP. Flags and paths may appear in any order. Run with --help for usage.",
+		DisableFlagsInUseLine: true,
+		DisableFlagParsing:    true,
+		SilenceUsage:          true,
+		SilenceErrors:         true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if transferHelpRequested(args) {
+				return writeTransferHelp(cmd.OutOrStdout(), "get")
+			}
 			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				opts := syncpkg.Options{Src: args[0], Dst: args[1], AI: mgr.AI}
-				if sessionID != "" {
-					ssh, err := mgr.SSHOptionsForSession(sessionID, "")
-					if err != nil {
-						return err
-					}
-					opts.SSH = ssh
-				} else {
-					opts.SSH = client.Options{UseAgent: true}
-				}
-
-				return syncpkg.Run(ctx, opts)
+				return runGetArgv(ctx, mgr, args)
 			})
 		},
 	}
-	cmd.Flags().StringVar(&sessionID, "session", "", "use saved session connection")
+	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
+		_ = writeTransferHelp(c.OutOrStdout(), "get")
+	})
 	return cmd
 }

@@ -17,7 +17,7 @@
 
 # 交互登录并持久化会话
 ./bin/ait login deploy@example.com --alias prod
-./bin/ait login -p 2222 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
+./bin/ait login -p 22 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
 ./bin/ait login -J bastion app.internal
 
 # 一次性远程命令（类似 ssh host cmd；默认不持久化至 SQLite）
@@ -29,7 +29,10 @@
 ./bin/ait session switch staging
 
 # 文件同步（可复用已保存会话）
-./bin/ait sync ./local prod:/remote/path --session prod
+./bin/ait get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log
+./bin/ait get deploy@10.0.0.5 /var/log/app.log ./app.log
+./bin/ait get ./app.log /var/log/app.log --session prod
+./bin/ait put -l root ./bin/app user@host:/usr/local/bin/app
 ```
 
 配置模板（可选）：
@@ -53,7 +56,8 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait session switch [id\|alias]` | 切换会话（先挂起当前再加载目标） |
 | `ait session delete <id\|alias>` | 删除单个会话 |
 | `ait session delete all` | 删除全部会话（须确认；`--force` 跳过确认） |
-| `ait sync <src> <dst>` | 跨主机同步（`--session` 复用连接参数） |
+| `ait get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ait get --help` |
+| `ait put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
 | `ait config set/get <key>` | 配置项；`deepseek.api_key` 经密钥环存储 |
 
 常用标志：`--tmux`（远程 tmux 保活）、`--port`、`--identity`、`--password`、`--alias`。`session switch --force` 可在当前会话仍标记为 active 时强制切换（不保存当前 scrollback/cwd）。
@@ -87,6 +91,8 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `!ait local` | 本地模式：命令在本机执行，SSH 连接保持 |
 | `!ait remote` | 退出本地模式，恢复向远程发送输入 |
 | `!ait suspend` | 挂起：保存 scrollback 与远程 cwd，断开连接 |
+| `!ait get <remote> <local>` | 经当前 SSH 下载单个文件（不重新认证） |
+| `!ait put <local> <remote>` | 经当前 SSH 上传单个文件（不重新认证） |
 
 ---
 
@@ -105,7 +111,11 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 ## 限制说明
 
 - 未使用 `--tmux` 时，挂起后不保证远程进程继续运行。
-- 密码认证会话的 `ait sync` 使用内置 SFTP（不调用系统 `rsync`/`scp` 的非交互密码流程）。
+- `ait get` / `ait put` 仅支持单个文件（不支持目录）。
+- `ait put` 会在上传前在远程自动创建**父目录**（若不存在）。
+- 传输失败时错误会带 `local file` 或 `remote file` 前缀，便于区分本机与远端。**put** 若出现 `file does not exist` / `no such file or directory`，常见原因是远程路径或父目录不存在，而非本机文件缺失。
+- 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
+- SSH 会话内 `!ait get` / `!ait put` 复用当前连接（仅两个路径，无 flag）。
 - 从本机执行 `ait session switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
 
 ---

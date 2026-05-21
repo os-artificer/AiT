@@ -39,7 +39,7 @@ AiT is a Go CLI; directories follow [golang-standards/project-layout](https://gi
 |------|---------|
 | [`cmd/ait`](cmd/ait) | Main entry; **only** a minimal `main` |
 | [`internal/ait`](internal/ait) | Application entry (`Run`, Cobra CLI, `ait shell` REPL, etc.) |
-| [`internal/pkg/*`](internal/pkg) | Libraries: `store`, `session`, `ssh`, `ai`, `sync`, `config`, `creds`, … |
+| [`internal/pkg/*`](internal/pkg) | Libraries: `store`, `session`, `ssh`, `ai`, `transfer`, `config`, `creds`, … |
 | [`pkg/`](pkg/) | Libraries for **external** modules to import (empty today) |
 | [`configs/`](configs/) | Config templates (e.g. `ait.example.yaml`) |
 
