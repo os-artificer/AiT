@@ -14,8 +14,12 @@ All notable **product and CLI** changes are listed here. Documentation-only upda
 - Optional remote `--tmux` keep-alive (`ait-<session_id>`)
 - In-session `!ait`: `ai` / `!!`, `local` / `remote`, `suspend`, and help
 - Deepseek assistant (`!ait ai`)
-- File sync via `ait sync` (rsync → scp → SFTP fallback)
+- File transfer via `ait get` / `ait put` (SFTP, single file); in-session `!ait get` / `!ait put`
 - Local entry `ait shell` REPL (`AiT>` prompt)
+
+### Changed
+
+- **Breaking:** removed `ait sync`; use `ait get` / `ait put` instead
 
 ### Improved
 

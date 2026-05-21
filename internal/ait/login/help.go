@@ -54,7 +54,7 @@ Arguments:
 Flag order:
   Options may appear before or after destination, but before the first remote command argument.
   After the remote command starts, tokens such as -p are passed to the command (not parsed as login flags).
-  Glued forms are supported: -p60528, -i~/.ssh/id_ed25519
+  Glued forms are supported: -p22, -i~/.ssh/id_ed25519
 
 OpenSSH-compatible flags:
   -p port         remote SSH port (overrides ssh_config and -o Port)
@@ -62,7 +62,7 @@ OpenSSH-compatible flags:
   -i path         private key file (IdentityFile)
   -F path         ssh_config file (default: ~/.ssh/config)
   -J destination  ProxyJump host(s); comma-separated for a jump chain (e.g. -J bastion,internal)
-  -o key=value    ssh_config option, repeatable (e.g. -o Port=2222 -o User=deploy)
+  -o key=value    ssh_config option, repeatable (e.g. -o Port=22 -o User=deploy)
   -4, -6          address family hints (accepted; passed to ssh -G)
   -t, -T, -C, -v  accepted for ssh compatibility (no extra effect in ait login)
   -A, -a, -q, -Q  accepted for ssh compatibility
@@ -81,10 +81,10 @@ Not supported by ait login (use the system ssh client instead):
 
 Examples:
   ait login myserver                              # Host alias from ~/.ssh/config
-  ait login -p 60528 root@host -i ~/.ssh/id_ed25519
-  ait login -p 2222 deploy@10.0.0.5 -i ~/.ssh/id_ed25519
+  ait login -p 22 root@host -i ~/.ssh/id_ed25519
+  ait login -p22 deploy@10.0.0.5 -i ~/.ssh/id_ed25519
   ait login -F ~/.ssh/config.d/work -J bastion app.internal
-  ait login -o Port=2222 -o User=root legacy-host
+  ait login -o Port=22 -o User=root legacy-host
   ait login user@host uptime                      # one-shot command (no session saved)
   ait login --alias prod --tmux user@prod         # named session + tmux persist
   ait login --host 192.168.1.1 --user root        # legacy flags

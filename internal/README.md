@@ -31,7 +31,7 @@ Helpers live in `*_helpers.go` beside each package’s main files.
 | `terminal` | Scrollback buffer and replay |
 | `tmux` | Remote tmux attach/detach |
 | `ai` | Deepseek client |
-| `sync` | rsync / scp / SFTP file sync |
+| `transfer` | SFTP get/put (single file) |
 | `platform` | Data dirs, OpenSSH path, `LookPath` |
 | `config` | YAML configuration |
 | `creds` | OS keyring for secrets |

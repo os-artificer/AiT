@@ -32,7 +32,7 @@
 |------|-----|-----------------|
 | AI 助手 | 会话内 `!ait ai` / `!!`（Deepseek）；缺失系统命令时提供安装建议 | 无集成；须另开工具窗口 |
 | 本地模式 | `!ait local` / `!ait remote` 切换输入目标，SSH 连接保持 | 本机与远程须分终端操作 |
-| 文件同步 | `ait sync` 复用已保存会话连接参数（优先 `rsync` / `scp`，回退 SFTP） | 须自行拼接 rsync/scp 的 SSH 选项 |
+| 文件传输 | `ait get` / `ait put`（SFTP，单文件）；`!ait get` / `!ait put` 复用当前 SSH 会话 | 须自行拼接 scp/rsync 的 SSH 选项 |
 
 ### 本地入口
 
