@@ -18,9 +18,6 @@ package ai
 
 import "github.com/os-artificer/AiT/internal/pkg/config"
 
-// ProviderID identifies an AI provider.
-type ProviderID = string
-
 const (
 	ProviderDeepseek = config.ProviderDeepseek
 	ProviderMinimax  = config.ProviderMinimax
@@ -33,3 +30,6 @@ const (
 	aiModeLocalFirst = "local_first"
 	aiModeCloudOnly  = "cloud_only"
 )
+
+// ProviderID identifies an AI provider.
+type ProviderID = string

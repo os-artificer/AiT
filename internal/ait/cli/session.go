@@ -59,9 +59,9 @@ func newSessionSwitchCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&tmux, "tmux", false, "use tmux for target session")
-	cmd.Flags().StringVar(&password, "password", "", "SSH password if auth expired")
-	cmd.Flags().BoolVar(&force, "force", false, "switch even if current session is still marked active")
+	cmd.Flags().BoolVar(&tmux, flagNameTmux, false, "use tmux for target session")
+	cmd.Flags().StringVar(&password, flagNamePassword, "", "SSH password if auth expired")
+	cmd.Flags().BoolVar(&force, flagNameForce, false, "switch even if current session is still marked active")
 	bindHelp(cmd, helpdoc.WriteSessionSwitchHelp)
 	return cmd
 }
@@ -81,7 +81,7 @@ func newSessionDeleteCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation")
+	cmd.Flags().BoolVar(&force, flagNameForce, false, "skip confirmation")
 	bindHelp(cmd, helpdoc.WriteSessionDeleteHelp)
 	return cmd
 }

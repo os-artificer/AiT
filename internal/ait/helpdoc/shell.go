@@ -29,6 +29,13 @@ const shellREPLCommands = `  help              show REPL help
   config, get, put, session, suspend  — same as: ait <command> ...
 `
 
+const (
+	shellSectionPrompts     = "Prompts"
+	shellREPLHelpIntro      = "AiT shell — type commands directly, press Enter to run (no !ait prefix):"
+	shellREPLHelpUsage      = "help | login [flags] destination | load <id|alias> | list | exit"
+	shellExampleLoginServer = "login myserver"
+)
+
 const shellREPLPrompts = `  AiT>              not connected (this shell)
   AiT user@host>    remote SSH session
   AiT Local>        local mode inside SSH (!ait local)
@@ -43,12 +50,12 @@ func WriteShellHelp(w io.Writer) error {
 	if err := b.WriteUsage("ait shell"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("REPL commands", shellREPLCommands); err != nil {
+	if err := b.WriteSection(helpSectionREPLCommands, shellREPLCommands); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		"ait shell",
-		"login myserver",
+		shellExampleLoginServer,
 		"load prod --tmux",
 	); err != nil {
 		return err
@@ -59,23 +66,23 @@ func WriteShellHelp(w io.Writer) error {
 // WriteShellREPLHelp prints in-shell help (Usage/Examples sections; caller applies CRLF).
 func WriteShellREPLHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro("AiT shell — type commands directly, press Enter to run (no !ait prefix):"); err != nil {
+	if err := b.WriteIntro(shellREPLHelpIntro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("help | login [flags] destination | load <id|alias> | list | exit"); err != nil {
+	if err := b.WriteUsage(shellREPLHelpUsage); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Commands", shellREPLCommands); err != nil {
+	if err := b.WriteSection(helpSectionCommands, shellREPLCommands); err != nil {
 		return err
 	}
 	if err := WriteLoginHelpShort(w); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Prompts", shellREPLPrompts); err != nil {
+	if err := b.WriteSection(shellSectionPrompts, shellREPLPrompts); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
-		"login myserver",
+		shellExampleLoginServer,
 		"login -p 22 root@192.168.1.1 -i ~/.ssh/id_rsa",
 		"load myserver",
 		"list",

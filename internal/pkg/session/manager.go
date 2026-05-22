@@ -447,20 +447,20 @@ func (m *Manager) PickSession() (string, error) {
 	}
 	line = strings.TrimSpace(line)
 	if line == "" {
-		return "", fmt.Errorf("invalid selection")
+		return "", fmt.Errorf("%s", errInvalidSelection)
 	}
 
 	var n int
 	if _, err := fmt.Sscanf(line, "%d", &n); err == nil {
 		if n < 1 || n > len(list) {
-			return "", fmt.Errorf("invalid selection")
+			return "", fmt.Errorf("%s", errInvalidSelection)
 		}
 		return list[n-1].ID, nil
 	}
 	if sess, err := m.Store.GetSession(line); err == nil {
 		return sess.ID, nil
 	}
-	return "", fmt.Errorf("invalid selection")
+	return "", fmt.Errorf("%s", errInvalidSelection)
 }
 
 // Delete removes one session after optional confirmation (unless force is true).
@@ -476,7 +476,7 @@ func (m *Manager) Delete(idOrAlias string, force bool) error {
 		reader := bufio.NewReader(os.Stdin)
 		line, _ := reader.ReadString('\n')
 		if strings.TrimSpace(strings.ToLower(line)) != "y" {
-			fmt.Println("cancelled")
+			fmt.Println(msgCancelled)
 			return nil
 		}
 	}
@@ -498,7 +498,7 @@ func (m *Manager) DeleteAll(force bool) error {
 		reader := bufio.NewReader(os.Stdin)
 		line, _ := reader.ReadString('\n')
 		if strings.TrimSpace(strings.ToLower(line)) != "y" {
-			fmt.Println("cancelled")
+			fmt.Println(msgCancelled)
 			return nil
 		}
 	}

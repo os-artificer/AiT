@@ -66,5 +66,5 @@ func shellPrintErr(w io.Writer, msg string) {
 		return
 	}
 
-	shellWriteTTY(w, "AiT: "+msg+"\r\n")
+	shellWriteTTY(w, msgPrefixAiT+msg+"\r\n")
 }

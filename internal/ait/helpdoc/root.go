@@ -22,11 +22,6 @@ import (
 	"strings"
 )
 
-type rootSubcommand struct {
-	name string
-	desc string
-}
-
 // rootSubcommands mirrors cli/root.go AddCommand order; update both when adding commands.
 var rootSubcommands = []rootSubcommand{
 	{"shell", "interactive AiT> REPL"},
@@ -41,6 +36,17 @@ var rootSubcommands = []rootSubcommand{
 	{"session", "switch or delete saved sessions"},
 }
 
+const (
+	rootHelpIntroMain = "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant."
+	rootHelpIntroHint = "Run 'ait <command> --help' for command-specific usage and examples."
+	rootHelpUsage     = "ait [command]"
+)
+
+type rootSubcommand struct {
+	name string
+	desc string
+}
+
 func formatRootSubcommands() string {
 	var b strings.Builder
 	for _, sc := range rootSubcommands {
@@ -52,16 +58,13 @@ func formatRootSubcommands() string {
 // WriteRootHelp prints ait --help to w.
 func WriteRootHelp(w io.Writer) error {
 	body := newHelpBody(w)
-	if err := body.WriteIntro(
-		"AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant.",
-		"Run 'ait <command> --help' for command-specific usage and examples.",
-	); err != nil {
+	if err := body.WriteIntro(rootHelpIntroMain, rootHelpIntroHint); err != nil {
 		return err
 	}
-	if err := body.WriteUsage("ait [command]"); err != nil {
+	if err := body.WriteUsage(rootHelpUsage); err != nil {
 		return err
 	}
-	if err := body.WriteSection("Commands", formatRootSubcommands()); err != nil {
+	if err := body.WriteSection(helpSectionCommands, formatRootSubcommands()); err != nil {
 		return err
 	}
 	if err := body.WriteExamples(

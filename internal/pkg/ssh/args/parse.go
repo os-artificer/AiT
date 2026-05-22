@@ -23,6 +23,26 @@ import (
 	"strings"
 )
 
+var unsupportedFlags = map[string]string{
+	"-L": "local port forwarding (-L)",
+	"-R": "remote port forwarding (-R)",
+	"-D": "dynamic port forwarding (-D)",
+	"-X": "X11 forwarding (-X)",
+	"-Y": "trusted X11 forwarding (-Y)",
+	"-f": "background mode (-f)",
+	"-N": "no remote command (-N)",
+	"-M": "control master (-M)",
+	"-S": "control path (-S)",
+	"-O": "control command (-O)",
+	"-W": "stdio forward (-W)",
+	"-w": "tun forwarding (-w)",
+}
+
+var noopFlags = map[string]bool{
+	"-4": true, "-6": true, "-t": true, "-T": true, "-C": true, "-v": true,
+	"-A": true, "-a": true, "-q": true, "-Q": true,
+}
+
 // Spec holds parsed login arguments (OpenSSH + AiT extensions).
 type Spec struct {
 	Destination   string
@@ -44,26 +64,6 @@ type Spec struct {
 	LegacyUser     string
 	LegacyPort     int
 	LegacyIdentity string
-}
-
-var unsupportedFlags = map[string]string{
-	"-L": "local port forwarding (-L)",
-	"-R": "remote port forwarding (-R)",
-	"-D": "dynamic port forwarding (-D)",
-	"-X": "X11 forwarding (-X)",
-	"-Y": "trusted X11 forwarding (-Y)",
-	"-f": "background mode (-f)",
-	"-N": "no remote command (-N)",
-	"-M": "control master (-M)",
-	"-S": "control path (-S)",
-	"-O": "control command (-O)",
-	"-W": "stdio forward (-W)",
-	"-w": "tun forwarding (-w)",
-}
-
-var noopFlags = map[string]bool{
-	"-4": true, "-6": true, "-t": true, "-T": true, "-C": true, "-v": true,
-	"-A": true, "-a": true, "-q": true, "-Q": true,
 }
 
 // Parse parses argv for ait login (ssh-compatible flags + AiT extensions).

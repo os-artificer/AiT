@@ -27,6 +27,12 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// ErrSessionNotFound is returned when a session lookup misses.
+var ErrSessionNotFound = errors.New("session not found")
+
+// ErrSessionAmbiguous is returned when id and alias both match different rows.
+var ErrSessionAmbiguous = errors.New("session id/alias lookup is ambiguous")
+
 const (
 	StatusActive    = "active"
 	StatusSuspended = "suspended"
@@ -37,12 +43,6 @@ const (
 
 	MetaCurrentSession = "current_session_id"
 )
-
-// ErrSessionNotFound is returned when a session lookup misses.
-var ErrSessionNotFound = errors.New("session not found")
-
-// ErrSessionAmbiguous is returned when id and alias both match different rows.
-var ErrSessionAmbiguous = errors.New("session id/alias lookup is ambiguous")
 
 // Session is a saved SSH session profile.
 type Session struct {
@@ -109,7 +109,7 @@ func OpenPath(path string) (*Store, error) {
 		return nil, err
 	}
 
-	if path != ":memory:" {
+	if path != sqliteMemoryPath {
 		_ = os.Chmod(path, 0o600)
 	}
 	return s, nil

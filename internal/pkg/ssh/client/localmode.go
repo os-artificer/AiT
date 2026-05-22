@@ -29,7 +29,7 @@ import (
 	"github.com/creack/pty"
 )
 
-const localPromptEOL = "\r\n"
+const localPromptEOL = msgCRLF
 
 // localShell runs an interactive shell on the local machine via a PTY.
 type localShell struct {

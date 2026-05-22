@@ -33,7 +33,7 @@ func (ep *endpoint) chatOpenAI(ctx context.Context, messages []openai.ChatComple
 		return "", err
 	}
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("empty response from %s", ep.id)
+		return "", fmt.Errorf(errEmptyResponseFmt, ep.id)
 	}
 	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
 }

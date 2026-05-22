@@ -35,6 +35,13 @@ import (
 	"golang.org/x/term"
 )
 
+const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set ai.deepseek.api_key <key> (or ai.minimax.api_key)"
+
+const (
+	shellReadyDelay           = 280 * time.Millisecond
+	initialCommandSettleDelay = 120 * time.Millisecond
+)
+
 // Options for SSH dial.
 type Options struct {
 	Host         string
@@ -113,13 +120,6 @@ type InteractiveOpts struct {
 	// OnMetaCLI runs ait CLI subcommands from !ait <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
 }
-
-const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set ai.deepseek.api_key <key> (or ai.minimax.api_key)"
-
-const (
-	shellReadyDelay           = 280 * time.Millisecond
-	initialCommandSettleDelay = 120 * time.Millisecond
-)
 
 // RunInteractive runs a PTY shell with !ait / !! meta handling, optional tmux, and AI/local modes.
 // ctx cancels the session loop. Requires a TTY on stdin. Returns terminal, session, tmux, or OnSuspend errors.
@@ -337,15 +337,15 @@ func (c *Client) forwardStdin(ctx context.Context, stdin io.Writer, stdinCh <-ch
 func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line string, opts InteractiveOpts) error {
 	line = strings.TrimSpace(line)
 	switch {
-	case line == `!ait suspend`:
+	case line == metaLineSuspend:
 		if err := c.handleSuspendMeta(stdin, opts); err != nil {
 			return err
 		}
 		_ = c.conn.Close()
 		return io.EOF
-	case line == `!ait local`:
+	case line == metaLineLocal:
 		return c.enterLocalMode()
-	case line == `!ait remote`:
+	case line == metaLineRemote:
 		return c.exitLocalMode()
 
 	default:
@@ -355,7 +355,7 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 			return c.handleAIMetaLine(ctx, stdin, prompt, opts)
 		}
 
-		if line == `!ait` || line == `!ait help` {
+		if line == metaLineBare || line == metaLineHelp {
 			return c.runMetaCLI(stdin, opts, nil)
 		}
 		if cmd, args, isXfer := transferArgsFromMetaLine(line); isXfer {
@@ -366,8 +366,8 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 				return c.handleTransferPut(ctx, stdin, args)
 			}
 		}
-		if strings.HasPrefix(line, "!ait ") {
-			args := strings.Fields(strings.TrimPrefix(line, "!ait "))
+		if strings.HasPrefix(line, metaPrefixAitSpace) {
+			args := strings.Fields(strings.TrimPrefix(line, metaPrefixAitSpace))
 			return c.runMetaCLI(stdin, opts, args)
 		}
 		termPrintln(os.Stdout, "AiT: unknown meta command (try !ait help)")

@@ -38,8 +38,8 @@ func newLoadCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&tmux, "tmux", false, "attach remote tmux session")
-	cmd.Flags().StringVar(&password, "password", "", "SSH password (if auth expired)")
+	cmd.Flags().BoolVar(&tmux, flagNameTmux, false, "attach remote tmux session")
+	cmd.Flags().StringVar(&password, flagNamePassword, "", "SSH password (if auth expired)")
 	bindHelp(cmd, helpdoc.WriteLoadHelp)
 	return cmd
 }

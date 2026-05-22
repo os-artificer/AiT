@@ -28,6 +28,16 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// RemoteExitError is returned when a remote command exits non-zero.
+type RemoteExitError struct {
+	Code int
+}
+
+// Error implements error; the message includes the non-zero remote exit Code.
+func (e *RemoteExitError) Error() string {
+	return fmt.Sprintf("remote command exited with status %d", e.Code)
+}
+
 // DialChain connects to opts.Host, using ProxyJump or ProxyCommand when configured, otherwise Dial.
 // opts.User defaults to the current OS user; opts.Port defaults to 22.
 // Returns a Client, or errors from user lookup, proxy dial, buildAuth, host key setup, or ssh.NewClientConn.
@@ -72,16 +82,6 @@ func DialChain(opts Options) (*Client, error) {
 	client := ssh.NewClient(ncc, chans, reqs)
 
 	return &Client{conn: client, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}, nil
-}
-
-// RemoteExitError is returned when a remote command exits non-zero.
-type RemoteExitError struct {
-	Code int
-}
-
-// Error implements error; the message includes the non-zero remote exit Code.
-func (e *RemoteExitError) Error() string {
-	return fmt.Sprintf("remote command exited with status %d", e.Code)
 }
 
 // RunRemoteCommand runs cmdline on the remote host without a PTY, streaming to os.Stdout/Stderr.

@@ -54,16 +54,16 @@ func PrintMetaHelp(w io.Writer) {
 // Empty args or "help" prints in-session help.
 // Returns fmt.Errorf when args[0] is blocked in-session (login/load/suspend), or errors from the executor.
 func Execute(args []string) error {
-	if len(args) == 0 || (len(args) == 1 && (args[0] == "help" || args[0] == "-h" || args[0] == "--help")) {
+	if len(args) == 0 || (len(args) == 1 && (args[0] == replCmdHelp || args[0] == replArgH || args[0] == replArgHelp)) {
 		PrintMetaHelp(os.Stdout)
 		return nil
 	}
 
 	if msg, blocked := metaBlockedInSession[args[0]]; blocked {
-		return fmt.Errorf("AiT: %q cannot run inside SSH — %s", args[0], msg)
+		return fmt.Errorf(errMetaBlockedFmt, args[0], msg)
 	}
 	if executor == nil {
-		return fmt.Errorf("AiT: meta executor not configured")
+		return fmt.Errorf("%s", errMetaExecutorNotConfig)
 	}
 	return executor(args, terminal.NewCRLFWriter(os.Stdout), os.Stderr)
 }

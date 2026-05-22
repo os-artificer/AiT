@@ -53,6 +53,8 @@ const sessionDeleteArguments = `  id|alias|all    session id, alias, or the lite
 const sessionDeleteFlags = `  --force    skip confirmation when deleting
 `
 
+const sessionExampleDeleteAllForce = "ait session delete all --force"
+
 // WriteListHelp prints ait list --help to w.
 func WriteListHelp(w io.Writer) error {
 	b := newHelpBody(w)
@@ -77,10 +79,10 @@ func WriteLoadHelp(w io.Writer) error {
 	if err := b.WriteUsage("ait load <id|alias> [--tmux] [--password]"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Arguments", loadArguments); err != nil {
+	if err := b.WriteSection(helpSectionArguments, loadArguments); err != nil {
 		return err
 	}
-	if err := b.WriteSection("AiT flags", loadAITFlags); err != nil {
+	if err := b.WriteSection(helpSectionAITFlags, loadAITFlags); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
@@ -117,12 +119,12 @@ func WriteSessionHelp(w io.Writer) error {
 	if err := b.WriteUsage("ait session"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Subcommands", sessionSubcommands); err != nil {
+	if err := b.WriteSection(helpSectionSubcommands, sessionSubcommands); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		"ait session switch prod",
-		"ait session delete all --force",
+		sessionExampleDeleteAllForce,
 	); err != nil {
 		return err
 	}
@@ -138,10 +140,10 @@ func WriteSessionSwitchHelp(w io.Writer) error {
 	if err := b.WriteUsage("ait session switch [id|alias] [--tmux] [--password] [--force]"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Arguments", sessionSwitchArguments); err != nil {
+	if err := b.WriteSection(helpSectionArguments, sessionSwitchArguments); err != nil {
 		return err
 	}
-	if err := b.WriteSection("AiT flags", sessionSwitchFlags); err != nil {
+	if err := b.WriteSection(helpSectionAITFlags, sessionSwitchFlags); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
@@ -163,15 +165,15 @@ func WriteSessionDeleteHelp(w io.Writer) error {
 	if err := b.WriteUsage("ait session delete <id|alias|all> [--force]"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Arguments", sessionDeleteArguments); err != nil {
+	if err := b.WriteSection(helpSectionArguments, sessionDeleteArguments); err != nil {
 		return err
 	}
-	if err := b.WriteSection("AiT flags", sessionDeleteFlags); err != nil {
+	if err := b.WriteSection(helpSectionAITFlags, sessionDeleteFlags); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		"ait session delete myserver",
-		"ait session delete all --force",
+		sessionExampleDeleteAllForce,
 	); err != nil {
 		return err
 	}
