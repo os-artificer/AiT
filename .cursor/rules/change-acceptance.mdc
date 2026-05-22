@@ -1,0 +1,87 @@
+---
+description: 代码改动合并前验收门禁；语义不变、全量测试、R1–R18 不回退
+alwaysApply: true
+---
+
+# 代码改动验收规范
+
+所有 Go/CLI 改动合并前**必须**满足本规则。与 [go-structure.mdc](go-structure.mdc)、[code-reuse.mdc](code-reuse.mdc) 冲突时以 go-structure 为准。
+
+## 合并前门禁（全部通过）
+
+```bash
+make fmt && make vet && make test && make build && make test-cross
+```
+
+Agent 完成实现后须实际运行上述命令；失败须修复后再交付，并在回复中说明失败项。
+
+## 总原则
+
+| 原则 | 要求 |
+|------|------|
+| **语义不变** | 未改动路径：参数解析、拨号、SFTP、会话状态机、错误文案、退出码、提示符与改动前一致 |
+| **范围最小** | 禁止 drive-by 重构、顺手改默认值或无关文件 |
+| **已修复不回退** | 全库 **R1–R18**（见下）须保持；相关测试不得删除或弱化断言 |
+| **跨平台** | 涉及 TTY/路径/exec 时须 `make test-cross` 通过 |
+
+## 禁止
+
+- 未授权向远程 PTY 写入命令（AI `run` 须确认）
+- 提交密钥、`.env`、API key 明文
+- `SilenceUsage` 掩盖业务错误语义
+- 跳过 `make test` 或仅跑子包而不跑全量 `./...`
+
+## 全库回归 R1–R18（摘要）
+
+| 范围 | 关键项 |
+|------|--------|
+| SSH setup | R1 无 setup 泄漏；R2 无双提示符 |
+| Meta/Shell I/O | R3 CRLF；R4 会话内阻断 login/load/suspend |
+| 认证/会话 | R5–R9 密码、Switch、stale meta |
+| 传输 | R10–R11 错误前缀、put 建父目录 |
+| 其它 | R12 HostKey；R13 list 对齐；R14 login 远程退出码 |
+| AI 模式 | R15 `ait ai model list` 非交互；`ait ai` 仍交互；首行元命令不挂起 |
+| 配置 | R16 Save 无根级 `deepseek`；旧 YAML 可读；`deepseek.model` 别名仍有效 |
+| AI CLI | R17 无顶层 `ait models`；`ait ai provider enable|disable`；`ait ai ollama setup` 可配置 `models_dir`/`OLLAMA_MODELS` |
+| AI chat | R18 见下 **R18 明细**（`ait ai chat` 单轮、stdin、SSH meta、空 `chat`、非 chat 仍进 REPL） |
+
+### R18 明细（`ait ai chat` 单轮）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾（无 mock 时） |
+|----|----------|------------|------------------------|
+| R18a | `ait ai chat "msg"` 或 `echo q \| ait ai chat` 非 TTY 单轮，5s 内结束 | `TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY` | `timeout 5 ./bin/ait ai chat ping`；`echo ping \| timeout 5 ./bin/ait ai chat` |
+| R18b | `ait ai chat` 无参且无 stdin → 需消息错误，不挂起 | `TestAICmd_ChatEmptyNoTTY`、`TestRunChatOnce_EmptyMessage` | `timeout 5 ./bin/ait ai chat </dev/null` |
+| R18c | `!ait ai chat msg` / `!! chat msg` → meta → `InitialQuestion` 为 `chat …`，单轮不进 REPL | `TestAIPromptFromMetaLine`（chat 行）、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat` | SSH 内 `!ait ai chat hi`（可选） |
+| R18d | REPL 首行仅 `chat`（无正文）→ `ErrChatMessageRequired` | `TestParseChatCommand`、`TestRunREPL_InitialChatEmptyMessage` | — |
+| R18e | `!ait ai` / `!!` 或自由文本首行仍进 REPL（非 chat 单轮快速路径） | `TestIsMetaREPLCommand`、`TestRunREPL_InitialNonChatShowsPrompt` | — |
+| R18f | 远程 scope 单轮输出 CRLF | `TestRunREPL_InitialChatOnceRemoteCRLF` | — |
+
+## 验收勾选（PR / Agent 交付）
+
+- [ ] `make fmt && make vet && make test && make build && make test-cross`
+- [ ] R15 未回退（`ait ai model list` / `ait ai help` 不挂起；`ait ai` 仍进 REPL）
+- [ ] R16 未回退（Save 无根级 `deepseek`；`TestSaveYAML_NoRootDeepseek` 等通过）
+- [ ] R17 未回退（`ait models` unknown；`TestTopLevelModelsRemoved`；`models_dir`/`OLLAMA_MODELS` 测试通过）
+- [ ] R18a：`ait ai chat` 带参或 stdin 单轮，5s 内不挂起（`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`）
+- [ ] R18b：空 `ait ai chat` 快速失败（`TestAICmd_ChatEmptyNoTTY`、`TestRunChatOnce_EmptyMessage`）
+- [ ] R18c：SSH meta `chat` 行解析（`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`）
+- [ ] R18d：首行裸 `chat` 返回需消息错误（`TestRunREPL_InitialChatEmptyMessage`、`TestParseChatCommand`）
+- [ ] R18e：非 chat 首行进 REPL（`TestRunREPL_InitialNonChatShowsPrompt`、`TestIsMetaREPLCommand`）
+- [ ] R18f：远程单轮 CRLF（`TestRunREPL_InitialChatOnceRemoteCRLF`）
+- [ ] 相关自动化测试未删除或弱化
+
+手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai chat --help`、`timeout 5 ./bin/ait ai chat ping`、`echo ping | timeout 5 ./bin/ait ai chat`。
+
+自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`。
+
+## 新功能
+
+- 须附专项验收项（如 A1–A19）并在 PR 中说明
+- 用户可见行为变更须同步 [design.md](docs/design.md) / [design.zh-CN.md](docs/design.zh-CN.md) 与 [user-manual](docs/user-manual.md)（中英成对）
+- CLI 新命令遵守 [cli-help.mdc](cli-help.mdc)
+
+## 索引
+
+- Go 版式 → [go-structure.mdc](go-structure.mdc)
+- 复用 → [code-reuse.mdc](code-reuse.mdc)
+- CLI help → [cli-help.mdc](cli-help.mdc)

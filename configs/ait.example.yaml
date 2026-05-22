@@ -5,9 +5,38 @@ session:
   # Authentication cache TTL for load/switch without re-entering password
   auth_ttl: 168h
 
-deepseek:
-  base_url: https://api.deepseek.com
-  model: deepseek-chat
+ai:
+  default: deepseek
+  fallback: [minimax]
+  tiered:
+    enabled: true
+    local_provider: ollama
+    max_prompt_chars: 280
+    max_history_turns: 0
+    complex_keywords: ["implement", "refactor", "架构", "debug"]
+  providers:
+    ollama:
+      enabled: true   # ait ai provider disable ollama to stop local routing
+      api_style: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: llama3.2
+      # models_dir: /path/to/ollama/models   # OLLAMA_MODELS; set via ait ai ollama setup
+    deepseek:
+      enabled: true
+      api_style: openai
+      base_url: https://api.deepseek.com
+      model: deepseek-chat
+    minimax:
+      enabled: true
+      api_style: openai
+      base_url: https://api.minimax.io/v1
+      model: MiniMax-M2.5
 
-# API key: ait config set deepseek.api_key <your-key>
-# (stored in OS keyring, not in this file)
+# API keys (OS keyring, not in this file):
+#   ait config set ai.deepseek.api_key <key>
+#   ait config set ai.minimax.api_key <key>
+# Ollama does not need a key when tiered is enabled.
+# Quick setup: ait ai ollama setup   (choose models_dir; or --models-dir)
+# Providers: ait ai provider enable|disable <deepseek|minimax|ollama>
+# Status/service: ait ai ollama status | start --wait | stop | disable
+# List providers: ait ai model list

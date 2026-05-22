@@ -70,6 +70,7 @@ func TestAuthTTL_Valid(t *testing.T) {
 
 func TestSetGetKey(t *testing.T) {
 	cfg := &Config{}
+	normalizeAI(cfg)
 	if err := cfg.SetKey("deepseek.model", "deepseek-coder"); err != nil {
 		t.Fatalf("SetKey: %v", err)
 	}
@@ -87,6 +88,7 @@ func TestSetGetKey(t *testing.T) {
 
 func TestValidateDeepseekBaseURL(t *testing.T) {
 	cfg := &Config{}
+	normalizeAI(cfg)
 	if err := cfg.SetKey("deepseek.base_url", "https://api.deepseek.com"); err != nil {
 		t.Fatal(err)
 	}

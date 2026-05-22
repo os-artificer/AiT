@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/ait/login"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
@@ -29,24 +30,12 @@ func newLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "login [flags] destination [command [argument ...]]",
 		Short:                 "Log in to a host (OpenSSH-compatible) and save session",
-		Long:                  "Connect to a remote host using OpenSSH-compatible flags. Run 'ait login --help' for flag details and examples.",
 		DisableFlagsInUseLine: true,
 		DisableFlagParsing:    true,
-		SilenceUsage:          true,
 		SilenceErrors:         true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if login.HelpRequested(args) {
-				return login.WriteHelp(cmd.OutOrStdout())
-			}
-
-			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				return login.Run(ctx, mgr, args)
-			})
-		},
 	}
-	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
-		_ = login.WriteHelp(c.OutOrStdout())
+	bindCustomArgvHelp(cmd, helpdoc.WriteLoginHelp, func(ctx context.Context, mgr *session.Manager, argv []string) error {
+		return login.Run(ctx, mgr, argv)
 	})
-	_ = cmd.Flags().MarkHidden("help")
 	return cmd
 }

@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
 	"github.com/spf13/cobra"
@@ -39,5 +40,6 @@ func newLoadCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&tmux, "tmux", false, "attach remote tmux session")
 	cmd.Flags().StringVar(&password, "password", "", "SSH password (if auth expired)")
+	bindHelp(cmd, helpdoc.WriteLoadHelp)
 	return cmd
 }

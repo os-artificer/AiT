@@ -20,12 +20,13 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/session"
+	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 )
 
 // NewManager opens the store, loads config, optionally constructs an AI client, and wires metaCLI.
 // metaCLI runs ait subcommands from in-session !ait lines (provided by internal/ait/meta).
-func NewManager(metaCLI func([]string) error) (*session.Manager, error) {
+func NewManager(metaCLI func([]string) error, onRemoteAI sshclient.RemoteAIRunner) (*session.Manager, error) {
 	st, err := store.Open()
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func NewManager(metaCLI func([]string) error) (*session.Manager, error) {
 		aiClient = c
 	}
 
-	mgr := &session.Manager{Store: st, Config: cfg, AI: aiClient}
+	mgr := &session.Manager{Store: st, Config: cfg, AI: aiClient, OnRemoteAI: onRemoteAI}
 	mgr.MetaCLI = metaCLI
 	return mgr, nil
 }

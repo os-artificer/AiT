@@ -20,12 +20,14 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 // setShellTTYIO configures CRLF stdout and silenced stderr for the duration of ait shell.
 func setShellTTYIO(enabled bool) {
 	if enabled {
-		shellCLIOut = &crlfWriter{w: os.Stdout}
+		shellCLIOut = terminal.NewCRLFWriter(os.Stdout)
 		shellCLIErr = io.Discard
 		return
 	}
