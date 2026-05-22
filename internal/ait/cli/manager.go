@@ -25,7 +25,7 @@ import (
 )
 
 func newManager() (*session.Manager, error) {
-	return app.NewManager(meta.Execute)
+	return app.NewManager(meta.Execute, runRemoteAIMode)
 }
 
 func runWithManager(fn func(ctx context.Context, mgr *session.Manager) error) error {

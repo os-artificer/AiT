@@ -19,7 +19,6 @@ package shell
 import (
 	"io"
 	"os"
-	"strings"
 )
 
 // shellCLIOut is stdout for cobra commands run inside ait shell (CRLF in raw TTY).
@@ -27,16 +26,3 @@ var shellCLIOut io.Writer = os.Stdout
 
 // shellCLIErr discards cobra stderr; REPL prints errors via shellPrintErr.
 var shellCLIErr io.Writer = io.Discard
-
-type crlfWriter struct {
-	w io.Writer
-}
-
-// Write implements io.Writer, translating LF to CRLF in p before writing to c.w.
-// Returns (len(p), err) so callers always see the original byte count on success.
-func (c *crlfWriter) Write(p []byte) (int, error) {
-	s := strings.ReplaceAll(string(p), "\n", "\r\n")
-
-	_, err := c.w.Write([]byte(s))
-	return len(p), err
-}

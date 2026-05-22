@@ -6,9 +6,11 @@ Thank you for contributing to **AiT** (AI Terminal). This document summarizes th
 
 - Module path: `github.com/os-artificer/AiT`
 - Requires **Go 1.25+** (see [`go.mod`](go.mod))
-- Before opening a PR, run: `make fmt`, `make vet`, `make test`
+- Before opening a PR, run the merge gate in [`.cursor/rules/change-acceptance.mdc`](.cursor/rules/change-acceptance.mdc): `make fmt`, `make vet`, `make test`, `make build`, `make test-cross`
 
-The canonical source for coding rules is [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc). **When you change coding conventions, update that file and both CONTRIBUTING documents** ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)).
+The canonical source for coding rules is [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) and [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc). **When you change coding conventions, update those files and both CONTRIBUTING documents** ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)).
+
+For CLI commands, `--help` text must match the login-style layout in [`internal/ait/helpdoc`](internal/ait/helpdoc); see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `ait login --help` before opening a PR.
 
 ---
 

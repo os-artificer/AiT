@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/ait/shell"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
@@ -27,14 +28,15 @@ import (
 )
 
 func newShellCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "shell",
 		Short: "Interactive AiT shell (AiT> prompt)",
-		Long:  "Start an interactive AiT command loop. Run login, list, load, and other subcommands directly; type exit or quit to leave.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
 				return shell.RunREPL(ctx, mgr, os.Stdin, os.Stdout)
 			})
 		},
 	}
+	bindHelp(cmd, helpdoc.WriteShellHelp)
+	return cmd
 }

@@ -20,9 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/user"
 	"path/filepath"
-	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
@@ -35,48 +33,19 @@ import (
 // opts.User defaults to the current OS user; opts.Port defaults to 22.
 // Returns a Client, or errors from user lookup, buildAuth, host key setup, or ssh.Dial.
 func Dial(opts Options) (*Client, error) {
-	if opts.User == "" {
-		u, err := user.Current()
-		if err != nil {
-			return nil, err
-		}
-		opts.User = u.Username
-	}
-
-	if opts.Port == 0 {
-		opts.Port = 22
-	}
-
-	auth, agentConn, err := buildAuth(opts)
-	if err != nil {
+	if err := normalizeDialOptions(&opts); err != nil {
 		return nil, err
 	}
 
-	hkc, err := hostKeyCallbackFor(opts)
+	cfg, agentConn, err := buildSSHClientConfig(opts)
 	if err != nil {
-		if agentConn != nil {
-			_ = agentConn.Close()
-		}
 		return nil, err
-	}
-
-	timeout := opts.ConnectTimeout
-	if timeout == 0 {
-		timeout = 15 * time.Second
-	}
-	cfg := &ssh.ClientConfig{
-		User:            opts.User,
-		Auth:            auth,
-		HostKeyCallback: hkc,
-		Timeout:         timeout,
 	}
 
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 	conn, err := ssh.Dial("tcp", addr, cfg)
 	if err != nil {
-		if agentConn != nil {
-			_ = agentConn.Close()
-		}
+		abortSSHSetup(agentConn)
 		return nil, err
 	}
 	return &Client{conn: conn, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}, nil

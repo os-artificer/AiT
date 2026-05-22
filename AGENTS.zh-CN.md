@@ -22,7 +22,7 @@ make test-cross  # windows + darwin go build
 - **SSH 会话**：`shell`、`login`、`list`、`load`、`suspend`、`session switch`、`session delete`
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
 - **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）
-- **AI**：通过 OpenAI 兼容 API 接入 Deepseek（`internal/pkg/ai`）；会话内 `!ait ai` / `!!`；`!ait local`/`!ait remote`；系统命令缺失时提供安装建议
+- **AI**：多 provider 路由 + `tiered`；`ait ai chat` 单轮；`ait ai provider enable|disable`；`ait ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ait ai model list`；SSH `!ait ai chat` / `!! chat`
 - **传输**：`ait get` / `ait put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH
 - **OpenSSH 配置**：`login`/`load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
 
@@ -45,7 +45,8 @@ make test-cross  # windows + darwin go build
 | `internal/pkg/ssh/client/` | 拨号、PTY、`!ait` meta、本地模式、主机密钥 |
 | `internal/pkg/tmux/` | 远程 tmux 确保/附着/分离 |
 | `internal/pkg/terminal/` | scrollback 缓冲区、回放、路径解析 |
-| `internal/pkg/ai/` | Deepseek 客户端 |
+| `internal/pkg/ai/` | 多 provider 路由、tiered、模型列表 |
+| `internal/pkg/ollama/` | Ollama 自动配置、`FetchTags`、`EnsureLocal` |
 | `internal/pkg/transfer/` | SFTP get/put（单文件） |
 | `internal/pkg/platform/` | 数据/配置目录、`OpenSSHPath`、`LookPath` |
 | `internal/pkg/config/` | YAML 配置 |
@@ -68,6 +69,7 @@ make test-cross  # windows + darwin go build
 | `ait/cli` | `root.go`、`login.go`、`shell.go`、`load.go`、`session.go` 等 |
 | `ait/login` | `run.go`、`helpers.go`、`help.go` |
 | `ait/shell` | `repl.go`、`exec.go`、`parse.go`、`io.go`、`*_helpers.go` |
+| `ait/aimode` | `scope.go`、`policy.go`、`repl.go`、`exec.go`、`run_local.go`、`prompt.go` — AI REPL（Runner 由调用方注入） |
 | `ait/meta` | `exec.go` — `Execute`、`SetExecutorWriters` |
 
 ### `internal/pkg/ssh/client` 文件布局
@@ -91,6 +93,8 @@ make test-cross  # windows + darwin go build
 
 - **人类贡献者**：[CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) — 开发流程与 Go 编码规范。
 - **Go 编码规范**：生成或重构 Go 代码时遵循 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc)。
+- **复用**：遵循 [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc)。
+- **CLI 帮助**：`ait <cmd> --help` 使用 [`internal/ait/helpdoc`](internal/ait/helpdoc) 与 [`cli/help_bind.go`](internal/ait/cli/help_bind.go)；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
 - **格式化**：Go 使用 tab；完成修改后运行 `make fmt`。
 - **测试**：`*_test.go` 与实现同目录；`make test` 必须通过；store 测试使用 `:memory:` SQLite。
 - **`internal/`**：模块私有，禁止被本模块外代码 import。
@@ -102,6 +106,11 @@ make test-cross  # windows + darwin go build
 ```text
 ait shell
 ait login [ssh-options] destination [cmd ...] [--alias] [--tmux] [--password]
+ait ai [--model deepseek|minimax]            # 本机 AI REPL（AiT AI>）；tiered 可先走 Ollama
+ait ai model list
+ait ai chat [message...]
+ait ai provider enable|disable <provider>
+ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup 安装前 [y/N]）
 ait list | load <id|alias> [--tmux] [--password]
 ait session switch [id|alias] [--tmux] [--force]
 ait session delete <id|alias> | ait session delete all [--force]
@@ -110,7 +119,7 @@ ait put [ssh-flags] <paths...>
 ait config set|get <key> [<value>]
 ```
 
-提示符：`AiT>`（`ait shell`）、`AiT user@host>`（SSH 远程）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`；`!ait ai` / `!!`；`!ait local` / `remote`；`!ait suspend`。
+提示符：`AiT>`（`ait shell`）、`AiT AI>`（`ait ai`）、`AiT AI user@host>`（SSH AI）、`AiT user@host>`（SSH）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)。
 
 ## 注意事项
 

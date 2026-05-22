@@ -9,8 +9,11 @@
 ## 快速开始
 
 ```bash
-# Deepseek API Key（存入操作系统密钥环，不写入配置文件）
-./bin/ait config set deepseek.api_key <your-key>
+# AI API Key（系统密钥环；headless Linux 下为 ~/.local/share/ait/keyring 加密文件）
+# 无 D-Bus 的服务器建议：export AIT_KEYRING_FILE_PASSWORD='你的主口令'
+./bin/ait config set ai.deepseek.api_key <your-key>
+./bin/ait config set ai.minimax.api_key <your-key>   # 可选第二 provider
+# 别名仍可用：deepseek.api_key、minimax.api_key
 
 # 登录：完整参数说明见 help
 ./bin/ait login --help
@@ -58,7 +61,17 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait session delete all` | 删除全部会话（须确认；`--force` 跳过确认） |
 | `ait get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ait get --help` |
 | `ait put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
-| `ait config set/get <key>` | 配置项；`deepseek.api_key` 经密钥环存储 |
+| `ait config set/get <key>` | 配置项；`ai.<provider>.api_key` 经密钥环存储 |
+| `ait ai [--model deepseek\|minimax]` | 本机 AI REPL；可选本会话云端 provider 覆盖 |
+| `ait ai model list` | 列出 AI provider（ENABLED、可达性、Ollama tags） |
+| `ait ai chat [message...]` | 单轮提问；无参数时从 stdin 读取；SSH：`!ait ai chat` / `!! chat` |
+| `ait ai provider enable <provider>` | 启用 provider；`ollama` 可选检查/安装（[y/N]） |
+| `ait ai provider disable <provider>` | 禁用 provider（不再向其发送 AI 请求） |
+| `ait ai ollama status` | 查看 tiered/启用状态、API 可达性、已拉取模型 |
+| `ait ai ollama setup` | 启用 tiered 并配置 Ollama（安装前 [y/N] 确认） |
+| `ait ai ollama start` | 启动 `ollama serve`（`--wait` 等待 API） |
+| `ait ai ollama stop` | 停止本机 `ollama serve` |
+| `ait ai ollama disable` | 在配置中禁用 Ollama（`--stop` 可同时停服） |
 
 常用标志：`--tmux`（远程 tmux 保活）、`--port`、`--identity`、`--password`、`--alias`。`session switch --force` 可在当前会话仍标记为 active 时强制切换（不保存当前 scrollback/cwd）。
 
@@ -80,14 +93,31 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 ---
 
+## AI 模式（云端 + 可选本地 Ollama）
+
+至少配置一个**云端** provider 的 API Key（见上文），除非仅用 tiered Ollama 处理简单问题。本地 AI 可运行 **`ait ai ollama setup`**——选择模型存储目录（`OLLAMA_MODELS`；默认 AiT 数据目录，或 `~/.ollama/models`，或 `--models-dir`）；安装 Ollama 前会询问 `[y/N]`；拒绝仍会写入 tiered 配置并打印手动安装说明。用 **`ait ai ollama status`** 查看服务状态；**`start`** / **`stop`** 控制守护进程；**`disable`**（或 `ait ai provider disable ollama`）停止路由。Ollama 无需密钥环。任何 `run` / `ait` 都须您确认后才会执行。
+
+| 场景 | 进入方式 | 执行位置 |
+|------|----------|----------|
+| 本机（系统 shell 或 `ait shell`） | `ait ai`、`ait ai --model minimax`，或 shell 内 `ai` | `AiT AI>` — `run` 在本机；`ait` 子命令经确认后跑 CLI |
+| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | `AiT AI user@host>` — `run` 写入远程 PTY |
+
+模式内：`help`、`exit`/`quit`、`clear`、`model`（显示路由含 tiered）、`model list`（同 `ait ai model list`）、`model <deepseek|minimax>`（本会话云端覆盖；`model ollama` 拒绝）、`policy per-cmd`（每条确认）、`policy once`（本会话确认一次）。勿用 `!ait ai` 当 meta 子命令。
+
+启用 tiered 时，短句首轮走本地 Ollama；过长、含代码块、复杂关键词或多轮历史走云端。`--model` / `model <云端>` 本会话跳过 Ollama。
+
+云端 provider 失败（网络、5xx、限流）时，按 `ai.fallback` 或自动 `deepseek` → `minimax` 尝试其他已配置 Key 的 provider。tiered 下 Ollama 失败同样升到云端。
+
+---
+
 ## SSH 会话内命令
 
 | 输入 | 作用 |
 |------|------|
 | `!ait help` / `!ait` | 打印会话内命令与可本地执行的 CLI 说明 |
-| `!ait <子命令> …` | 在本地执行 `ait` 子命令；`login`/`load` 须先退出 SSH |
-| `!ait ai <问题>` | 调用 Deepseek（建议使用） |
-| `!! <问题>` | 同上（向后兼容别名；`!!` 后须有空格） |
+| `!ait <子命令> …` | 在本地执行 `ait` 子命令；`login`/`load`/`ai` 须先退出 SSH |
+| `!ait ai [问题]` | 远程 AI 模式（见上） |
+| `!! [问题]` | 同 `!ait ai` |
 | `!ait local` | 本地模式：命令在本机执行，SSH 连接保持 |
 | `!ait remote` | 退出本地模式，恢复向远程发送输入 |
 | `!ait suspend` | 挂起：保存 scrollback 与远程 cwd，断开连接 |
@@ -104,7 +134,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | macOS | `~/Library/Application Support/ait/` | 同上 |
 | Windows | `%LOCALAPPDATA%\ait\` | `%LOCALAPPDATA%\ait\config.yaml` |
 
-Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明文写入 SQLite。
+Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明文写入 SQLite。无桌面密钥环时，加密文件位于 `<DataDir>/keyring`（Linux 默认 `~/.local/share/ait/keyring`）。headless 生产环境请设置 `AIT_KEYRING_FILE_PASSWORD`。
 
 ---
 

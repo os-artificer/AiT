@@ -6,9 +6,11 @@
 
 - 模块路径：`github.com/os-artificer/AiT`
 - 需要 **Go 1.25+**（见 [`go.mod`](go.mod)）
-- 提交 PR 前请运行：`make fmt`、`make vet`、`make test`
+- 提交 PR 前请运行合并门禁 [`.cursor/rules/change-acceptance.mdc`](.cursor/rules/change-acceptance.mdc)：`make fmt`、`make vet`、`make test`、`make build`、`make test-cross`
 
-规范以 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) 为权威来源；**若更新编码约定，请同步修改该文件与中英文 CONTRIBUTING 文档**（[`CONTRIBUTING.md`](CONTRIBUTING.md)、[`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)）。
+规范以 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) 与 [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc) 为权威来源；**若更新编码约定，请同步修改上述规则与中英文 CONTRIBUTING 文档**（[`CONTRIBUTING.md`](CONTRIBUTING.md)、[`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)）。
+
+CLI 命令的 `--help` 须与 `ait login --help` 同版式，正文在 [`internal/ait/helpdoc`](internal/ait/helpdoc)；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
 
 ---
 

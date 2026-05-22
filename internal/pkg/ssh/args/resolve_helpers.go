@@ -77,21 +77,6 @@ func firstExistingIdentity(paths []string) string {
 	return ""
 }
 
-func normalizeStrictHostKeyChecking(v string) string {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "", "ask":
-		return "ask"
-	case "yes", "true", "on":
-		return "yes"
-	case "no", "false", "off":
-		return "no"
-	case "accept-new":
-		return "accept-new"
-	default:
-		return "ask"
-	}
-}
-
 func parsePort(s string) int {
 	if s == "" {
 		return 0

@@ -1,0 +1,68 @@
+---
+description: 优先复用存量代码；合理设计模式；可读可维护；禁止无意义重复实现
+alwaysApply: true
+---
+
+# 复用、可读性与避免重复
+
+生成或重构 Go 代码时**必须**遵守。与 [go-structure.mdc](go-structure.mdc) 冲突时以 go-structure 为准（可读性优先）。
+
+## 优先级
+
+1. **可读性 / 可维护性** — 扫读即可理解控制流与职责。
+2. **合理复用与扩展** — 单一事实来源、对称命令共用实现。
+3. **行数最少** — 不得为少几行牺牲清晰度。
+
+## 必须先复用
+
+加功能前在仓库内搜索已有实现：
+
+- 同包 `*_helpers.go`、已有导出函数
+- 共享包：`internal/ait/helpdoc`、`internal/pkg/ssh/stricthostkey`、`internal/pkg/terminal` 等
+- 已有 Cobra 接线：`internal/ait/cli/help_bind.go`
+
+能委托或提取共享则**不得**复制粘贴第二份 10+ 行逻辑。
+
+## 允许的设计模式（克制使用）
+
+| 模式 | 适用场景 |
+|------|----------|
+| **DRY** | OpenSSH 帮助段、HostKey 规范化、CRLF writer 等只维护一处 |
+| **Builder / Template** | 帮助章节拼装（`helpBody`）、可变步骤管道 |
+| **Strategy** | 对称命令（get/put、`WriteTransferHelp(cmdName)`） |
+| **Facade** | 集中 Cobra 接线（`bindHelp`、`bindCustomArgvHelp`） |
+| **Extract Method** | 两处以上相同语义的真实重复块 |
+
+## 禁止
+
+- 两处各写一份相同大段逻辑（镜像 `WriteGetHelp` / `WritePutHelp`）
+- 为「模式」增加 ≥3 层间接、无可读性收益的抽象
+- 仅改字符串却复制整文件
+- 重构时顺手改业务分支、错误文案或默认值
+
+## 何时提取 / 何时不提取
+
+**提取**：≥2 处真实调用、语义相同、今后还会加同类（如新子命令 help）。
+
+**不提取**：仅用一次；提取后需跳转过多才能读懂；未 profile 前的性能向抽象。
+
+## 重构约束
+
+- **语义不变**；已修复行为不得回退（全量 `make test`）
+- 重构 = 搬迁 + 合并，非顺带改业务
+
+## 领域规则索引
+
+- CLI `--help` 版式 → [cli-help.mdc](cli-help.mdc)
+- Go 文件布局与版式 → [go-structure.mdc](go-structure.mdc)
+
+## 示例
+
+```go
+// 推荐
+helpdoc.WriteTransferHelp(w, "get")
+
+// 不推荐：两份各粘贴 OpenSSH 列表
+func WriteGetHelp(...) { /* 大段重复 */ }
+func WritePutHelp(...) { /* 大段重复 */ }
+```
