@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ func newSessionCmd() *cobra.Command {
 		Short: "Manage saved sessions",
 	}
 	cmd.AddCommand(newSessionSwitchCmd(), newSessionDeleteCmd())
+	bindHelp(cmd, helpdoc.WriteSessionHelp)
 	return cmd
 }
 
@@ -60,6 +62,7 @@ func newSessionSwitchCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&tmux, "tmux", false, "use tmux for target session")
 	cmd.Flags().StringVar(&password, "password", "", "SSH password if auth expired")
 	cmd.Flags().BoolVar(&force, "force", false, "switch even if current session is still marked active")
+	bindHelp(cmd, helpdoc.WriteSessionSwitchHelp)
 	return cmd
 }
 
@@ -79,5 +82,6 @@ func newSessionDeleteCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation")
+	bindHelp(cmd, helpdoc.WriteSessionDeleteHelp)
 	return cmd
 }

@@ -38,107 +38,68 @@ func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 
 	switch arg {
 	case "-p":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("-p requires a value")
-		}
-		port, err := strconv.Atoi(argv[i])
+		var val string
+		var err error
+		i, val, err = nextFlagValue(argv, i, "-p")
 		if err != nil {
-			return i, fmt.Errorf("invalid -p: %w", err)
+			return i, err
 		}
-		s.Port = port
+		if err := setPortFromString(s, "-p", val); err != nil {
+			return i, err
+		}
 		return i, nil
 	case "-l":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("-l requires a value")
-		}
-		s.User = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "-l", func(v string) { s.User = v })
 	case "-i":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("-i requires a value")
-		}
-		s.Identity = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "-i", func(v string) { s.Identity = v })
 	case "-F":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("-F requires a value")
-		}
-		s.ConfigFile = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "-F", func(v string) { s.ConfigFile = v })
 	case "-J":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("-J requires a value")
+		var val string
+		var err error
+		i, val, err = nextFlagValue(argv, i, "-J")
+		if err != nil {
+			return i, err
 		}
-		for _, j := range strings.Split(argv[i], ",") {
-			j = strings.TrimSpace(j)
-			if j != "" {
-				s.ProxyJump = append(s.ProxyJump, j)
-			}
-		}
+		appendProxyJumpFromString(s, val)
 		return i, nil
 	case "-o":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("-o requires a value")
+		var val string
+		var err error
+		i, val, err = nextFlagValue(argv, i, "-o")
+		if err != nil {
+			return i, err
 		}
-		if err := mergeOption(s.Options, argv[i]); err != nil {
+		if err := mergeOption(s.Options, val); err != nil {
 			return i, err
 		}
 		return i, nil
 	case "--alias":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("--alias requires a value")
-		}
-		s.Alias = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "--alias", func(v string) { s.Alias = v })
 	case "--tmux":
 		s.Tmux = true
 		return i, nil
 	case "--password":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("--password requires a value")
-		}
-		s.Password = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "--password", func(v string) { s.Password = v })
 	case "--host":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("--host requires a value")
-		}
-		s.LegacyHost = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "--host", func(v string) { s.LegacyHost = v })
 	case "--user":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("--user requires a value")
-		}
-		s.LegacyUser = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "--user", func(v string) { s.LegacyUser = v })
 	case "--port":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("--port requires a value")
+		var val string
+		var err error
+		i, val, err = nextFlagValue(argv, i, "--port")
+		if err != nil {
+			return i, err
 		}
-		port, err := strconv.Atoi(argv[i])
+		port, err := strconv.Atoi(val)
 		if err != nil {
 			return i, fmt.Errorf("invalid --port: %w", err)
 		}
 		s.LegacyPort = port
 		return i, nil
 	case "--identity":
-		i++
-		if i >= len(argv) {
-			return i, fmt.Errorf("--identity requires a value")
-		}
-		s.LegacyIdentity = argv[i]
-		return i, nil
+		return applyStringFlag(s, argv, i, "--identity", func(v string) { s.LegacyIdentity = v })
 	default:
 		if strings.HasPrefix(arg, "-o") && len(arg) > 2 {
 			if err := mergeOption(s.Options, arg[2:]); err != nil {
@@ -150,6 +111,17 @@ func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 	}
 }
 
+func applyStringFlag(s *Spec, argv []string, i int, flag string, set func(string)) (int, error) {
+	var val string
+	var err error
+	i, val, err = nextFlagValue(argv, i, flag)
+	if err != nil {
+		return i, err
+	}
+	set(val)
+	return i, nil
+}
+
 // applyGluedFlag handles OpenSSH glued forms like -p22 or -i~/.ssh/id_ed25519.
 func applyGluedFlag(s *Spec, arg string) (glued bool, err error) {
 	if len(arg) < 3 || arg[0] != '-' {
@@ -158,40 +130,18 @@ func applyGluedFlag(s *Spec, arg string) (glued bool, err error) {
 	suffix := arg[2:]
 	switch arg[1] {
 	case 'p':
-		port, perr := strconv.Atoi(suffix)
-		if perr != nil {
-			return false, nil
-		}
-		s.Port = port
-		return true, nil
+		return applyGluedPort(s, suffix)
 	case 'i':
-		if suffix == "" {
-			return false, nil
-		}
-		s.Identity = suffix
-		return true, nil
+		return applyGluedString(func(v string) { s.Identity = v }, suffix)
 	case 'F':
-		if suffix == "" {
-			return false, nil
-		}
-		s.ConfigFile = suffix
-		return true, nil
+		return applyGluedString(func(v string) { s.ConfigFile = v }, suffix)
 	case 'l':
-		if suffix == "" {
-			return false, nil
-		}
-		s.User = suffix
-		return true, nil
+		return applyGluedString(func(v string) { s.User = v }, suffix)
 	case 'J':
 		if suffix == "" {
 			return false, nil
 		}
-		for _, j := range strings.Split(suffix, ",") {
-			j = strings.TrimSpace(j)
-			if j != "" {
-				s.ProxyJump = append(s.ProxyJump, j)
-			}
-		}
+		appendProxyJumpFromString(s, suffix)
 		return true, nil
 	case 'o':
 		if suffix == "" {

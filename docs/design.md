@@ -11,6 +11,11 @@ CLI entry point: [`internal/ait/root.go`](../internal/ait/root.go) (`Run` plus c
 
 ```text
 ait shell                                    # AiT> REPL (login/list/load, etc.)
+ait ai                                       # Local AI mode (AiT AI>); also "ai" inside ait shell
+ait ai model list                            # List configured AI providers (ENABLED column)
+ait ai chat [message...]                     # One-shot AI question (stdin if no args); !ait ai chat in SSH
+ait ai provider enable|disable <provider>    # Enable/disable routing to a provider
+ait ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir + install [y/N])
 ait login [ssh-options] destination [command ...] [--alias NAME] [--password] [--tmux]
         # OpenSSH-compatible: -p -l -i -F -J -o, etc.; destination is [user@]host or a config Host alias
         # Requires local OpenSSH client (ssh -G) for config resolution; data plane is Go x/crypto/ssh (Windows/macOS/Linux)
@@ -27,7 +32,9 @@ ait put [ssh-flags] <paths...>
 ait config set|get ...        # Includes session.auth_ttl (default 168h = 7 days)
 ```
 
-Inside interactive SSH: invoke Deepseek with **`!ait ai <question>`** (recommended) or **`!! <question>`** (backward-compatible alias); use **`!ait local` / `!ait remote`** to toggle local versus remote input while the SSH session stays connected; use **`!ait suspend`** to suspend. When no API key is configured, leading `!!` / `!ait` lines fail closed locally and do not reach the remote shell. See [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait) and [Local mode (!ait local / remote)](#local-mode-ait-local-remote).
+**AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ait ai [--model <cloud-provider>]`** or **`ai` inside `ait shell`** runs a local AI REPL (`AiT AI>`); commands run on this machine only after you confirm (`run`, optional `ait` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait).
+
+Use **`!ait local` / `!ait remote`** to toggle local versus remote input while SSH stays connected; **`!ait suspend`** to suspend.
 
 ### Two recovery modes (default versus `--tmux`)
 
@@ -56,7 +63,7 @@ flowchart TB
     Sess[session manager]
     SSH[ssh/client PTY meta]
     Term[terminal scrollback]
-    AI[ai deepseek]
+    AI[ai router]
     Creds[creds keyring]
     Config[config yaml]
     Plat[platform paths openssh]
@@ -92,7 +99,7 @@ flowchart TB
 | SQLite | [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite) | Pure Go, no CGO; simplifies Windows cross-compilation |
 | SSH | `golang.org/x/crypto/ssh` plus `RequestPty` | Standard ecosystem; cross-platform |
 | Local PTY | Unix: `github.com/creack/pty`; Windows: ConPTY (`golang.org/x/sys/windows` or a mature wrapper) | Split files `pty_unix.go` / `pty_windows.go` |
-| Deepseek | OpenAI-compatible HTTP (`https://api.deepseek.com`) | Lightweight `net/http` or `github.com/sashabaranov/go-openai` with `BaseURL` |
+| AI providers | Deepseek + MiniMax (cloud); optional Ollama (local, OpenAI-compatible); `api_style` per provider | Router in `internal/pkg/ai`: tiered heuristic → Ollama, else cloud default-first failover (`ai.fallback` or auto `deepseek` → `minimax`); Ollama failure fails up to cloud |
 | Secrets / passwords | Private key paths in SQLite; SSH passwords and key passphrases cached in keyring; **auth TTL defaults to 7 days** | After expiry, `load` must prompt again |
 | SSH host keys | Default `~/.ssh/known_hosts`; unknown hosts error with `ssh-keyscan` hint | `AIT_SSH_INSECURE=1` for development only |
 | System commands | `exec.LookPath` plus `runtime.GOOS` | Missing tools trigger Deepseek install hints |
@@ -195,7 +202,7 @@ CREATE TABLE app_meta (
 - `suspend` → write `session_state`, `status=suspended`; in tmux mode `tmux detach` before closing SSH
 - `session delete <id>` / `session delete all` → delete DB rows plus scrollback sidecars; tmux mode optional `--kill-tmux` kills remote sessions (`delete all` defaults to not killing remote tmux to avoid accidents; documented)
 
-**Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only.
+**Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `ait config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<DataDir>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
 
 ## Package layout (current)
 
@@ -206,6 +213,7 @@ CREATE TABLE app_meta (
 | [`internal/ait/app/`](../internal/ait/app/) | Manager bootstrap | `manager.go`, `context.go` |
 | [`internal/ait/login/`](../internal/ait/login/) | Login parsing and help | `run.go`, `help.go` |
 | [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
+| [`internal/ait/aimode/`](../internal/ait/aimode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`, `exec.go`, `policy.go`, `run_local.go` |
 | [`internal/ait/meta/`](../internal/ait/meta/) | In-session `!ait` | `exec.go` |
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv, `ssh -G`, mapped options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | Session lifecycle | `manager.go`, `manager_helpers.go` |
@@ -213,7 +221,7 @@ CREATE TABLE app_meta (
 | [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback.go`, `scrollback_io.go`, `path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go` |
-| [`internal/pkg/ai/`](../internal/pkg/ai/) | Deepseek | `client.go`, `client_helpers.go` |
+| [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file) | `transfer.go`, `parse.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | Data dirs, OpenSSH, `LookPath` | `paths.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML config | `config.go`, `config_load.go` |
@@ -243,8 +251,9 @@ Implementation: [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/c
 |---------|----------|
 | `!ait help` / `!ait` | Print in-session commands and locally runnable CLI notes |
 | `!ait <subcommand> …` | Run matching `ait` CLI locally (for example `!ait list`); use `ait shell` for `login`/`load` |
-| `!ait ai <question>` | Call Deepseek; output prints locally, not forwarded remote |
-| `!! <question>` | Alias above (`!!` must be followed by space) |
+| `!ait ai [question]` | Enter **remote** AI REPL; optional first question |
+| `!! [question]` | Alias for `!ait ai` (`!!` must be followed by space when used) |
+| `!ait ai` (as subcommand) | **Blocked** — use `!ait ai` line form above, not `!ait` + CLI runner |
 | `!ait local` | Enter local mode (below) |
 | `!ait remote` | Leave local mode; restore remote stdin |
 | `!ait suspend` | Suspend session (same as CLI `suspend`) |
@@ -254,7 +263,7 @@ Implementation: [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/c
 **Detection rules:**
 
 - Byte-oriented `metaScanner`: strict opener match (`!ait ai `, `!ait local`, `!! `, etc.); inline `!` still enters holding so remote zsh without a newline on the prompt cannot swallow `!ait`.
-- When `aiAvailable == false` (no API key), fail closed: leading `!!…` / `!ait…` never goes remote; **non-empty** AI questions stderr a configure-key hint; empty questions print usage only.
+- When `aiAvailable == false` (no API key), fail closed: leading `!!…` / `!ait ai…` never goes remote; stderr configure-key hint when entering AI mode.
 - Meta lines echo locally and never enter remote PTY; user-visible messages use `termPrintln` / `aitModeNotice` with `termEOL` (`\r\n`) for raw TTY.
 
 ### login
@@ -398,13 +407,32 @@ Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over
 
 **In-session** (`!ait get` / `!ait put`): two server-relative paths only; no SSH flags.
 
-### AI assistant (in-session)
+### AI mode (dual scope)
 
-Aligned with [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait); implementation details:
+Package: [`internal/ait/aimode/`](../internal/ait/aimode/) (REPL, exec policy, runners); chat API: [`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go). Remote entry is wired via `InteractiveOpts.OnRemoteAI` from [`internal/ait/cli/ai.go`](../internal/ait/cli/ai.go) (avoids import cycles).
 
-- Context: recent N scrollback lines (redacted), `GOOS`, current `remote_cwd`, user question
-- Output prints locally (no automatic execution to prevent accidents)
-- **Install hints**: when `platform.LookPath(cmd)==err`, prompts include OS/version probing → brew/apt/choco/winget suggestions
+| Entry | Scope | Prompt | Command execution |
+|-------|-------|--------|-------------------|
+| `ait ai`, `ai` in `ait shell` | Local | `AiT AI>` | `run <cmd>` → local `sh -c` / `cmd /c`; `ait <args>` → Cobra after confirm |
+| `!ait ai`, `!!` in SSH | Remote | `AiT AI user@host>` | `run <cmd>` → PTY stdin (`cmd\n`); no local `exec` for remote work |
+
+**REPL commands:** `help`, `exit`/`quit`, `clear`, `model` (no-arg: routing status including tiered), `model list` (same as `ait ai model list`), `model <cloud-provider>` (session override; `model ollama` rejected), `policy per-cmd` (default), `policy once` / `trust` (one confirm per AI session), free-text questions (multi-turn `Chat` history), `run` / local-only `ait`.
+
+**Multi-provider config:** YAML block `ai` with `default` (cloud only: `deepseek` or `minimax`), optional `fallback`, optional `tiered` (`enabled`, `local_provider`, `max_prompt_chars`, `max_history_turns`, `complex_keywords`), and `providers.<id>` (`api_style`, `base_url`, `model`). Legacy top-level `deepseek:` merges into `ai.providers.deepseek` on load. MiniMax supports `api_style: openai` (`https://api.minimax.io/v1`) or `anthropic` (`https://api.minimax.io/anthropic`). Ollama uses OpenAI-compatible `http://127.0.0.1:11434/v1` (localhost HTTP allowed; no API key). When tiered is on, `ClassifyPrompt` sends simple first-turn prompts to Ollama; otherwise Chat/Assist use cloud order (session `--model` / REPL `model`, else `ai.default`, then failover). Ollama errors fail up to cloud. `SuggestInstall` always uses cloud. System prompt injects factual `ai_provider`, `ai_model`, `ai_mode` (`local_first` | `cloud_only`) so the model does not invent backends. Set `AIT_AI_FAILOVER_LOG=1` to log switches on stderr.
+
+**Model list:** `ait ai model list` and REPL `model list` print configured providers (key, **ENABLED**, role, reachability) and optional Ollama `GET /api/tags` pulled models (configured model marked with `*`). Disabled providers never receive Chat/Assist traffic.
+
+**Provider enable/disable:** `ai.providers.<id>.enabled` (default true when omitted). `ait ai provider disable minimax` stops failover to MiniMax; `ait ai provider enable ollama` re-enables routing; full local setup is `ait ai ollama setup` (install prompt `[y/N]` when Ollama is missing; `--yes` / `--no-install`; manual steps on decline).
+
+**Ollama CLI (under `ait ai ollama`):** `setup` prompts for `models_dir` (persisted as `ai.providers.ollama.models_dir`, applied as `OLLAMA_MODELS` on AiT-started `serve`/`pull`; alternatives: AiT data dir, `~/.ollama/models`, custom; `--models-dir`); merges tiered + `providers.ollama` and may install/pull; `status` shows config + API reachability; `start`/`stop` control `ollama serve`; `disable` sets `providers.ollama.enabled` false (optional `--stop`). Package: [`internal/pkg/ollama/`](../internal/pkg/ollama/).
+
+**Authorization:** default `per_cmd` — `[y/N]` before each `run`/`ait`. `session_once` — first approval sets trust until `exit`/`quit` leaves AI mode (state resets on next entry).
+
+**One-shot chat:** `ait ai chat` and `!ait ai chat <msg>` / `!! chat <msg>` call `RunChatOnce` (single `Chat`, no REPL). Empty `chat` returns a usage error.
+
+**SSH integration:** `handleAIMetaLine` runs synchronous `RunREPL` with `pauseRemoteOut`; does not spawn async one-shot `Assist`. Optional trailing text on `!ait ai` / `!!` is the first chat turn (or `chat <msg>` for one-shot).
+
+**Install hints** (unchanged): when `platform.LookPath(cmd)==err`, Deepseek suggests install steps via `SuggestInstall`.
 
 ## Cross-platform notes
 
@@ -454,7 +482,7 @@ Capabilities implemented in the current tree:
 - [x] `login` / interactive SSH, `ssh/args` plus `ssh/client` (including ProxyJump/Command)
 - [x] `suspend` / `list` / `load` / `session switch` / `session delete`
 - [x] `--tmux` remote keep-alive
-- [x] `get` / `put` (SFTP, single file) and in-session AI (`!ait ai` / `!!`)
+- [x] `get` / `put` (SFTP, single file) and dual-scope AI mode (`ait ai`, `!ait ai` / `!!`)
 - [x] Cross-platform builds (including Windows OpenSSH probing, split proxy/resize files)
 
 ## Risks and mitigations

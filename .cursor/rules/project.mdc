@@ -22,7 +22,9 @@ Go CLI (**AI Terminal**). Module: `github.com/os-artificer/AiT`.
 
 ## Scope
 
-- Go code generation/refactoring: follow [go-structure.mdc](go-structure.mdc) (import order, file layout, constants, exported godoc, line length, nesting, readability, function block spacing)
+- Go code generation/refactoring: follow [go-structure.mdc](go-structure.mdc) and [code-reuse.mdc](code-reuse.mdc) (import order, file layout, constants, exported godoc, line length, nesting, readability, function block spacing, DRY)
+- New or changed CLI commands: follow [cli-help.mdc](cli-help.mdc) (`internal/ait/helpdoc`, `cli/help_bind.go`)
+- Merge gate and regression: [change-acceptance.mdc](change-acceptance.mdc) (`make fmt`, `make test`, `make test-cross`; R1–R18)
 - Match existing style (tabs in Go, `.editorconfig`)
 - No drive-by refactors; no new markdown unless asked
 - Do not commit unless the user requests it

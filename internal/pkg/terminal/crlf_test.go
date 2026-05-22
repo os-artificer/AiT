@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package meta
+package terminal
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ import (
 
 func TestCRLFWriter(t *testing.T) {
 	var buf bytes.Buffer
-	w := &crlfWriter{w: &buf}
+	w := NewCRLFWriter(&buf)
 	n, err := w.Write([]byte("a\nb\n"))
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func TestCRLFWriter(t *testing.T) {
 
 func TestCRLFWriterPreservesReturnCount(t *testing.T) {
 	var buf bytes.Buffer
-	w := &crlfWriter{w: &buf}
+	w := NewCRLFWriter(&buf)
 	_, _ = w.Write([]byte("line\n"))
 	if !strings.HasSuffix(buf.String(), "\r\n") {
 		t.Fatalf("suffix: %q", buf.String())

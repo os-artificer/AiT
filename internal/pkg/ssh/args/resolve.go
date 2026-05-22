@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/stricthostkey"
 )
 
 // Resolved is the effective SSH connection parameters after ssh -G and CLI overrides.
@@ -97,7 +98,7 @@ func Resolve(spec Spec) (Resolved, error) {
 		User:                  cfg.single["user"],
 		ProxyCommand:          cfg.single["proxycommand"],
 		KnownHostsPath:        platform.ExpandSSHPath(cfg.single["userknownhostsfile"]),
-		StrictHostKeyChecking: normalizeStrictHostKeyChecking(cfg.single["stricthostkeychecking"]),
+		StrictHostKeyChecking: stricthostkey.NormalizeStrictHostKeyChecking(cfg.single["stricthostkeychecking"]),
 		BatchMode:             strings.EqualFold(cfg.single["batchmode"], "yes"),
 		RemoteCommand:         spec.RemoteCommand,
 		Alias:                 spec.Alias,
@@ -159,7 +160,7 @@ func Resolve(spec Spec) (Resolved, error) {
 		r.KnownHostsPath = platform.ExpandSSHPath(kh)
 	}
 	if spec.Options["stricthostkeychecking"] != "" {
-		r.StrictHostKeyChecking = normalizeStrictHostKeyChecking(spec.Options["stricthostkeychecking"])
+		r.StrictHostKeyChecking = stricthostkey.NormalizeStrictHostKeyChecking(spec.Options["stricthostkeychecking"])
 	}
 	if to := cfg.single["connecttimeout"]; to != "" && to != "none" && to != "0" {
 		if sec, err := strconv.Atoi(to); err == nil && sec > 0 {

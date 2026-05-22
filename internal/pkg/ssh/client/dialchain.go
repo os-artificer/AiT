@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/user"
 	"strings"
-	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
@@ -34,16 +32,8 @@ import (
 // opts.User defaults to the current OS user; opts.Port defaults to 22.
 // Returns a Client, or errors from user lookup, proxy dial, buildAuth, host key setup, or ssh.NewClientConn.
 func DialChain(opts Options) (*Client, error) {
-	if opts.User == "" {
-		u, err := user.Current()
-		if err != nil {
-			return nil, err
-		}
-		opts.User = u.Username
-	}
-
-	if opts.Port == 0 {
-		opts.Port = 22
+	if err := normalizeDialOptions(&opts); err != nil {
+		return nil, err
 	}
 
 	if len(opts.ProxyJump) == 0 && opts.ProxyCommand == "" {
@@ -67,37 +57,15 @@ func DialChain(opts Options) (*Client, error) {
 		return nil, err
 	}
 
-	auth, agentConn, err := buildAuth(opts)
+	cfg, agentConn, err := buildSSHClientConfig(opts)
 	if err != nil {
 		_ = conn.Close()
 		return nil, err
-	}
-
-	hkc, err := hostKeyCallbackFor(opts)
-	if err != nil {
-		if agentConn != nil {
-			_ = agentConn.Close()
-		}
-		_ = conn.Close()
-		return nil, err
-	}
-
-	timeout := opts.ConnectTimeout
-	if timeout == 0 {
-		timeout = 15 * time.Second
-	}
-	cfg := &ssh.ClientConfig{
-		User:            opts.User,
-		Auth:            auth,
-		HostKeyCallback: hkc,
-		Timeout:         timeout,
 	}
 
 	ncc, chans, reqs, err := ssh.NewClientConn(conn, targetAddr, cfg)
 	if err != nil {
-		if agentConn != nil {
-			_ = agentConn.Close()
-		}
+		abortSSHSetup(agentConn)
 		_ = conn.Close()
 		return nil, err
 	}

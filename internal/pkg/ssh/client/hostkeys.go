@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/ssh/stricthostkey"
+
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/term"
@@ -113,7 +115,7 @@ func hostKeyCallbackFor(opts Options) (ssh.HostKeyCallback, error) {
 		return ssh.InsecureIgnoreHostKey(), nil //nolint:gosec // explicit opt-in for dev
 	}
 
-	mode := normalizeStrictHostKeyChecking(opts.StrictHostKeyChecking)
+	mode := stricthostkey.NormalizeStrictHostKeyChecking(opts.StrictHostKeyChecking)
 	if mode == "no" {
 		return ssh.InsecureIgnoreHostKey(), nil //nolint:gosec // StrictHostKeyChecking=no
 	}
@@ -278,19 +280,4 @@ func appendKnownHost(path, host string, port int, key ssh.PublicKey) error {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
-}
-
-func normalizeStrictHostKeyChecking(v string) string {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "", "ask":
-		return "ask"
-	case "yes", "true", "on":
-		return "yes"
-	case "no", "false", "off":
-		return "no"
-	case "accept-new":
-		return "accept-new"
-	default:
-		return "ask"
-	}
 }

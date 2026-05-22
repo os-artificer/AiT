@@ -19,7 +19,6 @@ package platform
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 )
 
 const appName = "ait"
@@ -27,71 +26,13 @@ const appName = "ait"
 // DataDir returns the per-user AiT data directory, creating it with mode 0700 when missing.
 // Returns the path, or os.UserHomeDir / MkdirAll errors.
 func DataDir() (string, error) {
-	var base string
-	switch runtime.GOOS {
-	case "windows":
-		base = os.Getenv("LOCALAPPDATA")
-		if base == "" {
-			base = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local")
-		}
-		base = filepath.Join(base, appName)
-	case "darwin":
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		base = filepath.Join(home, "Library", "Application Support", appName)
-	default:
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-			base = filepath.Join(xdg, appName)
-		} else {
-			base = filepath.Join(home, ".local", "share", appName)
-		}
-	}
-
-	if err := os.MkdirAll(base, 0o700); err != nil {
-		return "", err
-	}
-	return base, nil
+	return appDir(appDirData)
 }
 
 // ConfigDir returns the per-user AiT config directory, creating it with mode 0700 when missing.
 // Returns the path, or os.UserHomeDir / MkdirAll errors.
 func ConfigDir() (string, error) {
-	var base string
-	switch runtime.GOOS {
-	case "windows":
-		base = os.Getenv("LOCALAPPDATA")
-		if base == "" {
-			base = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local")
-		}
-		base = filepath.Join(base, appName)
-	case "darwin":
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		base = filepath.Join(home, "Library", "Application Support", appName)
-	default:
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-			base = filepath.Join(xdg, appName)
-		} else {
-			base = filepath.Join(home, ".config", appName)
-		}
-	}
-
-	if err := os.MkdirAll(base, 0o700); err != nil {
-		return "", err
-	}
-	return base, nil
+	return appDir(appDirConfig)
 }
 
 // DBPath returns the default SQLite database file path under DataDir.

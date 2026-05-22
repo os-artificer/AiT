@@ -1,4 +1,4 @@
-.PHONY: all build test vet fmt clean test-cross
+.PHONY: all build test vet fmt clean test-cross dupl
 
 BINARY_NAME := ait
 BUILD_DIR   := bin
@@ -22,6 +22,9 @@ vet:
 
 fmt:
 	go fmt ./...
+
+dupl:
+	go run github.com/mibk/dupl@latest -threshold 15 $$(find . -name '*.go' ! -name '*_test.go' ! -path './vendor/*')
 
 clean:
 	rm -rf $(BUILD_DIR)

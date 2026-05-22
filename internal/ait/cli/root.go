@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/ait/meta"
 	"github.com/os-artificer/AiT/internal/ait/shell"
 
@@ -29,6 +30,7 @@ import (
 func init() {
 	meta.SetExecutorWriters(ExecuteWriters)
 	shell.SetCLIExecutor(ExecuteWriters)
+	shell.SetAIModeRunner(runLocalAIModeFromShell)
 }
 
 func newRootCmd() *cobra.Command {
@@ -41,6 +43,7 @@ func newRootCmd() *cobra.Command {
 	}
 	root.AddCommand(
 		newShellCmd(),
+		newAICmd(),
 		newLoginCmd(),
 		newListCmd(),
 		newLoadCmd(),
@@ -50,6 +53,7 @@ func newRootCmd() *cobra.Command {
 		newConfigCmd(),
 		newSessionCmd(),
 	)
+	bindHelp(root, helpdoc.WriteRootHelp)
 	return root
 }
 

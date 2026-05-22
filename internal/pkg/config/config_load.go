@@ -18,10 +18,8 @@ package config
 
 import (
 	"errors"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/platform"
 
@@ -51,44 +49,18 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.Deepseek.BaseURL == "" {
-		cfg.Deepseek.BaseURL = DefaultDeepseekBase
-	}
-	if cfg.Deepseek.Model == "" {
-		cfg.Deepseek.Model = DefaultDeepseekModel
-	}
+	normalizeAI(cfg)
 	return cfg, nil
-}
-
-func validateDeepseekBaseURL(raw string) error {
-	if os.Getenv("AIT_ALLOW_CUSTOM_AI_URL") == "1" {
-		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "https" || u.Host == "" {
-			return errors.New("deepseek.base_url must be a valid https URL")
-		}
-		return nil
-	}
-
-	u, err := url.Parse(raw)
-	if err != nil {
-		return err
-	}
-	if u.Scheme != "https" {
-		return errors.New("deepseek.base_url must use https")
-	}
-
-	host := strings.ToLower(u.Hostname())
-	if host != "api.deepseek.com" {
-		return errors.New("deepseek.base_url host must be api.deepseek.com (set AIT_ALLOW_CUSTOM_AI_URL=1 to override)")
-	}
-	return nil
 }
 
 func defaults() *Config {
 	cfg := &Config{}
 	cfg.Session.AuthTTL = DefaultAuthTTL.String()
-	cfg.Deepseek.BaseURL = DefaultDeepseekBase
-	cfg.Deepseek.Model = DefaultDeepseekModel
+	cfg.AI.Default = ProviderDeepseek
+	cfg.AI.Providers = map[string]ProviderConfig{
+		ProviderDeepseek: defaultProviderConfig(ProviderDeepseek),
+		ProviderMinimax:  defaultProviderConfig(ProviderMinimax),
+	}
 	return cfg
 }
 
@@ -99,6 +71,9 @@ func Save(cfg *Config) error {
 	if err != nil {
 		return err
 	}
+
+	normalizeAI(cfg)
+	clearLegacyDeepseekForSave(cfg)
 
 	b, err := yaml.Marshal(cfg)
 	if err != nil {

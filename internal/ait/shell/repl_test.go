@@ -78,8 +78,11 @@ func TestExecuteLineHelp(t *testing.T) {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
 	PrintHelp(&buf)
-	if !strings.Contains(buf.String(), "login") || !strings.Contains(buf.String(), "-p port") {
-		t.Error("help should mention login flags")
+	out := buf.String()
+	for _, want := range []string{"Usage:", "Examples:", "help for help", "login", "-p port"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help missing %q", want)
+		}
 	}
 }
 

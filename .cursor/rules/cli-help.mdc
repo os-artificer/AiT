@@ -1,0 +1,45 @@
+---
+description: CLI/Cobra --help 必须与 ait login 同版式；新命令 checklist
+globs: internal/ait/cli/**,internal/ait/helpdoc/**,internal/ait/login/help.go,internal/ait/shell/**,internal/ait/meta/**
+alwaysApply: false
+---
+
+# CLI 帮助版式（login 风格）
+
+须同时遵守 [code-reuse.mdc](code-reuse.mdc) 与 [go-structure.mdc](go-structure.mdc)。
+
+## 禁止
+
+- 仅依赖 Cobra 默认 `-h` 模板
+- 在 `cli/*.go` 内联大段 help 字符串
+- get/put 各一份重复 OpenSSH 全文；每个 `newXxxCmd` 复制 `SetHelpFunc` 样板
+
+## 必须
+
+- 正文在 [`internal/ait/helpdoc`](internal/ait/helpdoc)；`Write<Cmd>Help(w io.Writer) error`
+- OpenSSH / Not supported **只**在 [`helpdoc/openssh.go`](internal/ait/helpdoc/openssh.go)
+- `cli` 用 [`help_bind.go`](internal/ait/cli/help_bind.go)：`bindHelp` / `bindCustomArgvHelp`
+- get/put：**一个** `WriteTransferHelp(w, cmdName)`
+- `Long`: `Run 'ait <cmd> --help' for usage and examples.`
+- `SilenceUsage: true`
+
+## 章节顺序
+
+首行说明 →（可选）说明段 → `Usage:` → `Arguments:` →（可选）`Flag order:` → 标志段 →（SSH 类）`Not supported:` → `Examples:` → 尾注 `  -h, --help      help for <cmd>`
+
+## 自定义 argv（login / get / put）
+
+- `DisableFlagParsing: true`
+- `RunE`: `helpdoc.HelpRequested(argv)` 早退
+- `MarkHidden("help")`
+
+## 新命令 checklist
+
+1. `helpdoc` 增加 `WriteXxxHelp` + 测试（`Usage:`、`Examples:`、尾注）
+2. `newXxxCmd` 调用 `bindHelp` 或 `bindCustomArgvHelp`
+3. [`root.go`](internal/ait/cli/root.go) `AddCommand` + [`helpdoc/root.go`](internal/ait/helpdoc/root.go) 子命令表一行
+4. REPL/meta 若暴露则更新 shell/meta 帮助索引
+
+## 回归
+
+仅改 help 展示；不得改 `Run`/`RunE` 业务逻辑。参考 [`login/help.go`](internal/ait/login/help.go) → `helpdoc.WriteLoginHelp`。

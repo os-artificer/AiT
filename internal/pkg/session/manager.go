@@ -19,7 +19,6 @@ package session
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -65,9 +64,10 @@ type LoginOpts struct {
 
 // Manager orchestrates session lifecycle.
 type Manager struct {
-	Store  *store.Store
-	Config *config.Config
-	AI     *ai.Client
+	Store      *store.Store
+	Config     *config.Config
+	AI         *ai.Client
+	OnRemoteAI sshclient.RemoteAIRunner
 	// MetaCLI runs ait subcommands from in-session !ait lines (set by internal/ait).
 	MetaCLI func(args []string) error
 }
@@ -228,10 +228,8 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 		return err
 	}
 
-	client, err := sshclient.Dial(sshclient.Options{
-		Host: sess.Host, Port: normalizePort(sess.Port), User: sess.Username,
-		IdentityPath: sess.IdentityPath, Password: pass, UseAgent: true,
-	})
+	sshOpts := sshOptionsFromSession(sess, pass)
+	client, err := m.dialLogin(sshOpts, pass, sessionHostLabel(sess))
 	if err != nil {
 		return err
 	}
@@ -284,10 +282,7 @@ func (m *Manager) SSHOptionsForSession(idOrAlias, passwordOverride string) (sshc
 		return sshclient.Options{}, err
 	}
 
-	return sshclient.Options{
-		Host: sess.Host, Port: normalizePort(sess.Port), User: sess.Username,
-		IdentityPath: sess.IdentityPath, Password: pass, UseAgent: true,
-	}, nil
+	return sshOptionsFromSession(sess, pass), nil
 }
 
 func (m *Manager) clearSessionOnFailure(id string) {
@@ -361,6 +356,7 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 		TmuxName:        tmuxName,
 		InitialCommands: initialCmds,
 		AI:              m.AI,
+		OnRemoteAI:      m.OnRemoteAI,
 		OnMetaCLI:       m.MetaCLI,
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
 			return m.suspend(sess.ID, scroll, cwd, cols, rows)
@@ -421,18 +417,8 @@ func (m *Manager) Switch(ctx context.Context, target string, useTmux bool, passw
 		return nil
 	}
 
-	if current != "" {
-		cur, gerr := m.Store.GetSession(current)
-		switch {
-		case errors.Is(gerr, store.ErrSessionNotFound):
-			// Stale meta pointing at a deleted session — drop it so the next
-			// Switch/Load doesn't re-run this lookup.
-			_ = m.Store.SetMeta(store.MetaCurrentSession, "")
-		case gerr == nil && cur.Status == store.StatusActive:
-			if err := m.warnOrBlockActiveSwitch(cur, force); err != nil {
-				return err
-			}
-		}
+	if err := m.reconcileCurrentOnSwitch(current, force); err != nil {
+		return err
 	}
 
 	return m.Load(ctx, tgt.ID, useTmux || tgt.TmuxEnabled, password)
@@ -495,11 +481,7 @@ func (m *Manager) Delete(idOrAlias string, force bool) error {
 		}
 	}
 
-	st, _ := m.Store.GetSessionState(sess.ID)
-	if st != nil && st.ScrollbackPath != "" {
-		m.removeScrollbackFile(st.ScrollbackPath)
-	}
-	_ = creds.DeleteSessionUnlock(sess.ID)
+	m.purgeSessionArtifacts(sess.ID)
 	current, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if current == sess.ID {
 		_ = m.Store.SetMeta(store.MetaCurrentSession, "")
@@ -523,11 +505,7 @@ func (m *Manager) DeleteAll(force bool) error {
 
 	list, _ := m.Store.ListSessions()
 	for _, s := range list {
-		st, _ := m.Store.GetSessionState(s.ID)
-		if st != nil && st.ScrollbackPath != "" {
-			m.removeScrollbackFile(st.ScrollbackPath)
-		}
-		_ = creds.DeleteSessionUnlock(s.ID)
+		m.purgeSessionArtifacts(s.ID)
 	}
 
 	_ = m.Store.SetMeta(store.MetaCurrentSession, "")
