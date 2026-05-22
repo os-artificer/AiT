@@ -23,6 +23,11 @@ import (
 	"github.com/99designs/keyring"
 )
 
+// ringOpen is the indirection used by every public function in this package
+// so tests (or callers that set AIT_KEYRING_BACKEND) can pin a deterministic
+// backend.
+var ringOpen = defaultOpen
+
 const serviceName = "ait"
 
 // Environment variables used to pin the keyring backend, primarily for
@@ -37,11 +42,6 @@ const (
 	envFileDir      = "AIT_KEYRING_DIR"
 	envFilePassword = "AIT_KEYRING_FILE_PASSWORD"
 )
-
-// ringOpen is the indirection used by every public function in this package
-// so tests (or callers that set AIT_KEYRING_BACKEND) can pin a deterministic
-// backend.
-var ringOpen = defaultOpen
 
 func defaultOpen() (keyring.Keyring, error) {
 	cfg := keyring.Config{ServiceName: serviceName}
@@ -100,7 +100,7 @@ func DeleteSessionUnlock(sessionID string) error {
 }
 
 func sessionKey(sessionID string) string {
-	return fmt.Sprintf("session/%s/unlock", sessionID)
+	return fmt.Sprintf(keyFmtSessionUnlock, sessionID)
 }
 
 // SetDeepseekAPIKey stores the Deepseek API key in the OS keyring (alias for ai/deepseek/api_key).

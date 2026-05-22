@@ -90,9 +90,17 @@ import (
 Top to bottom:
 
 1. Package comment (if any)
-2. File-level `const` / `var`
-3. `struct` definitions that have methods
-4. Methods for that struct (see §3 for visibility ordering)
+2. `package` and `import` (see §1)
+3. File-level **`var`** (all `var` in the file, before `const`)
+4. File-level **`const`** (all `const` in the file)
+5. **Type units** (see below)
+6. **Package-level functions** (no receiver; prefer `*_helpers.go` per §4; visibility per §3)
+
+**Type units**:
+
+- **Types with methods**: `type` declaration immediately followed by all its methods (visibility per §3); multiple such units may appear top to bottom in one file.
+- **Types without methods** (struct / interface / alias): may stand alone before or after any method-bearing unit.
+- **Do not**: place file-level `var` / `const` after any `func`; place `const` before `var`; insert unrelated `type` or package-level `func` between another struct’s methods.
 
 ### 3. Visibility ordering
 
@@ -112,7 +120,7 @@ Do not mix package-level helpers with struct methods in the same file; see `inte
 Magic strings, numbers, and repeated literals must become named constants:
 
 - **Shared across files**: a package-level file (e.g. `constants.go`) or the subpackage’s agreed constants file.
-- **Single file only**: a `const` / `var` block at the top of that file (before or with file-level declarations per §2).
+- **Single file only**: `var` then `const` at the top of that file (§2 steps 3–4), then type units and functions.
 
 ### 6. One method-bearing struct per file
 

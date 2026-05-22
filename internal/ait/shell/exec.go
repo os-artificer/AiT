@@ -29,6 +29,10 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
 )
 
+var cliExecutor func([]string, io.Writer, io.Writer) error
+
+var aiModeRunner func(context.Context, *session.Manager) error
+
 // PrintHelp writes AiT shell REPL usage to w (CRLF when raw TTY mode is active).
 // w must be non-nil. Does not return an error.
 func PrintHelp(w io.Writer) {
@@ -51,19 +55,19 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string) (exitRE
 	}
 
 	switch words[0] {
-	case "exit", "quit":
+	case replCmdExit, replCmdQuit:
 		return true, nil
-	case "help", "-h", "--help":
+	case replCmdHelp, replArgH, replArgHelp:
 		PrintHelp(shellCLIOut)
 		return false, nil
-	case "ai":
+	case replCmdAI:
 		if aiModeRunner == nil {
-			return false, fmt.Errorf("AiT: AI mode runner not configured")
+			return false, fmt.Errorf("%s", errAIModeRunnerNotConfig)
 		}
 		return false, aiModeRunner(ctx, mgr)
-	case "login":
+	case replCmdLogin:
 		return false, shellLogin(ctx, mgr, words[1:])
-	case "load":
+	case replCmdLoad:
 		return false, shellLoad(ctx, mgr, words[1:])
 	default:
 		return false, runCLI(words)
@@ -93,10 +97,6 @@ func shellLoad(ctx context.Context, mgr *session.Manager, argv []string) error {
 	return mgr.Load(ctx, id, tmux, password)
 }
 
-var cliExecutor func([]string, io.Writer, io.Writer) error
-
-var aiModeRunner func(context.Context, *session.Manager) error
-
 // SetAIModeRunner registers the function that enters local AI mode from the REPL.
 // Called from internal/ait/cli init to avoid an import cycle between shell and aimode.
 func SetAIModeRunner(fn func(context.Context, *session.Manager) error) {
@@ -112,7 +112,7 @@ func SetCLIExecutor(fn func([]string, io.Writer, io.Writer) error) {
 // runCLI executes cobra subcommands (shared with meta, without SSH-only blocks).
 func runCLI(argv []string) error {
 	if cliExecutor == nil {
-		return fmt.Errorf("AiT: shell CLI executor not configured")
+		return fmt.Errorf("%s", errShellCLIExecutorNotConfig)
 	}
 	return cliExecutor(argv, shellCLIOut, shellCLIErr)
 }

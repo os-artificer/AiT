@@ -43,25 +43,25 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 
 	word, rest := firstWord(line)
 	switch word {
-	case "exit", "quit":
+	case replCmdExit, replCmdQuit:
 		st.sessionTrusted = false
 		return true, nil
-	case "help", "-h", "--help":
+	case replCmdHelp, replArgH, replArgHelp:
 		PrintHelp(opt.Out, opt.Scope)
 		return false, nil
-	case "clear":
+	case replCmdClear:
 		st.history = nil
-		aimWrite(opt.Out, "conversation cleared\r\n")
+		aimWrite(opt.Out, msgConversationClearedCRLF)
 		return false, nil
-	case "policy":
+	case replCmdPolicy:
 		return false, setPolicy(st, rest, opt.Out)
-	case "model":
+	case replCmdModel:
 		return false, setModel(ctx, opt, rest, opt.Out)
-	case "run":
+	case replCmdRun:
 		return false, execRun(ctx, opt, st, rest)
-	case "ait":
+	case replCmdAit:
 		if opt.Scope != ai.ScopeLocal {
-			return false, fmt.Errorf("AiT: ait subcommands are local-only; use run for remote shell commands")
+			return false, fmt.Errorf("%s", errAitSubcmdLocalOnly)
 		}
 		return false, execAit(ctx, opt, st, rest)
 	default:
@@ -74,13 +74,13 @@ func setPolicy(st *sessionState, rest string, out io.Writer) error {
 	case "per-cmd", "per_cmd", "":
 		st.policy = ExecPolicyPerCmd
 		st.sessionTrusted = false
-		aimWrite(out, "exec policy: per_cmd (confirm each run)\r\n")
+		aimWrite(out, msgExecPolicyPerCmdCRLF)
 	case "once", "session_once", "trust":
 		st.policy = ExecPolicySessionOnce
 		st.sessionTrusted = false
-		aimWrite(out, "exec policy: session_once (confirm once per AI session)\r\n")
+		aimWrite(out, msgExecPolicyOnceCRLF)
 	default:
-		return fmt.Errorf("AiT: unknown policy %q (try per-cmd or once)", rest)
+		return fmt.Errorf(errFmtUnknownPolicy, rest)
 	}
 	return nil
 }
@@ -88,7 +88,7 @@ func setPolicy(st *sessionState, rest string, out io.Writer) error {
 func execRun(ctx context.Context, opt Options, st *sessionState, cmd string) error {
 	cmd = strings.TrimSpace(cmd)
 	if cmd == "" {
-		return fmt.Errorf("AiT: usage: run <command>")
+		return fmt.Errorf("%s", errUsageRunCommand)
 	}
 
 	ok, err := confirmExec(optWithPolicy(opt, st.policy), cmd, &st.sessionTrusted)
@@ -96,19 +96,19 @@ func execRun(ctx context.Context, opt Options, st *sessionState, cmd string) err
 		return err
 	}
 	if !ok {
-		aimWrite(opt.Out, "skipped\r\n")
+		aimWrite(opt.Out, msgSkippedCRLF)
 		return nil
 	}
 
 	if opt.Scope == ai.ScopeRemote {
 		if opt.Remote == nil {
-			return fmt.Errorf("AiT: remote runner not configured")
+			return fmt.Errorf("%s", errRemoteRunnerNotConfig)
 		}
 		return opt.Remote.Run(cmd)
 	}
 
 	if opt.Local == nil {
-		return fmt.Errorf("AiT: local runner not configured")
+		return fmt.Errorf("%s", errLocalRunnerNotConfig)
 	}
 	return opt.Local.Run(ctx, cmd)
 }
@@ -117,7 +117,7 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 	_ = ctx
 	argsLine = strings.TrimSpace(argsLine)
 	if argsLine == "" {
-		return fmt.Errorf("AiT: usage: ait <subcommand> [args...]")
+		return fmt.Errorf("%s", errUsageAitSubcommand)
 	}
 
 	ok, err := confirmExec(optWithPolicy(opt, st.policy), "ait "+argsLine, &st.sessionTrusted)
@@ -125,11 +125,11 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 		return err
 	}
 	if !ok {
-		aimWrite(opt.Out, "skipped\r\n")
+		aimWrite(opt.Out, msgSkippedCRLF)
 		return nil
 	}
 	if opt.CLI == nil {
-		return fmt.Errorf("AiT: CLI executor not configured")
+		return fmt.Errorf("%s", errCLIExecutorNotConfig)
 	}
 
 	argv := strings.Fields(argsLine)
@@ -141,12 +141,12 @@ func setModel(ctx context.Context, opt Options, rest string, out io.Writer) erro
 		return ErrAINotConfigured
 	}
 	rest = strings.ToLower(strings.TrimSpace(rest))
-	if rest == "" || rest == "status" {
+	if rest == "" || rest == replModelStatus {
 		meta := opt.AI.StatusLine()
 		aimWrite(out, meta+"\r\n")
 		return nil
 	}
-	if rest == "list" {
+	if rest == replModelList {
 		report, err := opt.AI.ListModels(ctx)
 		if err != nil {
 			return err
@@ -155,12 +155,12 @@ func setModel(ctx context.Context, opt Options, rest string, out io.Writer) erro
 		return nil
 	}
 	if rest == "ollama" {
-		return fmt.Errorf("AiT: cannot set session provider to ollama (use tiered routing for local models)")
+		return fmt.Errorf("%s", errCannotSetOllamaProvider)
 	}
 	if err := opt.AI.SetSessionProvider(rest); err != nil {
 		return err
 	}
-	aimWrite(out, fmt.Sprintf("AI provider set to %s\r\n", rest))
+	aimWrite(out, fmt.Sprintf(msgAIProviderSetFmt, rest))
 	return nil
 }
 

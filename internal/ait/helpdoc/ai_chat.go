@@ -18,31 +18,39 @@ package helpdoc
 
 import "io"
 
+const (
+	aiChatIntroMain = "Send a single message to the configured AI provider and print the reply."
+	aiChatIntroSSH  = "Does not enter interactive AI mode. Inside SSH use !ait ai chat <message> or !! chat <message>."
+	aiChatUsage     = "ait ai chat [message...]"
+	aiChatInputBody = `  message...   Prompt text (joined with spaces)
+  (no args)    Read prompt from stdin until EOF (e.g. echo "question" | ait ai chat)
+`
+	aiChatExampleQuote = `ait ai chat "explain this error"`
+	aiChatExampleModel = "ait ai chat --model minimax summarize logs"
+	aiChatExampleStdin = `echo "hello" | ait ai chat`
+	aiChatExampleSSH   = "!ait ai chat how do I find large files"
+)
+
 // WriteAIChatHelp prints ait ai chat --help to w.
 func WriteAIChatHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro(
-		"Send a single message to the configured AI provider and print the reply.",
-		"Does not enter interactive AI mode. Inside SSH use !ait ai chat <message> or !! chat <message>.",
-	); err != nil {
+	if err := b.WriteIntro(aiChatIntroMain, aiChatIntroSSH); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait ai chat [message...]"); err != nil {
+	if err := b.WriteUsage(aiChatUsage); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Input", `  message...   Prompt text (joined with spaces)
-  (no args)    Read prompt from stdin until EOF (e.g. echo "question" | ait ai chat)
-`); err != nil {
+	if err := b.WriteSection(helpSectionInput, aiChatInputBody); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Flags", "  --model   Override cloud provider (deepseek|minimax); inherited from ait ai\n"); err != nil {
+	if err := b.WriteSection(helpSectionFlags, aiChatHelpFlagsBody); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
-		`ait ai chat "explain this error"`,
-		"ait ai chat --model minimax summarize logs",
-		`echo "hello" | ait ai chat`,
-		"!ait ai chat how do I find large files",
+		aiChatExampleQuote,
+		aiChatExampleModel,
+		aiChatExampleStdin,
+		aiChatExampleSSH,
 	); err != nil {
 		return err
 	}

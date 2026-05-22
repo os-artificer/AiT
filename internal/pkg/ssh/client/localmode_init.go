@@ -23,6 +23,17 @@ import (
 	"strings"
 )
 
+// localShellInit holds a temp dir with rc files sourced at shell start (no PTY echo).
+type localShellInit struct {
+	dir string
+}
+
+func (i *localShellInit) remove() {
+	if i != nil && i.dir != "" {
+		_ = os.RemoveAll(i.dir)
+	}
+}
+
 func defaultLocalShell() string {
 	if runtime.GOOS == "windows" {
 		if c := os.Getenv("ComSpec"); c != "" {
@@ -62,17 +73,6 @@ func isZshShell(shellPath string) bool {
 func isBashShell(shellPath string) bool {
 	b := shellBase(shellPath)
 	return b == "bash" || strings.HasSuffix(b, "-bash")
-}
-
-// localShellInit holds a temp dir with rc files sourced at shell start (no PTY echo).
-type localShellInit struct {
-	dir string
-}
-
-func (i *localShellInit) remove() {
-	if i != nil && i.dir != "" {
-		_ = os.RemoveAll(i.dir)
-	}
 }
 
 // prepareLocalShellInit creates silent init scripts for shells that override PS1/PROMPT from env.

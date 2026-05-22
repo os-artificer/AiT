@@ -37,7 +37,7 @@ func ParseRemoteDest(dst string) (user, host, path string, err error) {
 	default:
 		i := strings.LastIndex(dst, ":")
 		if i <= 0 {
-			return "", "", "", fmt.Errorf("invalid remote path %q", dst)
+			return "", "", "", fmt.Errorf(errInvalidRemotePathFmt, dst)
 		}
 		userHost = dst[:i]
 		path = dst[i+1:]
@@ -54,7 +54,7 @@ func ParseRemoteDest(dst string) (user, host, path string, err error) {
 	}
 
 	if host == "" {
-		return "", "", "", fmt.Errorf("invalid remote path %q", dst)
+		return "", "", "", fmt.Errorf(errInvalidRemotePathFmt, dst)
 	}
 	return user, host, path, nil
 }

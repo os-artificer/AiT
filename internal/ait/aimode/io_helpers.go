@@ -31,7 +31,7 @@ func aimPrintErr(w io.Writer, msg string) {
 	if msg == "" {
 		return
 	}
-	aimWrite(w, "AiT: "+msg+"\r\n")
+	aimWrite(w, msgPrefixAiT+msg+"\r\n")
 }
 
 func normalizeLine(line string) string {
@@ -56,7 +56,7 @@ func firstWord(line string) (word, rest string) {
 func isMetaREPLCommand(line string) bool {
 	word, _ := firstWord(normalizeLine(line))
 	switch word {
-	case "help", "-h", "--help", "clear", "policy", "model", "run", "ait":
+	case replCmdHelp, replArgH, replArgHelp, replCmdClear, replCmdPolicy, replCmdModel, replCmdRun, replCmdAit:
 		return true
 	default:
 		return false

@@ -23,6 +23,15 @@ const configSubcommands = `  set <key> <value>   set a configuration key
   get <key>           print a configuration value
 `
 
+const (
+	configSetIntro     = "Set a configuration key in the AiT YAML config file."
+	configSetUsage     = "ait config set <key> <value>"
+	configSetArguments = "  key     configuration key (see Keys below)\n  value   new value\n"
+	configGetIntro     = "Print a configuration value."
+	configGetUsage     = "ait config get <key>"
+	configGetArguments = "  key     configuration key (see Keys below)\n"
+)
+
 const configKeys = `  session.auth_ttl              duration for session unlock (e.g. 168h, 7d)
   ai.default                    default AI provider (deepseek|minimax)
   ai.fallback                   comma-separated failover order (optional)
@@ -44,10 +53,10 @@ func WriteConfigHelp(w io.Writer) error {
 	if err := b.WriteUsage("ait config"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Subcommands", configSubcommands); err != nil {
+	if err := b.WriteSection(helpSectionSubcommands, configSubcommands); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Keys", configKeys); err != nil {
+	if err := b.WriteSection(helpSectionKeys, configKeys); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
@@ -62,16 +71,16 @@ func WriteConfigHelp(w io.Writer) error {
 // WriteConfigSetHelp prints ait config set --help to w.
 func WriteConfigSetHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro("Set a configuration key in the AiT YAML config file."); err != nil {
+	if err := b.WriteIntro(configSetIntro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait config set <key> <value>"); err != nil {
+	if err := b.WriteUsage(configSetUsage); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Arguments", "  key     configuration key (see Keys below)\n  value   new value\n"); err != nil {
+	if err := b.WriteSection(helpSectionArguments, configSetArguments); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Keys", configKeys); err != nil {
+	if err := b.WriteSection(helpSectionKeys, configKeys); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
@@ -86,16 +95,16 @@ func WriteConfigSetHelp(w io.Writer) error {
 // WriteConfigGetHelp prints ait config get --help to w.
 func WriteConfigGetHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro("Print a configuration value."); err != nil {
+	if err := b.WriteIntro(configGetIntro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait config get <key>"); err != nil {
+	if err := b.WriteUsage(configGetUsage); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Arguments", "  key     configuration key (see Keys below)\n"); err != nil {
+	if err := b.WriteSection(helpSectionArguments, configGetArguments); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Keys", configKeys); err != nil {
+	if err := b.WriteSection(helpSectionKeys, configKeys); err != nil {
 		return err
 	}
 	if err := b.WriteExamples("ait config get deepseek.model"); err != nil {

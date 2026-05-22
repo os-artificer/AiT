@@ -23,7 +23,7 @@ import (
 
 // ensureDBParentDir creates the parent directory for a database file path.
 func ensureDBParentDir(path string) error {
-	if path == ":memory:" {
+	if path == sqliteMemoryPath {
 		return nil
 	}
 	dir := filepath.Dir(path)

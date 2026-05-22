@@ -23,12 +23,12 @@ import (
 	"runtime"
 )
 
+type localRunner struct{}
+
 // DefaultLocalRunner returns a LocalRunner that runs commands via sh -c or cmd /c.
 func DefaultLocalRunner() LocalRunner {
 	return localRunner{}
 }
-
-type localRunner struct{}
 
 // Run executes cmd on the local machine using the platform shell wrapper.
 func (localRunner) Run(ctx context.Context, cmd string) error {
