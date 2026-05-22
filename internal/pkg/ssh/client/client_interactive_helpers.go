@@ -173,31 +173,35 @@ func (c *Client) processForwardStdinByte(
 	return forwardStdinResult{action: fwdStdinContinue}
 }
 
-func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, prompt string, opts InteractiveOpts) error {
-	if prompt == "" {
-		termPrintln(os.Stdout, "usage: !ait ai <question> (or !! <question>)")
-		c.finishMetaInteraction(stdin)
-		return nil
-	}
-
+func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQuestion string, opts InteractiveOpts) error {
 	if opts.AI == nil {
 		termPrintln(os.Stderr, aiNotConfiguredMsg)
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
 
-	promptCopy := prompt
+	c.pauseRemoteOut.Store(true)
+	defer c.pauseRemoteOut.Store(false)
+
 	c.finishMetaInteraction(stdin)
-	go func() {
-		ans, err := opts.AI.Assist(ctx, promptCopy, c.scroll.RecentLines(50), c.remoteCwd)
-		if err != nil {
-			termPrintf(os.Stdout, "AI error: %v", err)
-		} else {
-			termPrintf(os.Stdout, "--- AiT ---\n%s\n-----------", ans)
-		}
-		c.finishMetaInteraction(stdin)
-	}()
-	return nil
+
+	if opts.OnRemoteAI == nil {
+		termPrintln(os.Stderr, "AiT: remote AI mode not available")
+		return nil
+	}
+
+	err := opts.OnRemoteAI(RemoteAIParams{
+		Ctx:             ctx,
+		Stdin:           stdin,
+		InitialQuestion: initialQuestion,
+		AI:              opts.AI,
+		HostLabel:       c.opts.User + "@" + c.opts.Host,
+		RemoteCwd:       c.remoteCwd,
+		Scrollback:      func() string { return c.scroll.RecentLines(50) },
+	})
+
+	c.finishMetaInteraction(stdin)
+	return err
 }
 
 func (c *Client) handleSuspendMeta(stdin io.Writer, opts InteractiveOpts) error {

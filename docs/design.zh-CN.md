@@ -11,6 +11,11 @@ CLI 入口：[`internal/ait/root.go`](../internal/ait/root.go)（`Run` + cobra r
 
 ```text
 ait shell                                    # AiT> REPL（login/list/load 等）
+ait ai                                       # 本机 AI 模式（AiT AI>）；ait shell 内也可输入 ai
+ait ai model list                            # 列出已配置 AI provider（含 ENABLED 列）
+ait ai chat [message...]                     # 单轮提问（无参数读 stdin）；SSH 内 !ait ai chat
+ait ai provider enable|disable <provider>    # 启用/禁用某 provider 的路由
+ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup：models_dir + 安装前 [y/N]）
 ait login [ssh-options] destination [command ...] [--alias NAME] [--password] [--tmux]
         # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
         # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
@@ -27,7 +32,9 @@ ait put [ssh-flags] <paths...>
 ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
 ```
 
-交互 SSH 内：以 **`!ait ai <问题>`**（建议使用）或 **`!! <问题>`**（向后兼容别名）唤起 Deepseek；**`!ait local` / `!ait remote`** 切换本地/远程输入模式（SSH 连接保持）；**`!ait suspend`** 挂起会话。未配置 API Key 时，行首 `!!` / `!ait` 在本地 fail-closed，不进入远程 shell。说明见下文 [会话内 meta 协议](#会话内-meta-协议ait--) 与 [本地模式](#本地模式ait-local--remote)。
+**AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ait ai [--model <云端-provider>]`** 或 **`ait shell` 内 `ai`** 进入本机 AI REPL（`AiT AI>`），`run` / `ait` 经确认后在本机执行。已连接 SSH 时用 **`!ait ai`** / **`!!`** 进入远程 AI（`AiT AI user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ait ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ait ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议](#会话内-meta-协议ait--)。
+
+**`!ait local` / `!ait remote`** 切换本地/远程输入；**`!ait suspend`** 挂起会话。
 
 ### 两种恢复模式（默认 vs `--tmux`）
 
@@ -56,7 +63,7 @@ flowchart TB
     Sess[session manager]
     SSH[ssh/client PTY meta]
     Term[terminal scrollback]
-    AI[ai deepseek]
+    AI[ai router]
     Creds[creds keyring]
     Config[config yaml]
     Plat[platform paths openssh]
@@ -92,7 +99,7 @@ flowchart TB
 | SQLite | [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite) | 纯 Go、无 CGO，利于 Windows 交叉编译 |
 | SSH | `golang.org/x/crypto/ssh` + `RequestPty` | 标准库生态，跨平台 |
 | 本地 PTY | Unix: `github.com/creack/pty`；Windows: ConPTY（`golang.org/x/sys/windows` 或成熟封装） | 分文件 `pty_unix.go` / `pty_windows.go` |
-| Deepseek | OpenAI 兼容 HTTP（`https://api.deepseek.com`） | 可用轻量 `net/http` 或 `github.com/sashabaranov/go-openai` 设 `BaseURL` |
+| AI 多 provider | 云端 Deepseek + MiniMax；可选本地 Ollama（OpenAI 兼容）；按 `api_style` 选协议 | `internal/pkg/ai`：tiered 启发式 → Ollama，否则云端默认优先故障转移；Ollama 失败升到云端 |
 | 密钥/密码 | 私钥路径入 SQLite；SSH 密码/密钥口令经 keyring 缓存；**认证 TTL 默认 7 天** | 过期后 `load` 必须重新输入 |
 | SSH 主机密钥 | 默认 `~/.ssh/known_hosts`；未知主机报错并提示 `ssh-keyscan` | `AIT_SSH_INSECURE=1` 仅开发用 |
 | 系统命令 | `exec.LookPath` + `runtime.GOOS` | 缺失时 Deepseek 安装建议 |
@@ -195,7 +202,7 @@ CREATE TABLE app_meta (
 - `suspend` → 写 `session_state`，`status=suspended`；tmux 模式先 `tmux detach` 再断 SSH
 - `session delete <id>` / `session delete all` → 删 DB 行 + 删除 scrollback sidecar；tmux 模式可选 `--kill-tmux` 远程杀会话（`delete all` 默认不杀远程 tmux，避免误删；文档说明）
 
-**凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。
+**凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`ait config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<DataDir>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
 
 ## 包布局（当前）
 
@@ -206,6 +213,7 @@ CREATE TABLE app_meta (
 | [`internal/ait/app/`](../internal/ait/app/) | Manager 引导 | `manager.go`, `context.go` |
 | [`internal/ait/login/`](../internal/ait/login/) | login 解析与帮助 | `run.go`, `help.go` |
 | [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
+| [`internal/ait/aimode/`](../internal/ait/aimode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`, `exec.go`, `policy.go`, `run_local.go` |
 | [`internal/ait/meta/`](../internal/ait/meta/) | 会话内 `!ait` | `exec.go` |
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
@@ -213,7 +221,7 @@ CREATE TABLE app_meta (
 | [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback.go`, `scrollback_io.go`, `path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
-| [`internal/pkg/ai/`](../internal/pkg/ai/) | Deepseek | `client.go`, `client_helpers.go` |
+| [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | 数据目录、OpenSSH、`LookPath` | `paths.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置 | `config.go`, `config_load.go` |
@@ -243,8 +251,9 @@ CREATE TABLE app_meta (
 |------|------|
 | `!ait help` / `!ait` | 打印会话内命令与可本地执行的 CLI 说明 |
 | `!ait <子命令> …` | 在本地执行对应 `ait` CLI（如 `!ait list`）；`login`/`load` 请用 `ait shell` |
-| `!ait ai <问题>` | 调用 Deepseek，结果打印到本地终端，不转发远程 |
-| `!! <问题>` | 上列别名（`!!` 后须有空格） |
+| `!ait ai [问题]` | 进入**远程** AI REPL；可选首条提问 |
+| `!! [问题]` | `!ait ai` 别名（`!!` 后须有空格） |
+| `!ait ai`（子命令形式） | **阻断** — 使用行首 `!ait ai`，勿经 CLI runner |
 | `!ait local` | 进入本地模式（见下节） |
 | `!ait remote` | 退出本地模式，恢复远程 stdin |
 | `!ait suspend` | 挂起会话（等同 CLI `suspend`） |
@@ -398,13 +407,32 @@ sequenceDiagram
 
 **会话内**（`!ait get` / `!ait put`）：仅两个服务器相对路径；不支持 SSH flag。
 
-### AI 助手（会话内）
+### AI 模式（双作用域）
 
-与 [会话内 meta 协议](#会话内-meta-协议ait--) 一致；补充实现细节：
+包：[`internal/ait/aimode/`](../internal/ait/aimode/)（REPL、授权策略、Runner）；对话 API：[`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go)。远程入口经 `InteractiveOpts.OnRemoteAI` 由 [`internal/ait/cli/ai.go`](../internal/ait/cli/ai.go) 注入（避免 import 环）。
 
-- 上下文：最近 N 行 scrollback（脱敏）、`GOOS`、当前 `remote_cwd`、用户问题
-- 结果打印到本地终端（不自动执行，避免误操作）
-- **安装建议**：`platform.LookPath(cmd)==err` 时，prompt 包含 OS 版本探测 → 返回 brew/apt/choco/winget 等建议
+| 入口 | 作用域 | 提示符 | 命令执行 |
+|------|--------|--------|----------|
+| `ait ai`、`ait shell` 内 `ai` | 本机 | `AiT AI>` | `run` → 本机 shell；`ait` → 确认后跑 Cobra |
+| SSH 内 `!ait ai`、`!!` | 远程 | `AiT AI user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
+
+**REPL：** `help`、`exit`/`quit`、`clear`、`model`（无参：路由状态含 tiered）、`model list`（同 `ait ai model list`）、`model <云端-provider>`（本会话覆盖；`model ollama` 拒绝）、`policy per-cmd`（默认）、`policy once`/`trust`、自然语言多轮 `Chat`、`run` / 本机 `ait`。
+
+**多 provider 配置：** YAML `ai` 含 `default`（仅云端：`deepseek` 或 `minimax`）、可选 `fallback`、可选 `tiered`（`enabled`、`local_provider`、`max_prompt_chars`、`max_history_turns`、`complex_keywords`）、各 `providers.<id>`。旧版顶层 `deepseek:` 并入 `ai.providers.deepseek`。MiniMax 支持 `openai` / `anthropic`。Ollama 为 OpenAI 兼容 `http://127.0.0.1:11434/v1`（允许 localhost HTTP，无需 API key）。tiered 开启时 `ClassifyPrompt` 将简单首轮发往 Ollama；否则 Chat/Assist 按云端顺序（`--model` / REPL `model`，否则 `ai.default`，再 fallback）。Ollama 失败升到云端。`SuggestInstall` 始终走云端。系统提示注入事实字段 `ai_provider`、`ai_model`、`ai_mode`（`local_first` | `cloud_only`），避免模型编造后端。`AIT_AI_FAILOVER_LOG=1` 可在 stderr 打印切换。
+
+**模型列表：** `ait ai model list` 与 REPL `model list` 输出已配置 provider（密钥、**ENABLED**、角色、可达性）及可选 Ollama tags。禁用的 provider 不会收到任何 Chat/Assist 请求。
+
+**启用/禁用：** `ai.providers.<id>.enabled`（YAML 省略视为 true）。`ait ai provider disable minimax` 停止走 MiniMax；`ait ai provider enable ollama` 重新启用路由；完整本地安装用 `ait ai ollama setup`（缺失时 [y/N] 安装确认；拒绝则打印手动安装说明）。
+
+**Ollama CLI（`ait ai ollama`）：** `setup` 交互选择 `models_dir`（`OLLAMA_MODELS`；备选 AiT 数据目录、`~/.ollama/models`、自定义；`--models-dir`）；写入 tiered 与 ollama 并探测/安装/拉模型；`status` 查配置与服务；`start`/`stop` 控制 `ollama serve`；`disable` 禁用 provider（可选 `--stop`）。见 [`internal/pkg/ollama/`](../internal/pkg/ollama/)。
+
+**授权：** 默认每条 `run`/`ait` 前 `[y/N]`；`session_once` 本会话首次同意后直至退出 AI 模式。
+
+**单轮 chat：** `ait ai chat` 与 `!ait ai chat <msg>` / `!! chat <msg>` 走 `RunChatOnce`（单次 `Chat`，不进 REPL）；空 `chat` 返回用法错误。
+
+**SSH：** `handleAIMetaLine` 同步 `RunREPL` 并 `pauseRemoteOut`；不再异步单次 `Assist`。`!ait ai` / `!!` 后可跟首条问题，或 `chat <msg>` 单轮。
+
+**安装建议**（不变）：`platform.LookPath` 失败时由 `SuggestInstall` 提示安装方式。
 
 ## 跨平台要点
 
@@ -454,7 +482,7 @@ sequenceDiagram
 - [x] `login` / 交互 SSH、`ssh/args` + `ssh/client`（含 ProxyJump/Command）
 - [x] `suspend` / `list` / `load` / `session switch` / `session delete`
 - [x] `--tmux` 远程保活
-- [x] `get` / `put`（SFTP，单文件）与会话内 AI（`!ait ai` / `!!`）
+- [x] `get` / `put`（SFTP，单文件）与双作用域 AI 模式（`ait ai`、`!ait ai` / `!!`）
 - [x] 跨平台构建（含 Windows OpenSSH 探测、分文件 proxy/resize）
 
 ## 风险与缓解

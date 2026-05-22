@@ -107,12 +107,14 @@ type InteractiveOpts struct {
 	// separate line.
 	InitialCommands []string
 	AI              *ai.Client
-	OnSuspend       func(scroll *terminal.Buffer, cwd string, cols, rows int) error
+	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/ait/cli.
+	OnRemoteAI RemoteAIRunner
+	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
 	// OnMetaCLI runs ait CLI subcommands from !ait <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
 }
 
-const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set deepseek.api_key <key>"
+const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set ai.deepseek.api_key <key> (or ai.minimax.api_key)"
 
 const (
 	shellReadyDelay           = 280 * time.Millisecond

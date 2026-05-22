@@ -20,6 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/ssh/stricthostkey"
 )
 
 func TestParseSSHGOutputMultipleIdentityFile(t *testing.T) {
@@ -54,7 +56,7 @@ func TestNormalizeStrictHostKeyChecking(t *testing.T) {
 		"": "ask", "ask": "ask", "yes": "yes", "no": "no", "accept-new": "accept-new",
 	}
 	for in, want := range cases {
-		if got := normalizeStrictHostKeyChecking(in); got != want {
+		if got := stricthostkey.NormalizeStrictHostKeyChecking(in); got != want {
 			t.Errorf("%q -> %q want %q", in, got, want)
 		}
 	}

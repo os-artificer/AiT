@@ -14,23 +14,22 @@
  * limitations under the License.
 **/
 
-package meta
+package aimode
 
 import (
-	"io"
-	"strings"
+	"context"
+	"runtime"
+	"testing"
 )
 
-// crlfWriter translates LF to CRLF for raw TTY stdout during in-session !ait commands.
-type crlfWriter struct {
-	w io.Writer
-}
-
-// Write implements io.Writer, translating LF to CRLF in p before writing to c.w.
-// Returns (len(p), err) so callers always see the original byte count on success.
-func (c *crlfWriter) Write(p []byte) (int, error) {
-	s := strings.ReplaceAll(string(p), "\n", "\r\n")
-
-	_, err := c.w.Write([]byte(s))
-	return len(p), err
+func TestDefaultLocalRunner_Echo(t *testing.T) {
+	r := DefaultLocalRunner()
+	ctx := context.Background()
+	cmd := "echo ait-ai-local-test"
+	if runtime.GOOS == "windows" {
+		cmd = "echo ait-ai-local-test"
+	}
+	if err := r.Run(ctx, cmd); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -19,13 +19,14 @@ package cli
 import (
 	"context"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
 	"github.com/spf13/cobra"
 )
 
 func newListCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List saved sessions",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -34,4 +35,6 @@ func newListCmd() *cobra.Command {
 			})
 		},
 	}
+	bindHelp(cmd, helpdoc.WriteListHelp)
+	return cmd
 }

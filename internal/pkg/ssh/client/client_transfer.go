@@ -29,28 +29,26 @@ const transferUsageGet = "usage: !ait get <remote-path> <local-path>"
 const transferUsagePut = "usage: !ait put <local-path> <remote-path>"
 
 func (c *Client) handleTransferGet(ctx context.Context, stdin io.Writer, args []string) error {
-	if len(args) != 2 {
-		termPrintln(os.Stderr, "AiT: "+transferUsageGet)
-		c.finishMetaInteraction(stdin)
-		return nil
-	}
-
-	err := transfer.Get(ctx, c.conn, args[0], args[1])
-	if err != nil {
-		termPrintf(os.Stderr, "AiT: %v", err)
-	}
-	c.finishMetaInteraction(stdin)
-	return nil
+	return c.handleTransfer(ctx, stdin, transfer.DirGet, transferUsageGet, args)
 }
 
 func (c *Client) handleTransferPut(ctx context.Context, stdin io.Writer, args []string) error {
+	return c.handleTransfer(ctx, stdin, transfer.DirPut, transferUsagePut, args)
+}
+
+func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transfer.Direction, usage string, args []string) error {
 	if len(args) != 2 {
-		termPrintln(os.Stderr, "AiT: "+transferUsagePut)
+		termPrintln(os.Stderr, "AiT: "+usage)
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
 
-	err := transfer.Put(ctx, c.conn, args[0], args[1])
+	var err error
+	if dir == transfer.DirGet {
+		err = transfer.Get(ctx, c.conn, args[0], args[1])
+	} else {
+		err = transfer.Put(ctx, c.conn, args[0], args[1])
+	}
 	if err != nil {
 		termPrintf(os.Stderr, "AiT: %v", err)
 	}

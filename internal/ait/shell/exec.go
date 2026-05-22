@@ -17,10 +17,12 @@
 package shell
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/ait/login"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	sshargs "github.com/os-artificer/AiT/internal/pkg/ssh/args"
@@ -30,36 +32,9 @@ import (
 // PrintHelp writes AiT shell REPL usage to w (CRLF when raw TTY mode is active).
 // w must be non-nil. Does not return an error.
 func PrintHelp(w io.Writer) {
-	const header = `AiT shell — type commands directly, press Enter to run (no !ait prefix):
-
-  help              show this help
-  exit, quit        leave AiT shell
-
-  login [flags] destination [command ...]   (full flags: ait login --help)
-`
-	shellWriteTTY(w, header)
-	_ = login.WriteHelpShort(w)
-
-	const rest = `
-  load <id|alias> [--tmux] [--password P]
-  list              list saved sessions
-  config, get, put, session, suspend  — same as: ait <command> ...
-
-Prompts:
-  AiT>              not connected (this shell)
-  AiT user@host>    remote SSH session
-  AiT Local>        local mode inside SSH (!ait local)
-
-Examples:
-  login myserver
-  login -p 22 root@192.168.1.1 -i ~/.ssh/id_rsa
-  login -J bastion internal.host uptime
-  login --alias prod --tmux user@prod
-  login --host 192.168.1.1 --user root
-  load myserver
-  list
-`
-	shellWriteTTY(w, rest)
+	var buf bytes.Buffer
+	_ = helpdoc.WriteShellREPLHelp(&buf)
+	shellWriteTTY(w, buf.String())
 }
 
 // ExecuteLine runs one REPL line. Returns exitREPL true when the user typed exit/quit.
@@ -81,6 +56,11 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string) (exitRE
 	case "help", "-h", "--help":
 		PrintHelp(shellCLIOut)
 		return false, nil
+	case "ai":
+		if aiModeRunner == nil {
+			return false, fmt.Errorf("AiT: AI mode runner not configured")
+		}
+		return false, aiModeRunner(ctx, mgr)
 	case "login":
 		return false, shellLogin(ctx, mgr, words[1:])
 	case "load":
@@ -114,6 +94,14 @@ func shellLoad(ctx context.Context, mgr *session.Manager, argv []string) error {
 }
 
 var cliExecutor func([]string, io.Writer, io.Writer) error
+
+var aiModeRunner func(context.Context, *session.Manager) error
+
+// SetAIModeRunner registers the function that enters local AI mode from the REPL.
+// Called from internal/ait/cli init to avoid an import cycle between shell and aimode.
+func SetAIModeRunner(fn func(context.Context, *session.Manager) error) {
+	aiModeRunner = fn
+}
 
 // SetCLIExecutor registers the function that runs Cobra subcommands from the REPL.
 // Called from internal/ait/cli init to avoid an import cycle between cli and shell.

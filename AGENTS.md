@@ -22,7 +22,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **SSH sessions**: `shell`, `login`, `list`, `load`, `suspend`, `session switch`, `session delete`
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
 - **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
-- **AI**: Deepseek via OpenAI-compatible API (`internal/pkg/ai`); in-session `!ait ai` / `!!`; `!ait local`/`!ait remote`; install hints when `rsync`/`scp`/`tmux` missing
+- **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `ait ai chat` (one-shot); `ait ai provider enable|disable`; `ait ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `ait ai model list`; SSH `!ait ai chat` / `!! chat`; cloud keys `ai.<provider>.api_key`
 - **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH
 - **OpenSSH config**: `login`/`load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 
@@ -34,7 +34,8 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 |------|------|
 | `cmd/ait/main.go` | Thin `main` — delegates to `internal/ait.Run` |
 | `internal/ait/` | CLI entry (`Run`, `ExitCode`); subpackages below |
-| `internal/ait/cli/` | Cobra command tree, `Execute` / `ExecuteWriters` |
+| `internal/ait/cli/` | Cobra command tree, `Execute` / `ExecuteWriters`, `help_bind.go` |
+| `internal/ait/helpdoc/` | Login-style `--help` text (`Write*Help`, OpenSSH shared blocks) |
 | `internal/ait/app/` | `NewManager`, `CommandContext` (store/config/ai bootstrap) |
 | `internal/ait/login/` | OpenSSH login parse/resolve, help, exit codes |
 | `internal/ait/shell/` | `ait shell` REPL (`AiT>`), TTY I/O, line execution |
@@ -45,7 +46,8 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/ssh/client/` | Dial, PTY, `!ait` meta, local mode, host keys (see file layout below) |
 | `internal/pkg/tmux/` | Remote tmux ensure/attach/detach |
 | `internal/pkg/terminal/` | Scrollback buffer, replay, path resolution (`scrollback.go`, `scrollback_io.go`, `path.go`, helpers) |
-| `internal/pkg/ai/` | Deepseek client (`client.go`, `client_helpers.go`) |
+| `internal/pkg/ai/` | Multi-provider router, tiered Ollama, model list (`router.go`, `tiered.go`, `models_list.go`, …) |
+| `internal/pkg/ollama/` | Ollama setup, `FetchTags`, `EnsureLocal`, `ManualSetupInstructions` |
 | `internal/pkg/transfer/` | SFTP get/put (single file) |
 | `internal/pkg/platform/` | Data/config dirs, `OpenSSHPath`, `LookPath`, OS paths |
 | `internal/pkg/config/` | YAML config (`config.go` types; `config_load.go` Load/Save) |
@@ -68,6 +70,7 @@ Prefer extending `internal/pkg/*` and `internal/ait` over new top-level director
 | `ait/cli` | `root.go`, `login.go`, `shell.go`, `load.go`, `session.go`, … |
 | `ait/login` | `run.go`, `helpers.go`, `help.go` |
 | `ait/shell` | `repl.go`, `exec.go`, `parse.go`, `io.go`, `*_helpers.go` |
+| `ait/aimode` | `scope.go`, `policy.go`, `repl.go`, `exec.go`, `run_local.go`, `prompt.go` — AI REPL (local/remote runners injected) |
 | `ait/meta` | `exec.go` — `Execute`, `SetExecutorWriters` (wired from `cli` init; CRLF stdout in SSH) |
 
 ### `internal/pkg/ssh/client` file layout
@@ -91,6 +94,8 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 
 - **Human contributors**: [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow and Go coding standards.
 - **Go coding standards**: when generating or refactoring Go, follow [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) — import groups (stdlib / module / third-party), one method-bearing struct per file, package-level functions in separate `*_helpers.go`, line width 150 (`.editorconfig`), nesting ≤2, blank line between responsibility blocks inside functions (§11), full godoc on exports.
+- **Reuse**: follow [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc) — search existing helpers/shared packages before duplicating logic.
+- **CLI help**: all `ait <cmd> --help` uses login-style sections via [`internal/ait/helpdoc`](internal/ait/helpdoc) and [`cli/help_bind.go`](internal/ait/cli/help_bind.go); see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc).
 - **Formatting**: tabs for Go; run `make fmt` before finishing Go changes.
 - **Tests**: `*_test.go` beside implementation; `make test` must pass. Store tests use `:memory:` SQLite.
 - **`internal/`**: module-private — do not import from outside this module.
@@ -105,6 +110,11 @@ ait shell                              # AiT> REPL: login, list, load, help, exi
 ait login [ssh-options] destination [cmd ...] [--alias] [--tmux] [--password]
 # ssh-options: -p -l -i -F -J -o ... ; legacy --host/--user still supported
 # Requires OpenSSH client (ssh) on PATH for ssh -G (all platforms)
+ait ai [--model deepseek|minimax]            # local AI REPL (AiT AI>); tiered may use Ollama first
+ait ai model list
+ait ai chat [message...]              # one-shot; echo "q" | ait ai chat
+ait ai provider enable|disable <provider>
+ait ai ollama status|setup|start|stop|disable # local Ollama (setup: models_dir + [y/N] before install)
 ait list | load <id|alias> [--tmux] [--password]
 ait session switch [id|alias] [--tmux] [--force]
 ait session delete <id|alias> | ait session delete all [--force]
@@ -113,7 +123,7 @@ ait put [ssh-flags] <paths...>
 ait config set|get <key> [<value>]
 ```
 
-Prompts: `AiT>` (`ait shell`), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). In SSH: `!ait help`; `!ait <subcmd>` for local CLI; `!ait ai` / `!!`; `!ait local` / `remote`; `!ait suspend`. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`).
+Prompts: `AiT>` (`ait shell`), `AiT AI>` (`ait ai`), `AiT AI user@host>` (SSH AI mode), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc).
 
 ## Pitfalls
 

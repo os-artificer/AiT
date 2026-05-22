@@ -23,6 +23,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
@@ -82,6 +83,32 @@ func promptPassword(msg string) (string, error) {
 
 func quotePath(p string) string {
 	return pathsafe.QuoteShellSingle(p)
+}
+
+func sshOptionsFromSession(sess *store.Session, password string) sshclient.Options {
+	return sshclient.Options{
+		Host:         sess.Host,
+		Port:         normalizePort(sess.Port),
+		User:         sess.Username,
+		IdentityPath: sess.IdentityPath,
+		Password:     password,
+		UseAgent:     true,
+	}
+}
+
+func sessionHostLabel(sess *store.Session) string {
+	if sess.Username != "" {
+		return sess.Username + "@" + sess.Host
+	}
+	return sess.Host
+}
+
+func (m *Manager) purgeSessionArtifacts(sessID string) {
+	st, _ := m.Store.GetSessionState(sessID)
+	if st != nil && st.ScrollbackPath != "" {
+		m.removeScrollbackFile(st.ScrollbackPath)
+	}
+	_ = creds.DeleteSessionUnlock(sessID)
 }
 
 func (m *Manager) replayScrollbackIfPresent(st *store.SessionState) {

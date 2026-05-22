@@ -105,6 +105,11 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 	}
 }
 
+// ReadTTYLine reads one line from br while stdin is in raw mode (Enter submits).
+func ReadTTYLine(br *bufio.Reader) (string, error) {
+	return readTTYLine(br)
+}
+
 func readTTYLine(br *bufio.Reader) (string, error) {
 	var line []byte
 	for {

@@ -19,9 +19,8 @@ package cli
 import (
 	"fmt"
 
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/config"
-	"github.com/os-artificer/AiT/internal/pkg/creds"
-
 	"github.com/spf13/cobra"
 )
 
@@ -31,18 +30,23 @@ func newConfigCmd() *cobra.Command {
 		Short: "Manage AiT configuration",
 	}
 	cmd.AddCommand(newConfigSetCmd(), newConfigGetCmd())
+	bindHelp(cmd, helpdoc.WriteConfigHelp)
 	return cmd
 }
 
 func newConfigSetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "set <key> <value>",
 		Short: "Set config value",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key, value := args[0], args[1]
-			if key == "deepseek.api_key" {
-				return creds.SetDeepseekAPIKey(value)
+			if provider, ok := parseAPIKeyConfigKey(key); ok {
+				if err := setProviderAPIKey(provider, value); err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), apiKeyStoredMessage(provider))
+				return nil
 			}
 
 			cfg, err := config.Load()
@@ -55,17 +59,19 @@ func newConfigSetCmd() *cobra.Command {
 			return config.Save(cfg)
 		},
 	}
+	bindHelp(cmd, helpdoc.WriteConfigSetHelp)
+	return cmd
 }
 
 func newConfigGetCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <key>",
 		Short: "Get config value",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := args[0]
-			if key == "deepseek.api_key" {
-				v, err := creds.GetDeepseekAPIKey()
+			if provider, ok := parseAPIKeyConfigKey(key); ok {
+				v, err := getProviderAPIKey(provider)
 				if err != nil {
 					return err
 				}
@@ -85,6 +91,8 @@ func newConfigGetCmd() *cobra.Command {
 			return nil
 		},
 	}
+	bindHelp(cmd, helpdoc.WriteConfigGetHelp)
+	return cmd
 }
 
 func maskSecret(s string) string {

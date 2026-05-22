@@ -19,7 +19,6 @@ package creds
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/99designs/keyring"
 )
@@ -31,10 +30,8 @@ const serviceName = "ait"
 // DBus daemon is undesirable.
 //
 //	AIT_KEYRING_BACKEND=file   forces the encrypted file backend.
-//	AIT_KEYRING_DIR=<path>     directory that the file backend writes to
-//	                            (defaults to $TMPDIR/ait-keyring when unset).
-//	AIT_KEYRING_FILE_PASSWORD  optional master password for the file backend
-//	                            (defaults to "ait-test" when unset).
+//	AIT_KEYRING_DIR=<path>     directory for the file backend (default: <DataDir>/keyring).
+//	AIT_KEYRING_FILE_PASSWORD  master password for the file backend (default: ait-test for dev).
 const (
 	envBackend      = "AIT_KEYRING_BACKEND"
 	envFileDir      = "AIT_KEYRING_DIR"
@@ -49,19 +46,12 @@ var ringOpen = defaultOpen
 func defaultOpen() (keyring.Keyring, error) {
 	cfg := keyring.Config{ServiceName: serviceName}
 
+	if err := applyFileKeyringConfig(&cfg); err != nil {
+		return nil, err
+	}
+
 	if os.Getenv(envBackend) == "file" {
-		dir := os.Getenv(envFileDir)
-		if dir == "" {
-			dir = filepath.Join(os.TempDir(), "ait-keyring")
-		}
 		cfg.AllowedBackends = []keyring.BackendType{keyring.FileBackend}
-		cfg.FileDir = dir
-		cfg.FilePasswordFunc = func(string) (string, error) {
-			if p := os.Getenv(envFilePassword); p != "" {
-				return p, nil
-			}
-			return "ait-test", nil
-		}
 	}
 
 	return keyring.Open(cfg)
@@ -113,31 +103,12 @@ func sessionKey(sessionID string) string {
 	return fmt.Sprintf("session/%s/unlock", sessionID)
 }
 
-// SetDeepseekAPIKey stores the Deepseek API key in the OS keyring.
-// Returns keyring open or Set errors.
+// SetDeepseekAPIKey stores the Deepseek API key in the OS keyring (alias for ai/deepseek/api_key).
 func SetDeepseekAPIKey(key string) error {
-	kr, err := openRing()
-	if err != nil {
-		return err
-	}
-
-	return kr.Set(keyring.Item{
-		Key:  "deepseek/api_key",
-		Data: []byte(key),
-	})
+	return SetProviderAPIKey("deepseek", key)
 }
 
 // GetDeepseekAPIKey returns the Deepseek API key from the OS keyring.
-// Returns the key, or keyring open/Get errors (including keyring.ErrKeyNotFound).
 func GetDeepseekAPIKey() (string, error) {
-	kr, err := openRing()
-	if err != nil {
-		return "", err
-	}
-
-	item, err := kr.Get("deepseek/api_key")
-	if err != nil {
-		return "", err
-	}
-	return string(item.Data), nil
+	return GetProviderAPIKey("deepseek")
 }

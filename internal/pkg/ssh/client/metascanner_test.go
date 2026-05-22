@@ -105,6 +105,26 @@ func TestMetaScanner_AitAIQuery(t *testing.T) {
 	}
 }
 
+func TestMetaScanner_AitAIChat(t *testing.T) {
+	fwd, _, meta := drive("!ait ai chat ping\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait ai chat ping" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
+func TestMetaScanner_BangBangChat(t *testing.T) {
+	fwd, _, meta := drive("!! chat ping\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!! chat ping" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
 func TestMetaScanner_AitLocal(t *testing.T) {
 	fwd, _, meta := drive("!ait local\n", true)
 	if fwd != "" {
@@ -244,6 +264,8 @@ func TestAIPromptFromMetaLine(t *testing.T) {
 		{"!! how to grep", "how to grep", true},
 		{"!!", "", true},
 		{"!ait ai how to grep", "how to grep", true},
+		{"!ait ai chat hello", "chat hello", true},
+		{"!! chat hello", "chat hello", true},
 		{"!ait ai", "", true},
 		{"!ait suspend", "", false},
 		{"!ait local", "", false},

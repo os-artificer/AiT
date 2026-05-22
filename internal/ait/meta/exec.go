@@ -17,16 +17,21 @@
 package meta
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/ait/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 var metaBlockedInSession = map[string]string{
 	"login":   "exit the SSH session first, then run: ait login ...",
 	"load":    "exit the SSH session first, then run: ait load <id|alias>",
 	"suspend": "use !ait suspend (not !ait suspend via CLI runner)",
+	"ai":      "use !ait ai or !! inside this SSH session (not !ait ai via CLI runner)",
 }
 
 var executor func([]string, io.Writer, io.Writer) error
@@ -40,24 +45,9 @@ func SetExecutorWriters(fn func([]string, io.Writer, io.Writer) error) {
 // PrintMetaHelp writes in-session !ait meta-command help to w (CRLF line endings).
 // w must be non-nil. Does not return an error.
 func PrintMetaHelp(w io.Writer) {
-	const help = `AiT in-session commands (!ait prefix):
-  help              show this help
-  ai <question>     Deepseek assistant
-  !! <question>     alias for !ait ai (space after !!)
-  local             local mode (prompt: AiT Local>)
-  remote            return to remote shell (prompt: AiT user@host>)
-  suspend           suspend session and disconnect
-  get <remote> <local>   download file (reuses SSH, no re-auth)
-  put <local> <remote>   upload file (reuses SSH, no re-auth)
-
-Run ait CLI locally (examples):
-  !ait list
-  !ait config get <key>
-  !ait session delete <id|alias>
-
-For login/load use: ait shell (AiT> prompt), not from inside SSH.
-`
-	_, _ = io.WriteString(w, strings.ReplaceAll(help, "\n", "\r\n"))
+	var buf bytes.Buffer
+	_ = helpdoc.WriteMetaHelp(&buf)
+	_, _ = io.WriteString(w, strings.ReplaceAll(buf.String(), "\n", "\r\n"))
 }
 
 // Execute runs ait subcommands from an SSH meta line (!ait <args>).
@@ -75,5 +65,5 @@ func Execute(args []string) error {
 	if executor == nil {
 		return fmt.Errorf("AiT: meta executor not configured")
 	}
-	return executor(args, &crlfWriter{w: os.Stdout}, os.Stderr)
+	return executor(args, terminal.NewCRLFWriter(os.Stdout), os.Stderr)
 }
