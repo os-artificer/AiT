@@ -49,7 +49,7 @@ func newOllamaStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show Ollama config and service status",
-		Long:  "Run 'ait ai ollama status --help' for usage and examples.",
+		Long:  helpdoc.LongHint("ai ollama status"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -75,7 +75,7 @@ func newOllamaSetupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Enable tiered routing and set up local Ollama",
-		Long:  "Run 'ait ai ollama setup --help' for usage and examples.",
+		Long:  helpdoc.LongHint("ai ollama setup"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -104,11 +104,11 @@ func newOllamaSetupCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&model, "model", config.DefaultOllamaModel, "Ollama model to pull")
-	cmd.Flags().StringVar(&baseURL, "base-url", config.DefaultOllamaBase, "Ollama OpenAI-compatible base URL")
-	cmd.Flags().StringVar(&modelsDir, "models-dir", "", "Directory for Ollama model blobs (OLLAMA_MODELS); prompts when unset")
-	cmd.Flags().BoolVarP(&assumeYes, "yes", "y", false, "Allow Ollama install without prompting")
-	cmd.Flags().BoolVar(&noInstall, "no-install", false, "Never install Ollama (same as declining the prompt)")
-	cmd.Flags().BoolVar(&noPull, "no-pull", false, "Skip ollama pull")
+	cmd.Flags().StringVar(&baseURL, flagNameBaseURL, config.DefaultOllamaBase, "Ollama OpenAI-compatible base URL")
+	cmd.Flags().StringVar(&modelsDir, flagNameModelsDir, "", "Directory for Ollama model blobs (OLLAMA_MODELS); prompts when unset")
+	cmd.Flags().BoolVarP(&assumeYes, flagNameYes, flagShorthandYes, false, "Allow Ollama install without prompting")
+	cmd.Flags().BoolVar(&noInstall, flagNameNoInstall, false, "Never install Ollama (same as declining the prompt)")
+	cmd.Flags().BoolVar(&noPull, flagNameNoPull, false, "Skip ollama pull")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print planned steps only")
 	bindHelp(cmd, helpdoc.WriteOllamaSetupHelp)
 	return cmd
@@ -120,7 +120,7 @@ func newOllamaStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start ollama serve in the background",
-		Long:  "Run 'ait ai ollama start --help' for usage and examples.",
+		Long:  helpdoc.LongHint("ai ollama start"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -143,7 +143,7 @@ func newOllamaStartCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&wait, "wait", false, "Wait until the API responds")
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "API base URL to probe (default from config)")
+	cmd.Flags().StringVar(&baseURL, flagNameBaseURL, "", "API base URL to probe (default from config)")
 	bindHelp(cmd, helpdoc.WriteOllamaStartHelp)
 	return cmd
 }
@@ -152,7 +152,7 @@ func newOllamaStopCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop",
 		Short: "Stop local ollama serve",
-		Long:  "Run 'ait ai ollama stop --help' for usage and examples.",
+		Long:  helpdoc.LongHint("ai ollama stop"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := ollama.StopServe(context.Background()); err != nil {
 				return err
@@ -170,7 +170,7 @@ func newOllamaDisableCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "disable",
 		Short: "Disable Ollama provider in config",
-		Long:  "Run 'ait ai ollama disable --help' for usage and examples.",
+		Long:  helpdoc.LongHint("ai ollama disable"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -193,11 +193,11 @@ func newOllamaDisableCmd() *cobra.Command {
 
 func ollamaSetupFlagsFromCmd(cmd *cobra.Command) ollama.Options {
 	model, _ := cmd.Flags().GetString("model")
-	baseURL, _ := cmd.Flags().GetString("base-url")
-	modelsDir, _ := cmd.Flags().GetString("models-dir")
-	assumeYes, _ := cmd.Flags().GetBool("yes")
-	noInstall, _ := cmd.Flags().GetBool("no-install")
-	noPull, _ := cmd.Flags().GetBool("no-pull")
+	baseURL, _ := cmd.Flags().GetString(flagNameBaseURL)
+	modelsDir, _ := cmd.Flags().GetString(flagNameModelsDir)
+	assumeYes, _ := cmd.Flags().GetBool(flagNameYes)
+	noInstall, _ := cmd.Flags().GetBool(flagNameNoInstall)
+	noPull, _ := cmd.Flags().GetBool(flagNameNoPull)
 	return ollama.Options{
 		Model:     model,
 		BaseURL:   baseURL,

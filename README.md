@@ -6,7 +6,7 @@
 
 # AiT
 
-**AI Terminal** — A cross-platform (Linux / macOS / Windows) AI-enhanced SSH client.
+**AiT** — A cross-platform (Linux / macOS / Windows) AI-enhanced command-line toolbox that includes, but is not limited to, terminal and SSH workflows—built to be a practical everyday tool for operations engineers.
 
 ## Features
 
@@ -17,7 +17,7 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 | Capability | AiT | Typical SSH client |
 |------------|-----|-------------------|
 | Session persistence | SQLite stores connection parameters, aliases, and authentication TTL (`session.auth_ttl`) | No session store; rely on shell history or external notes |
-| Fast resume | `ait load` / `session switch`; credential-free reconnect within auth TTL (TTL refreshes when you re-enter the password) | Must specify `user@host` and flags on each connect |
+| Fast resume | `ait session --load` / `--switch`; credential-free reconnect within auth TTL (TTL refreshes when you re-enter the password) | Must specify `user@host` and flags on each connect |
 | Suspend and context | `!ait suspend` saves scrollback and remote working directory | Terminal context is lost after disconnect |
 
 ### Remote keep-alive

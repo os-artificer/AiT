@@ -31,9 +31,9 @@ func parseAPIKeyConfigKey(key string) (provider string, ok bool) {
 	case "minimax.api_key":
 		return config.ProviderMinimax, true
 	}
-	if strings.HasPrefix(key, "ai.") && strings.HasSuffix(key, ".api_key") {
-		rest := strings.TrimPrefix(key, "ai.")
-		rest = strings.TrimSuffix(rest, ".api_key")
+	if strings.HasPrefix(key, configKeyPrefixAI) && strings.HasSuffix(key, configKeySuffixAPIKey) {
+		rest := strings.TrimPrefix(key, configKeyPrefixAI)
+		rest = strings.TrimSuffix(rest, configKeySuffixAPIKey)
 		if config.IsKnownProvider(rest) {
 			return rest, true
 		}

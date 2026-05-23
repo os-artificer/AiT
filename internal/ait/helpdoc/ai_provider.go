@@ -22,25 +22,40 @@ const providerSubcommands = `  enable <provider>   set ai.providers.<id>.enabled
   disable <provider>  set ai.providers.<id>.enabled false
 `
 
+const (
+	providerIntroMain         = "Enable or disable AI provider routing without editing config.yaml by hand."
+	providerIntroOllamaHint   = "For Ollama install, models directory, and tiered setup, prefer: ait ai ollama setup"
+	providerUsageMain         = "ait ai provider"
+	providerEnableIntroMain   = "Enable routing to a provider. Cloud providers need an API key in config or keyring."
+	providerEnableIntroOllama = "For ollama, also runs availability checks (install [y/N] unless --yes / --no-install)."
+	providerEnableUsage       = "ait ai provider enable <provider> [flags]"
+	providerEnableProviders   = "  deepseek, minimax, ollama\n"
+	providerEnableFlagsOllama = `  -y, --yes            Allow install without prompting
+  --no-install         Skip Ollama install
+  --no-pull            Skip ollama pull
+  --model, --base-url, --models-dir   Passed to Ollama ensure logic
+`
+	providerDisableIntro  = "Disable routing to a provider; no Chat/Assist traffic is sent to it."
+	providerDisableUsage  = "ait ai provider disable <provider>"
+	providerDisableOllama = "ait ai provider disable ollama"
+)
+
 // WriteAIProviderHelp prints ait ai provider --help to w.
 func WriteAIProviderHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro(
-		"Enable or disable AI provider routing without editing config.yaml by hand.",
-		"For Ollama install, models directory, and tiered setup, prefer: ait ai ollama setup",
-	); err != nil {
+	if err := b.WriteIntro(providerIntroMain, providerIntroOllamaHint); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait ai provider"); err != nil {
+	if err := b.WriteUsage(providerUsageMain); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Subcommands", providerSubcommands); err != nil {
+	if err := b.WriteSection(helpSectionSubcommands, providerSubcommands); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ait ai provider enable deepseek",
-		"ait ai provider disable minimax",
-		"ait ai provider enable ollama --yes",
+		exampleAIProviderEnableDeepseek,
+		exampleAIProviderDisableMinimax,
+		exampleAIProviderEnableOllamaYes,
 	); err != nil {
 		return err
 	}
@@ -50,28 +65,21 @@ func WriteAIProviderHelp(w io.Writer) error {
 // WriteProviderEnableHelp prints ait ai provider enable --help to w.
 func WriteProviderEnableHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro(
-		"Enable routing to a provider. Cloud providers need an API key in config or keyring.",
-		"For ollama, also runs availability checks (install [y/N] unless --yes / --no-install).",
-	); err != nil {
+	if err := b.WriteIntro(providerEnableIntroMain, providerEnableIntroOllama); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait ai provider enable <provider> [flags]"); err != nil {
+	if err := b.WriteUsage(providerEnableUsage); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Providers", "  deepseek, minimax, ollama\n"); err != nil {
+	if err := b.WriteSection(helpSectionProviders, providerEnableProviders); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Flags (ollama)", `  -y, --yes            Allow install without prompting
-  --no-install         Skip Ollama install
-  --no-pull            Skip ollama pull
-  --model, --base-url, --models-dir   Passed to Ollama ensure logic
-`); err != nil {
+	if err := b.WriteSection(helpSectionFlagsOllama, providerEnableFlagsOllama); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ait ai provider enable deepseek",
-		"ait ai provider enable ollama --yes",
+		exampleAIProviderEnableDeepseek,
+		exampleAIProviderEnableOllamaYes,
 	); err != nil {
 		return err
 	}
@@ -81,16 +89,13 @@ func WriteProviderEnableHelp(w io.Writer) error {
 // WriteProviderDisableHelp prints ait ai provider disable --help to w.
 func WriteProviderDisableHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro("Disable routing to a provider; no Chat/Assist traffic is sent to it."); err != nil {
+	if err := b.WriteIntro(providerDisableIntro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait ai provider disable <provider>"); err != nil {
+	if err := b.WriteUsage(providerDisableUsage); err != nil {
 		return err
 	}
-	if err := b.WriteExamples(
-		"ait ai provider disable minimax",
-		"ait ai provider disable ollama",
-	); err != nil {
+	if err := b.WriteExamples(exampleAIProviderDisableMinimax, providerDisableOllama); err != nil {
 		return err
 	}
 	return b.Finish("disable")

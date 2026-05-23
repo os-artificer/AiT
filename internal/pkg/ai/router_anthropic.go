@@ -104,7 +104,7 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 		return "", fmt.Errorf("anthropic api %s: %s", ep.id, parsed.Error.Message)
 	}
 	if len(parsed.Content) == 0 {
-		return "", fmt.Errorf("empty response from %s", ep.id)
+		return "", fmt.Errorf(errEmptyResponseFmt, ep.id)
 	}
 	var parts []string
 	for _, block := range parsed.Content {
@@ -113,7 +113,7 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 		}
 	}
 	if len(parts) == 0 {
-		return "", fmt.Errorf("empty response from %s", ep.id)
+		return "", fmt.Errorf(errEmptyResponseFmt, ep.id)
 	}
 	return strings.TrimSpace(strings.Join(parts, "\n")), nil
 }

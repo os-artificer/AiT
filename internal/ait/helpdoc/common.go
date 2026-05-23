@@ -23,22 +23,12 @@ import (
 	"strings"
 )
 
-const longHint = "Run 'ait %s --help' for usage and examples."
-
-// LongHint returns the standard one-line Cobra Long field for cmdName.
-func LongHint(cmdName string) string {
-	return fmt.Sprintf(longHint, cmdName)
-}
-
-// HelpRequested reports whether argv is only -h or --help.
-func HelpRequested(argv []string) bool {
-	return len(argv) == 1 && (argv[0] == "-h" || argv[0] == "--help")
-}
-
-// HelpFooter returns the standard trailing Flags section for cmdName.
-func HelpFooter(cmdName string) string {
-	return fmt.Sprintf("\nFlags:\n  -h, --help      help for %s\n", cmdName)
-}
+const (
+	longHint              = "Run 'ait %s --help' for usage and examples."
+	helpUsageLineFmt      = "Usage:\n  %s\n\n"
+	helpExamplesHeader    = "Examples:"
+	helpFooterFlagsPrefix = "\nFlags:\n  -h, --help      help for %s\n"
+)
 
 type helpBody struct {
 	w io.Writer
@@ -62,7 +52,7 @@ func (b *helpBody) WriteIntro(lines ...string) error {
 }
 
 func (b *helpBody) WriteUsage(line string) error {
-	if _, err := fmt.Fprintf(b.w, "Usage:\n  %s\n\n", line); err != nil {
+	if _, err := fmt.Fprintf(b.w, helpUsageLineFmt, line); err != nil {
 		return err
 	}
 	return nil
@@ -87,7 +77,7 @@ func (b *helpBody) WriteExamples(lines ...string) error {
 	if len(lines) == 0 {
 		return nil
 	}
-	if _, err := fmt.Fprintln(b.w, "Examples:"); err != nil {
+	if _, err := fmt.Fprintln(b.w, helpExamplesHeader); err != nil {
 		return err
 	}
 	for _, line := range lines {
@@ -102,4 +92,19 @@ func (b *helpBody) WriteExamples(lines ...string) error {
 func (b *helpBody) Finish(cmdName string) error {
 	_, err := io.WriteString(b.w, HelpFooter(cmdName))
 	return err
+}
+
+// LongHint returns the standard one-line Cobra Long field for cmdName.
+func LongHint(cmdName string) string {
+	return fmt.Sprintf(longHint, cmdName)
+}
+
+// HelpRequested reports whether argv is only -h or --help.
+func HelpRequested(argv []string) bool {
+	return len(argv) == 1 && (argv[0] == helpArgH || argv[0] == helpArgHelp)
+}
+
+// HelpFooter returns the standard trailing Flags section for cmdName.
+func HelpFooter(cmdName string) string {
+	return fmt.Sprintf(helpFooterFlagsPrefix, cmdName)
 }

@@ -25,6 +25,7 @@ import (
 func OptsFromResolved(r args.Resolved) session.LoginOpts {
 	return session.LoginOpts{
 		Alias:                 r.Alias,
+		Save:                  r.Save,
 		Host:                  r.Host,
 		Port:                  r.Port,
 		User:                  r.User,

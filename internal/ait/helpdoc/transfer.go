@@ -55,16 +55,16 @@ func WriteTransferHelp(w io.Writer, cmdName string) error {
 	if err := b.WriteUsage(fmt.Sprintf("ait %s [flags] <paths...>", cmdName)); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Paths", transferPaths); err != nil {
+	if err := b.WriteSection(helpSectionPaths, transferPaths); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Flag order", transferFlagOrder); err != nil {
+	if err := b.WriteSection(helpSectionFlagOrder, transferFlagOrder); err != nil {
 		return err
 	}
-	if err := b.WriteSection("OpenSSH-compatible flags", SectionOpenSSHFlags); err != nil {
+	if err := b.WriteSection(helpSectionOpenSSHFlagsTitle, SectionOpenSSHFlags); err != nil {
 		return err
 	}
-	if err := b.WriteSection("AiT flags", transferAITFlags); err != nil {
+	if err := b.WriteSection(helpSectionAITFlags, transferAITFlags); err != nil {
 		return err
 	}
 	notSupTitle := fmt.Sprintf("Not supported by ait %s (use the system ssh client instead)", cmdName)

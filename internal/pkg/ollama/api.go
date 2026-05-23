@@ -32,7 +32,7 @@ func TagsBaseURL(base string) string {
 
 // FetchTags GETs /api/tags and returns tag lines, a user note on failure, or an error.
 func FetchTags(ctx context.Context, client *http.Client, baseURL, configuredModel string) ([]string, string, error) {
-	url := TagsBaseURL(baseURL) + "/api/tags"
+	url := TagsBaseURL(baseURL) + pathAPITags
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, unreachableNote, err
@@ -71,5 +71,3 @@ func FetchTags(ctx context.Context, client *http.Client, baseURL, configuredMode
 	}
 	return tags, "", nil
 }
-
-const unreachableNote = "ollama: unreachable (is ollama serve running?)"

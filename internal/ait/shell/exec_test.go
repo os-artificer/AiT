@@ -17,10 +17,17 @@
 package shell
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/config"
+	"github.com/os-artificer/AiT/internal/pkg/session"
+	"github.com/os-artificer/AiT/internal/pkg/store"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 func TestRunCLIRequiresExecutor(t *testing.T) {
@@ -53,11 +60,69 @@ func TestExecuteLineStripsTrailingSemicolon(t *testing.T) {
 	if len(words) != 1 || words[0] != "list" {
 		t.Errorf("words = %v want [list]", words)
 	}
+
+	words, err = parseShellLine(normalizeShellLine("clear;"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(words) != 1 || words[0] != replCmdClear {
+		t.Errorf("words = %v want [clear]", words)
+	}
+}
+
+func TestExecuteLineClear(t *testing.T) {
+	oldOut := shellCLIOut
+	var buf bytes.Buffer
+	shellCLIOut = &buf
+	defer func() { shellCLIOut = oldOut }()
+
+	called := false
+	old := cliExecutor
+	cliExecutor = func([]string, io.Writer, io.Writer) error {
+		called = true
+		return nil
+	}
+	defer func() { cliExecutor = old }()
+
+	exit, err := ExecuteLine(context.Background(), nil, "clear")
+	if err != nil || exit {
+		t.Fatalf("exit=%v err=%v", exit, err)
+	}
+	if called {
+		t.Fatal("clear must not invoke cliExecutor")
+	}
+	if !strings.Contains(buf.String(), terminal.ClearScreenSeq()) {
+		t.Errorf("output = %q, want clear screen seq", buf.String())
+	}
+}
+
+func TestExecuteLineList(t *testing.T) {
+	oldOut := shellCLIOut
+	var buf bytes.Buffer
+	shellCLIOut = &buf
+	defer func() { shellCLIOut = oldOut }()
+
+	st, err := store.OpenPath(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	cfg := &config.Config{}
+	cfg.Session.AuthTTL = "168h"
+	mgr := &session.Manager{Store: st, Config: cfg}
+
+	exit, err := ExecuteLine(context.Background(), mgr, "list")
+	if err != nil || exit {
+		t.Fatalf("exit=%v err=%v", exit, err)
+	}
+	if !strings.Contains(buf.String(), "No saved sessions.") {
+		t.Fatalf("out=%q", buf.String())
+	}
 }
 
 func TestShellCLIErrDefault(t *testing.T) {
-	if shellCLIErr == nil {
-		t.Fatal("shellCLIErr should be set")
+	if shellCLIErr != io.Discard {
+		t.Fatalf("shellCLIErr = %v, want io.Discard before SetREPLWriters", shellCLIErr)
 	}
-	_ = io.Discard
 }

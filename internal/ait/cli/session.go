@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
@@ -26,62 +27,63 @@ import (
 )
 
 func newSessionCmd() *cobra.Command {
+	var doList, doSuspend, tmux, force bool
+	var loadTarget, switchTarget, deleteTarget, password string
+
 	cmd := &cobra.Command{
 		Use:   "session",
 		Short: "Manage saved sessions",
-	}
-	cmd.AddCommand(newSessionSwitchCmd(), newSessionDeleteCmd())
-	bindHelp(cmd, helpdoc.WriteSessionHelp)
-	return cmd
-}
-
-func newSessionSwitchCmd() *cobra.Command {
-	var tmux bool
-	var password string
-	var force bool
-	cmd := &cobra.Command{
-		Use:   "switch [id|alias]",
-		Short: "Switch to another session",
+		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			act, err := detectSessionAction(cmd, doList, doSuspend, loadTarget, switchTarget, deleteTarget)
+			if err != nil {
+				return err
+			}
+
 			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				target := ""
-				var err error
-				if len(args) > 0 {
-					target = args[0]
-				} else {
-					target, err = mgr.PickSession()
+				switch act.kind {
+				case sessionActionList:
+					return mgr.List(cmd.OutOrStdout())
+				case sessionActionLoad:
+					return mgr.Load(ctx, act.target, tmux, password)
+				case sessionActionSuspend:
+					return mgr.SuspendCurrent()
+				case sessionActionDelete:
+					if act.target == "all" {
+						return mgr.DeleteAll(force)
+					}
+					return mgr.Delete(act.target, force)
+				case sessionActionSwitch:
+					target, err := resolveSwitchTarget(cmd, act.target, args)
 					if err != nil {
 						return err
 					}
+					if target == "" {
+						target, err = mgr.PickSession()
+						if err != nil {
+							return err
+						}
+					}
+					return mgr.Switch(ctx, target, tmux, password, force)
+				default:
+					return fmt.Errorf("internal: unknown session action")
 				}
-
-				return mgr.Switch(ctx, target, tmux, password, force)
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&tmux, "tmux", false, "use tmux for target session")
-	cmd.Flags().StringVar(&password, "password", "", "SSH password if auth expired")
-	cmd.Flags().BoolVar(&force, "force", false, "switch even if current session is still marked active")
-	bindHelp(cmd, helpdoc.WriteSessionSwitchHelp)
-	return cmd
-}
 
-func newSessionDeleteCmd() *cobra.Command {
-	var force bool
-	cmd := &cobra.Command{
-		Use:   "delete <id|alias|all>",
-		Short: "Delete one session or all sessions (ait session delete all)",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				if args[0] == "all" {
-					return mgr.DeleteAll(force)
-				}
-				return mgr.Delete(args[0], force)
-			})
-		},
+	cmd.Flags().BoolVar(&doList, flagNameList, false, "list saved sessions")
+	cmd.Flags().StringVar(&loadTarget, flagNameLoad, "", "load session by id or alias")
+	cmd.Flags().BoolVar(&doSuspend, flagNameSuspend, false, "suspend current session (prefer !ait suspend in SSH)")
+	cmd.Flags().StringVar(&switchTarget, flagNameSwitch, "", "switch to session id or alias (omit value to pick)")
+	cmd.Flags().StringVar(&deleteTarget, flagNameDelete, "", "delete session id, alias, or all")
+	if f := cmd.Flags().Lookup(flagNameSwitch); f != nil {
+		f.NoOptDefVal = "-"
 	}
-	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation")
-	bindHelp(cmd, helpdoc.WriteSessionDeleteHelp)
+	cmd.Flags().BoolVar(&tmux, flagNameTmux, false, "use remote tmux for load or switch")
+	cmd.Flags().StringVar(&password, flagNamePassword, "", "SSH password when session auth has expired")
+	cmd.Flags().BoolVar(&force, flagNameForce, false, "force switch or skip delete confirmation")
+
+	bindHelp(cmd, helpdoc.WriteSessionHelp)
 	return cmd
 }

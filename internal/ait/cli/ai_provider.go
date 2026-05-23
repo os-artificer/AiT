@@ -48,7 +48,7 @@ func newProviderEnableCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if !config.IsKnownProvider(id) {
-				return fmt.Errorf("unknown provider %q (use deepseek, minimax, or ollama)", id)
+				return fmt.Errorf(errUnknownProviderFmt, id)
 			}
 			cfg, err := config.Load()
 			if err != nil {
@@ -78,16 +78,16 @@ func newProviderEnableCmd() *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "enabled provider %s\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), msgEnabledProviderFmt, id)
 			return nil
 		},
 	}
-	cmd.Flags().BoolVarP(&assumeYes, "yes", "y", false, "Allow Ollama install without prompting (ollama only)")
-	cmd.Flags().BoolVar(&noInstall, "no-install", false, "Skip Ollama install (ollama only)")
-	cmd.Flags().BoolVar(&noPull, "no-pull", false, "Skip ollama pull (ollama only)")
+	cmd.Flags().BoolVarP(&assumeYes, flagNameYes, flagShorthandYes, false, "Allow Ollama install without prompting (ollama only)")
+	cmd.Flags().BoolVar(&noInstall, flagNameNoInstall, false, "Skip Ollama install (ollama only)")
+	cmd.Flags().BoolVar(&noPull, flagNameNoPull, false, "Skip ollama pull (ollama only)")
 	cmd.Flags().String("model", config.DefaultOllamaModel, "Ollama model (ollama only)")
-	cmd.Flags().String("base-url", config.DefaultOllamaBase, "Ollama API base (ollama only)")
-	cmd.Flags().String("models-dir", "", "Ollama models directory (ollama only)")
+	cmd.Flags().String(flagNameBaseURL, config.DefaultOllamaBase, "Ollama API base (ollama only)")
+	cmd.Flags().String(flagNameModelsDir, "", "Ollama models directory (ollama only)")
 	bindHelp(cmd, helpdoc.WriteProviderEnableHelp)
 	return cmd
 }
@@ -100,7 +100,7 @@ func newProviderDisableCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if !config.IsKnownProvider(id) {
-				return fmt.Errorf("unknown provider %q (use deepseek, minimax, or ollama)", id)
+				return fmt.Errorf(errUnknownProviderFmt, id)
 			}
 			cfg, err := config.Load()
 			if err != nil {
@@ -112,7 +112,7 @@ func newProviderDisableCmd() *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "disabled provider %s\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), msgDisabledProviderFmt, id)
 			return nil
 		},
 	}

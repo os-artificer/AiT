@@ -18,6 +18,11 @@ package config
 
 import "fmt"
 
+// DefaultTieredComplexKeywords are substrings that force cloud routing when tiered routing is on.
+var DefaultTieredComplexKeywords = []string{
+	"implement", "refactor", "architecture", "debug", "架构", "重构", "实现",
+}
+
 // Provider identifiers for ai.providers and ai.default.
 const (
 	ProviderDeepseek = "deepseek"
@@ -37,11 +42,6 @@ const (
 	DefaultTieredMaxPromptChars  = 280
 	DefaultTieredMaxHistoryTurns = 0
 )
-
-// DefaultTieredComplexKeywords are substrings that force cloud routing when tiered routing is on.
-var DefaultTieredComplexKeywords = []string{
-	"implement", "refactor", "architecture", "debug", "架构", "重构", "实现",
-}
 
 // ProviderConfig holds per-provider AI endpoint settings.
 type ProviderConfig struct {

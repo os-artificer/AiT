@@ -23,29 +23,6 @@ import (
 	"strings"
 )
 
-// Spec holds parsed login arguments (OpenSSH + AiT extensions).
-type Spec struct {
-	Destination   string
-	RemoteCommand []string
-
-	Port       int
-	User       string
-	Identity   string
-	ConfigFile string
-	ProxyJump  []string
-	Options    map[string]string
-
-	Alias    string
-	Tmux     bool
-	Password string
-
-	// Legacy AiT long flags (--host etc.)
-	LegacyHost     string
-	LegacyUser     string
-	LegacyPort     int
-	LegacyIdentity string
-}
-
 var unsupportedFlags = map[string]string{
 	"-L": "local port forwarding (-L)",
 	"-R": "remote port forwarding (-R)",
@@ -64,6 +41,30 @@ var unsupportedFlags = map[string]string{
 var noopFlags = map[string]bool{
 	"-4": true, "-6": true, "-t": true, "-T": true, "-C": true, "-v": true,
 	"-A": true, "-a": true, "-q": true, "-Q": true,
+}
+
+// Spec holds parsed login arguments (OpenSSH + AiT extensions).
+type Spec struct {
+	Destination   string
+	RemoteCommand []string
+
+	Port       int
+	User       string
+	Identity   string
+	ConfigFile string
+	ProxyJump  []string
+	Options    map[string]string
+
+	Alias    string
+	Save     bool
+	Tmux     bool
+	Password string
+
+	// Legacy AiT long flags (--host etc.)
+	LegacyHost     string
+	LegacyUser     string
+	LegacyPort     int
+	LegacyIdentity string
 }
 
 // Parse parses argv for ait login (ssh-compatible flags + AiT extensions).

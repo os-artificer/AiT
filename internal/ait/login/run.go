@@ -25,6 +25,14 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
 )
 
+// exitError wraps an exit code for main.
+type exitError int
+
+// Error implements error; the message is empty because ExitCode carries the code.
+func (e exitError) Error() string {
+	return ""
+}
+
 // Run parses argv, resolves OpenSSH config, and runs an interactive or one-shot login via mgr.
 func Run(ctx context.Context, mgr *session.Manager, argv []string) error {
 	spec, err := args.Parse(argv)
@@ -43,14 +51,6 @@ func Run(ctx context.Context, mgr *session.Manager, argv []string) error {
 	}
 
 	return err
-}
-
-// exitError wraps an exit code for main.
-type exitError int
-
-// Error implements error; the message is empty because ExitCode carries the code.
-func (e exitError) Error() string {
-	return ""
 }
 
 // ExitCode returns the process exit code if err is from a remote command.

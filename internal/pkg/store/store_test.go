@@ -216,3 +216,124 @@ func TestRefreshAuthExpiryAndUpdateStatus(t *testing.T) {
 		t.Fatalf("status=%s want %s", got.Status, StatusSuspended)
 	}
 }
+
+func TestFindSessionByConnection_NotFound(t *testing.T) {
+	st, err := OpenPath(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	_, err = st.FindSessionByConnection("u", "host.example", 22)
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("got %v want ErrSessionNotFound", err)
+	}
+}
+
+func TestFindSessionByConnection_DifferentUserOrPort(t *testing.T) {
+	st, err := OpenPath(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	base := newSession("id-a", "")
+	base.Username = "alice"
+	base.Host = "h.example"
+	base.Port = 22
+	if err := st.UpsertSession(base); err != nil {
+		t.Fatal(err)
+	}
+
+	otherUser := newSession("id-b", "")
+	otherUser.Username = "bob"
+	otherUser.Host = "h.example"
+	otherUser.Port = 22
+	if err := st.UpsertSession(otherUser); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := st.FindSessionByConnection("alice", "h.example", 22)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "id-a" {
+		t.Fatalf("id=%q want id-a", got.ID)
+	}
+
+	otherPort := newSession("id-c", "")
+	otherPort.Username = "alice"
+	otherPort.Host = "h.example"
+	otherPort.Port = 2222
+	if err := st.UpsertSession(otherPort); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err = st.FindSessionByConnection("alice", "h.example", 2222)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "id-c" {
+		t.Fatalf("id=%q want id-c", got.ID)
+	}
+}
+
+func TestFindSessionByConnection_PortZeroEquals22(t *testing.T) {
+	st, err := OpenPath(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	s := newSession("id-22", "")
+	s.Username = "u"
+	s.Host = "h"
+	s.Port = 22
+	if err := st.UpsertSession(s); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := st.FindSessionByConnection("u", "h", 22)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "id-22" {
+		t.Fatalf("id=%q", got.ID)
+	}
+}
+
+func TestFindSessionByConnection_PicksNewest(t *testing.T) {
+	st, err := OpenPath(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	old := newSession("id-old", "")
+	old.Username = "u"
+	old.Host = "h"
+	old.Port = 22
+	old.UpdatedAt = time.Now().Add(-2 * time.Hour).Unix()
+	old.CreatedAt = old.UpdatedAt
+	if err := st.UpsertSession(old); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(1100 * time.Millisecond)
+
+	newer := newSession("id-new", "")
+	newer.Username = "u"
+	newer.Host = "h"
+	newer.Port = 22
+	if err := st.UpsertSession(newer); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := st.FindSessionByConnection("u", "h", 22)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "id-new" {
+		t.Fatalf("id=%q want id-new", got.ID)
+	}
+}

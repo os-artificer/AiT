@@ -39,9 +39,36 @@ import (
 自上而下：
 
 1. 包注释（如有）
-2. 文件级 `const` / `var`（全局常量、变量）
-3. 带方法的 `struct` 定义
-4. 该 struct 的方法（见第 3 条可见性排序）
+2. `package` 与 `import`（见 §1）
+3. 文件级 **`var`**（本文件全部 `var`，先于 `const`）
+4. 文件级 **`const`**（本文件全部 `const`）
+5. **类型单元**（见下）
+6. **包级函数**（无 receiver 的 `func`；见 §4 优先独立文件；可见性见 §3）
+
+**类型单元**：
+
+- **带方法的 type**：`type` 声明紧接其全部 methods（同一 receiver 上可见性见 §3）；同一文件可有多个此类单元，自上而下排列。
+- **无方法的 `type`**（struct / interface / alias 等）：可单独成段，放在任一 method-bearing 单元之前或之后。
+- **禁止**：在某一 struct 的 methods 之间插入无关 `type` 或包级 `func`；文件级 `var` / `const` 出现在任意 `func` 之后；`const` 块出现在 `var` 之前。
+
+```go
+var rootSubcommands = []rootSubcommand{ ... }
+
+const (
+	rootHelpIntroMain = "..."
+	rootHelpUsage     = "ait [command]"
+)
+
+type rootSubcommand struct {
+	name string
+	desc string
+}
+
+func formatRootSubcommands() string { ... }
+
+// WriteRootHelp prints ait --help to w.
+func WriteRootHelp(w io.Writer) error { ... }
+```
 
 ## 3. 函数按可见性排序
 
@@ -59,7 +86,7 @@ import (
 魔法字符串、数字、重复字面量须提为命名常量：
 
 - **多文件共享**：包内统一文件（如 `constants.go`）或该子包约定的单一常量文件。
-- **仅本文件使用**：放在该文件首部 `const` / `var` 块（第 2 条顺序之前或与文件级声明一起）。
+- **仅本文件使用**：放在该文件首部，先 `var` 后 `const`（§2 第 3–4 步），再类型单元与函数。
 
 ## 6. 单 struct 单文件
 

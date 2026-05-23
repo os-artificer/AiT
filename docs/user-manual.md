@@ -27,9 +27,9 @@ This document describes post-install configuration, commands, prompts, data loca
 ./bin/ait login deploy@example.com uptime
 
 # List, restore, switch sessions
-./bin/ait list
-./bin/ait load prod
-./bin/ait session switch staging
+./bin/ait session --list
+./bin/ait session --load prod
+./bin/ait session --switch staging
 
 # File transfer (OpenSSH flags; paths and flags in any order)
 ./bin/ait get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log
@@ -51,18 +51,18 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 | Command | Description |
 |---------|-------------|
-| `ait shell` | Interactive mode (`AiT> `): run `login`, `list`, `help`, etc.; `exit` to quit |
-| `ait login` | Connect to host; `ait login --help` for flags; `host cmd` for one-shot execution |
-| `ait list` | List saved sessions |
-| `ait load <id\|alias>` | Restore session; use `--password` when auth expired |
-| `ait suspend` | Use `!ait suspend` inside SSH session |
-| `ait session switch [id\|alias]` | Switch session (suspend current, then load target) |
-| `ait session delete <id\|alias>` | Delete one session |
-| `ait session delete all` | Delete all sessions (confirmation; `--force` to skip) |
+| `ait shell` | Interactive mode (`AiT> `): `login`, `list`, `help`, `clear`, etc.; `exit` to quit; TTY: UTF-8 input, **Ctrl+L** clear screen |
+| `ait login` | Connect to host; `--save` or `--alias` to persist session; `host cmd` for one-shot |
+| `ait session --list` | List saved sessions |
+| `ait session --load <id\|alias>` | Restore session; use `--password` when auth expired |
+| `ait session --suspend` | Use `!ait suspend` inside SSH session |
+| `ait session --switch [id\|alias]` | Switch session (suspend current, then load target) |
+| `ait session --delete <id\|alias>` | Delete one session |
+| `ait session --delete all` | Delete all sessions (confirmation; `--force` to skip) |
 | `ait get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ait get --help` |
 | `ait put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
 | `ait config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
-| `ait ai [--model deepseek\|minimax]` | Local AI REPL; optional cloud provider override for this session |
+| `ait ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ait ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
 | `ait ai chat [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ait ai chat` / `!! chat` |
 | `ait ai provider enable <provider>` | Enable provider; for `ollama`, optional install checks ([y/N]) |
@@ -73,9 +73,22 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait ai ollama stop` | Stop local `ollama serve` |
 | `ait ai ollama disable` | Disable Ollama provider in config (`--stop` to stop serve) |
 
-Common flags: `--tmux` (remote keep-alive), `--port`, `--identity`, `--password`, `--alias`. `session switch --force` switches while current session is still active (does not save scrollback/cwd).
+Common flags: `--tmux` (remote keep-alive), `--port`, `--identity`, `--password`, `--alias`. `session --switch --force` switches while current session is still active (does not save scrollback/cwd).
 
 ---
+
+## Local REPL input (UTF-8)
+
+On **macOS, Linux, and Windows**, interactive `ait shell` and `ait ai` accept **Unicode** input (including Chinese) when the terminal uses UTF-8:
+
+- **Linux / macOS:** `export LANG=zh_CN.UTF-8` (or `en_US.UTF-8`); Terminal.app, iTerm2, GNOME Terminal, etc.
+- **Windows:** Use [Windows Terminal](https://aka.ms/terminal); enable UTF-8 in settings or run `chcp 65001` in legacy consoles.
+- **IME:** Type with your system input method; after you confirm composition, characters appear in the line. AiT does not show an in-app preedit box.
+- **Tab:** Inserts a tab character into the current line (for indentation). This differs from older ASCII-only line input.
+- **Non-TTY:** `echo 你好 | ait ai chat` works without special locale setup.
+- **Clear screen:** In `ait shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ait ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
+
+SSH sessions (`ait login`) use the remote shell’s encoding; local `AiT>` / `AiT AI>` editing is what this section describes.
 
 ## Prompts
 
@@ -146,7 +159,7 @@ API keys and SSH password cache use the **OS keyring**, not plaintext SQLite. Wh
 - Transfer errors are prefixed with `local file` or `remote file` so you can tell which side failed. A message like `file does not exist` or `no such file or directory` on **put** often means the remote path or parent directory is wrong (not that the local file is missing).
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
 - In SSH, `!ait get` / `!ait put` reuse the live connection (two paths only, no flags).
-- Before `ait session switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
+- Before `ait session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
 
 ---
 

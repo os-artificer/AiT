@@ -94,6 +94,27 @@ func TestListEmpty(t *testing.T) {
 	}
 }
 
+func TestLoad_SetsTmuxEnabledBeforeDial(t *testing.T) {
+	m := newTestManager(t)
+	saveSession(t, m, "id-1", "dev")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := m.Load(ctx, "dev", true, "")
+	if err == nil {
+		t.Fatal("expected dial error")
+	}
+
+	sess, err := m.Store.GetSession("dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sess.TmuxEnabled {
+		t.Fatal("TmuxEnabled should be set before dial")
+	}
+}
+
 func TestListTableColumns(t *testing.T) {
 	m := newTestManager(t)
 	now := time.Now().Unix()
