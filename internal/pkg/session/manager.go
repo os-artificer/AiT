@@ -43,6 +43,7 @@ import (
 // LoginOpts for new connection.
 type LoginOpts struct {
 	Alias        string
+	Save         bool
 	Host         string
 	Port         int
 	User         string
@@ -72,7 +73,8 @@ type Manager struct {
 	MetaCLI func(args []string) error
 }
 
-// Login dials the remote host, runs an interactive shell or a one-shot remote command, and persists a session profile.
+// Login dials the remote host and runs an interactive shell or a one-shot remote command.
+// A session profile is persisted only when opts.Save is set or opts.Alias is non-empty.
 // ctx cancels dial and interactive I/O. opts must include Host; RemoteCommand and Tmux cannot be combined.
 // Returns dial/auth errors, store errors, fmt.Errorf for invalid flag combinations, or sshclient.RemoteExitError for one-shot exits.
 func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
@@ -124,7 +126,7 @@ func (m *Manager) dialLogin(sshOpts sshclient.Options, password, host string) (*
 }
 
 func (m *Manager) loginRunOnce(ctx context.Context, client *sshclient.Client, opts LoginOpts) error {
-	if opts.Alias != "" {
+	if shouldPersistLogin(opts) {
 		if err := m.persistLoginSession(client, opts); err != nil {
 			return err
 		}
@@ -135,23 +137,14 @@ func (m *Manager) loginRunOnce(ctx context.Context, client *sshclient.Client, op
 }
 
 func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client, opts LoginOpts, sshOpts sshclient.Options) error {
+	persist := shouldPersistLogin(opts)
 	id := uuid.New().String()
-	var reuseChangedConn bool
-	if opts.Alias != "" {
-		if existing, err := m.Store.GetSession(opts.Alias); err == nil {
-			id = existing.ID
-			if existing.Host != opts.Host ||
-				normalizePort(existing.Port) != opts.Port ||
-				(opts.User != "" && existing.Username != opts.User) {
-				reuseChangedConn = true
-			}
+	if persist {
+		var err error
+		id, err = m.resolvePersistSessionID(opts, id)
+		if err != nil {
+			return err
 		}
-	}
-	if reuseChangedConn {
-		if st, _ := m.Store.GetSessionState(id); st != nil && st.ScrollbackPath != "" {
-			m.removeScrollbackFile(st.ScrollbackPath)
-		}
-		_ = m.Store.DeleteSessionState(id)
 	}
 
 	authMethod := sshclient.DetectAuthMethod(sshOpts)
@@ -159,43 +152,73 @@ func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client
 	expires := time.Now().Add(ttl).Unix()
 	tmuxName := tmux.SessionName(id)
 	sess := &store.Session{
-		ID: id, Alias: opts.Alias, Host: opts.Host, Port: opts.Port,
+		ID: id, Alias: opts.Alias, Host: opts.Host, Port: normalizePort(opts.Port),
 		Username: opts.User, IdentityPath: opts.IdentityPath,
 		AuthMethod: authMethod, AuthExpiresAt: expires,
 		TmuxEnabled: opts.Tmux, TmuxSession: tmuxName,
 		Status: store.StatusSuspended,
 	}
-	if err := m.Store.UpsertSession(sess); err != nil {
-		return err
-	}
 
-	if opts.Password != "" {
-		_ = creds.SetSessionUnlock(id, opts.Password)
+	if persist {
+		if err := m.persistInteractiveLogin(sess, opts); err != nil {
+			return err
+		}
 	}
-	_ = m.Store.SetMeta(store.MetaCurrentSession, id)
 
 	if opts.Tmux {
 		if err := tmux.Ensure(client.Conn(), tmuxName); err != nil {
-			m.clearSessionOnFailure(id)
+			if persist {
+				m.clearSessionOnFailure(id, true)
+			}
 			return fmt.Errorf("tmux: %w (is tmux installed on remote?)", err)
 		}
 	}
 
 	initialCmds := sshclient.RemotePromptInitialCommands(sess.Username, sess.Host)
-	err := m.runInteractive(ctx, client, sess, initialCmds)
-	if err != nil {
-		m.clearSessionOnFailure(id)
+	err := m.runInteractive(ctx, client, sess, initialCmds, persist)
+	if err != nil && persist {
+		m.clearSessionOnFailure(id, true)
 	}
 	return err
 }
 
+// resolveLoginSessionID returns an existing session id for opts.Alias when present; otherwise newID.
+// When connection parameters changed, clears stale scrollback for that id.
+func (m *Manager) resolveLoginSessionID(opts LoginOpts, newID string) string {
+	existing, err := m.Store.GetSession(opts.Alias)
+	if err != nil {
+		return newID
+	}
+
+	id := existing.ID
+	if existing.Host != opts.Host ||
+		normalizePort(existing.Port) != opts.Port ||
+		(opts.User != "" && existing.Username != opts.User) {
+		if st, _ := m.Store.GetSessionState(id); st != nil && st.ScrollbackPath != "" {
+			m.removeScrollbackFile(st.ScrollbackPath)
+		}
+		_ = m.Store.DeleteSessionState(id)
+	}
+	return id
+}
+
+// persistInteractiveLogin upserts sess and records meta/keyring for a saved login.
+func (m *Manager) persistInteractiveLogin(sess *store.Session, opts LoginOpts) error {
+	if err := m.Store.UpsertSession(sess); err != nil {
+		return err
+	}
+
+	if opts.Password != "" {
+		_ = creds.SetSessionUnlock(sess.ID, opts.Password)
+	}
+	return m.Store.SetMeta(store.MetaCurrentSession, sess.ID)
+}
+
 func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts) error {
 	_ = client
-	id := uuid.New().String()
-	if opts.Alias != "" {
-		if existing, err := m.Store.GetSession(opts.Alias); err == nil {
-			id = existing.ID
-		}
+	id, err := m.resolvePersistSessionID(opts, uuid.New().String())
+	if err != nil {
+		return err
 	}
 
 	ttl, _ := m.Config.AuthTTL()
@@ -205,7 +228,14 @@ func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts) 
 		Username: opts.User, IdentityPath: opts.IdentityPath,
 		AuthExpiresAt: expires, Status: store.StatusSuspended,
 	}
-	return m.Store.UpsertSession(sess)
+	if err := m.Store.UpsertSession(sess); err != nil {
+		return err
+	}
+
+	if opts.Password != "" {
+		_ = creds.SetSessionUnlock(id, opts.Password)
+	}
+	return m.Store.SetMeta(store.MetaCurrentSession, id)
 }
 
 // Load reconnects to a saved session by id or alias, optionally enabling tmux and supplying a password override.
@@ -265,7 +295,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	}
 
 	_ = m.Store.SetMeta(store.MetaCurrentSession, sess.ID)
-	return m.runInteractive(ctx, client, sess, initialCmds)
+	return m.runInteractive(ctx, client, sess, initialCmds, true)
 }
 
 // SSHOptionsForSession builds sshclient.Options for a saved session (e.g. ait get, ait put).
@@ -285,7 +315,11 @@ func (m *Manager) SSHOptionsForSession(idOrAlias, passwordOverride string) (sshc
 	return sshOptionsFromSession(sess, pass), nil
 }
 
-func (m *Manager) clearSessionOnFailure(id string) {
+func (m *Manager) clearSessionOnFailure(id string, persisted bool) {
+	if !persisted {
+		return
+	}
+
 	_ = m.Store.UpdateStatus(id, store.StatusSuspended)
 	cur, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if cur == id {
@@ -340,14 +374,16 @@ func (m *Manager) resolvePassword(sess *store.Session, override string) (string,
 	return "", false, nil
 }
 
-func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, sess *store.Session, initialCmds []string) error {
+func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, sess *store.Session, initialCmds []string, persisted bool) error {
 	defer client.Close()
 	tmuxName := sess.TmuxSession
 	if tmuxName == "" {
 		tmuxName = tmux.SessionName(sess.ID)
 	}
-	if err := m.Store.UpdateStatus(sess.ID, store.StatusActive); err != nil {
-		return err
+	if persisted {
+		if err := m.Store.UpdateStatus(sess.ID, store.StatusActive); err != nil {
+			return err
+		}
 	}
 
 	err := client.RunInteractive(ctx, sshclient.InteractiveOpts{
@@ -359,11 +395,14 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 		OnRemoteAI:      m.OnRemoteAI,
 		OnMetaCLI:       m.MetaCLI,
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
+			if !persisted {
+				return fmt.Errorf("%s", errEphemeralSuspendRequiresPersist)
+			}
 			return m.suspend(sess.ID, scroll, cwd, cols, rows)
 		},
 	})
-	if err != nil {
-		m.clearSessionOnFailure(sess.ID)
+	if err != nil && persisted {
+		m.clearSessionOnFailure(sess.ID, true)
 	}
 	return err
 }
@@ -395,7 +434,7 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 func (m *Manager) SuspendCurrent() error {
 	id, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if id == "" {
-		return fmt.Errorf("no current session; use !ait suspend inside SSH or ait load first")
+		return fmt.Errorf("no current session; use !ait suspend inside SSH or ait session --load first")
 	}
 	fmt.Println("Suspend from the local shell is not supported.")
 	fmt.Println("Reconnect to the session and run !ait suspend inside SSH.")

@@ -35,9 +35,20 @@ const (
 	configKeySuffixAPIKey = ".api_key"
 )
 
-// Session — flag names shared by load and session switch.
+// Session — flag names for ait session.
 const (
+	flagNameList     = "list"
+	flagNameLoad     = "load"
+	flagNameSuspend  = "suspend"
+	flagNameSwitch   = "switch"
+	flagNameDelete   = "delete"
 	flagNameTmux     = "tmux"
 	flagNamePassword = "password"
 	flagNameForce    = "force"
+)
+
+// Session — validation errors.
+const (
+	errSessionActionRequired  = "specify one session action: --list, --load, --switch, --suspend, or --delete"
+	errSessionActionExclusive = "only one session action flag may be set"
 )

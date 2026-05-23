@@ -14,27 +14,20 @@
  * limitations under the License.
 **/
 
-package cli
+package login
 
 import (
-	"context"
+	"testing"
 
-	"github.com/os-artificer/AiT/internal/ait/helpdoc"
-	"github.com/os-artificer/AiT/internal/pkg/session"
-
-	"github.com/spf13/cobra"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/args"
 )
 
-func newListCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List saved sessions",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				return mgr.List(cmd.OutOrStdout())
-			})
-		},
+func TestOptsFromResolvedSave(t *testing.T) {
+	opts := OptsFromResolved(args.Resolved{Host: "h", Save: true, Alias: "prod"})
+	if !opts.Save {
+		t.Fatal("Save not set")
 	}
-	bindHelp(cmd, helpdoc.WriteListHelp)
-	return cmd
+	if opts.Alias != "prod" {
+		t.Fatalf("alias = %q", opts.Alias)
+	}
 }

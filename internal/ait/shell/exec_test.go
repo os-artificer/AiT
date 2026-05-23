@@ -24,6 +24,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/pkg/config"
+	"github.com/os-artificer/AiT/internal/pkg/session"
+	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -93,9 +96,33 @@ func TestExecuteLineClear(t *testing.T) {
 	}
 }
 
-func TestShellCLIErrDefault(t *testing.T) {
-	if shellCLIErr == nil {
-		t.Fatal("shellCLIErr should be set")
+func TestExecuteLineList(t *testing.T) {
+	oldOut := shellCLIOut
+	var buf bytes.Buffer
+	shellCLIOut = &buf
+	defer func() { shellCLIOut = oldOut }()
+
+	st, err := store.OpenPath(":memory:")
+	if err != nil {
+		t.Fatal(err)
 	}
-	_ = io.Discard
+	defer st.Close()
+
+	cfg := &config.Config{}
+	cfg.Session.AuthTTL = "168h"
+	mgr := &session.Manager{Store: st, Config: cfg}
+
+	exit, err := ExecuteLine(context.Background(), mgr, "list")
+	if err != nil || exit {
+		t.Fatalf("exit=%v err=%v", exit, err)
+	}
+	if !strings.Contains(buf.String(), "No saved sessions.") {
+		t.Fatalf("out=%q", buf.String())
+	}
+}
+
+func TestShellCLIErrDefault(t *testing.T) {
+	if shellCLIErr != io.Discard {
+		t.Fatalf("shellCLIErr = %v, want io.Discard before SetREPLWriters", shellCLIErr)
+	}
 }

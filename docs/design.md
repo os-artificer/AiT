@@ -16,17 +16,17 @@ ait ai model list                            # List configured AI providers (ENA
 ait ai chat [message...]                     # One-shot AI question (stdin if no args); !ait ai chat in SSH
 ait ai provider enable|disable <provider>    # Enable/disable routing to a provider
 ait ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir + install [y/N])
-ait login [ssh-options] destination [command ...] [--alias NAME] [--password] [--tmux]
+ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH-compatible: -p -l -i -F -J -o, etc.; destination is [user@]host or a config Host alias
         # Requires local OpenSSH client (ssh -G) for config resolution; data plane is Go x/crypto/ssh (Windows/macOS/Linux)
-        # With command: one-shot execution (similar to ssh host cmd); by default does not persist to SQLite
+        # Persists to SQLite only with --save (bookmark by id) or --alias (named save; implies --save)
+        # With command: one-shot execution (similar to ssh host cmd); not saved unless --save or --alias
         # Legacy --host/--user remain supported for backward compatibility
-ait list
-ait load <id|alias> [--tmux]  # Credential-free reconnect within auth TTL; after expiry, prompts for SSH password or key passphrase
-ait suspend                   # Suspend interactively; with --tmux, detach remote tmux
-ait session switch [id|alias] # Switch to another session; interactive picker when omitted
-ait session delete all        # Delete all saved sessions and local sidecars
-ait session delete <id|alias> # Delete one session
+ait session --list
+ait session --load <id|alias> [--tmux] [--password]   # Reconnect within auth TTL; after expiry, prompts for password
+ait session --suspend         # Local CLI only; inside SSH use !ait suspend
+ait session --switch [id|alias] [--tmux] [--password] [--force]  # Switch session; omit id to pick
+ait session --delete <id|alias|all> [--force]         # Delete one or all saved sessions
 ait get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like login (see get/put section)
 ait put [ssh-flags] <paths...>
 ait config set|get ...        # Includes session.auth_ttl (default 168h = 7 days)
@@ -43,7 +43,7 @@ Use **`!ait local` / `!ait remote`** to toggle local versus remote input while S
 | **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally replay scrollback saved at last suspend | No keep-alive guarantee |
 | **tmux keep-alive** | `login`/`load` with `--tmux` | After SSH: `tmux attach -t ait-<session_id>` (or `new -s` if missing) | Shell/process survives disconnect |
 
-**By default only login metadata is persisted** (host/port/user/identity/alias and authentication expiry); scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
+**Login metadata is persisted only with `--save` or `--alias`** (host/port/user/identity/alias and authentication expiry); plain `ait login host` does not write SQLite. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
 
 ## Architecture overview
 
@@ -135,7 +135,7 @@ flowchart TB
 
 **Limitations:** Without `--tmux`, suspend still tears down SSH and **does not guarantee** remote processes keep running; true session persistence requires `--tmux` with tmux available on the remote host.
 
-### Session switching (`session switch`)
+### Session switching (`session --switch`)
 
 Switch among multiple saved sessions without manually `suspend` then `load`.
 
@@ -146,12 +146,12 @@ Switch among multiple saved sessions without manually `suspend` then `load`.
 | Target omitted | `list`-style numbered menu; user selects id/alias (`--tmux` follows current connection mode or target `tmux_enabled` in DB) |
 
 ```text
-ait session switch              # Interactive picker
-ait session switch prod         # Switch by alias/id
-ait session switch prod --tmux  # Switch and attach target in tmux mode
+ait session --switch              # Interactive picker
+ait session --switch prod         # Switch by alias/id
+ait session --switch prod --tmux  # Switch and attach target in tmux mode
 ```
 
-**Inside interactive SSH:** prefer CLI `ait session switch`; use `!ait suspend` for suspend.
+**Inside interactive SSH:** prefer CLI `ait session --switch`; use `!ait suspend` for suspend.
 
 **Compared with `load`:** `load` connects only to the target; `switch` ensures the current session suspends first so scrollback/cwd are not dropped, and updates `app_meta.current_session_id`.
 
@@ -198,9 +198,9 @@ CREATE TABLE app_meta (
 -- 键 current_session_id：当前/上次前台会话 UUID（switch/load/login 后更新）
 ```
 
-- Successful `login` → upsert `sessions`, set `auth_expires_at`; if `--tmux`, set `tmux_enabled=1` and initialize remote tmux; write `app_meta.current_session_id`
+- Successful `login` with `--save` or `--alias` → upsert `sessions`, set `auth_expires_at`; if `--tmux`, set `tmux_enabled=1` and initialize remote tmux; write `app_meta.current_session_id`. Login without those flags does not upsert.
 - `suspend` → write `session_state`, `status=suspended`; in tmux mode `tmux detach` before closing SSH
-- `session delete <id>` / `session delete all` → delete DB rows plus scrollback sidecars; tmux mode optional `--kill-tmux` kills remote sessions (`delete all` defaults to not killing remote tmux to avoid accidents; documented)
+- `session --delete <id>` / `session --delete all` → delete DB rows plus scrollback sidecars; tmux mode optional `--kill-tmux` kills remote sessions (`delete all` defaults to not killing remote tmux to avoid accidents; documented)
 
 **Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `ait config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<DataDir>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
 
@@ -278,7 +278,7 @@ sequenceDiagram
   participant CLI as ait_login
   participant DB as sqlite
   participant SSH as ssh_client
-  User->>CLI: ait login user@host
+  User->>CLI: ait login --save user@host
   CLI->>DB: upsert session
   CLI->>SSH: Dial and PTY
   loop interactive
@@ -300,9 +300,9 @@ sequenceDiagram
 
 - **Config resolution**: `internal/pkg/ssh/args` invokes local `ssh -G` (`platform.OpenSSHPath`: Linux/macOS on PATH; Windows also tries `System32\OpenSSH\ssh.exe`)
 - **Dial**: `client.DialChain` supports `ProxyJump` / `ProxyCommand` (Unix `sh -c`, Windows `cmd /c`)
-- **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; by default does not write SQLite (`--alias` still upserts)
+- **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite unless `--save` or `--alias`. One-shot with `--save` or `--alias` upserts the connection profile and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
 - Auth order: `-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
-- Interactive successful login writes or updates the session row
+- Interactive login writes or updates the session row only with `--save` or `--alias`; `!ait suspend` requires a saved session
 
 ### Local mode (!ait local / remote)
 
@@ -343,7 +343,7 @@ sequenceDiagram
   participant CLI as session_switch
   participant Sess as session_mgr
   participant DB as sqlite
-  User->>CLI: session switch [target]
+  User->>CLI: session --switch [target]
   alt no target
     CLI->>DB: list sessions
     CLI-->>User: numbered picker
@@ -360,11 +360,11 @@ sequenceDiagram
 ### Session cleanup
 
 ```text
-ait session delete all         # Delete all sessions + session_state + sidecars + keyring entries
-ait session delete <id|alias>  # Delete one; confirmation when present (--force skips)
+ait session --delete all         # Delete all sessions + session_state + sidecars + keyring entries
+ait session --delete <id|alias>  # Delete one; confirmation when present (--force skips)
 ```
 
-Cobra layout: `ait session delete` is the parent; `all` and `<id|alias>` are mutually exclusive targets (`all` is a fixed sub-arg/subcommand with secondary confirmation or `--force`).
+Cobra layout: `ait session --delete` is the parent; `all` and `<id|alias>` are mutually exclusive targets (`all` is a fixed sub-arg/subcommand with secondary confirmation or `--force`).
 
 - `delete all`: transaction clears both tables; walks data dir deleting scrollback files; bulk clears keyring `ait/session/*`
 - `delete <id|alias>`: `ON DELETE CASCADE` removes `session_state`; deletes matching sidecar and keyring entries
@@ -484,7 +484,7 @@ Capabilities implemented in the current tree:
 
 - [x] Cobra CLI, `ait shell` REPL, config/keyring, `session.auth_ttl`
 - [x] `login` / interactive SSH, `ssh/args` plus `ssh/client` (including ProxyJump/Command)
-- [x] `suspend` / `list` / `load` / `session switch` / `session delete`
+- [x] `suspend` / `list` / `load` / `session --switch` / `session --delete`
 - [x] `--tmux` remote keep-alive
 - [x] `get` / `put` (SFTP, single file) and dual-scope AI mode (`ait ai`, `!ait ai` / `!!`)
 - [x] Cross-platform builds (including Windows OpenSSH probing, split proxy/resize files)

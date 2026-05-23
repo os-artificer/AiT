@@ -27,9 +27,9 @@
 ./bin/ait login deploy@example.com uptime
 
 # 列出、恢复、切换会话
-./bin/ait list
-./bin/ait load prod
-./bin/ait session switch staging
+./bin/ait session --list
+./bin/ait session --load prod
+./bin/ait session --switch staging
 
 # 文件同步（可复用已保存会话）
 ./bin/ait get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log
@@ -52,13 +52,13 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | 命令 | 说明 |
 |------|------|
 | `ait shell` | 交互模式（`AiT> `）：`login`、`list`、`help`、`clear` 等；`exit` 退出；TTY：UTF-8 输入，**Ctrl+L** 清屏 |
-| `ait login` | 连接主机；`ait login --help` 列出全部 flags；`host cmd` 为一次性执行 |
-| `ait list` | 列出已保存会话 |
-| `ait load <id\|alias>` | 恢复会话；认证过期须 `--password` |
-| `ait suspend` | 在 SSH 会话内使用 `!ait suspend` |
-| `ait session switch [id\|alias]` | 切换会话（先挂起当前再加载目标） |
-| `ait session delete <id\|alias>` | 删除单个会话 |
-| `ait session delete all` | 删除全部会话（须确认；`--force` 跳过确认） |
+| `ait login` | 连接主机；`--save` 或 `--alias` 保存会话；`host cmd` 为一次性执行 |
+| `ait session --list` | 列出已保存会话 |
+| `ait session --load <id\|alias>` | 恢复会话；认证过期须 `--password` |
+| `ait session --suspend` | 在 SSH 会话内使用 `!ait suspend` |
+| `ait session --switch [id\|alias]` | 切换会话（先挂起当前再加载目标） |
+| `ait session --delete <id\|alias>` | 删除单个会话 |
+| `ait session --delete all` | 删除全部会话（须确认；`--force` 跳过确认） |
 | `ait get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ait get --help` |
 | `ait put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
 | `ait config set/get <key>` | 配置项；`ai.<provider>.api_key` 经密钥环存储 |
@@ -73,7 +73,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait ai ollama stop` | 停止本机 `ollama serve` |
 | `ait ai ollama disable` | 在配置中禁用 Ollama（`--stop` 可同时停服） |
 
-常用标志：`--tmux`（远程 tmux 保活）、`--port`、`--identity`、`--password`、`--alias`。`session switch --force` 可在当前会话仍标记为 active 时强制切换（不保存当前 scrollback/cwd）。
+常用标志：`--tmux`（远程 tmux 保活）、`--port`、`--identity`、`--password`、`--alias`。`session --switch --force` 可在当前会话仍标记为 active 时强制切换（不保存当前 scrollback/cwd）。
 
 ---
 
@@ -159,7 +159,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 - 传输失败时错误会带 `local file` 或 `remote file` 前缀，便于区分本机与远端。**put** 若出现 `file does not exist` / `no such file or directory`，常见原因是远程路径或父目录不存在，而非本机文件缺失。
 - 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
 - SSH 会话内 `!ait get` / `!ait put` 复用当前连接（仅两个路径，无 flag）。
-- 从本机执行 `ait session switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
+- 从本机执行 `ait session --switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
 
 ---
 

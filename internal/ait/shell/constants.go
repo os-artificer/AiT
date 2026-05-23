@@ -18,15 +18,17 @@ package shell
 
 // Commands — AiT shell REPL built-in verbs.
 const (
-	replCmdExit  = "exit"
-	replCmdQuit  = "quit"
-	replCmdHelp  = "help"
-	replArgH     = "-h"
-	replArgHelp  = "--help"
-	replCmdAI    = "ai"
-	replCmdLogin = "login"
-	replCmdLoad  = "load"
-	replCmdClear = "clear"
+	replCmdExit    = "exit"
+	replCmdQuit    = "quit"
+	replCmdHelp    = "help"
+	replArgH       = "-h"
+	replArgHelp    = "--help"
+	replCmdAI      = "ai"
+	replCmdLogin   = "login"
+	replCmdLoad    = "load"
+	replCmdList    = "list"
+	replCmdSuspend = "suspend"
+	replCmdClear   = "clear"
 )
 
 // IO — error prefix and runner messages.

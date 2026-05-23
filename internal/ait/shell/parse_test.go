@@ -35,11 +35,11 @@ func TestParseShellLine(t *testing.T) {
 }
 
 func TestParseLoginArgsLegacy(t *testing.T) {
-	spec, err := args.Parse([]string{"--host", "h", "--alias", "a", "--port", "22", "--tmux"})
+	spec, err := args.Parse([]string{"--host", "h", "--alias", "a", "--save", "--port", "22", "--tmux"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spec.Destination != "h" || spec.Alias != "a" || spec.LegacyPort != 22 || !spec.Tmux {
+	if spec.Destination != "h" || spec.Alias != "a" || !spec.Save || spec.LegacyPort != 22 || !spec.Tmux {
 		t.Fatalf("spec=%+v", spec)
 	}
 }

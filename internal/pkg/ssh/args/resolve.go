@@ -48,6 +48,7 @@ type Resolved struct {
 
 	RemoteCommand []string
 	Alias         string
+	Save          bool
 	Tmux          bool
 }
 
@@ -102,6 +103,7 @@ func Resolve(spec Spec) (Resolved, error) {
 		BatchMode:             strings.EqualFold(cfg.single["batchmode"], "yes"),
 		RemoteCommand:         spec.RemoteCommand,
 		Alias:                 spec.Alias,
+		Save:                  spec.Save,
 		Tmux:                  spec.Tmux,
 		Password:              spec.Password,
 		IdentityExplicit:      spec.Identity != "",

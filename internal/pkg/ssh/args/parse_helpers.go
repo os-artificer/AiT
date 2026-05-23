@@ -76,6 +76,9 @@ func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 		return i, nil
 	case "--alias":
 		return applyStringFlag(s, argv, i, "--alias", func(v string) { s.Alias = v })
+	case "--save":
+		s.Save = true
+		return i, nil
 	case "--tmux":
 		s.Tmux = true
 		return i, nil

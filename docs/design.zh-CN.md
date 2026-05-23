@@ -16,17 +16,17 @@ ait ai model list                            # 列出已配置 AI provider（含
 ait ai chat [message...]                     # 单轮提问（无参数读 stdin）；SSH 内 !ait ai chat
 ait ai provider enable|disable <provider>    # 启用/禁用某 provider 的路由
 ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup：models_dir + 安装前 [y/N]）
-ait login [ssh-options] destination [command ...] [--alias NAME] [--password] [--tmux]
+ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
         # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
-        # 带 command 时为一次性执行（类似 ssh host cmd），默认不持久化至 SQLite
+        # 仅 --save（按 id 书签）或 --alias（命名保存，隐含 --save）时写入 SQLite
+        # 带 command 时为一次性执行；无 --save/--alias 时不持久化
         # 旧写法 --host/--user 仍向后兼容
-ait list
-ait load <id|alias> [--tmux]  # 认证 TTL 内免凭据恢复；过期后提示输入 SSH 密码/密钥口令
-ait suspend                   # 交互中挂起；--tmux 时 detach 远程 tmux
-ait session switch [id|alias] # 切换到另一会话；无参数时交互选择
-ait session delete all        # 删除全部已保存会话及本地 sidecar
-ait session delete <id|alias> # 删除指定会话
+ait session --list
+ait session --load <id|alias> [--tmux] [--password]   # 认证 TTL 内免凭据恢复；过期后提示密码
+ait session --suspend         # 本机 CLI；SSH 内请用 !ait suspend
+ait session --switch [id|alias] [--tmux] [--password] [--force]  # 切换会话；省略 id 时交互选择
+ait session --delete <id|alias|all> [--force]         # 删除单个或全部会话
 ait get [ssh-flags] <paths...>   # OpenSSH 参数；路径/顺序见 get/put 小节
 ait put [ssh-flags] <paths...>
 ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
@@ -43,7 +43,7 @@ ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
 | **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选回放上次 suspend 的本地 scrollback | 不保证保活 |
 | **tmux 保活** | `login`/`load` 加 `--tmux` | SSH 后 `tmux attach -t ait-<session_id>`（不存在则 `new -s`） | 断开连接后 shell/进程仍在 |
 
-**默认仅持久化登录信息**（host/port/user/identity/alias、认证过期时间）；scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
+**仅在使用 `--save` 或 `--alias` 时持久化登录信息**；普通 `ait login host` 不写 SQLite。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
 
 ## 架构总览
 
@@ -135,7 +135,7 @@ flowchart TB
 
 **限制说明：** 未加 `--tmux` 时，挂起仍断开 SSH，**不保证**远程进程继续运行；加 `--tmux` 且远程有 tmux 时，才实现真正会话保持。
 
-### 会话切换（`session switch`）
+### 会话切换（`session --switch`）
 
 在多个已保存会话之间切换，无需手动 `suspend` 再 `load`。
 
@@ -146,12 +146,12 @@ flowchart TB
 | 未指定目标 | `list` 展示编号菜单，用户选择 id/alias（支持 `--tmux` 继承当前连接模式或按目标会话 DB 中 `tmux_enabled`） |
 
 ```text
-ait session switch              # 交互式选择
-ait session switch prod         # 按 alias/id 切换
-ait session switch prod --tmux  # 切换并以 tmux 模式 attach 目标
+ait session --switch              # 交互式选择
+ait session --switch prod         # 按 alias/id 切换
+ait session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 ```
 
-**交互 SSH 内：** 会话切换以 CLI `ait session switch` 为主；挂起使用 `!ait suspend`。
+**交互 SSH 内：** 会话切换以 CLI `ait session --switch` 为主；挂起使用 `!ait suspend`。
 
 **与 `load` 区别：** `load` 仅连接目标；`switch` 保证当前会话先挂起保存，避免丢失当前 scrollback/cwd，并更新 `app_meta.current_session_id`。
 
@@ -198,9 +198,9 @@ CREATE TABLE app_meta (
 -- 键 current_session_id：当前/上次前台会话 UUID（switch/load/login 后更新）
 ```
 
-- `login` 成功 → upsert `sessions`，设置 `auth_expires_at`；若 `--tmux` 则 `tmux_enabled=1` 并初始化远程 tmux；写 `app_meta.current_session_id`
+- `login` 且带 `--save` 或 `--alias` → upsert `sessions`，设置 `auth_expires_at`；若 `--tmux` 则 `tmux_enabled=1` 并初始化远程 tmux；写 `app_meta.current_session_id`。无上述 flag 的 login 不 upsert。
 - `suspend` → 写 `session_state`，`status=suspended`；tmux 模式先 `tmux detach` 再断 SSH
-- `session delete <id>` / `session delete all` → 删 DB 行 + 删除 scrollback sidecar；tmux 模式可选 `--kill-tmux` 远程杀会话（`delete all` 默认不杀远程 tmux，避免误删；文档说明）
+- `session --delete <id>` / `session --delete all` → 删 DB 行 + 删除 scrollback sidecar；tmux 模式可选 `--kill-tmux` 远程杀会话（`delete all` 默认不杀远程 tmux，避免误删；文档说明）
 
 **凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`ait config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<DataDir>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
 
@@ -278,7 +278,7 @@ sequenceDiagram
   participant CLI as ait_login
   participant DB as sqlite
   participant SSH as ssh_client
-  User->>CLI: ait login user@host
+  User->>CLI: ait login --save user@host
   CLI->>DB: upsert session
   CLI->>SSH: Dial and PTY
   loop interactive
@@ -300,9 +300,9 @@ sequenceDiagram
 
 - **配置解析**：`internal/pkg/ssh/args` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
-- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；默认不持久化至 SQLite（指定 `--alias` 时仍 upsert）
+- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；无 `--save`/`--alias` 时不写 SQLite。带 `--save` 或 `--alias` 的一次性 login 会 upsert 连接档案并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
+- 交互式 login 仅在有 `--save` 或 `--alias` 时写入会话行；未保存会话时 `!ait suspend` 会提示需保存
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
-- 交互 login 成功即写入/更新会话记录
 
 ### 本地模式（!ait local / remote）
 
@@ -335,7 +335,7 @@ flowchart LR
 - **load**：TTL 校验 →（过期则读密码）→ 重连 → 默认回放+cwd 或 `--tmux` attach → 更新 `current_session_id`
 - **switch**：若 `current_session_id` 存在且与目标不同 → `Suspend(current)` → `Load(target)`；目标与当前相同则 no-op 并提示
 
-### session switch 流程
+### session --switch 流程
 
 ```mermaid
 sequenceDiagram
@@ -343,7 +343,7 @@ sequenceDiagram
   participant CLI as session_switch
   participant Sess as session_mgr
   participant DB as sqlite
-  User->>CLI: session switch [target]
+  User->>CLI: session --switch [target]
   alt no target
     CLI->>DB: list sessions
     CLI-->>User: numbered picker
@@ -360,11 +360,11 @@ sequenceDiagram
 ### session 清理
 
 ```text
-ait session delete all         # 删除全部 sessions + session_state + sidecar + keyring 条目
-ait session delete <id|alias>  # 删除单条；存在则确认提示（--force 跳过）
+ait session --delete all         # 删除全部 sessions + session_state + sidecar + keyring 条目
+ait session --delete <id|alias>  # 删除单条；存在则确认提示（--force 跳过）
 ```
 
-cobra 结构：`ait session delete` 为父命令，`all` 与 `<id|alias>` 为互斥目标（`all` 为固定子参数/子命令，需二次确认或 `--force`）。
+cobra 结构：`ait session --delete` 为父命令，`all` 与 `<id|alias>` 为互斥目标（`all` 为固定子参数/子命令，需二次确认或 `--force`）。
 
 - `delete all`：事务内清空两表；遍历数据目录删除 scrollback 文件；批量清除 keyring `ait/session/*`
 - `delete <id|alias>`：`ON DELETE CASCADE` 清理 `session_state`；删对应 sidecar 与 keyring 项
@@ -484,7 +484,7 @@ sequenceDiagram
 
 - [x] Cobra CLI、`ait shell` REPL、config/keyring、`session.auth_ttl`
 - [x] `login` / 交互 SSH、`ssh/args` + `ssh/client`（含 ProxyJump/Command）
-- [x] `suspend` / `list` / `load` / `session switch` / `session delete`
+- [x] `suspend` / `list` / `load` / `session --switch` / `session --delete`
 - [x] `--tmux` 远程保活
 - [x] `get` / `put`（SFTP，单文件）与双作用域 AI 模式（`ait ai`、`!ait ai` / `!!`）
 - [x] 跨平台构建（含 Windows OpenSSH 探测、分文件 proxy/resize）
