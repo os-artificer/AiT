@@ -27,7 +27,7 @@ import (
 func TestReadLineRawASCII(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte("help\r")))
 	var out bytes.Buffer
-	line, err := ReadLineRaw(br, &out)
+	line, err := ReadLineRaw(br, &out, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestReadLineRawASCII(t *testing.T) {
 
 func TestReadLineRawCRLF(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte("list\r\n")))
-	line, err := ReadLineRaw(br, io.Discard)
+	line, err := ReadLineRaw(br, io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestReadLineRawUTF8Chinese(t *testing.T) {
 	input := append([]byte("帮助"), '\r')
 	br := bufio.NewReader(bytes.NewReader(input))
 	var out bytes.Buffer
-	line, err := ReadLineRaw(br, &out)
+	line, err := ReadLineRaw(br, &out, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestReadLineRawBackspaceUTF8(t *testing.T) {
 	input = append(input, 127) // DEL
 	input = append(input, '\r')
 	br := bufio.NewReader(bytes.NewReader(input))
-	line, err := ReadLineRaw(br, io.Discard)
+	line, err := ReadLineRaw(br, io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestReadLineRawBackspaceUTF8(t *testing.T) {
 
 func TestReadLineRawIgnoresEscape(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte("hi\x1b[A\r")))
-	line, err := ReadLineRaw(br, io.Discard)
+	line, err := ReadLineRaw(br, io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestReadLineRawIgnoresEscape(t *testing.T) {
 func TestReadLineRawCtrlCEmpty(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte{3}))
 	var out bytes.Buffer
-	line, err := ReadLineRaw(br, &out)
+	line, err := ReadLineRaw(br, &out, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestReadLineRawCtrlCEmpty(t *testing.T) {
 
 func TestReadLineRawCtrlDEmpty(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte{4}))
-	_, err := ReadLineRaw(br, io.Discard)
+	_, err := ReadLineRaw(br, io.Discard, "")
 	if err != io.EOF {
 		t.Fatalf("err = %v, want EOF", err)
 	}
@@ -114,11 +114,51 @@ func TestReadLineRawCtrlDEmpty(t *testing.T) {
 
 func TestReadLineRawEmptyCRIgnored(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte{'\r', 'x', '\r'}))
-	line, err := ReadLineRaw(br, io.Discard)
+	line, err := ReadLineRaw(br, io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if line != "x" {
 		t.Errorf("line = %q, want x", line)
+	}
+}
+
+func TestReadLineRawCtrlLRedrawsLine(t *testing.T) {
+	const prompt = "AiT> "
+	input := []byte{'a', 'b', ctrlL, '\r'}
+	br := bufio.NewReader(bytes.NewReader(input))
+	var out bytes.Buffer
+	line, err := ReadLineRaw(br, &out, prompt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "ab" {
+		t.Errorf("line = %q, want ab", line)
+	}
+	got := out.String()
+	if !strings.Contains(got, ClearScreenSeq()) {
+		t.Errorf("output missing clear seq, got %q", got)
+	}
+	if !strings.Contains(got, prompt+"ab") {
+		t.Errorf("output missing redrawn prompt+line, got %q", got)
+	}
+}
+
+func TestReadLineRawCtrlLNoPrompt(t *testing.T) {
+	input := []byte{'x', ctrlL, '\r'}
+	br := bufio.NewReader(bytes.NewReader(input))
+	var out bytes.Buffer
+	line, err := ReadLineRaw(br, &out, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "x" {
+		t.Errorf("line = %q, want x", line)
+	}
+	if !strings.Contains(out.String(), ClearScreenSeq()) {
+		t.Errorf("output missing clear seq, got %q", out.String())
+	}
+	if strings.Contains(out.String(), "AiT>") {
+		t.Errorf("unexpected prompt redraw, got %q", out.String())
 	}
 }

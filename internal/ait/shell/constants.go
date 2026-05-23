@@ -26,6 +26,7 @@ const (
 	replCmdAI    = "ai"
 	replCmdLogin = "login"
 	replCmdLoad  = "load"
+	replCmdClear = "clear"
 )
 
 // IO — error prefix and runner messages.

@@ -6,7 +6,7 @@
 
 # AiT
 
-**AI Terminal** — 跨平台（Linux / macOS / Windows）AI 增强 SSH 客户端。
+**AiT** — 跨平台（Linux / macOS / Windows）AI 增强的命令行工具。
 
 ## 特性
 

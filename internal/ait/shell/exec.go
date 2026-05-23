@@ -27,6 +27,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	sshargs "github.com/os-artificer/AiT/internal/pkg/ssh/args"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 var cliExecutor func([]string, io.Writer, io.Writer) error
@@ -59,6 +60,9 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string) (exitRE
 		return true, nil
 	case replCmdHelp, replArgH, replArgHelp:
 		PrintHelp(shellCLIOut)
+		return false, nil
+	case replCmdClear:
+		terminal.ClearScreen(shellCLIOut)
 		return false, nil
 	case replCmdAI:
 		if aiModeRunner == nil {

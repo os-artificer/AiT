@@ -245,6 +245,8 @@ CREATE TABLE app_meta (
 
 **Local REPL input (UTF-8, macOS / Linux / Windows):** Interactive `ait shell` and local `ait ai` read stdin as **UTF-8** via [`terminal.ReadLineRaw`](../internal/pkg/terminal/lineedit.go) (wide-character backspace, escape sequences filtered). Use a UTF-8 terminal: Linux/macOS `LANG=*.UTF-8`; Windows **Windows Terminal** with UTF-8 (avoid legacy non-UTF code pages). IME composition is handled by the terminal; committed text arrives as UTF-8 bytes (preedit underline is not drawn by AiT). Piped or redirected stdin (`echo … | ait shell`) already accepted UTF-8; SSH remote shells forward bytes unchanged.
 
+**Clear screen (`ait shell` / local TTY):** In `ait shell`, type **`clear`** to erase the terminal via [`terminal.ClearScreen`](../internal/pkg/terminal/screen.go) (VT100 ANSI). In a TTY, **Ctrl+L** clears the screen and redraws the current prompt plus the in-progress line (buffer kept; same as bash/readline). Local `ait ai` TTY also supports **Ctrl+L** for display only; **`clear` in AI mode** still clears chat history, not the same as shell `clear`.
+
 ### In-session meta protocol (!ait / !!)
 
 Implementation: [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/client/metascanner.go) and `forwardStdin` / `handleMetaLine` in [`client.go`](../internal/pkg/ssh/client/client.go). The `\ait` prefix is deprecated.

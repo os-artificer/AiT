@@ -51,7 +51,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 | Command | Description |
 |---------|-------------|
-| `ait shell` | Interactive mode (`AiT> `): run `login`, `list`, `help`, etc.; `exit` to quit; TTY input is UTF-8 (CJK/emoji supported) |
+| `ait shell` | Interactive mode (`AiT> `): `login`, `list`, `help`, `clear`, etc.; `exit` to quit; TTY: UTF-8 input, **Ctrl+L** clear screen |
 | `ait login` | Connect to host; `ait login --help` for flags; `host cmd` for one-shot execution |
 | `ait list` | List saved sessions |
 | `ait load <id\|alias>` | Restore session; use `--password` when auth expired |
@@ -86,6 +86,7 @@ On **macOS, Linux, and Windows**, interactive `ait shell` and `ait ai` accept **
 - **IME:** Type with your system input method; after you confirm composition, characters appear in the line. AiT does not show an in-app preedit box.
 - **Tab:** Inserts a tab character into the current line (for indentation). This differs from older ASCII-only line input.
 - **Non-TTY:** `echo 你好 | ait ai chat` works without special locale setup.
+- **Clear screen:** In `ait shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ait ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
 
 SSH sessions (`ait login`) use the remote shell’s encoding; local `AiT>` / `AiT AI>` editing is what this section describes.
 

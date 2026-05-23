@@ -49,7 +49,7 @@ func TestExecuteLineQuit(t *testing.T) {
 
 func TestReadTTYLineEndsOnCRAlone(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte("help\r")))
-	line, err := ReadTTYLine(br, io.Discard)
+	line, err := ReadTTYLine(br, io.Discard, "AiT> ")
 	if err != nil {
 		t.Fatal(err)
 	}

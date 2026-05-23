@@ -80,6 +80,26 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 - 用户可见行为变更须同步 [design.md](docs/design.md) / [design.zh-CN.md](docs/design.zh-CN.md) 与 [user-manual](docs/user-manual.md)（中英成对）
 - CLI 新命令遵守 [cli-help.mdc](cli-help.mdc)
 
+### 验收清单维护（新功能实现时强制）
+
+**每当有新功能合入**，须在同一 PR / 交付中完成下列项；**后续任意改动**的回归仍须验证这些项（不得删除或弱化对应用例，除非经显式废弃并更新本规则与文档）。
+
+| 步骤 | 要求 |
+|------|------|
+| 1. 定义专项 ID | 为本功能分配带前缀的验收 ID（如清屏 **A1–A12**、UTF-8 **U1–U10**、常量 **C1–C6**）；写入方案/PR 的验收表（行为 \| 自动化测试 \| 手动烟雾）。 |
+| 2. 实现测试 | 每个 ID **至少一条** `*_test.go` 用例；测试名与 ID 在 PR 中可对照；禁止仅手测、零自动化的用户可见行为。 |
+| 3. 纳入交付勾选 | PR / Agent 交付清单须列出本功能全部 ID；`make test` 须覆盖这些测试。 |
+| 4. 纳入后续回归 | 合入后 ID 与测试并入**永久回归集**：此后每次 `make test`、合并前门禁及交付勾选均须仍通过；与 **R1–R18** 同等。 |
+| 5. 文档与 help | 用户可见行为同步 design / user-manual（中英）；CLI 同步 helpdoc。 |
+
+**示例（已登记专项，后续 PR 须继续验证）**
+
+| 前缀 | 能力 | 代表性测试 |
+|------|------|------------|
+| U* | 本地 REPL UTF-8 输入 | `TestReadLineRawUTF8Chinese`、`TestReadLineRawBackspaceUTF8` |
+| C* | internal 字符串常量化（语义不变） | `TestLoginHelpMatchesLegacyGolden`、`TestSaveYAML_NoRootDeepseek` |
+| A* | `ait shell` 清屏（`clear` / Ctrl+L） | `TestClearScreen`、`TestExecuteLineClear`、`TestReadLineRawCtrlLRedrawsLine` |
+
 ## 索引
 
 - Go 版式 → [go-structure.mdc](go-structure.mdc)

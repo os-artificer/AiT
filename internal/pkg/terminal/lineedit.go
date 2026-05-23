@@ -29,6 +29,7 @@ import (
 const (
 	ctrlC = 3
 	ctrlD = 4
+	ctrlL = 12
 
 	keyDEL            = 127
 	keyBS             = '\b'
@@ -47,10 +48,11 @@ type lineEditResult struct {
 // ReadLineRaw reads one edited line from br while stdin is in raw mode.
 // The caller must put the terminal in raw mode with term.MakeRaw before calling.
 // br is typically bufio.NewReader(os.Stdin); out receives echoed runes and control feedback.
+// prompt is redrawn after Ctrl+L when non-empty (bash/readline-style clear screen).
 // Returns io.EOF on Ctrl+D with an empty line; Ctrl+C returns ("", nil) after writing "^C\r\n" to out.
 // Accepts UTF-8 printable runes (including CJK); Tab (\t) is inserted for REPL line indentation.
 // Backspace uses terminal display width. IME preedit is handled by the terminal, not drawn by AiT.
-func ReadLineRaw(br *bufio.Reader, out io.Writer) (string, error) {
+func ReadLineRaw(br *bufio.Reader, out io.Writer, prompt string) (string, error) {
 	var runes []rune
 	for {
 		r, _, err := br.ReadRune()
@@ -59,7 +61,7 @@ func ReadLineRaw(br *bufio.Reader, out io.Writer) (string, error) {
 			return res.line, res.err
 		}
 
-		res, next := handleLineRune(br, out, runes, r)
+		res, next := handleLineRune(br, out, prompt, runes, r)
 		runes = next
 		if res.done {
 			return res.line, res.err
@@ -74,7 +76,7 @@ func handleLineEOF(err error, runes []rune) lineEditResult {
 	return lineEditResult{err: err, done: true}
 }
 
-func handleLineRune(br *bufio.Reader, out io.Writer, runes []rune, r rune) (lineEditResult, []rune) {
+func handleLineRune(br *bufio.Reader, out io.Writer, prompt string, runes []rune, r rune) (lineEditResult, []rune) {
 	switch r {
 	case '\r':
 		return handleLineCR(br, out, runes)
@@ -91,6 +93,8 @@ func handleLineRune(br *bufio.Reader, out io.Writer, runes []rune, r rune) (line
 			return lineEditResult{err: io.EOF, done: true}, runes
 		}
 		return lineEditResult{line: string(runes), done: true}, runes
+	case ctrlL:
+		return lineEditResult{}, redrawLineAfterClear(out, prompt, runes)
 	case keyBS, keyDEL:
 		return lineEditResult{}, eraseLastRune(out, runes)
 	case utf8.RuneError:
@@ -125,6 +129,14 @@ func handleLineCR(br *bufio.Reader, out io.Writer, runes []rune) (lineEditResult
 		}
 	}
 	return lineEditResult{line: string(runes), done: true}, runes
+}
+
+func redrawLineAfterClear(out io.Writer, prompt string, runes []rune) []rune {
+	ClearScreen(out)
+	if prompt != "" {
+		_, _ = io.WriteString(out, prompt+string(runes))
+	}
+	return runes
 }
 
 func eraseLastRune(out io.Writer, runes []rune) []rune {
