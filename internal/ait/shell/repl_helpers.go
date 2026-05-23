@@ -17,56 +17,20 @@
 package shell
 
 import (
-	"bufio"
 	"io"
 	"os"
+
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
-// ttyReadResult is the outcome of processing one byte in readTTYLine.
-type ttyReadResult struct {
-	line string
-	done bool
-	err  error
-}
-
-func ttyHandleEOF(err error, line []byte) ttyReadResult {
-	if err == io.EOF && len(line) > 0 {
-		return ttyReadResult{line: string(line), done: true}
+// setShellTTYIO configures CRLF stdout and silenced stderr for the duration of ait shell.
+func setShellTTYIO(enabled bool) {
+	if enabled {
+		shellCLIOut = terminal.NewCRLFWriter(os.Stdout)
+		shellCLIErr = io.Discard
+		return
 	}
-	return ttyReadResult{err: err, done: true}
-}
 
-func ttyHandleCR(br *bufio.Reader, line []byte) ttyReadResult {
-	if len(line) == 0 {
-		return ttyReadResult{}
-	}
-	_, _ = os.Stdout.WriteString("\r\n")
-
-	if br.Buffered() > 0 {
-		next, err := br.ReadByte()
-		if err == nil && next != '\n' {
-			_ = br.UnreadByte()
-		}
-	}
-	return ttyReadResult{line: string(line), done: true}
-}
-
-func ttyHandleBackspace(line []byte) (ttyReadResult, []byte) {
-	if len(line) == 0 {
-		return ttyReadResult{}, line
-	}
-	line = line[:len(line)-1]
-
-	_, _ = os.Stdout.WriteString("\b \b")
-	return ttyReadResult{}, line
-}
-
-func ttyHandlePrintable(b byte, line []byte) (ttyReadResult, []byte) {
-	if b < 32 || b >= 127 {
-		return ttyReadResult{}, line
-	}
-	line = append(line, b)
-
-	_, _ = os.Stdout.Write([]byte{b})
-	return ttyReadResult{}, line
+	shellCLIOut = os.Stdout
+	shellCLIErr = os.Stderr
 }

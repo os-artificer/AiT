@@ -243,6 +243,8 @@ CREATE TABLE app_meta (
 
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.
 
+**Local REPL input (UTF-8, macOS / Linux / Windows):** Interactive `ait shell` and local `ait ai` read stdin as **UTF-8** via [`terminal.ReadLineRaw`](../internal/pkg/terminal/lineedit.go) (wide-character backspace, escape sequences filtered). Use a UTF-8 terminal: Linux/macOS `LANG=*.UTF-8`; Windows **Windows Terminal** with UTF-8 (avoid legacy non-UTF code pages). IME composition is handled by the terminal; committed text arrives as UTF-8 bytes (preedit underline is not drawn by AiT). Piped or redirected stdin (`echo … | ait shell`) already accepted UTF-8; SSH remote shells forward bytes unchanged.
+
 ### In-session meta protocol (!ait / !!)
 
 Implementation: [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/client/metascanner.go) and `forwardStdin` / `handleMetaLine` in [`client.go`](../internal/pkg/ssh/client/client.go). The `\ait` prefix is deprecated.

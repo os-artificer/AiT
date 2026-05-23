@@ -51,7 +51,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 | Command | Description |
 |---------|-------------|
-| `ait shell` | Interactive mode (`AiT> `): run `login`, `list`, `help`, etc.; `exit` to quit |
+| `ait shell` | Interactive mode (`AiT> `): run `login`, `list`, `help`, etc.; `exit` to quit; TTY input is UTF-8 (CJK/emoji supported) |
 | `ait login` | Connect to host; `ait login --help` for flags; `host cmd` for one-shot execution |
 | `ait list` | List saved sessions |
 | `ait load <id\|alias>` | Restore session; use `--password` when auth expired |
@@ -62,7 +62,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ait get --help` |
 | `ait put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
 | `ait config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
-| `ait ai [--model deepseek\|minimax]` | Local AI REPL; optional cloud provider override for this session |
+| `ait ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ait ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
 | `ait ai chat [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ait ai chat` / `!! chat` |
 | `ait ai provider enable <provider>` | Enable provider; for `ollama`, optional install checks ([y/N]) |
@@ -76,6 +76,18 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 Common flags: `--tmux` (remote keep-alive), `--port`, `--identity`, `--password`, `--alias`. `session switch --force` switches while current session is still active (does not save scrollback/cwd).
 
 ---
+
+## Local REPL input (UTF-8)
+
+On **macOS, Linux, and Windows**, interactive `ait shell` and `ait ai` accept **Unicode** input (including Chinese) when the terminal uses UTF-8:
+
+- **Linux / macOS:** `export LANG=zh_CN.UTF-8` (or `en_US.UTF-8`); Terminal.app, iTerm2, GNOME Terminal, etc.
+- **Windows:** Use [Windows Terminal](https://aka.ms/terminal); enable UTF-8 in settings or run `chcp 65001` in legacy consoles.
+- **IME:** Type with your system input method; after you confirm composition, characters appear in the line. AiT does not show an in-app preedit box.
+- **Tab:** Inserts a tab character into the current line (for indentation). This differs from older ASCII-only line input.
+- **Non-TTY:** `echo 你好 | ait ai chat` works without special locale setup.
+
+SSH sessions (`ait login`) use the remote shell’s encoding; local `AiT>` / `AiT AI>` editing is what this section describes.
 
 ## Prompts
 

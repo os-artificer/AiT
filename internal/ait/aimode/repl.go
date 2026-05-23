@@ -130,7 +130,7 @@ func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int) error 
 		}
 
 		_, _ = io.WriteString(opt.Out, prompt)
-		line, err := shell.ReadTTYLine(br)
+		line, err := shell.ReadTTYLine(br, opt.Out)
 		if err != nil {
 			if err == io.EOF {
 				return nil

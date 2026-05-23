@@ -243,6 +243,8 @@ CREATE TABLE app_meta (
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
 
+**本地 REPL 输入（UTF-8，macOS / Linux / Windows）：** 交互式 `ait shell` 与本机 `ait ai` 通过 [`terminal.ReadLineRaw`](../internal/pkg/terminal/lineedit.go) 以 **UTF-8** 读取 stdin（宽字符退格、过滤方向键等 ESC 序列）。请使用 UTF-8 终端：Linux/macOS 设置 `LANG=*.UTF-8`；Windows 推荐 **Windows Terminal** 并启用 UTF-8（避免非 UTF-8 代码页）。IME 组字由终端负责，确认后以 UTF-8 字节送入进程（AiT 不绘制预编辑下划线）。管道/重定向 stdin（`echo … | ait shell`）本就支持 UTF-8；SSH 远程 shell 按字节转发，不受此限制。
+
 ### 会话内 meta 协议（!ait / !!）
 
 实现位于 [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/client/metascanner.go) 与 [`client.go`](../internal/pkg/ssh/client/client.go) 的 `forwardStdin` / `handleMetaLine`。已弃用 `\ait` 前缀。
