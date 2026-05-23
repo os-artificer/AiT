@@ -42,8 +42,9 @@ func RunREPL(ctx context.Context, mgr *session.Manager, in io.Reader, out io.Wri
 
 // ReadTTYLine reads one line from br while stdin is in raw mode (Enter submits).
 // out receives echoed input and editing control output.
-func ReadTTYLine(br *bufio.Reader, out io.Writer) (string, error) {
-	return terminal.ReadLineRaw(br, out)
+// prompt is redrawn after Ctrl+L when non-empty.
+func ReadTTYLine(br *bufio.Reader, out io.Writer, prompt string) (string, error) {
+	return terminal.ReadLineRaw(br, out, prompt)
 }
 
 func reportShellError(err error) {
@@ -94,8 +95,9 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 			return ctx.Err()
 		}
 
-		_, _ = io.WriteString(out, shellPrompt())
-		line, err := ReadTTYLine(br, out)
+		prompt := shellPrompt()
+		_, _ = io.WriteString(out, prompt)
+		line, err := ReadTTYLine(br, out, prompt)
 		if err != nil {
 			if err == io.EOF {
 				return nil

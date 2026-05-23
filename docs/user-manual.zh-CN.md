@@ -51,7 +51,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 | 命令 | 说明 |
 |------|------|
-| `ait shell` | 交互模式（`AiT> `）：可执行 `login`、`list`、`help` 等；`exit` 退出；TTY 输入为 UTF-8（支持中文/emoji） |
+| `ait shell` | 交互模式（`AiT> `）：`login`、`list`、`help`、`clear` 等；`exit` 退出；TTY：UTF-8 输入，**Ctrl+L** 清屏 |
 | `ait login` | 连接主机；`ait login --help` 列出全部 flags；`host cmd` 为一次性执行 |
 | `ait list` | 列出已保存会话 |
 | `ait load <id\|alias>` | 恢复会话；认证过期须 `--password` |
@@ -86,6 +86,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 - **输入法：** 使用系统 IME 组字，确认后字符进入当前行；AiT 不显示应用内预编辑框。
 - **Tab：** 在当前行插入制表符（可用于缩进）；与旧版仅支持 ASCII 的行输入不同。
 - **非 TTY：** `echo 你好 | ait ai chat` 无需额外 locale 配置。
+- **清屏：** `ait shell` 中输入 `clear` 或 TTY 下按 **Ctrl+L** 清空显示，REPL 不退出。`ait ai` 中 **Ctrl+L** 仅清显示；`clear` 清空对话历史。
 
 SSH 会话（`ait login`）由远程 shell 决定编码；本节针对本机 `AiT>` / `AiT AI>` 行编辑。
 

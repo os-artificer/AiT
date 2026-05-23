@@ -21,6 +21,7 @@ import "io"
 const shellIntro = "Start an interactive AiT command loop at the AiT> prompt."
 const shellNote = "Type commands directly (no !ait prefix). Use exit or quit to leave."
 const shellREPLCommands = `  help              show REPL help
+  clear             clear terminal screen
   exit, quit        leave AiT shell
   ai                enter local AI mode (same as ait ai)
   login [flags] destination [command ...]
@@ -32,7 +33,8 @@ const shellREPLCommands = `  help              show REPL help
 const (
 	shellSectionPrompts     = "Prompts"
 	shellREPLHelpIntro      = "AiT shell — type commands directly, press Enter to run (no !ait prefix):"
-	shellREPLHelpUsage      = "help | login [flags] destination | load <id|alias> | list | exit"
+	shellREPLHelpUsage      = "help | clear | login [flags] destination | load <id|alias> | list | exit"
+	shellREPLHelpNoteTTY    = "In a TTY, Ctrl+L clears the screen and redraws the prompt (line buffer kept)."
 	shellExampleLoginServer = "login myserver"
 )
 
@@ -66,7 +68,7 @@ func WriteShellHelp(w io.Writer) error {
 // WriteShellREPLHelp prints in-shell help (Usage/Examples sections; caller applies CRLF).
 func WriteShellREPLHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro(shellREPLHelpIntro); err != nil {
+	if err := b.WriteIntro(shellREPLHelpIntro, shellREPLHelpNoteTTY); err != nil {
 		return err
 	}
 	if err := b.WriteUsage(shellREPLHelpUsage); err != nil {

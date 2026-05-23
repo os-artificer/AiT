@@ -37,7 +37,7 @@ func (o Options) withTTYConfirm(br *bufio.Reader) Options {
 
 	o.ConfirmRead = func(prompt string) (bool, error) {
 		_, _ = io.WriteString(out, prompt)
-		line, err := shell.ReadTTYLine(br, out)
+		line, err := shell.ReadTTYLine(br, out, "")
 		if err != nil {
 			return false, err
 		}

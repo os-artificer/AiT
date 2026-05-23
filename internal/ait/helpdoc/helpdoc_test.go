@@ -125,7 +125,7 @@ func TestWriteShellREPLHelpSections(t *testing.T) {
 	if err := WriteShellREPLHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Commands:", "help for help", "-p port")
+	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Commands:", "help for help", "clear", "Ctrl+L", "-p port")
 }
 
 func TestWriteSuspendHelpSections(t *testing.T) {
