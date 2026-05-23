@@ -51,7 +51,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 
 | 命令 | 说明 |
 |------|------|
-| `ait shell` | 交互模式（`AiT> `）：可执行 `login`、`list`、`help` 等；`exit` 退出 |
+| `ait shell` | 交互模式（`AiT> `）：可执行 `login`、`list`、`help` 等；`exit` 退出；TTY 输入为 UTF-8（支持中文/emoji） |
 | `ait login` | 连接主机；`ait login --help` 列出全部 flags；`host cmd` 为一次性执行 |
 | `ait list` | 列出已保存会话 |
 | `ait load <id\|alias>` | 恢复会话；认证过期须 `--password` |
@@ -62,7 +62,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ait get --help` |
 | `ait put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
 | `ait config set/get <key>` | 配置项；`ai.<provider>.api_key` 经密钥环存储 |
-| `ait ai [--model deepseek\|minimax]` | 本机 AI REPL；可选本会话云端 provider 覆盖 |
+| `ait ai [--model deepseek\|minimax]` | 本机 AI REPL（TTY 为 UTF-8 输入）；可选本会话云端 provider 覆盖 |
 | `ait ai model list` | 列出 AI provider（ENABLED、可达性、Ollama tags） |
 | `ait ai chat [message...]` | 单轮提问；无参数时从 stdin 读取；SSH：`!ait ai chat` / `!! chat` |
 | `ait ai provider enable <provider>` | 启用 provider；`ollama` 可选检查/安装（[y/N]） |
@@ -76,6 +76,18 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 常用标志：`--tmux`（远程 tmux 保活）、`--port`、`--identity`、`--password`、`--alias`。`session switch --force` 可在当前会话仍标记为 active 时强制切换（不保存当前 scrollback/cwd）。
 
 ---
+
+## 本地 REPL 输入（UTF-8）
+
+在 **macOS、Linux、Windows** 上，交互式 `ait shell` 与 `ait ai` 在终端为 UTF-8 时可输入 **Unicode**（含中文）：
+
+- **Linux / macOS：** `export LANG=zh_CN.UTF-8`（或 `en_US.UTF-8`）；Terminal.app、iTerm2、GNOME Terminal 等。
+- **Windows：** 使用 [Windows Terminal](https://aka.ms/terminal)；在设置中启用 UTF-8，或在旧版控制台执行 `chcp 65001`。
+- **输入法：** 使用系统 IME 组字，确认后字符进入当前行；AiT 不显示应用内预编辑框。
+- **Tab：** 在当前行插入制表符（可用于缩进）；与旧版仅支持 ASCII 的行输入不同。
+- **非 TTY：** `echo 你好 | ait ai chat` 无需额外 locale 配置。
+
+SSH 会话（`ait login`）由远程 shell 决定编码；本节针对本机 `AiT>` / `AiT AI>` 行编辑。
 
 ## 提示符
 

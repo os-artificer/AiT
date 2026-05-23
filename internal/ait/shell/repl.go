@@ -24,15 +24,10 @@ import (
 	"os"
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
 	"golang.org/x/term"
 )
-
-func reportShellError(err error) {
-	if err != nil {
-		shellPrintErr(os.Stderr, err.Error())
-	}
-}
 
 // RunREPL runs the AiT> interactive command loop until exit/quit or ctx cancel.
 // mgr must be non-nil; in is typically os.Stdin and out os.Stdout.
@@ -43,6 +38,18 @@ func RunREPL(ctx context.Context, mgr *session.Manager, in io.Reader, out io.Wri
 		return runShellREPLTTY(ctx, mgr, fd, out)
 	}
 	return runShellREPLPlain(ctx, mgr, in, out)
+}
+
+// ReadTTYLine reads one line from br while stdin is in raw mode (Enter submits).
+// out receives echoed input and editing control output.
+func ReadTTYLine(br *bufio.Reader, out io.Writer) (string, error) {
+	return terminal.ReadLineRaw(br, out)
+}
+
+func reportShellError(err error) {
+	if err != nil {
+		shellPrintErr(os.Stderr, err.Error())
+	}
 }
 
 func runShellREPLPlain(ctx context.Context, mgr *session.Manager, in io.Reader, out io.Writer) error {
@@ -88,7 +95,7 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 		}
 
 		_, _ = io.WriteString(out, shellPrompt())
-		line, err := readTTYLine(br)
+		line, err := ReadTTYLine(br, out)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -101,47 +108,6 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 		if exit {
 			_, _ = io.WriteString(out, "\r\n")
 			return nil
-		}
-	}
-}
-
-// ReadTTYLine reads one line from br while stdin is in raw mode (Enter submits).
-func ReadTTYLine(br *bufio.Reader) (string, error) {
-	return readTTYLine(br)
-}
-
-func readTTYLine(br *bufio.Reader) (string, error) {
-	var line []byte
-	for {
-		b, err := br.ReadByte()
-		if err != nil {
-			res := ttyHandleEOF(err, line)
-			return res.line, res.err
-		}
-
-		var res ttyReadResult
-		switch b {
-		case '\r':
-			res = ttyHandleCR(br, line)
-		case '\n':
-			if len(line) > 0 {
-				res = ttyReadResult{line: string(line), done: true}
-			}
-		case 3: // Ctrl+C
-			_, _ = os.Stdout.WriteString("^C\r\n")
-			return "", nil
-		case 4: // Ctrl+D
-			if len(line) == 0 {
-				return "", io.EOF
-			}
-			return string(line), nil
-		case 127, 8: // backspace
-			res, line = ttyHandleBackspace(line)
-		default:
-			res, line = ttyHandlePrintable(b, line)
-		}
-		if res.done {
-			return res.line, res.err
 		}
 	}
 }

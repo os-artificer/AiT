@@ -4,7 +4,9 @@ go 1.25.0
 
 require (
 	github.com/99designs/keyring v1.2.2
+	github.com/creack/pty v1.1.24
 	github.com/google/uuid v1.6.0
+	github.com/mattn/go-runewidth v0.0.23
 	github.com/pkg/sftp v1.13.10
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/spf13/cobra v1.10.2
@@ -16,7 +18,7 @@ require (
 
 require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
-	github.com/creack/pty v1.1.24 // indirect
+	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
