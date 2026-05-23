@@ -73,6 +73,10 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string) (exitRE
 		return false, shellLogin(ctx, mgr, words[1:])
 	case replCmdLoad:
 		return false, shellLoad(ctx, mgr, words[1:])
+	case replCmdList:
+		return false, mgr.List(shellCLIOut)
+	case replCmdSuspend:
+		return false, mgr.SuspendCurrent()
 	default:
 		return false, runCLI(words)
 	}

@@ -33,6 +33,11 @@ import (
 	"golang.org/x/term"
 )
 
+// shouldPersistLogin reports whether login should upsert a session row (--save or --alias).
+func shouldPersistLogin(opts LoginOpts) bool {
+	return opts.Save || opts.Alias != ""
+}
+
 func normalizePort(port int) int {
 	if port == 0 {
 		return 22

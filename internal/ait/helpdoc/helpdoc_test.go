@@ -88,28 +88,12 @@ func TestWriteTransferHelpSections(t *testing.T) {
 	}
 }
 
-func TestWriteListHelpSections(t *testing.T) {
-	var buf bytes.Buffer
-	if err := WriteListHelp(&buf); err != nil {
-		t.Fatal(err)
-	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "help for list")
-}
-
 func TestWriteRootHelpSections(t *testing.T) {
 	var buf bytes.Buffer
 	if err := WriteRootHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
 	helpMustContain(t, buf.String(), "Usage:", "Commands:", "help for ait", "login", "ai")
-}
-
-func TestWriteLoadHelpSections(t *testing.T) {
-	var buf bytes.Buffer
-	if err := WriteLoadHelp(&buf); err != nil {
-		t.Fatal(err)
-	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Arguments:", "AiT flags:", "help for load", "--tmux")
 }
 
 func TestWriteShellHelpSections(t *testing.T) {
@@ -126,14 +110,6 @@ func TestWriteShellREPLHelpSections(t *testing.T) {
 		t.Fatal(err)
 	}
 	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Commands:", "help for help", "clear", "Ctrl+L", "-p port")
-}
-
-func TestWriteSuspendHelpSections(t *testing.T) {
-	var buf bytes.Buffer
-	if err := WriteSuspendHelp(&buf); err != nil {
-		t.Fatal(err)
-	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "help for suspend", "!ait suspend")
 }
 
 func TestWriteConfigHelpSections(t *testing.T) {
@@ -161,19 +137,11 @@ func TestWriteSessionHelpSections(t *testing.T) {
 	if err := WriteSessionHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Subcommands:", "help for session")
-}
-
-func TestWriteSessionSwitchDeleteHelpSections(t *testing.T) {
-	var swBuf, delBuf bytes.Buffer
-	if err := WriteSessionSwitchHelp(&swBuf); err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteSessionDeleteHelp(&delBuf); err != nil {
-		t.Fatal(err)
-	}
-	helpMustContain(t, swBuf.String(), "Usage:", "Examples:", "help for session switch", "--force")
-	helpMustContain(t, delBuf.String(), "Usage:", "Examples:", "help for session delete", "--force")
+	helpMustContain(t, buf.String(),
+		"Usage:", "Examples:", "help for session",
+		"--list", "--load", "--switch", "--suspend", "--delete", "--tmux", "--force",
+		"delete all",
+	)
 }
 
 func TestWriteMetaHelpSections(t *testing.T) {

@@ -18,6 +18,7 @@ package session
 
 // Messages — interactive session picker output.
 const (
-	errInvalidSelection = "invalid selection"
-	msgCancelled        = "cancelled"
+	errInvalidSelection                = "invalid selection"
+	msgCancelled                       = "cancelled"
+	errEphemeralSuspendRequiresPersist = "suspend requires a saved session; use ait login --save or --alias <name>"
 )

@@ -81,8 +81,9 @@ func TestExecuteBlockedLogin(t *testing.T) {
 
 func TestExecuteSubcommandUsesCRLFStdout(t *testing.T) {
 	SetExecutorWriters(func(args []string, stdout, _ io.Writer) error {
-		if len(args) != 1 || args[0] != "list" {
-			t.Fatalf("args=%v", args)
+		want := []string{"session", "--list"}
+		if len(args) != len(want) || args[0] != want[0] || args[1] != want[1] {
+			t.Fatalf("args=%v want %v", args, want)
 		}
 		_, err := io.WriteString(stdout, "ID\tTARGET\nrow1\tu@h:22\nrow2\tu@h:22\n")
 		return err

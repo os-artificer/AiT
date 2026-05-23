@@ -29,7 +29,7 @@ import (
 
 var metaBlockedInSession = map[string]string{
 	"login":   "exit the SSH session first, then run: ait login ...",
-	"load":    "exit the SSH session first, then run: ait load <id|alias>",
+	"load":    "exit the SSH session first, then run: ait session --load <id|alias>",
 	"suspend": "use !ait suspend (not !ait suspend via CLI runner)",
 	"ai":      "use !ait ai or !! inside this SSH session (not !ait ai via CLI runner)",
 }
@@ -65,5 +65,12 @@ func Execute(args []string) error {
 	if executor == nil {
 		return fmt.Errorf("%s", errMetaExecutorNotConfig)
 	}
-	return executor(args, terminal.NewCRLFWriter(os.Stdout), os.Stderr)
+	return executor(metaCLIArgs(args), terminal.NewCRLFWriter(os.Stdout), os.Stderr)
+}
+
+func metaCLIArgs(args []string) []string {
+	if len(args) > 0 && args[0] == "list" {
+		return []string{"session", "--list"}
+	}
+	return args
 }

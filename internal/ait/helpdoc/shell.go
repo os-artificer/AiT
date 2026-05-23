@@ -24,10 +24,11 @@ const shellREPLCommands = `  help              show REPL help
   clear             clear terminal screen
   exit, quit        leave AiT shell
   ai                enter local AI mode (same as ait ai)
-  login [flags] destination [command ...]
+  login [flags] destination [command ...]  (--save or --alias to persist)
   load <id|alias> [--tmux] [--password]
   list              list saved sessions
-  config, get, put, session, suspend  — same as: ait <command> ...
+  config, get, put  — same as: ait <command> ...
+  session           — CLI: ait session --list | --load | --switch | --suspend | --delete
 `
 
 const (

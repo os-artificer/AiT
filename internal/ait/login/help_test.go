@@ -27,6 +27,7 @@ func TestHelpContainsFlags(t *testing.T) {
 		"-p port",
 		"-J destination",
 		"-o key=value",
+		"--save",
 		"--alias name",
 		"Not supported",
 		"-L, -R, -D",

@@ -210,6 +210,20 @@ func (s *Store) GetSession(idOrAlias string) (*Session, error) {
 	return s.getSessionWhere(`alias = ?`, idOrAlias)
 }
 
+// FindSessionByConnection returns the most recently updated session for username, host, and port.
+// port should already be normalized (for example 22 when unset). Returns ErrSessionNotFound when
+// no row matches, or a database error from Query/Scan.
+func (s *Store) FindSessionByConnection(username, host string, port int) (*Session, error) {
+	row := s.db.QueryRow(`
+		SELECT id, alias, host, port, username, identity_path, auth_method,
+			auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
+		FROM sessions
+		WHERE username = ? AND host = ? AND port = ?
+		ORDER BY updated_at DESC
+		LIMIT 1`, username, host, port)
+	return scanSession(row)
+}
+
 func (s *Store) getSessionWhere(clause string, arg string) (*Session, error) {
 	row := s.db.QueryRow(`
 		SELECT id, alias, host, port, username, identity_path, auth_method,

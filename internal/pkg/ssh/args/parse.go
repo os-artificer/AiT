@@ -56,6 +56,7 @@ type Spec struct {
 	Options    map[string]string
 
 	Alias    string
+	Save     bool
 	Tmux     bool
 	Password string
 

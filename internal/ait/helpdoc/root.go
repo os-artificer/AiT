@@ -26,14 +26,11 @@ import (
 var rootSubcommands = []rootSubcommand{
 	{"shell", "interactive AiT> REPL"},
 	{"ai", "local AI REPL; provider enable/disable; ollama setup/status"},
-	{"login", "log in and save session (OpenSSH-compatible)"},
-	{"list", "list saved sessions"},
-	{"load", "reconnect to a saved session"},
-	{"suspend", "suspend current session (prefer !ait suspend in SSH)"},
+	{"login", "log in to remote host; use --save or --alias to persist (OpenSSH-compatible)"},
 	{"get", "download a file via SFTP"},
 	{"put", "upload a file via SFTP"},
 	{"config", "read/write configuration"},
-	{"session", "switch or delete saved sessions"},
+	{"session", "list, load, suspend, switch, or delete saved sessions"},
 }
 
 const (
@@ -70,7 +67,7 @@ func WriteRootHelp(w io.Writer) error {
 	if err := body.WriteExamples(
 		"ait shell",
 		"ait login myserver",
-		"ait list",
+		"ait session --list",
 	); err != nil {
 		return err
 	}

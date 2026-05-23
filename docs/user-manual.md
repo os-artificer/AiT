@@ -27,9 +27,9 @@ This document describes post-install configuration, commands, prompts, data loca
 ./bin/ait login deploy@example.com uptime
 
 # List, restore, switch sessions
-./bin/ait list
-./bin/ait load prod
-./bin/ait session switch staging
+./bin/ait session --list
+./bin/ait session --load prod
+./bin/ait session --switch staging
 
 # File transfer (OpenSSH flags; paths and flags in any order)
 ./bin/ait get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log
@@ -52,13 +52,13 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | Command | Description |
 |---------|-------------|
 | `ait shell` | Interactive mode (`AiT> `): `login`, `list`, `help`, `clear`, etc.; `exit` to quit; TTY: UTF-8 input, **Ctrl+L** clear screen |
-| `ait login` | Connect to host; `ait login --help` for flags; `host cmd` for one-shot execution |
-| `ait list` | List saved sessions |
-| `ait load <id\|alias>` | Restore session; use `--password` when auth expired |
-| `ait suspend` | Use `!ait suspend` inside SSH session |
-| `ait session switch [id\|alias]` | Switch session (suspend current, then load target) |
-| `ait session delete <id\|alias>` | Delete one session |
-| `ait session delete all` | Delete all sessions (confirmation; `--force` to skip) |
+| `ait login` | Connect to host; `--save` or `--alias` to persist session; `host cmd` for one-shot |
+| `ait session --list` | List saved sessions |
+| `ait session --load <id\|alias>` | Restore session; use `--password` when auth expired |
+| `ait session --suspend` | Use `!ait suspend` inside SSH session |
+| `ait session --switch [id\|alias]` | Switch session (suspend current, then load target) |
+| `ait session --delete <id\|alias>` | Delete one session |
+| `ait session --delete all` | Delete all sessions (confirmation; `--force` to skip) |
 | `ait get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ait get --help` |
 | `ait put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
 | `ait config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
@@ -73,7 +73,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait ai ollama stop` | Stop local `ollama serve` |
 | `ait ai ollama disable` | Disable Ollama provider in config (`--stop` to stop serve) |
 
-Common flags: `--tmux` (remote keep-alive), `--port`, `--identity`, `--password`, `--alias`. `session switch --force` switches while current session is still active (does not save scrollback/cwd).
+Common flags: `--tmux` (remote keep-alive), `--port`, `--identity`, `--password`, `--alias`. `session --switch --force` switches while current session is still active (does not save scrollback/cwd).
 
 ---
 
@@ -159,7 +159,7 @@ API keys and SSH password cache use the **OS keyring**, not plaintext SQLite. Wh
 - Transfer errors are prefixed with `local file` or `remote file` so you can tell which side failed. A message like `file does not exist` or `no such file or directory` on **put** often means the remote path or parent directory is wrong (not that the local file is missing).
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
 - In SSH, `!ait get` / `!ait put` reuse the live connection (two paths only, no flags).
-- Before `ait session switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
+- Before `ait session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
 
 ---
 

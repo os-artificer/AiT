@@ -18,164 +18,42 @@ package helpdoc
 
 import "io"
 
-const listIntro = "List saved SSH sessions stored in the local AiT database."
-const listNote = "Output columns: id, alias, host, user, active, last connected."
+const sessionIntro = "List, load, suspend, switch, or delete saved SSH sessions in the local AiT database."
+const sessionNote = "Inside an active SSH session, use !ait suspend to suspend (not ait session --suspend)."
 
-const loadIntro = "Reconnect to a saved session by id or alias."
-const loadArguments = `  id|alias    session identifier from ait list
+const sessionFlags = `  --list              list saved sessions
+  --load <id|alias>   reconnect to a saved session
+  --suspend           suspend from local CLI (prefer !ait suspend in SSH)
+  --switch [id|alias] switch to another session (omit value to pick interactively)
+  --delete <id|alias|all>   delete one session or all sessions
+  --tmux              use remote tmux for --load or --switch
+  --password P        SSH password when session auth has expired
+  --force             force switch or skip delete confirmation
 `
 
-const loadAITFlags = `  --tmux          attach remote tmux session if the session was created with --tmux
-  --password P    SSH password when session auth has expired (keyring unlock)
-`
-
-const suspendIntro = "Suspend the current session from the local CLI."
-const suspendNote = "Inside an active SSH session, use !ait suspend instead of ait suspend."
-
-const sessionIntro = "Manage saved SSH sessions (switch or delete)."
-const sessionSubcommands = `  switch [id|alias]   connect to another saved session
-  delete <id|alias|all>   remove one session or all sessions
-`
-
-const sessionSwitchIntro = "Switch to another saved session (disconnect current if active)."
-const sessionSwitchArguments = `  id|alias    optional; if omitted, AiT prompts to pick a session
-`
-
-const sessionSwitchFlags = `  --tmux          use tmux for the target session
-  --password P    SSH password when auth has expired
-  --force         switch even if the current session is still marked active (no scrollback save)
-`
-
-const sessionDeleteIntro = "Delete a saved session or all sessions."
-const sessionDeleteArguments = `  id|alias|all    session id, alias, or the literal "all"
-`
-
-const sessionDeleteFlags = `  --force    skip confirmation when deleting
-`
-
-const sessionExampleDeleteAllForce = "ait session delete all --force"
-
-// WriteListHelp prints ait list --help to w.
-func WriteListHelp(w io.Writer) error {
-	b := newHelpBody(w)
-	if err := b.WriteIntro(listIntro, listNote); err != nil {
-		return err
-	}
-	if err := b.WriteUsage("ait list"); err != nil {
-		return err
-	}
-	if err := b.WriteExamples("ait list"); err != nil {
-		return err
-	}
-	return b.Finish("list")
-}
-
-// WriteLoadHelp prints ait load --help to w.
-func WriteLoadHelp(w io.Writer) error {
-	b := newHelpBody(w)
-	if err := b.WriteIntro(loadIntro); err != nil {
-		return err
-	}
-	if err := b.WriteUsage("ait load <id|alias> [--tmux] [--password]"); err != nil {
-		return err
-	}
-	if err := b.WriteSection(helpSectionArguments, loadArguments); err != nil {
-		return err
-	}
-	if err := b.WriteSection(helpSectionAITFlags, loadAITFlags); err != nil {
-		return err
-	}
-	if err := b.WriteExamples(
-		"ait load myserver",
-		"ait load abc12345 --tmux",
-		"ait load prod --password secret",
-	); err != nil {
-		return err
-	}
-	return b.Finish("load")
-}
-
-// WriteSuspendHelp prints ait suspend --help to w.
-func WriteSuspendHelp(w io.Writer) error {
-	b := newHelpBody(w)
-	if err := b.WriteIntro(suspendIntro, suspendNote); err != nil {
-		return err
-	}
-	if err := b.WriteUsage("ait suspend"); err != nil {
-		return err
-	}
-	if err := b.WriteExamples("!ait suspend   # inside SSH session"); err != nil {
-		return err
-	}
-	return b.Finish("suspend")
-}
+const sessionExampleDeleteAllForce = "ait session --delete all --force"
 
 // WriteSessionHelp prints ait session --help to w.
 func WriteSessionHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro(sessionIntro); err != nil {
+	if err := b.WriteIntro(sessionIntro, sessionNote); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait session"); err != nil {
+	if err := b.WriteUsage("ait session [--list | --load <id|alias> | --switch [id|alias] | --suspend | --delete <id|alias|all>]"); err != nil {
 		return err
 	}
-	if err := b.WriteSection(helpSectionSubcommands, sessionSubcommands); err != nil {
+	if err := b.WriteSection(helpSectionAITFlags, sessionFlags); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ait session switch prod",
+		"ait session --list",
+		"ait session --load prod --tmux",
+		"ait session --switch",
+		"ait session --switch prod --force",
 		sessionExampleDeleteAllForce,
+		"!ait suspend   # inside SSH session",
 	); err != nil {
 		return err
 	}
 	return b.Finish("session")
-}
-
-// WriteSessionSwitchHelp prints ait session switch --help to w.
-func WriteSessionSwitchHelp(w io.Writer) error {
-	b := newHelpBody(w)
-	if err := b.WriteIntro(sessionSwitchIntro); err != nil {
-		return err
-	}
-	if err := b.WriteUsage("ait session switch [id|alias] [--tmux] [--password] [--force]"); err != nil {
-		return err
-	}
-	if err := b.WriteSection(helpSectionArguments, sessionSwitchArguments); err != nil {
-		return err
-	}
-	if err := b.WriteSection(helpSectionAITFlags, sessionSwitchFlags); err != nil {
-		return err
-	}
-	if err := b.WriteExamples(
-		"ait session switch",
-		"ait session switch prod --tmux",
-		"ait session switch abc12345 --force",
-	); err != nil {
-		return err
-	}
-	return b.Finish("session switch")
-}
-
-// WriteSessionDeleteHelp prints ait session delete --help to w.
-func WriteSessionDeleteHelp(w io.Writer) error {
-	b := newHelpBody(w)
-	if err := b.WriteIntro(sessionDeleteIntro); err != nil {
-		return err
-	}
-	if err := b.WriteUsage("ait session delete <id|alias|all> [--force]"); err != nil {
-		return err
-	}
-	if err := b.WriteSection(helpSectionArguments, sessionDeleteArguments); err != nil {
-		return err
-	}
-	if err := b.WriteSection(helpSectionAITFlags, sessionDeleteFlags); err != nil {
-		return err
-	}
-	if err := b.WriteExamples(
-		"ait session delete myserver",
-		sessionExampleDeleteAllForce,
-	); err != nil {
-		return err
-	}
-	return b.Finish("session delete")
 }

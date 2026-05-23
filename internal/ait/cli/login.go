@@ -29,7 +29,7 @@ import (
 func newLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "login [flags] destination [command [argument ...]]",
-		Short:                 "Log in to a host (OpenSSH-compatible) and save session",
+		Short:                 "Log in to a host (OpenSSH-compatible)",
 		DisableFlagsInUseLine: true,
 		DisableFlagParsing:    true,
 		SilenceErrors:         true,

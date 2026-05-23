@@ -47,7 +47,8 @@ OpenSSH-compatible flags:
   -A, -a, -q, -Q  accepted for ssh compatibility
 
 AiT flags:
-  --alias name    save session under this alias (upsert); use with ait load <alias>
+  --save          save session to SQLite (no alias required; list by session id)
+  --alias name    save session under this alias (implies --save); use with ait session --load <alias>
   --tmux          use remote tmux for shell persistence (interactive login only)
   --password P    SSH password (stored in OS keyring for session unlock)
   --host H        legacy: remote host (same as positional destination; do not combine)
@@ -64,8 +65,10 @@ Examples:
   ait login -p22 deploy@10.0.0.5 -i ~/.ssh/id_ed25519
   ait login -F ~/.ssh/config.d/work -J bastion app.internal
   ait login -o Port=22 -o User=root legacy-host
-  ait login user@host uptime                      # one-shot command (no session saved)
-  ait login --alias prod --tmux user@prod         # named session + tmux persist
+  ait login user@host                             # interactive (not saved; use --save or --alias)
+  ait login --save user@host                      # save session (no alias)
+  ait login user@host uptime                      # one-shot (not saved unless --save or --alias)
+  ait login --alias prod --tmux user@prod         # save as alias + tmux (no --save needed)
   ait login --host 192.168.1.1 --user root        # legacy flags
 
 Flags:
@@ -74,7 +77,7 @@ Flags:
 
 const loginHelpShort = `  login flags (see "ait login --help" for full detail):
     -p port  -l user  -i identity  -F config  -J jump  -o key=value
-    --alias name  --tmux  --password P
+    --save  --alias name  --tmux  --password P
     --host H  --user U  --port N  --identity P  (legacy, same as ssh flags above)
 `
 
