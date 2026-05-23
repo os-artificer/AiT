@@ -6,7 +6,7 @@
 
 # AiT
 
-**AI Terminal** — 跨平台（Linux / macOS / Windows）AI 增强 SSH 客户端。
+**AiT** — 跨平台（Linux / macOS / Windows）AI 增强的命令行工具箱，包含但不限于Terminal与SSH，致力于成为运维人员的趁手利器。
 
 ## 特性
 
@@ -17,7 +17,7 @@
 | 功能 | AiT | 常规 SSH 客户端 |
 |------|-----|-----------------|
 | 会话持久化 | SQLite 保存连接参数、别名与认证 TTL（`session.auth_ttl`） | 无会话库；依赖 shell 历史或外部记录 |
-| 快速恢复 | `ait load` / `session switch`；认证 TTL 内免凭据重连（重新输入密码时刷新 TTL） | 每次须完整指定 `user@host` 与 flags |
+| 快速恢复 | `ait session --load` / `--switch`；认证 TTL 内免凭据重连（重新输入密码时刷新 TTL） | 每次须完整指定 `user@host` 与 flags |
 | 挂起与上下文 | `!ait suspend` 保存 scrollback 与远程工作目录 | 断开连接后终端上下文不保留 |
 
 ### 远程保活

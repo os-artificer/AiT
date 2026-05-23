@@ -24,7 +24,7 @@ import (
 )
 
 func providerAPIKeyKey(provider string) string {
-	return fmt.Sprintf("ai/%s/api_key", provider)
+	return fmt.Sprintf(keyFmtProviderAPIKey, provider)
 }
 
 // SetProviderAPIKey stores the API key for provider in the OS keyring (key ai/<provider>/api_key).
@@ -60,7 +60,7 @@ func GetProviderAPIKey(provider string) (string, error) {
 		return "", err
 	}
 
-	legacy, legErr := kr.Get("deepseek/api_key")
+	legacy, legErr := kr.Get(keyLegacyDeepseekAPI)
 	if legErr != nil {
 		return "", err
 	}

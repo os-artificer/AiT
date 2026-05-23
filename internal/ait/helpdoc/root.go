@@ -22,23 +22,26 @@ import (
 	"strings"
 )
 
-type rootSubcommand struct {
-	name string
-	desc string
-}
-
 // rootSubcommands mirrors cli/root.go AddCommand order; update both when adding commands.
 var rootSubcommands = []rootSubcommand{
 	{"shell", "interactive AiT> REPL"},
 	{"ai", "local AI REPL; provider enable/disable; ollama setup/status"},
-	{"login", "log in and save session (OpenSSH-compatible)"},
-	{"list", "list saved sessions"},
-	{"load", "reconnect to a saved session"},
-	{"suspend", "suspend current session (prefer !ait suspend in SSH)"},
+	{"login", "log in to remote host; use --save or --alias to persist (OpenSSH-compatible)"},
 	{"get", "download a file via SFTP"},
 	{"put", "upload a file via SFTP"},
 	{"config", "read/write configuration"},
-	{"session", "switch or delete saved sessions"},
+	{"session", "list, load, suspend, switch, or delete saved sessions"},
+}
+
+const (
+	rootHelpIntroMain = "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant."
+	rootHelpIntroHint = "Run 'ait <command> --help' for command-specific usage and examples."
+	rootHelpUsage     = "ait [command]"
+)
+
+type rootSubcommand struct {
+	name string
+	desc string
 }
 
 func formatRootSubcommands() string {
@@ -52,22 +55,19 @@ func formatRootSubcommands() string {
 // WriteRootHelp prints ait --help to w.
 func WriteRootHelp(w io.Writer) error {
 	body := newHelpBody(w)
-	if err := body.WriteIntro(
-		"AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant.",
-		"Run 'ait <command> --help' for command-specific usage and examples.",
-	); err != nil {
+	if err := body.WriteIntro(rootHelpIntroMain, rootHelpIntroHint); err != nil {
 		return err
 	}
-	if err := body.WriteUsage("ait [command]"); err != nil {
+	if err := body.WriteUsage(rootHelpUsage); err != nil {
 		return err
 	}
-	if err := body.WriteSection("Commands", formatRootSubcommands()); err != nil {
+	if err := body.WriteSection(helpSectionCommands, formatRootSubcommands()); err != nil {
 		return err
 	}
 	if err := body.WriteExamples(
 		"ait shell",
 		"ait login myserver",
-		"ait list",
+		"ait session --list",
 	); err != nil {
 		return err
 	}

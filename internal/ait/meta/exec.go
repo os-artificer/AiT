@@ -29,7 +29,7 @@ import (
 
 var metaBlockedInSession = map[string]string{
 	"login":   "exit the SSH session first, then run: ait login ...",
-	"load":    "exit the SSH session first, then run: ait load <id|alias>",
+	"load":    "exit the SSH session first, then run: ait session --load <id|alias>",
 	"suspend": "use !ait suspend (not !ait suspend via CLI runner)",
 	"ai":      "use !ait ai or !! inside this SSH session (not !ait ai via CLI runner)",
 }
@@ -54,16 +54,23 @@ func PrintMetaHelp(w io.Writer) {
 // Empty args or "help" prints in-session help.
 // Returns fmt.Errorf when args[0] is blocked in-session (login/load/suspend), or errors from the executor.
 func Execute(args []string) error {
-	if len(args) == 0 || (len(args) == 1 && (args[0] == "help" || args[0] == "-h" || args[0] == "--help")) {
+	if len(args) == 0 || (len(args) == 1 && (args[0] == replCmdHelp || args[0] == replArgH || args[0] == replArgHelp)) {
 		PrintMetaHelp(os.Stdout)
 		return nil
 	}
 
 	if msg, blocked := metaBlockedInSession[args[0]]; blocked {
-		return fmt.Errorf("AiT: %q cannot run inside SSH — %s", args[0], msg)
+		return fmt.Errorf(errMetaBlockedFmt, args[0], msg)
 	}
 	if executor == nil {
-		return fmt.Errorf("AiT: meta executor not configured")
+		return fmt.Errorf("%s", errMetaExecutorNotConfig)
 	}
-	return executor(args, terminal.NewCRLFWriter(os.Stdout), os.Stderr)
+	return executor(metaCLIArgs(args), terminal.NewCRLFWriter(os.Stdout), os.Stderr)
+}
+
+func metaCLIArgs(args []string) []string {
+	if len(args) > 0 && args[0] == "list" {
+		return []string{"session", "--list"}
+	}
+	return args
 }

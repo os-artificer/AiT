@@ -14,27 +14,26 @@
  * limitations under the License.
 **/
 
-package cli
+package shell
 
-import (
-	"context"
-
-	"github.com/os-artificer/AiT/internal/ait/helpdoc"
-	"github.com/os-artificer/AiT/internal/pkg/session"
-
-	"github.com/spf13/cobra"
+// Commands — AiT shell REPL built-in verbs.
+const (
+	replCmdExit    = "exit"
+	replCmdQuit    = "quit"
+	replCmdHelp    = "help"
+	replArgH       = "-h"
+	replArgHelp    = "--help"
+	replCmdAI      = "ai"
+	replCmdLogin   = "login"
+	replCmdLoad    = "load"
+	replCmdList    = "list"
+	replCmdSuspend = "suspend"
+	replCmdClear   = "clear"
 )
 
-func newListCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List saved sessions",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				return mgr.List(cmd.OutOrStdout())
-			})
-		},
-	}
-	bindHelp(cmd, helpdoc.WriteListHelp)
-	return cmd
-}
+// IO — error prefix and runner messages.
+const (
+	msgPrefixAiT                 = "AiT: "
+	errAIModeRunnerNotConfig     = "AiT: AI mode runner not configured"
+	errShellCLIExecutorNotConfig = "AiT: shell CLI executor not configured"
+)

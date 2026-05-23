@@ -49,28 +49,28 @@ func WriteAIHelp(w io.Writer) error {
 	if err := b.WriteUsage("ait ai [--model deepseek|minimax] [REPL-command ...]"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Flags", "  --model   Override AI provider for this session (uses provider model/base_url from config)\n"); err != nil {
+	if err := b.WriteSection(helpSectionFlags, aiHelpFlagsBody); err != nil {
 		return err
 	}
-	if err := b.WriteSection("REPL commands", aiREPLCommands+aiREPLCommandsLocalExtra); err != nil {
+	if err := b.WriteSection(helpSectionREPLCommands, aiREPLCommands+aiREPLCommandsLocalExtra); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Subcommands", "  chat [message...]   one-shot question (non-interactive)\n  provider enable|disable <id>\n  ollama status|setup|start|stop|disable\n"); err != nil {
+	if err := b.WriteSection(helpSectionSubcommands, aiHelpSubcommandsBody); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Tiered routing", "When ai.tiered.enabled in config.yaml, short first-turn prompts use local Ollama; longer or complex prompts use cloud providers. Setup: ait ai ollama setup. List: ait ai model list\n"); err != nil {
+	if err := b.WriteSection(helpSectionTieredRouting, aiHelpTieredRoutingBody); err != nil {
 		return err
 	}
-	if err := b.WriteSection("In SSH", "Use !ait ai or !! for interactive AI; !ait ai chat <msg> or !! chat <msg> for one-shot. !ait ai as a meta subcommand is blocked."); err != nil {
+	if err := b.WriteSection(helpSectionInSSH, aiHelpInSSHBody); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		"ait ai",
 		"ait ai chat \"summarize this\"",
 		"ait ai model list",
-		"ait ai ollama status",
-		"ait ai provider enable deepseek",
-		"ait ai ollama setup --yes",
+		exampleAIOllamaStatus,
+		exampleAIProviderEnableDeepseek,
+		exampleAIOllamaSetupYes,
 		"ait ai --model minimax",
 		"run echo hello",
 		"policy once",
@@ -97,7 +97,7 @@ func WriteAIREPLHelp(w io.Writer, scope ai.Scope) error {
 	if err := b.WriteUsage("help | model [provider] | run <cmd> | policy per-cmd|once | clear | exit"); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Commands", cmds); err != nil {
+	if err := b.WriteSection(helpSectionCommands, cmds); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(examples); err != nil {

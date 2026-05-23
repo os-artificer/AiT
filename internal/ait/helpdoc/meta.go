@@ -18,6 +18,12 @@ package helpdoc
 
 import "io"
 
+const (
+	metaHelpIntro    = "AiT in-session commands (!ait prefix):"
+	metaHelpUsage    = "!ait <subcommand> [args...]"
+	metaHelpTailNote = "\nFor login/load use: ait shell (AiT> prompt), not from inside SSH.\n"
+)
+
 const metaCommands = `  help              show this help
   ai [question]     remote AI mode (!ait ai); optional first question
   ai chat <msg>     one-shot AI reply (!ait ai chat); does not enter AI mode
@@ -33,13 +39,13 @@ const metaCommands = `  help              show this help
 // WriteMetaHelp prints in-session !ait help to w (caller applies CRLF for SSH).
 func WriteMetaHelp(w io.Writer) error {
 	b := newHelpBody(w)
-	if err := b.WriteIntro("AiT in-session commands (!ait prefix):"); err != nil {
+	if err := b.WriteIntro(metaHelpIntro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("!ait <subcommand> [args...]"); err != nil {
+	if err := b.WriteUsage(metaHelpUsage); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Commands", metaCommands); err != nil {
+	if err := b.WriteSection(helpSectionCommands, metaCommands); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
@@ -49,7 +55,7 @@ func WriteMetaHelp(w io.Writer) error {
 	); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, "\nFor login/load use: ait shell (AiT> prompt), not from inside SSH.\n"); err != nil {
+	if _, err := io.WriteString(w, metaHelpTailNote); err != nil {
 		return err
 	}
 	return b.Finish("help")

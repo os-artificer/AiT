@@ -57,10 +57,10 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 }
 
 func transferArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {
-	if !strings.HasPrefix(line, "!ait ") {
+	if !strings.HasPrefix(line, metaPrefixAitSpace) {
 		return "", nil, false
 	}
-	parts := strings.Fields(strings.TrimPrefix(line, "!ait "))
+	parts := strings.Fields(strings.TrimPrefix(line, metaPrefixAitSpace))
 	if len(parts) == 0 {
 		return "", nil, false
 	}

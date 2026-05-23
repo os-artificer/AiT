@@ -130,7 +130,7 @@ func EnsureLocal(ctx context.Context, cfg *config.Config, opts Options) (Result,
 	if avail.BinaryOK && avail.APIOK {
 		res.APIOK = true
 		logStep(opts.Out, 3, 6, "Ollama binary: ok")
-		logStep(opts.Out, 4, 6, "API: reachable")
+		logStep(opts.Out, 4, 6, logStepAPIReachable)
 		if err := EnsureModel(ctx, opts.HTTPClient, baseURL, model, opts.NoPull, modelsDir); err != nil {
 			return res, err
 		}
@@ -173,7 +173,7 @@ func EnsureLocal(ctx context.Context, cfg *config.Config, opts Options) (Result,
 		return res, err
 	}
 	res.APIOK = true
-	logStep(opts.Out, 4, 6, "API: reachable")
+	logStep(opts.Out, 4, 6, logStepAPIReachable)
 
 	if err := EnsureModel(ctx, opts.HTTPClient, baseURL, model, opts.NoPull, modelsDir); err != nil {
 		return res, err
@@ -198,7 +198,7 @@ func tryProbeWithoutInstall(ctx context.Context, opts Options, baseURL, model, m
 		return
 	}
 	res.APIOK = true
-	logStep(opts.Out, 4, 6, "API: reachable")
+	logStep(opts.Out, 4, 6, logStepAPIReachable)
 	_ = EnsureModel(ctx, opts.HTTPClient, baseURL, model, opts.NoPull, modelsDir)
 }
 

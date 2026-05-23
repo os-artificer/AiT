@@ -29,6 +29,34 @@ import (
 
 const envModelsDir = "OLLAMA_MODELS"
 
+// SuggestedModelsDirOption is one interactive choice for setup.
+type SuggestedModelsDirOption struct {
+	Label string
+	Path  string
+}
+
+// SuggestedModelsDirs returns preset paths for setup prompts.
+func SuggestedModelsDirs(cfg *config.Config) ([]SuggestedModelsDirOption, error) {
+	aitDir, err := AitDataModelsDir()
+	if err != nil {
+		return nil, err
+	}
+	upstream, err := DefaultUpstreamModelsDir()
+	if err != nil {
+		return nil, err
+	}
+	opts := []SuggestedModelsDirOption{
+		{Label: "AiT data directory (recommended)", Path: aitDir},
+		{Label: "Ollama default (~/.ollama/models)", Path: upstream},
+	}
+	if cfg != nil {
+		if cur := ModelsDirFromConfig(cfg); cur != "" {
+			opts = append(opts, SuggestedModelsDirOption{Label: "Keep current config", Path: cur})
+		}
+	}
+	return opts, nil
+}
+
 // DefaultUpstreamModelsDir returns Ollama's default models directory (~/.ollama/models).
 func DefaultUpstreamModelsDir() (string, error) {
 	home, err := os.UserHomeDir()
@@ -122,32 +150,4 @@ func ApplyModelsDirEnv(cmd *exec.Cmd, dir string) {
 		return
 	}
 	cmd.Env = append(os.Environ(), envModelsDir+"="+dir)
-}
-
-// SuggestedModelsDirOption is one interactive choice for setup.
-type SuggestedModelsDirOption struct {
-	Label string
-	Path  string
-}
-
-// SuggestedModelsDirs returns preset paths for setup prompts.
-func SuggestedModelsDirs(cfg *config.Config) ([]SuggestedModelsDirOption, error) {
-	aitDir, err := AitDataModelsDir()
-	if err != nil {
-		return nil, err
-	}
-	upstream, err := DefaultUpstreamModelsDir()
-	if err != nil {
-		return nil, err
-	}
-	opts := []SuggestedModelsDirOption{
-		{Label: "AiT data directory (recommended)", Path: aitDir},
-		{Label: "Ollama default (~/.ollama/models)", Path: upstream},
-	}
-	if cfg != nil {
-		if cur := ModelsDirFromConfig(cfg); cur != "" {
-			opts = append(opts, SuggestedModelsDirOption{Label: "Keep current config", Path: cur})
-		}
-	}
-	return opts, nil
 }

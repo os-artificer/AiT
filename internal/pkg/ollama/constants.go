@@ -18,13 +18,25 @@ package ollama
 
 import "time"
 
+// Binary and install — executable name and download URLs.
 const (
 	binaryName         = "ollama"
 	installScriptURL   = "https://ollama.com/install.sh"
 	windowsDownloadURL = "https://ollama.com/download/windows"
-	probeInterval      = 2 * time.Second
-	probeTotalTimeout  = 30 * time.Second
-	pullTimeout        = 30 * time.Minute
-	installTimeout     = 15 * time.Minute
-	serveStartWait     = 5 * time.Second
+)
+
+// Timeouts — probe, pull, and install waits.
+const (
+	probeInterval     = 2 * time.Second
+	probeTotalTimeout = 30 * time.Second
+	pullTimeout       = 30 * time.Minute
+	installTimeout    = 15 * time.Minute
+	serveStartWait    = 5 * time.Second
+)
+
+// API — Ollama HTTP paths and status messages.
+const (
+	pathAPITags         = "/api/tags"
+	unreachableNote     = "ollama: unreachable (is ollama serve running?)"
+	logStepAPIReachable = "API: reachable"
 )

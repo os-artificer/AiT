@@ -48,37 +48,6 @@ func TestPutCmdHelpRunE(t *testing.T) {
 	}
 }
 
-func TestListCmdHelpExecute(t *testing.T) {
-	root := newRootCmd()
-	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetErr(&buf)
-	root.SetArgs([]string{"list", "--help"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(buf.String(), "help for list") {
-		t.Fatalf("list help: %s", buf.String())
-	}
-}
-
-func TestLoadCmdHelpExecute(t *testing.T) {
-	root := newRootCmd()
-	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetErr(&buf)
-	root.SetArgs([]string{"load", "--help"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	for _, want := range []string{"Usage:", "Examples:", "help for load", "--tmux"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("load help missing %q: %s", want, out)
-		}
-	}
-}
-
 func helpExecuteMustContain(t *testing.T, args []string, wants ...string) {
 	t.Helper()
 	root := newRootCmd()
@@ -98,15 +67,25 @@ func helpExecuteMustContain(t *testing.T, args []string, wants ...string) {
 }
 
 func TestRootCmdHelpExecute(t *testing.T) {
-	helpExecuteMustContain(t, []string{"--help"}, "Usage:", "Examples:", "help for ait", "Commands:")
+	helpExecuteMustContain(t, []string{"--help"}, "Usage:", "Examples:", "help for ait", "Commands:", "session")
+	root := newRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetErr(&buf)
+	root.SetArgs([]string{"--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, gone := range []string{"  list       ", "  load       ", "  suspend    "} {
+		if strings.Contains(out, gone) {
+			t.Fatalf("root help still lists removed command %q", gone)
+		}
+	}
 }
 
 func TestShellCmdHelpExecute(t *testing.T) {
 	helpExecuteMustContain(t, []string{"shell", "--help"}, "Usage:", "Examples:", "help for shell")
-}
-
-func TestSuspendCmdHelpExecute(t *testing.T) {
-	helpExecuteMustContain(t, []string{"suspend", "--help"}, "Usage:", "Examples:", "help for suspend")
 }
 
 func TestConfigCmdHelpExecute(t *testing.T) {
@@ -116,7 +95,6 @@ func TestConfigCmdHelpExecute(t *testing.T) {
 }
 
 func TestSessionCmdHelpExecute(t *testing.T) {
-	helpExecuteMustContain(t, []string{"session", "--help"}, "Usage:", "Examples:", "help for session")
-	helpExecuteMustContain(t, []string{"session", "switch", "--help"}, "help for session switch", "--tmux")
-	helpExecuteMustContain(t, []string{"session", "delete", "--help"}, "help for session delete", "--force")
+	helpExecuteMustContain(t, []string{"session", "--help"},
+		"Usage:", "Examples:", "help for session", "--list", "--load", "--switch", "--delete", "--tmux", "--force")
 }

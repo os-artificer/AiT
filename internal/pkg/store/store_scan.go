@@ -24,7 +24,7 @@ import (
 )
 
 func buildDSN(path string) string {
-	if path == ":memory:" {
+	if path == sqliteMemoryPath {
 		return "file::memory:?mode=memory&_pragma=foreign_keys(1)"
 	}
 

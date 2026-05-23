@@ -14,27 +14,7 @@
  * limitations under the License.
 **/
 
-package cli
+package transfer
 
-import (
-	"context"
-
-	"github.com/os-artificer/AiT/internal/ait/helpdoc"
-	"github.com/os-artificer/AiT/internal/pkg/session"
-
-	"github.com/spf13/cobra"
-)
-
-func newSuspendCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "suspend",
-		Short: "Suspend current session (use !ait suspend inside SSH)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				return mgr.SuspendCurrent()
-			})
-		},
-	}
-	bindHelp(cmd, helpdoc.WriteSuspendHelp)
-	return cmd
-}
+// Parse — SFTP path validation errors.
+const errInvalidRemotePathFmt = "invalid remote path %q"

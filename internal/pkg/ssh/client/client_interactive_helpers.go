@@ -31,7 +31,20 @@ import (
 
 // termEOL is the line ending for messages written while stdin is in raw mode.
 // LF-only would leave the cursor at the previous column ("staircase" layout).
-const termEOL = "\r\n"
+const termEOL = msgCRLF
+
+// forwardStdinAction describes how one stdin byte should be handled.
+type forwardStdinAction int
+
+const (
+	fwdStdinContinue forwardStdinAction = iota
+	fwdStdinReturn
+)
+
+type forwardStdinResult struct {
+	action forwardStdinAction
+	err    error
+}
 
 // startStdinReader spawns a goroutine reading os.Stdin one byte at a time.
 // The returned channel is closed when stdin reaches EOF or an error occurs.
@@ -111,24 +124,11 @@ func aiPromptFromMetaLine(line string) (prompt string, isAI bool) {
 	switch {
 	case strings.HasPrefix(line, "!!"):
 		return strings.TrimSpace(strings.TrimPrefix(line, "!!")), true
-	case strings.HasPrefix(line, "!ait ai"):
-		return strings.TrimSpace(strings.TrimPrefix(line, "!ait ai")), true
+	case strings.HasPrefix(line, metaPrefixAitAI):
+		return strings.TrimSpace(strings.TrimPrefix(line, metaPrefixAitAI)), true
 	default:
 		return "", false
 	}
-}
-
-// forwardStdinAction describes how one stdin byte should be handled.
-type forwardStdinAction int
-
-const (
-	fwdStdinContinue forwardStdinAction = iota
-	fwdStdinReturn
-)
-
-type forwardStdinResult struct {
-	action forwardStdinAction
-	err    error
 }
 
 func (c *Client) processForwardStdinByte(

@@ -18,23 +18,8 @@ package shell
 
 import (
 	"io"
-	"os"
 	"strings"
-
-	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
-
-// setShellTTYIO configures CRLF stdout and silenced stderr for the duration of ait shell.
-func setShellTTYIO(enabled bool) {
-	if enabled {
-		shellCLIOut = terminal.NewCRLFWriter(os.Stdout)
-		shellCLIErr = io.Discard
-		return
-	}
-
-	shellCLIOut = os.Stdout
-	shellCLIErr = os.Stderr
-}
 
 // normalizeShellLine trims space and an optional trailing ';' (Enter submits, ';' not required).
 func normalizeShellLine(line string) string {
@@ -66,5 +51,5 @@ func shellPrintErr(w io.Writer, msg string) {
 		return
 	}
 
-	shellWriteTTY(w, "AiT: "+msg+"\r\n")
+	shellWriteTTY(w, msgPrefixAiT+msg+"\r\n")
 }

@@ -19,7 +19,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 
 ## What AiT does
 
-- **SSH sessions**: `shell`, `login`, `list`, `load`, `suspend`, `session switch`, `session delete`
+- **SSH sessions**: `shell`, `login`, `session` (`--list`, `--load`, `--suspend`, `--switch`, `--delete`)
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
 - **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
 - **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `ait ai chat` (one-shot); `ait ai provider enable|disable`; `ait ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `ait ai model list`; SSH `!ait ai chat` / `!! chat`; cloud keys `ai.<provider>.api_key`
@@ -107,7 +107,7 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 
 ```text
 ait shell                              # AiT> REPL: login, list, load, help, exit
-ait login [ssh-options] destination [cmd ...] [--alias] [--tmux] [--password]
+ait login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 # ssh-options: -p -l -i -F -J -o ... ; legacy --host/--user still supported
 # Requires OpenSSH client (ssh) on PATH for ssh -G (all platforms)
 ait ai [--model deepseek|minimax]            # local AI REPL (AiT AI>); tiered may use Ollama first
@@ -115,9 +115,10 @@ ait ai model list
 ait ai chat [message...]              # one-shot; echo "q" | ait ai chat
 ait ai provider enable|disable <provider>
 ait ai ollama status|setup|start|stop|disable # local Ollama (setup: models_dir + [y/N] before install)
-ait list | load <id|alias> [--tmux] [--password]
-ait session switch [id|alias] [--tmux] [--force]
-ait session delete <id|alias> | ait session delete all [--force]
+ait session --list
+ait session --load <id|alias> [--tmux] [--password]
+ait session --switch [id|alias] [--tmux] [--password] [--force]
+ait session --delete <id|alias|all> [--force]
 ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain; flags/paths any order
 ait put [ssh-flags] <paths...>
 ait config set|get <key> [<value>]
@@ -130,7 +131,7 @@ Prompts: `AiT>` (`ait shell`), `AiT AI>` (`ait ai`), `AiT AI user@host>` (SSH AI
 - Keep `cmd/ait` thin — all logic in `internal/ait` and `internal/pkg`.
 - `login` resolves config via `ssh -G` (`ssh/args`); data plane is Go `x/crypto/ssh`. Set `AIT_SSH_INSECURE=1` only for dev.
 - **Default mode** does not keep remote processes alive; only `--tmux` does.
-- **`session switch` from local shell** cannot suspend an active SSH; user must `!ait suspend` inside the session first, or use `--force` (does not save current scrollback/cwd).
+- **`session --switch` from local shell** cannot suspend an active SSH; user must `!ait suspend` inside the session first, or use `--force` (does not save current scrollback/cwd).
 - `third_party/` is for vendored tools, not primary app code.
 - `init/` and `deployments/` are ops configs — avoid unrelated refactors there.
 - Do not add markdown files unless the user asks (except updating `README.md` / `AGENTS.md` / `docs/` when documenting the product).

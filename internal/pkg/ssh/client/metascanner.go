@@ -18,19 +18,6 @@ package client
 
 import "strings"
 
-// metaPrefixes is the exhaustive set of strict meta openers. The scanner
-// only commits to meta mode once a candidate buffer matches one exactly.
-var metaPrefixes = []string{
-	"!ait ai ",
-	"!ait ai\n",
-	"!ait local ",
-	"!ait local\n",
-	"!ait remote\n",
-	"!ait ",
-	"!! ",
-	"!!\n",
-}
-
 // metaMaxLine caps the bytes captured for a single meta line so a runaway
 // paste cannot keep the scanner in meta mode indefinitely.
 const metaMaxLine = 4096

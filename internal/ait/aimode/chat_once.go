@@ -32,7 +32,7 @@ var ErrChatMessageRequired = fmt.Errorf("AiT: chat requires a message (usage: ai
 // Returns the message tail when ok is true.
 func parseChatCommand(line string) (message string, ok bool) {
 	word, rest := firstWord(normalizeLine(line))
-	if word != "chat" {
+	if word != replCmdChat {
 		return "", false
 	}
 	rest = strings.TrimSpace(rest)
@@ -45,7 +45,7 @@ func parseChatCommand(line string) (message string, ok bool) {
 // isChatCommandWithoutMessage reports whether line is exactly "chat" with no message.
 func isChatCommandWithoutMessage(line string) bool {
 	word, rest := firstWord(normalizeLine(line))
-	return word == "chat" && strings.TrimSpace(rest) == ""
+	return word == replCmdChat && strings.TrimSpace(rest) == ""
 }
 
 // RunChatOnce sends one user message and writes the assistant reply to opt.Out.

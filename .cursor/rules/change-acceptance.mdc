@@ -39,7 +39,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | Meta/Shell I/O | R3 CRLF；R4 会话内阻断 login/load/suspend |
 | 认证/会话 | R5–R9 密码、Switch、stale meta |
 | 传输 | R10–R11 错误前缀、put 建父目录 |
-| 其它 | R12 HostKey；R13 list 对齐；R14 login 远程退出码 |
+| 其它 | R12 HostKey；R13 `ait session --list` 列对齐；R14 login 远程退出码 |
 | AI 模式 | R15 `ait ai model list` 非交互；`ait ai` 仍交互；首行元命令不挂起 |
 | 配置 | R16 Save 无根级 `deepseek`；旧 YAML 可读；`deepseek.model` 别名仍有效 |
 | AI CLI | R17 无顶层 `ait models`；`ait ai provider enable|disable`；`ait ai ollama setup` 可配置 `models_dir`/`OLLAMA_MODELS` |
@@ -56,6 +56,48 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | R18e | `!ait ai` / `!!` 或自由文本首行仍进 REPL（非 chat 单轮快速路径） | `TestIsMetaREPLCommand`、`TestRunREPL_InitialNonChatShowsPrompt` | — |
 | R18f | 远程 scope 单轮输出 CRLF | `TestRunREPL_InitialChatOnceRemoteCRLF` | — |
 
+### D* 明细（登录连接去重）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| D1 | `--save` 两次同连接仅 1 条 | `TestResolvePersistSessionID_ReusesConnection` |
+| D2 | 复用同 `id` | `TestPersistLoginSessionSaveOnly`（二次 save） |
+| D3 | `auth_expires_at` 延期 | `TestPersistLoginSession_ExtendsAuthExpiry` |
+| D4 | 不同 user/port → 2 条 | `TestFindSessionByConnection_DifferentUserOrPort` |
+| D5 | port 0 与 22 同连接 | `TestFindSessionByConnection_PortZeroEquals22` |
+| D6 | 无匹配 → `ErrSessionNotFound` | `TestFindSessionByConnection_NotFound` |
+| D7 | 重复行取最新 | `TestResolvePersistSessionID_PicksNewestDuplicate` |
+| D8 | 无 alias 后加 alias 同 id | `TestResolvePersistSessionID_AliasOnExistingConnection` |
+| D9 | 有 alias 后 `--save` 复用 | `TestResolvePersistSessionID_SaveReusesAliasedRow` |
+| D10 | alias 改 host 清 scrollback | `TestResolveLoginSessionIDClearsScrollbackOnHostChange` |
+| D11 | interactive 路径复用 id | （`resolvePersistSessionID` 与 D1 同路径） |
+| D12 | 无 save/alias 不落库 | `TestShouldPersistLogin`、`TestLoginRunOncePersistGating` |
+| D13 | store 非 NotFound 错误向上传播 | `TestResolvePersistSessionID_StoreError` |
+| D14 | one-shot `--save` 写 current session | `TestPersistLoginSessionSetsMeta`、`TestLoginRunOncePersistGating` |
+
+### S* 明细（`ait session` flag CLI）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| S1 | 顶层 `list`/`load`/`suspend` unknown | `TestTopLevelListLoadSuspendRemoved` |
+| S2 | `session switch`/`delete` 子命令 unknown | `TestSessionSubcommandsRemoved` |
+| S3 | 无 action → 错误 | `TestSessionCmd_NoActionFails` |
+| S4 | 互斥 flag | `TestSessionCmd_MutuallyExclusiveFlags` |
+| S5 | `--list` 空库 / R13 列格式 | `TestSessionCmd_ListEmpty`、`TestListTableColumns` |
+| S6 | `--load` 未知 id | `TestSessionCmd_LoadNotFound` |
+| S7 | `--load --tmux` 写 store | `TestLoad_SetsTmuxEnabledBeforeDial` |
+| S8 | `--suspend` 无 current | `TestSessionCmd_SuspendNoCurrent` |
+| S9 | `--switch` 未知 | `TestSessionCmd_SwitchNotFound` |
+| S10 | `--switch` 空库 pick | `TestSessionCmd_SwitchPickEmpty` |
+| S11 | delete 语义 | `TestDeleteWithForce`（manager） |
+| S12 | `--delete all --force` | `TestSessionCmd_DeleteAllForceEmptyStore` |
+| S13 | `session --help` | `TestSessionCmdHelpExecute` |
+| S14 | root help 无 list/load/suspend | `TestRootCmdHelpExecute` |
+| S15 | `WriteSessionHelp` | `TestWriteSessionHelpSections` |
+| S16 | REPL `list` | `TestExecuteLineList` |
+| S17 | REPL `load` | `shellLoad` 路径保留 |
+| S18 | Meta `!ait list` → `session --list` | `TestExecuteSubcommandUsesCRLFStdout` |
+
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
@@ -68,6 +110,8 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 - [ ] R18d：首行裸 `chat` 返回需消息错误（`TestRunREPL_InitialChatEmptyMessage`、`TestParseChatCommand`）
 - [ ] R18e：非 chat 首行进 REPL（`TestRunREPL_InitialNonChatShowsPrompt`、`TestIsMetaREPLCommand`）
 - [ ] R18f：远程单轮 CRLF（`TestRunREPL_InitialChatOnceRemoteCRLF`）
+- [ ] D1–D14：登录连接去重与 meta（见 **D* 明细**）
+- [ ] S1–S18：`ait session` flag CLI（见 **S* 明细**）
 - [ ] 相关自动化测试未删除或弱化
 
 手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai chat --help`、`timeout 5 ./bin/ait ai chat ping`、`echo ping | timeout 5 ./bin/ait ai chat`。
@@ -79,6 +123,29 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 - 须附专项验收项（如 A1–A19）并在 PR 中说明
 - 用户可见行为变更须同步 [design.md](docs/design.md) / [design.zh-CN.md](docs/design.zh-CN.md) 与 [user-manual](docs/user-manual.md)（中英成对）
 - CLI 新命令遵守 [cli-help.mdc](cli-help.mdc)
+
+### 验收清单维护（新功能实现时强制）
+
+**每当有新功能合入**，须在同一 PR / 交付中完成下列项；**后续任意改动**的回归仍须验证这些项（不得删除或弱化对应用例，除非经显式废弃并更新本规则与文档）。
+
+| 步骤 | 要求 |
+|------|------|
+| 1. 定义专项 ID | 为本功能分配带前缀的验收 ID（如清屏 **A1–A12**、UTF-8 **U1–U10**、常量 **C1–C6**）；写入方案/PR 的验收表（行为 \| 自动化测试 \| 手动烟雾）。 |
+| 2. 实现测试 | 每个 ID **至少一条** `*_test.go` 用例；测试名与 ID 在 PR 中可对照；禁止仅手测、零自动化的用户可见行为。 |
+| 3. 纳入交付勾选 | PR / Agent 交付清单须列出本功能全部 ID；`make test` 须覆盖这些测试。 |
+| 4. 纳入后续回归 | 合入后 ID 与测试并入**永久回归集**：此后每次 `make test`、合并前门禁及交付勾选均须仍通过；与 **R1–R18** 同等。 |
+| 5. 文档与 help | 用户可见行为同步 design / user-manual（中英）；CLI 同步 helpdoc。 |
+
+**示例（已登记专项，后续 PR 须继续验证）**
+
+| 前缀 | 能力 | 代表性测试 |
+|------|------|------------|
+| U* | 本地 REPL UTF-8 输入 | `TestReadLineRawUTF8Chinese`、`TestReadLineRawBackspaceUTF8` |
+| C* | internal 字符串常量化（语义不变） | `TestLoginHelpMatchesLegacyGolden`、`TestSaveYAML_NoRootDeepseek` |
+| A* | `ait shell` 清屏（`clear` / Ctrl+L） | `TestClearScreen`、`TestExecuteLineClear`、`TestReadLineRawCtrlLRedrawsLine` |
+| L* | login 可选保存（`--save` / `--alias` 隐含保存） | `TestShouldPersistLogin`、`TestPersistLoginSessionSaveOnly`、`TestPersistLoginSessionAliasOnly`、`TestParseSave`、`TestLoginHelpMatchesLegacyGolden` |
+| D* | login 同连接复用行并延期 TTL | `TestResolvePersistSessionID_*`、`TestFindSessionByConnection_*`、`TestPersistLoginSession_ExtendsAuthExpiry` |
+| S* | `ait session` 统一 flag | `TestTopLevelListLoadSuspendRemoved`、`TestSessionCmd_*`、`TestExecuteLineList`、`TestWriteSessionHelpSections` |
 
 ## 索引
 

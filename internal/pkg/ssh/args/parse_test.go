@@ -170,3 +170,23 @@ func TestParseAliasTmux(t *testing.T) {
 		t.Fatalf("spec=%+v", spec)
 	}
 }
+
+func TestParseSave(t *testing.T) {
+	spec, err := Parse([]string{"--save", "-p", "2222", "deploy@host"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !spec.Save || spec.Port != 2222 || spec.Destination != "deploy@host" {
+		t.Fatalf("spec=%+v", spec)
+	}
+}
+
+func TestParseSaveWithAlias(t *testing.T) {
+	spec, err := Parse([]string{"--save", "--alias", "prod", "myhost"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !spec.Save || spec.Alias != "prod" {
+		t.Fatalf("spec=%+v", spec)
+	}
+}

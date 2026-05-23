@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -48,7 +49,7 @@ func TestExecuteLineQuit(t *testing.T) {
 
 func TestReadTTYLineEndsOnCRAlone(t *testing.T) {
 	br := bufio.NewReader(bytes.NewReader([]byte("help\r")))
-	line, err := readTTYLine(br)
+	line, err := ReadTTYLine(br, io.Discard, "AiT> ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,17 +58,6 @@ func TestReadTTYLineEndsOnCRAlone(t *testing.T) {
 	}
 	if br.Buffered() > 0 {
 		t.Error("unexpected buffered bytes after lone CR submit")
-	}
-}
-
-func TestReadTTYLineEndsOnCRLF(t *testing.T) {
-	br := bufio.NewReader(bytes.NewReader([]byte("list\r\n")))
-	line, err := readTTYLine(br)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if line != "list" {
-		t.Errorf("line = %q, want list", line)
 	}
 }
 

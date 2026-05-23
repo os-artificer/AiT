@@ -19,7 +19,7 @@ make test-cross  # windows + darwin go build
 
 ## 功能概览
 
-- **SSH 会话**：`shell`、`login`、`list`、`load`、`suspend`、`session switch`、`session delete`
+- **SSH 会话**：`shell`、`login`、`session`（`--list`、`--load`、`--suspend`、`--switch`、`--delete`）
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
 - **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）
 - **AI**：多 provider 路由 + `tiered`；`ait ai chat` 单轮；`ait ai provider enable|disable`；`ait ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ait ai model list`；SSH `!ait ai chat` / `!! chat`
@@ -105,15 +105,16 @@ make test-cross  # windows + darwin go build
 
 ```text
 ait shell
-ait login [ssh-options] destination [cmd ...] [--alias] [--tmux] [--password]
+ait login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 ait ai [--model deepseek|minimax]            # 本机 AI REPL（AiT AI>）；tiered 可先走 Ollama
 ait ai model list
 ait ai chat [message...]
 ait ai provider enable|disable <provider>
 ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup 安装前 [y/N]）
-ait list | load <id|alias> [--tmux] [--password]
-ait session switch [id|alias] [--tmux] [--force]
-ait session delete <id|alias> | ait session delete all [--force]
+ait session --list
+ait session --load <id|alias> [--tmux] [--password]
+ait session --switch [id|alias] [--tmux] [--password] [--force]
+ait session --delete <id|alias|all> [--force]
 ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain；flag/路径顺序任意
 ait put [ssh-flags] <paths...>
 ait config set|get <key> [<value>]
@@ -126,6 +127,6 @@ ait config set|get <key> [<value>]
 - 保持 `cmd/ait` 精简，逻辑位于 `internal/ait` 与 `internal/pkg`。
 - `login` 经 `ssh -G` 解析配置；数据面为 Go `x/crypto/ssh`。仅开发环境使用 `AIT_SSH_INSECURE=1`。
 - **默认模式**不保证远程进程保活；仅 `--tmux` 提供远程会话保活。
-- 从本机执行 `ait session switch` 时，若仍处于 SSH 会话中，须先 `!ait suspend`，或使用 `--force`（不保存当前 scrollback/cwd）。
+- 从本机执行 `ait session --switch` 时，若仍处于 SSH 会话中，须先 `!ait suspend`，或使用 `--force`（不保存当前 scrollback/cwd）。
 - `third_party/` 用于 vendored 工具，非主应用代码。
 - 除用户要求或更新产品文档外，不随意新增 Markdown 文件。
