@@ -482,8 +482,7 @@ func (m *Manager) PickSessionFrom(in io.Reader, out io.Writer) (string, error) {
 	}
 
 	fmt.Fprint(out, "Select session (number, id, or alias): ")
-	reader := bufio.NewReader(in)
-	line, err := reader.ReadString('\n')
+	line, err := readPickLine(in, out)
 	if err != nil {
 		return "", err
 	}

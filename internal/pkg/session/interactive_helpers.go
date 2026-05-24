@@ -17,9 +17,13 @@
 package session
 
 import (
+	"bufio"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
 	"golang.org/x/term"
 )
@@ -44,4 +48,18 @@ func CheckInteractiveStdin() error {
 
 func stdinIsTerminal() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// readPickLine reads one selection line; uses the line editor when stdin is a TTY.
+func readPickLine(in io.Reader, out io.Writer) (string, error) {
+	if stdinIsTerminal() && in == os.Stdin {
+		br := bufio.NewReader(in)
+		return terminal.ReadLine(br, out, terminal.LineEditOptions{Prompt: ""})
+	}
+	reader := bufio.NewReader(in)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(line), nil
 }

@@ -86,11 +86,13 @@ On **macOS, Linux, and Windows**, interactive `ait shell` and `ait ai` accept **
 - **Linux / macOS:** `export LANG=zh_CN.UTF-8` (or `en_US.UTF-8`); Terminal.app, iTerm2, GNOME Terminal, etc.
 - **Windows:** Use [Windows Terminal](https://aka.ms/terminal); enable UTF-8 in settings or run `chcp 65001` in legacy consoles.
 - **IME:** Type with your system input method; after you confirm composition, characters appear in the line. AiT does not show an in-app preedit box.
-- **Tab:** Inserts a tab character into the current line (for indentation). This differs from older ASCII-only line input.
+- **Tab:** Inserts a tab character into the current line (for indentation).
+- **TTY keys (local REPL):** Ctrl+A/E (start/end of line), Left/Right (move cursor), Up/Down (recall prior commands from this session only), Ctrl+U/K/W (kill line/to end/word), Backspace, Ctrl+C (cancel line), Ctrl+D (exit when empty), Ctrl+L (clear screen, keep buffer). Type `help` in `ait shell` or `ait ai` for the full Keys list.
+- **History:** Only commands you submit at the main `AiT>` / `AiT AI>` prompt are stored—not `[y/N]` confirm answers, session picker input, or AiT internal env setup.
 - **Non-TTY:** `echo 你好 | ait ai chat` works without special locale setup.
 - **Clear screen:** In `ait shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ait ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
 
-SSH sessions (`ait login`) use the remote shell’s encoding; local `AiT>` / `AiT AI>` editing is what this section describes.
+SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI>` editing is what this section describes.
 
 ## Prompts
 

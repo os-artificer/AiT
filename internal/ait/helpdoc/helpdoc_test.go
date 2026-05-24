@@ -101,7 +101,7 @@ func TestWriteShellHelpSections(t *testing.T) {
 	if err := WriteShellHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "REPL commands", "help for shell")
+	helpMustContain(t, buf.String(), "Usage:", "Examples:", "REPL commands", "help for shell", "Ctrl+A", "Up", "Down")
 }
 
 func TestWriteShellREPLHelpSections(t *testing.T) {
@@ -109,7 +109,15 @@ func TestWriteShellREPLHelpSections(t *testing.T) {
 	if err := WriteShellREPLHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Commands:", "help for help", "clear", "Ctrl+L", "-p port")
+	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Commands:", "help for help", "clear", "Ctrl+L", "Ctrl+A", "Up", "-p port")
+}
+
+func TestWriteAIHelpSections(t *testing.T) {
+	var buf bytes.Buffer
+	if err := WriteAIHelp(&buf); err != nil {
+		t.Fatal(err)
+	}
+	helpMustContain(t, buf.String(), "Usage:", "Examples:", "help for ai", "Ctrl+A", "Up", "Down")
 }
 
 func TestWriteConfigHelpSections(t *testing.T) {

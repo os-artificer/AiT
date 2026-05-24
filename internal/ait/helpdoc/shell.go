@@ -56,6 +56,9 @@ func WriteShellHelp(w io.Writer) error {
 	if err := b.WriteSection(helpSectionREPLCommands, shellREPLCommands); err != nil {
 		return err
 	}
+	if err := WriteTTYKeysHelp(w, TTYKeysShell); err != nil {
+		return err
+	}
 	if err := b.WriteExamples(
 		"ait shell",
 		shellExampleLoginServer,
@@ -82,6 +85,9 @@ func WriteShellREPLHelp(w io.Writer) error {
 		return err
 	}
 	if err := b.WriteSection(shellSectionPrompts, shellREPLPrompts); err != nil {
+		return err
+	}
+	if err := WriteTTYKeysHelp(w, TTYKeysShell); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
