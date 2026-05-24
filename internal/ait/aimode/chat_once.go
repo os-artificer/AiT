@@ -18,7 +18,6 @@ package aimode
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 
@@ -26,7 +25,7 @@ import (
 )
 
 // ErrChatMessageRequired is returned when a chat command has no message text.
-var ErrChatMessageRequired = fmt.Errorf("AiT: chat requires a message (usage: ait ai chat <message> or !ait ai chat <message>)")
+var ErrChatMessageRequired = ai.ErrChatMessageRequired
 
 // parseChatCommand reports whether line is a one-shot chat command (chat <message>).
 // Returns the message tail when ok is true.
@@ -52,12 +51,12 @@ func isChatCommandWithoutMessage(line string) bool {
 // Does not enter the REPL. Returns ErrAINotConfigured when opt.AI is nil, or ErrChatMessageRequired when message is empty.
 func RunChatOnce(ctx context.Context, opt Options, message string) error {
 	if opt.AI == nil {
-		return ErrAINotConfigured
+		return ai.NotConfiguredErr()
 	}
 
 	message = strings.TrimSpace(message)
 	if message == "" {
-		return ErrChatMessageRequired
+		return ai.ChatMessageRequiredErr()
 	}
 
 	opt = fillOptionDefaults(opt)

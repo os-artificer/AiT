@@ -17,7 +17,7 @@
 package cli
 
 import (
-	"fmt"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 
 	"github.com/spf13/cobra"
 )
@@ -50,10 +50,13 @@ func detectSessionAction(
 		n++
 		act.kind = sessionActionList
 	}
-	if loadTarget != "" {
+	if cmd.Flags().Changed(flagNameLoad) {
 		n++
 		act.kind = sessionActionLoad
 		act.target = loadTarget
+		if act.target == "-" {
+			act.target = ""
+		}
 	}
 	if cmd.Flags().Changed(flagNameSwitch) {
 		n++
@@ -74,10 +77,10 @@ func detectSessionAction(
 	}
 
 	if n == 0 {
-		return act, fmt.Errorf("%s", errSessionActionRequired)
+		return act, sessionActionRequiredErr()
 	}
 	if n > 1 {
-		return act, fmt.Errorf("%s", errSessionActionExclusive)
+		return act, sessionActionExclusiveErr()
 	}
 
 	return act, nil
@@ -91,7 +94,33 @@ func resolveSwitchTarget(cmd *cobra.Command, switchTarget string, args []string)
 		return args[0], nil
 	}
 	if len(args) > 1 {
-		return "", fmt.Errorf("unexpected arguments with --switch")
+		return "", unexpectedSwitchArgsErr()
 	}
 	return "", nil
+}
+
+func sessionActionRequiredErr() error {
+	return errhint.WithTryMsg(errSessionActionRequired,
+		"Specify exactly one session action.",
+		"ait session --list",
+		"ait session --load [<id|alias>]",
+		"ait session --switch [id|alias]",
+		"ait session --help",
+	)
+}
+
+func sessionActionExclusiveErr() error {
+	return errhint.WithTryMsg(errSessionActionExclusive,
+		"Use only one of --list, --load, --switch, --suspend, or --delete per invocation.",
+		"ait session --help",
+	)
+}
+
+func unexpectedSwitchArgsErr() error {
+	return errhint.WithTryMsg("unexpected arguments with --switch",
+		"Pass the session id or alias as the --switch value or as a single positional argument.",
+		"ait session --switch <id|alias>",
+		"ait session --switch",
+		"ait session --help",
+	)
 }

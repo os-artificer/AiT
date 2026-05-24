@@ -18,7 +18,6 @@ package meta
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -28,10 +27,10 @@ import (
 )
 
 var metaBlockedInSession = map[string]string{
-	"login":   "exit the SSH session first, then run: ait login ...",
-	"load":    "exit the SSH session first, then run: ait session --load <id|alias>",
-	"suspend": "use !ait suspend (not !ait suspend via CLI runner)",
-	"ai":      "use !ait ai or !! inside this SSH session (not !ait ai via CLI runner)",
+	"login":   "Exit the SSH session first, then log in from the local shell.",
+	"load":    "Exit the SSH session first, then load a saved session locally.",
+	"suspend": "Use !ait suspend inside this SSH session.",
+	"ai":      "Use !ait ai or !! for AI mode inside SSH.",
 }
 
 var executor func([]string, io.Writer, io.Writer) error
@@ -59,11 +58,11 @@ func Execute(args []string) error {
 		return nil
 	}
 
-	if msg, blocked := metaBlockedInSession[args[0]]; blocked {
-		return fmt.Errorf(errMetaBlockedFmt, args[0], msg)
+	if detail, blocked := metaBlockedInSession[args[0]]; blocked {
+		return metaBlockedErr(args[0], detail)
 	}
 	if executor == nil {
-		return fmt.Errorf("%s", errMetaExecutorNotConfig)
+		return metaExecutorNotConfiguredErr()
 	}
 	return executor(metaCLIArgs(args), terminal.NewCRLFWriter(os.Stdout), os.Stderr)
 }

@@ -19,11 +19,12 @@ ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup：models_
 ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
         # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
-        # 仅 --save（按 id 书签）或 --alias（命名保存，隐含 --save）时写入 SQLite
-        # 带 command 时为一次性执行；无 --save/--alias 时不持久化
+        # 新连接须 --save（按 id 书签）或 --alias（命名保存，隐含 --save）才写入 SQLite
+        # 若 user@host:port 已在 session 列表中，login 会更新该行并刷新 auth TTL（无需 --save/--alias）
+        # 带 command 时为一次性执行；新主机无 --save/--alias 时不持久化
         # 旧写法 --host/--user 仍向后兼容
-ait session --list
-ait session --load <id|alias> [--tmux] [--password]   # 认证 TTL 内免凭据恢复；过期后提示密码
+ait session --list [-v]   # # 列用于按序号选择；-v 输出 FULL_ID（完整 UUID）
+ait session --load [<id|alias>] [--tmux] [--password]   # 省略 id 可交互选择；id 须为 alias 或完整 UUID（非列表 ID 列）
 ait session --suspend         # 本机 CLI；SSH 内请用 !ait suspend
 ait session --switch [id|alias] [--tmux] [--password] [--force]  # 切换会话；省略 id 时交互选择
 ait session --delete <id|alias|all> [--force]         # 删除单个或全部会话
@@ -43,7 +44,7 @@ ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
 | **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选回放上次 suspend 的本地 scrollback | 不保证保活 |
 | **tmux 保活** | `login`/`load` 加 `--tmux` | SSH 后 `tmux attach -t ait-<session_id>`（不存在则 `new -s`） | 断开连接后 shell/进程仍在 |
 
-**仅在使用 `--save` 或 `--alias` 时持久化登录信息**；普通 `ait login host` 不写 SQLite。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
+**新连接须使用 `--save` 或 `--alias` 才持久化**；若同一 user@host:port 已在 `ait session --list` 中，login 会自动更新该行并刷新认证 TTL。普通 `ait login host` 连接未知主机不写 SQLite。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
 
 ## 架构总览
 
@@ -198,7 +199,7 @@ CREATE TABLE app_meta (
 -- 键 current_session_id：当前/上次前台会话 UUID（switch/load/login 后更新）
 ```
 
-- `login` 且带 `--save` 或 `--alias` → upsert `sessions`，设置 `auth_expires_at`；若 `--tmux` 则 `tmux_enabled=1` 并初始化远程 tmux；写 `app_meta.current_session_id`。无上述 flag 的 login 不 upsert。
+- `login` 且带 `--save`/`--alias`，或目标 **已存在** 于 session 列表 → upsert `sessions`、设置 `auth_expires_at`；若 `--tmux` 则 `tmux_enabled=1` 并初始化远程 tmux；写 `app_meta.current_session_id`。连接新主机且无上述 flag 时不 upsert。
 - `suspend` → 写 `session_state`，`status=suspended`；tmux 模式先 `tmux detach` 再断 SSH
 - `session --delete <id>` / `session --delete all` → 删 DB 行 + 删除 scrollback sidecar；tmux 模式可选 `--kill-tmux` 远程杀会话（`delete all` 默认不杀远程 tmux，避免误删；文档说明）
 
@@ -300,8 +301,8 @@ sequenceDiagram
 
 - **配置解析**：`internal/pkg/ssh/args` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
-- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；无 `--save`/`--alias` 时不写 SQLite。带 `--save` 或 `--alias` 的一次性 login 会 upsert 连接档案并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
-- 交互式 login 仅在有 `--save` 或 `--alias` 时写入会话行；未保存会话时 `!ait suspend` 会提示需保存
+- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的 user@host:port 即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
+- 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；未保存会话时 `!ait suspend` 会提示需保存
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 
 ### 本地模式（!ait local / remote）

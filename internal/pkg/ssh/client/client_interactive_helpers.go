@@ -23,6 +23,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
 
@@ -175,7 +177,7 @@ func (c *Client) processForwardStdinByte(
 
 func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQuestion string, opts InteractiveOpts) error {
 	if opts.AI == nil {
-		termPrintln(os.Stderr, aiNotConfiguredMsg)
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, ai.NotConfiguredErr())
 		c.finishMetaInteraction(stdin)
 		return nil
 	}

@@ -19,6 +19,7 @@ package aimode
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -68,8 +69,11 @@ func TestSetModel_M12(t *testing.T) {
 func TestSetModel_ErrNoAI(t *testing.T) {
 	var buf bytes.Buffer
 	err := setModel(context.Background(), Options{Out: &buf}, "", &buf)
-	if err != ErrAINotConfigured {
+	if !errors.Is(err, ai.ErrNotConfigured) {
 		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Try:") {
+		t.Fatalf("expected Try block: %v", err)
 	}
 }
 

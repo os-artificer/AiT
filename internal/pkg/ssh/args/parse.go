@@ -108,7 +108,7 @@ func Parse(argv []string) (Spec, error) {
 	}
 
 	if s.Destination == "" {
-		return Spec{}, fmt.Errorf("destination required (e.g. user@host or ssh config Host alias)")
+		return Spec{}, destinationRequiredErr()
 	}
 	return s, nil
 }

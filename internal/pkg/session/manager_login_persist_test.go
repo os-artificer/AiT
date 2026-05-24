@@ -25,6 +25,17 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/store"
 )
 
+func persistLoginForTest(t *testing.T, m *Manager, opts LoginOpts) {
+	t.Helper()
+	plan, err := m.planLoginPersistence(opts, "test-new-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.persistLoginSession(nil, opts, plan); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestShouldPersistLogin(t *testing.T) {
 	tests := []struct {
 		name string
@@ -48,9 +59,7 @@ func TestShouldPersistLogin(t *testing.T) {
 func TestPersistLoginSessionSaveOnly(t *testing.T) {
 	m := newTestManager(t)
 	opts := LoginOpts{Save: true, Host: "example.com", Port: 22, User: "u"}
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 
 	list, err := m.Store.ListSessions()
 	if err != nil {
@@ -70,9 +79,7 @@ func TestPersistLoginSessionSaveOnly(t *testing.T) {
 	firstExpiry := list[0].AuthExpiresAt
 	time.Sleep(1100 * time.Millisecond)
 
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 
 	list, err = m.Store.ListSessions()
 	if err != nil {
@@ -92,9 +99,7 @@ func TestPersistLoginSessionSaveOnly(t *testing.T) {
 func TestPersistLoginSessionAliasOnly(t *testing.T) {
 	m := newTestManager(t)
 	opts := LoginOpts{Alias: "prod", Host: "example.com", Port: 22, User: "u"}
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 
 	sess, err := m.Store.GetSession("prod")
 	if err != nil {
@@ -108,9 +113,7 @@ func TestPersistLoginSessionAliasOnly(t *testing.T) {
 func TestPersistLoginSessionSaveAndAlias(t *testing.T) {
 	m := newTestManager(t)
 	opts := LoginOpts{Save: true, Alias: "prod", Host: "h", Port: 22, User: "u"}
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 
 	sess, err := m.Store.GetSession("prod")
 	if err != nil {
@@ -124,9 +127,7 @@ func TestPersistLoginSessionSaveAndAlias(t *testing.T) {
 func TestPersistLoginSessionSetsMeta(t *testing.T) {
 	m := newTestManager(t)
 	opts := LoginOpts{Save: true, Host: "h", Port: 22, User: "u", Password: "secret"}
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 
 	list, err := m.Store.ListSessions()
 	if err != nil {
@@ -232,7 +233,7 @@ func TestClearSessionOnFailureSkipsEphemeral(t *testing.T) {
 func TestResolvePersistSessionID_ReusesConnection(t *testing.T) {
 	m := newTestManager(t)
 	opts := LoginOpts{Save: true, Host: "h", Port: 22, User: "u"}
-	_ = m.persistLoginSession(nil, opts)
+	persistLoginForTest(t, m, opts)
 
 	id1, err := m.resolvePersistSessionID(opts, "new-id")
 	if err != nil {
@@ -254,9 +255,7 @@ func TestResolvePersistSessionID_ReusesConnection(t *testing.T) {
 
 func TestResolvePersistSessionID_AliasOnExistingConnection(t *testing.T) {
 	m := newTestManager(t)
-	if err := m.persistLoginSession(nil, LoginOpts{Save: true, Host: "h", Port: 22, User: "u"}); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, LoginOpts{Save: true, Host: "h", Port: 22, User: "u"})
 	list, _ := m.Store.ListSessions()
 	existingID := list[0].ID
 
@@ -271,9 +270,7 @@ func TestResolvePersistSessionID_AliasOnExistingConnection(t *testing.T) {
 
 func TestResolvePersistSessionID_SaveReusesAliasedRow(t *testing.T) {
 	m := newTestManager(t)
-	if err := m.persistLoginSession(nil, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"}); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"})
 	existing, _ := m.Store.GetSession("prod")
 
 	id, err := m.resolvePersistSessionID(LoginOpts{Save: true, Host: "h", Port: 22, User: "u"}, "new-id")
@@ -318,16 +315,12 @@ func TestResolvePersistSessionID_PicksNewestDuplicate(t *testing.T) {
 func TestPersistLoginSession_ExtendsAuthExpiry(t *testing.T) {
 	m := newTestManager(t)
 	opts := LoginOpts{Save: true, Host: "example.com", Port: 22, User: "u"}
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 	s1, _ := m.Store.ListSessions()
 	exp1 := s1[0].AuthExpiresAt
 
 	time.Sleep(1100 * time.Millisecond)
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 	s2, _ := m.Store.ListSessions()
 	if s2[0].AuthExpiresAt <= exp1 {
 		t.Fatalf("expiry %d want > %d", s2[0].AuthExpiresAt, exp1)
@@ -345,9 +338,9 @@ func TestResolvePersistSessionID_StoreError(t *testing.T) {
 		t.Fatal("expected error from closed store")
 	}
 
-	err = m.persistLoginSession(nil, LoginOpts{Save: true, Host: "h2", Port: 22, User: "u"})
+	_, err = m.planLoginPersistence(LoginOpts{Save: true, Host: "h2", Port: 22, User: "u"}, "new-id")
 	if err == nil {
-		t.Fatal("expected persistLoginSession error from closed store")
+		t.Fatal("expected planLoginPersistence error from closed store")
 	}
 }
 
@@ -364,11 +357,116 @@ func TestLoginRunOncePersistGating(t *testing.T) {
 
 	m := newTestManager(t)
 	opts := LoginOpts{Host: "h", Save: true, RemoteCommand: []string{"uptime"}, User: "u", Port: 22}
-	if err := m.persistLoginSession(nil, opts); err != nil {
-		t.Fatal(err)
-	}
+	persistLoginForTest(t, m, opts)
 	cur, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if cur == "" {
 		t.Fatal("one-shot --save should set current session meta")
+	}
+}
+
+func TestLoginUpdateExistingWithoutSave(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Save: true, Host: "h", Port: 22, User: "u"})
+
+	list, _ := m.Store.ListSessions()
+	firstID := list[0].ID
+	firstExpiry := list[0].AuthExpiresAt
+
+	time.Sleep(1100 * time.Millisecond)
+	persistLoginForTest(t, m, LoginOpts{Host: "h", Port: 22, User: "u"})
+
+	list, err := m.Store.ListSessions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("sessions=%d want 1", len(list))
+	}
+	if list[0].ID != firstID {
+		t.Fatalf("id=%q want %q", list[0].ID, firstID)
+	}
+	if list[0].AuthExpiresAt <= firstExpiry {
+		t.Fatalf("expiry %d want > %d", list[0].AuthExpiresAt, firstExpiry)
+	}
+}
+
+func TestLoginUpdateExistingPreservesAlias(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"})
+
+	persistLoginForTest(t, m, LoginOpts{Host: "h", Port: 22, User: "u"})
+
+	sess, err := m.Store.GetSession("prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sess.Alias != "prod" {
+		t.Fatalf("alias=%q want prod", sess.Alias)
+	}
+}
+
+func TestLoginUpdateExistingPreservesTmuxEnabled(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Tmux: true, Save: true, Host: "h", Port: 22, User: "u"})
+
+	list, _ := m.Store.ListSessions()
+	if !list[0].TmuxEnabled {
+		t.Fatal("expected tmux enabled after initial save with --tmux")
+	}
+
+	persistLoginForTest(t, m, LoginOpts{Host: "h", Port: 22, User: "u"})
+
+	sess, err := m.Store.GetSession(list[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sess.TmuxEnabled {
+		t.Fatal("expected tmux_enabled preserved when re-login without --tmux")
+	}
+}
+
+func TestLoginNoSaveNoExistingStillEphemeral(t *testing.T) {
+	m := newTestManager(t)
+	plan, err := m.planLoginPersistence(LoginOpts{Host: "newhost", Port: 22, User: "u"}, "new-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.persist {
+		t.Fatal("expected ephemeral plan for unknown connection")
+	}
+
+	persistLoginForTest(t, m, LoginOpts{Host: "newhost", Port: 22, User: "u"})
+	list, _ := m.Store.ListSessions()
+	if len(list) != 0 {
+		t.Fatalf("sessions=%d want 0", len(list))
+	}
+}
+
+func TestLoginUpdateExistingSetsMeta(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Save: true, Host: "h", Port: 22, User: "u"})
+
+	list, _ := m.Store.ListSessions()
+	persistLoginForTest(t, m, LoginOpts{Host: "h", Port: 22, User: "u"})
+
+	cur, _ := m.Store.GetMeta(store.MetaCurrentSession)
+	if cur != list[0].ID {
+		t.Fatalf("meta=%q want %q", cur, list[0].ID)
+	}
+}
+
+func TestPlanLoginPersistenceExistingWithoutSave(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Save: true, Host: "h", Port: 22, User: "u"})
+
+	plan, err := m.planLoginPersistence(LoginOpts{Host: "h", Port: 22, User: "u"}, "new-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.persist {
+		t.Fatal("expected persist when connection exists")
+	}
+	if shouldPersistLogin(LoginOpts{Host: "h", Port: 22, User: "u"}) {
+		t.Fatal("shouldPersistLogin should remain false without flags")
 	}
 }

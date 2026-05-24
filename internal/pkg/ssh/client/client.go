@@ -28,14 +28,13 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
-
-const aiNotConfiguredMsg = "AiT: AI not configured — run: ait config set ai.deepseek.api_key <key> (or ai.minimax.api_key)"
 
 const (
 	shellReadyDelay           = 280 * time.Millisecond
@@ -383,7 +382,7 @@ func (c *Client) runMetaCLI(stdin io.Writer, opts InteractiveOpts, args []string
 		return nil
 	}
 	if err := opts.OnMetaCLI(args); err != nil {
-		termPrintf(os.Stderr, "AiT: %v", err)
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
 	}
 	c.finishMetaInteraction(stdin)
 	return nil

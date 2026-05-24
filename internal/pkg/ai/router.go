@@ -23,6 +23,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -100,11 +101,21 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 	}
 
 	if len(eps) == 0 {
-		return nil, fmt.Errorf("no enabled AI providers configured (set cloud API keys or enable ollama with ai.tiered)")
+		return nil, errhint.WithTryMsg("no enabled AI providers configured",
+			"Set cloud API keys or enable tiered Ollama routing.",
+			"ait config set ai.deepseek.api_key <key>",
+			"ait ai provider enable ollama",
+			"ait ai --help",
+		)
 	}
 
 	if !hasCloudEndpoint(eps) && !cfg.TieredEnabled() {
-		return nil, fmt.Errorf("no cloud AI API keys configured (try: %s)", apiKeyHint(cfg.DefaultProviderID()))
+		return nil, errhint.WithTryMsg("no cloud AI API keys configured",
+			"Set an API key for a cloud provider.",
+			fmt.Sprintf("ait config set ai.%s.api_key <key>", cfg.DefaultProviderID()),
+			"ait ai ollama setup",
+			"ait ai --help",
+		)
 	}
 
 	if o.providerOverride != "" {
@@ -112,10 +123,14 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 			return nil, fmt.Errorf("provider override must be a cloud provider (%s or %s)", ProviderDeepseek, ProviderMinimax)
 		}
 		if !cfg.ProviderEnabled(o.providerOverride) {
-			return nil, fmt.Errorf("provider %q is disabled (ait ai provider enable %s)", o.providerOverride, o.providerOverride)
+			return nil, ProviderDisabledErr(string(o.providerOverride))
 		}
 		if _, ok := eps[o.providerOverride]; !ok {
-			return nil, fmt.Errorf("%s API key not set (%s)", o.providerOverride, apiKeyHint(o.providerOverride))
+			return nil, errhint.WithTryMsg(fmt.Sprintf("%s API key not set", o.providerOverride),
+				"Store the provider API key in the OS keyring.",
+				fmt.Sprintf("ait config set ai.%s.api_key <key>", o.providerOverride),
+				"ait config get ai."+string(o.providerOverride)+".api_key",
+			)
 		}
 	} else if cloud := cfg.DefaultProviderID(); hasCloudEndpoint(eps) {
 		if _, ok := eps[cloud]; !ok {

@@ -47,7 +47,7 @@ func (r *ptyRemoteRunner) Run(cmd string) error {
 // runRemoteAIMode is wired into SSH InteractiveOpts.OnRemoteAI.
 func runRemoteAIMode(p sshclient.RemoteAIParams) error {
 	if p.AI == nil {
-		return aimode.ErrAINotConfigured
+		return ai.NotConfiguredErr()
 	}
 
 	return aimode.RunREPL(p.Ctx, aimode.Options{

@@ -41,6 +41,22 @@ func TestFormatShellMsg(t *testing.T) {
 	}
 }
 
+func TestShellPrintErrMultiline(t *testing.T) {
+	var buf bytes.Buffer
+	msg := "session not found\n\nThe list ID column is for display only.\n\nTry:\n  ait session --load"
+	shellPrintErr(&buf, msg)
+	out := buf.String()
+	if strings.Count(out, "AiT:") != 1 {
+		t.Fatalf("duplicate prefix: %q", out)
+	}
+	if !strings.Contains(out, "Try:") {
+		t.Fatalf("missing Try: %q", out)
+	}
+	if strings.Contains(out, "display only AiT:") {
+		t.Fatalf("collapsed: %q", out)
+	}
+}
+
 func TestShellPrintErr(t *testing.T) {
 	var buf bytes.Buffer
 	shellPrintErr(&buf, "unknown command \";\"")

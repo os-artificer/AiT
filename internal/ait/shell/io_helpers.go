@@ -19,6 +19,8 @@ package shell
 import (
 	"io"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
 // normalizeShellLine trims space and an optional trailing ';' (Enter submits, ';' not required).
@@ -44,12 +46,18 @@ func shellWriteTTY(w io.Writer, s string) {
 	_, _ = io.WriteString(w, s)
 }
 
-// shellPrintErr writes a single-line AiT-prefixed error with CRLF line endings.
+// shellPrintErr writes user-facing errors with AiT: prefix and CRLF line endings.
+// Multi-line hint errors keep their layout; single-line messages are collapsed for TTY width.
 func shellPrintErr(w io.Writer, msg string) {
-	msg = formatShellMsg(msg)
+	msg = strings.TrimSpace(msg)
 	if msg == "" {
 		return
 	}
+	if strings.Contains(msg, "\n") {
+		errhint.Print(w, errhint.SurfaceTTY, errhint.NewSentinel(msg))
+		return
+	}
 
+	msg = formatShellMsg(msg)
 	shellWriteTTY(w, msgPrefixAiT+msg+"\r\n")
 }
