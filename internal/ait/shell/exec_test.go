@@ -84,7 +84,7 @@ func TestExecuteLineClear(t *testing.T) {
 	}
 	defer func() { cliExecutor = old }()
 
-	exit, err := ExecuteLine(context.Background(), nil, "clear")
+	exit, err := ExecuteLine(context.Background(), nil, "clear", nil)
 	if err != nil || exit {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
@@ -112,12 +112,40 @@ func TestExecuteLineList(t *testing.T) {
 	cfg.Session.AuthTTL = "168h"
 	mgr := &session.Manager{Store: st, Config: cfg}
 
-	exit, err := ExecuteLine(context.Background(), mgr, "list")
+	exit, err := ExecuteLine(context.Background(), mgr, "list", nil)
 	if err != nil || exit {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
 	if !strings.Contains(buf.String(), "No saved sessions.") {
 		t.Fatalf("out=%q", buf.String())
+	}
+}
+
+func TestExecuteLineHistory_Shell(t *testing.T) {
+	oldOut := shellCLIOut
+	var buf bytes.Buffer
+	shellCLIOut = &buf
+	defer func() { shellCLIOut = oldOut }()
+
+	hist := terminal.NewLineHistory()
+	hist.Add("list")
+	hist.Add("help")
+
+	exit, err := ExecuteLine(context.Background(), nil, "history", hist)
+	if err != nil || exit {
+		t.Fatalf("exit=%v err=%v", exit, err)
+	}
+	if !strings.Contains(buf.String(), "      1  list") || !strings.Contains(buf.String(), "      2  help") {
+		t.Fatalf("history output = %q", buf.String())
+	}
+
+	buf.Reset()
+	exit, err = ExecuteLine(context.Background(), nil, "history 1", hist)
+	if err != nil || exit {
+		t.Fatalf("exit=%v err=%v", exit, err)
+	}
+	if strings.Contains(buf.String(), "list") || !strings.Contains(buf.String(), "help") {
+		t.Fatalf("history 1 output = %q", buf.String())
 	}
 }
 

@@ -24,6 +24,7 @@ const (
 	replArgH        = "-h"
 	replArgHelp     = "--help"
 	replCmdClear    = "clear"
+	replCmdHistory  = "history"
 	replCmdPolicy   = "policy"
 	replCmdModel    = "model"
 	replCmdRun      = "run"

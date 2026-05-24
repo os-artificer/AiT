@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 type recordingRunner struct {
@@ -57,7 +58,7 @@ func TestExecuteLine_PerCmdSkipsWithoutYes(t *testing.T) {
 	}
 	st := &sessionState{policy: ExecPolicyPerCmd}
 
-	_, err := ExecuteLine(context.Background(), opt, st, "run echo hi")
+	_, err := ExecuteLine(context.Background(), opt, st, "run echo hi", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +83,7 @@ func TestExecuteLine_SessionOnceTrustsAfterYes(t *testing.T) {
 	st := &sessionState{policy: ExecPolicySessionOnce}
 
 	for i := 0; i < 2; i++ {
-		if _, err := ExecuteLine(context.Background(), opt, st, "run uptime"); err != nil {
+		if _, err := ExecuteLine(context.Background(), opt, st, "run uptime", nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -96,7 +97,7 @@ func TestExecuteLine_SessionOnceTrustsAfterYes(t *testing.T) {
 
 func TestExecuteLine_ExitClearsSessionTrust(t *testing.T) {
 	st := &sessionState{policy: ExecPolicySessionOnce, sessionTrusted: true}
-	exit, err := ExecuteLine(context.Background(), Options{}, st, "exit")
+	exit, err := ExecuteLine(context.Background(), Options{}, st, "exit", nil)
 	if err != nil || !exit {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
@@ -106,7 +107,7 @@ func TestExecuteLine_ExitClearsSessionTrust(t *testing.T) {
 }
 
 func TestExecuteLine_AitBlockedOnRemote(t *testing.T) {
-	_, err := ExecuteLine(context.Background(), Options{Scope: ai.ScopeRemote, Out: io.Discard, ErrOut: io.Discard}, &sessionState{}, "ait list")
+	_, err := ExecuteLine(context.Background(), Options{Scope: ai.ScopeRemote, Out: io.Discard, ErrOut: io.Discard}, &sessionState{}, "ait list", nil)
 	if err == nil || !strings.Contains(err.Error(), "local-only") {
 		t.Fatalf("err=%v", err)
 	}
@@ -124,5 +125,29 @@ func TestExecuteLine_PolicyOnce(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "session_once") {
 		t.Fatalf("output=%q", buf.String())
+	}
+}
+
+func TestExecuteLineHistory_AIMode(t *testing.T) {
+	var out bytes.Buffer
+	st := &sessionState{history: []ai.ChatMessage{{Role: "user", Content: "hi"}}}
+	hist := terminal.NewLineHistory()
+	hist.Add("run ls")
+
+	exit, err := ExecuteLine(context.Background(), Options{Out: &out, ErrOut: io.Discard}, st, "clear", hist)
+	if err != nil || exit {
+		t.Fatalf("clear: exit=%v err=%v", exit, err)
+	}
+	if len(st.history) != 0 {
+		t.Fatal("clear should wipe chat history")
+	}
+
+	out.Reset()
+	exit, err = ExecuteLine(context.Background(), Options{Out: &out, ErrOut: io.Discard}, st, "history", hist)
+	if err != nil || exit {
+		t.Fatalf("history: exit=%v err=%v", exit, err)
+	}
+	if !strings.Contains(out.String(), "run ls") {
+		t.Fatalf("input history missing after clear: %q", out.String())
 	}
 }

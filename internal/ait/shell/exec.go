@@ -43,8 +43,8 @@ func PrintHelp(w io.Writer) {
 }
 
 // ExecuteLine runs one REPL line. Returns exitREPL true when the user typed exit/quit.
-// mgr must be non-nil. Returns parse errors, or errors from login/load/list/session subcommands.
-func ExecuteLine(ctx context.Context, mgr *session.Manager, line string) (exitREPL bool, err error) {
+// hist holds session input history for the history builtin; may be nil in tests.
+func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *terminal.LineHistory) (exitREPL bool, err error) {
 	line = normalizeShellLine(line)
 	words, err := parseShellLine(line)
 	if err != nil {
@@ -64,6 +64,12 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string) (exitRE
 	case replCmdClear:
 		terminal.ClearScreen(shellCLIOut)
 		return false, nil
+	case replCmdHistory:
+		words, perr := parseShellLine(line)
+		if perr != nil {
+			return false, perr
+		}
+		return false, terminal.RunHistoryCommand(shellCLIOut, hist, words[1:])
 	case replCmdAI:
 		if aiModeRunner == nil {
 			return false, fmt.Errorf("%s", errAIModeRunnerNotConfig)
