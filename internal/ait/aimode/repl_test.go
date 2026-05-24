@@ -41,10 +41,13 @@ func TestRunREPL_NoAI(t *testing.T) {
 }
 
 func TestPrompt_LocalAndRemote(t *testing.T) {
-	if Prompt(ai.ScopeLocal, "") != promptLocal {
-		t.Fatal("local prompt")
+	if got := Prompt(ai.ScopeLocal, "", ModeAsk); got != "AiT AI(Ask)> " {
+		t.Fatalf("local ask prompt %q", got)
 	}
-	if got := Prompt(ai.ScopeRemote, "u@h"); got != "AiT AI u@h> " {
+	if got := Prompt(ai.ScopeLocal, "", ModeAgent); got != "AiT AI(Agent)> " {
+		t.Fatalf("local agent prompt %q", got)
+	}
+	if got := Prompt(ai.ScopeRemote, "u@h", ModeAgent); got != "AiT AI(Agent) u@h> " {
 		t.Fatalf("remote prompt %q", got)
 	}
 }
@@ -283,7 +286,7 @@ func TestRunREPL_InitialNonChatShowsPrompt(t *testing.T) {
 	if !strings.Contains(out.String(), "repl-ok") {
 		t.Fatalf("expected first-turn reply, got %q", out.String())
 	}
-	if !strings.Contains(out.String(), promptLocal) {
+	if !strings.Contains(out.String(), "AiT AI(Ask)>") {
 		t.Fatalf("expected REPL prompt after non-chat initial, got %q", out.String())
 	}
 }
@@ -348,7 +351,7 @@ func TestRunREPL_InitialChatOnceRemoteCRLF(t *testing.T) {
 	if !strings.Contains(got, "\r\n") {
 		t.Fatalf("expected CRLF remote output, got %q", got)
 	}
-	if strings.Contains(got, promptLocal) {
+	if strings.Contains(got, "AiT AI(Ask)>") {
 		t.Fatalf("chat-once should not print local REPL prompt, got %q", got)
 	}
 }

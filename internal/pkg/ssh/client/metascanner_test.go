@@ -95,6 +95,22 @@ func TestMetaScanner_BangBangSpaceQuery(t *testing.T) {
 	}
 }
 
+func TestMetaScanner_BangBangUTF8Query(t *testing.T) {
+	line := "!! 当前系统是什么名字?\n"
+	fwd, _, meta := drive(line, true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty (meta capture)", fwd)
+	}
+	want := "!! 当前系统是什么名字?"
+	if len(meta) != 1 || meta[0] != want {
+		t.Errorf("meta=%v want [%q]", meta, want)
+	}
+	prompt, ok := aiPromptFromMetaLine(meta[0])
+	if !ok || prompt != "当前系统是什么名字?" {
+		t.Errorf("prompt=%q ok=%v", prompt, ok)
+	}
+}
+
 func TestMetaScanner_AitAIQuery(t *testing.T) {
 	fwd, _, meta := drive("!ait ai how to grep\n", true)
 	if fwd != "" {

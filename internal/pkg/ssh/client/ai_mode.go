@@ -32,6 +32,10 @@ type RemoteAIParams struct {
 	HostLabel       string
 	RemoteCwd       string
 	Scrollback      func() string
+	// ReplIn receives stdin bytes while remote AI REPL runs (exclusive with SSH forward).
+	ReplIn io.Reader
+	// RunCapture runs a command on the remote PTY and returns new scrollback output.
+	RunCapture func(cmd string) (string, error)
 }
 
 // RemoteAIRunner runs remote-scoped AI mode without client importing aimode.

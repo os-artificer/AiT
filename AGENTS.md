@@ -124,7 +124,7 @@ ait put [ssh-flags] <paths...>
 ait config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-Prompts: `AiT>` (`ait shell`), `AiT AI>` (`ait ai`), `AiT AI user@host>` (SSH AI mode), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
+Prompts: `AiT>` (`ait shell`), `AiT AI(Ask)>` / `AiT AI(Agent)>` (`ait ai`; `mode agent` switches), `AiT AI(Ask) user@host>` (SSH AI), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
 
 ## Pitfalls
 

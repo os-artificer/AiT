@@ -211,6 +211,50 @@ func (c *Client) completion(ctx context.Context, user string, historyLen int, bu
 	return c.chatWithFailover(ctx, build)
 }
 
+func (c *Client) completionAgent(ctx context.Context, user string, historyLen int, build func(PromptMeta) []openai.ChatCompletionMessage) (string, error) {
+	useLocal := ClassifyPrompt(c.cfg, user, historyLen, c.sessionProvider, c.skipTiered)
+	localID := c.cfg.LocalProviderID()
+
+	if useLocal {
+		if ep, ok := c.endpoints[localID]; ok {
+			meta := PromptMeta{Provider: localID, Model: ep.model, Mode: aiModeLocalFirst}
+			reply, err := c.completeAgent(ctx, ep, build(meta))
+			if err == nil {
+				return reply, nil
+			}
+			if order := resolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints)); len(order) > 0 {
+				logFailover(nil, localID, order[0], err)
+			}
+		}
+	}
+
+	return c.chatWithFailoverAgent(ctx, build)
+}
+
+func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, error) {
+	order := resolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
+	if len(order) == 0 {
+		return "", fmt.Errorf("no enabled cloud AI providers with API keys configured")
+	}
+
+	var errs []error
+	var lastID ProviderID
+	for i, id := range order {
+		lastID = id
+		ep := c.endpoints[id]
+		meta := PromptMeta{Provider: id, Model: ep.model, Mode: aiModeCloudOnly}
+		reply, err := c.completeAgent(ctx, ep, build(meta))
+		if err == nil {
+			return reply, nil
+		}
+		errs = append(errs, fmt.Errorf("%s: %w", id, err))
+		if i+1 < len(order) {
+			logFailover(nil, id, order[i+1], err)
+		}
+	}
+	return "", aggregateErrors(lastID, errs)
+}
+
 func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, error) {
 	order := resolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
 	if len(order) == 0 {
@@ -240,6 +284,13 @@ func (c *Client) complete(ctx context.Context, ep *endpoint, messages []openai.C
 		return ep.chatAnthropic(ctx, messages)
 	}
 	return ep.chatOpenAI(ctx, messages)
+}
+
+func (c *Client) completeAgent(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, error) {
+	if ep.apiStyle == config.APIStyleAnthropic {
+		return ep.chatAnthropic(ctx, messages)
+	}
+	return ep.chatOpenAIAgent(ctx, messages)
 }
 
 // StatusLine returns a one-line summary of the active AI routing for REPL model command.

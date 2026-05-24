@@ -73,6 +73,7 @@ type Client struct {
 	remoteSetupSuppress atomic.Bool
 	remotePromptShown   atomic.Bool
 	setupFilter         setupOutputFilter
+	stdinReader         *stdinReader // set for RunInteractive; used during remote AI REPL
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.
@@ -230,10 +231,11 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		}
 	}
 
-	stdinCh, stopStdin := startStdinReader()
+	c.stdinReader = startStdinReader()
+	stdinCh := c.stdinReader.ch
 
 	shutdown := func() {
-		stopStdin()
+		c.stdinReader.stop()
 		_ = sess.Close()
 		wg.Wait()
 	}

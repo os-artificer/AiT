@@ -433,10 +433,12 @@ sequenceDiagram
 
 | 入口 | 作用域 | 提示符 | 命令执行 |
 |------|--------|--------|----------|
-| `ait ai`、`ait shell` 内 `ai` | 本机 | `AiT AI>` | `run` → 本机 shell；`ait` → 确认后跑 Cobra |
-| SSH 内 `!ait ai`、`!!` | 远程 | `AiT AI user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
+| `ait ai`、`ait shell` 内 `ai` | 本机 | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run` → 本机 shell；`ait` → 确认后跑 Cobra |
+| SSH 内 `!ait ai`、`!!` | 远程 | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
 
-**REPL：** `help`、`exit`/`quit`、`clear`、`model`（无参：路由状态含 tiered）、`model list`（同 `ait ai model list`）、`model <云端-provider>`（本会话覆盖；`model ollama` 拒绝）、`policy per-cmd`（默认）、`policy once`/`trust`、自然语言多轮 `Chat`、`run` / 本机 `ait`。
+**REPL：** `help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **ask** 仅问答；**agent** 规划并执行）、`approve each|session`（默认 **each**；**session** 低危首次同意后免问；`trust` 同 session）、`model`（路由状态）、`model list`、`model <云端-provider>`（`model ollama` 拒绝）、自然语言（Ask→`Chat`；Agent→工具循环）、`run` / 本机 `ait`。已弃用：`policy per-cmd|once` → `approve`（stderr 提示）。
+
+**Agent 执行：** 支持 OpenAI tools 的走 function calling，否则 JSON。远程 `run_shell` 用 PTY+scrollback 截取；本机 `CombinedOutput`。交互式 TUI（`vim`/`less`/`top` 等）不自动执行。高危命令在 `approve session` 下仍逐条确认。
 
 **多 provider 配置：** YAML `ai` 含 `default`（仅云端：`deepseek` 或 `minimax`）、可选 `fallback`、可选 `tiered`（`enabled`、`local_provider`、`max_prompt_chars`、`max_history_turns`、`complex_keywords`）、各 `providers.<id>`。旧版顶层 `deepseek:` 并入 `ai.providers.deepseek`。MiniMax 支持 `openai` / `anthropic`。Ollama 为 OpenAI 兼容 `http://127.0.0.1:11434/v1`（允许 localhost HTTP，无需 API key）。tiered 开启时 `ClassifyPrompt` 将简单首轮发往 Ollama；否则 Chat/Assist 按云端顺序（`--model` / REPL `model`，否则 `ai.default`，再 fallback）。Ollama 失败升到云端。`SuggestInstall` 始终走云端。系统提示注入事实字段 `ai_provider`、`ai_model`、`ai_mode`（`local_first` | `cloud_only`），避免模型编造后端。`AIT_AI_FAILOVER_LOG=1` 可在 stderr 打印切换。
 
@@ -446,7 +448,7 @@ sequenceDiagram
 
 **Ollama CLI（`ait ai ollama`）：** `setup` 交互选择 `models_dir`（`OLLAMA_MODELS`；备选 AiT 数据目录、`~/.ollama/models`、自定义；`--models-dir`）；写入 tiered 与 ollama 并探测/安装/拉模型；`status` 查配置与服务；`start`/`stop` 控制 `ollama serve`；`disable` 禁用 provider（可选 `--stop`）。见 [`internal/pkg/ollama/`](../internal/pkg/ollama/)。
 
-**授权：** 默认每条 `run`/`ait` 前 `[y/N]`；`session_once` 本会话首次同意后直至退出 AI 模式。
+**授权：** 每次执行前多行确认：`y` 仅本次，`c` 信任首词模式，`s` 信任本会话低危，`n` 跳过（高危仅 y/n）。`approve each`/`approve session` 命令不变；`exit`/`quit` 清除信任。
 
 **单轮 chat：** `ait ai chat` 与 `!ait ai chat <msg>` / `!! chat <msg>` 走 `RunChatOnce`（单次 `Chat`，不进 REPL）；空 `chat` 返回用法错误。
 

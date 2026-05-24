@@ -30,12 +30,14 @@ const aiREPLCommands = `  help              show AI mode help
   exit, quit        leave AI mode
   clear             clear chat history (not input history; see history)
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
+  mode ask|agent    Ask = Q&A only; Agent = plan and run commands (default: ask)
+  approve each|session   how often to confirm runs (default: each)
+  trust             same as approve session
   model             show current AI routing (provider, tiered)
   model list        list configured providers (same as ait ai model list)
   model <provider>  set cloud provider for this session (deepseek|minimax)
-  policy per-cmd    confirm each run (default)
-  policy once       confirm once per AI session (alias: trust)
   run <command>     run a shell command after confirmation
+  (deprecated: policy per-cmd|once — use approve each|session)
 `
 
 const aiREPLCommandsLocalExtra = `  ait <subcmd>      run an ait CLI subcommand after confirmation (local only)
@@ -77,7 +79,8 @@ func WriteAIHelp(w io.Writer) error {
 		exampleAIOllamaSetupYes,
 		"ait ai --model minimax",
 		"run echo hello",
-		"policy once",
+		"mode agent",
+		"approve session",
 	); err != nil {
 		return err
 	}
@@ -89,16 +92,16 @@ func WriteAIREPLHelp(w io.Writer, scope ai.Scope) error {
 	b := newHelpBody(w)
 	intro := aiIntroLocal
 	cmds := aiREPLCommands + aiREPLCommandsLocalExtra
-	examples := "run ls\nait list\npolicy per-cmd\n"
+	examples := "mode\nrun ls\nait list\napprove each\n"
 	if scope == ai.ScopeRemote {
 		intro = aiIntroRemote
 		cmds = aiREPLCommands
-		examples = "run uptime\npolicy once\n"
+		examples = "mode agent\nrun uptime\napprove session\n"
 	}
 	if err := b.WriteIntro(intro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("help | model [provider] | run <cmd> | policy per-cmd|once | history | clear | exit"); err != nil {
+	if err := b.WriteUsage("help | mode [ask|agent] | approve [each|session] | model [provider] | run <cmd> | history | clear | exit"); err != nil {
 		return err
 	}
 	if err := b.WriteSection(helpSectionCommands, cmds); err != nil {
