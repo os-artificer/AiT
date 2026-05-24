@@ -30,7 +30,7 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 
 | Capability | AiT | Typical SSH client |
 |------------|-----|-------------------|
-| AI mode | Local `ait ai` (`AiT AI>`) and in-SSH `!ait ai` / `!!` (remote `run` after confirm); Deepseek | No built-in assistant; separate tools required |
+| AI mode | Local `ait ai` (`AiT AI>`) and in-SSH `!ait ai` / `!!` (remote `run` after confirm); Deepseek + MiniMax + optional tiered Ollama | No built-in assistant; separate tools required |
 | Local mode | `!ait local` / `!ait remote` switch input target while SSH stays connected | Local and remote work in separate terminals |
 | File transfer | `ait get` / `ait put` (SFTP, single file); `!ait get` / `!ait put` reuse the live SSH session | Must assemble scp/rsync SSH options manually |
 
@@ -38,7 +38,7 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 
 | Capability | AiT | Typical SSH client |
 |------------|-----|-------------------|
-| Unified CLI | `ait shell` REPL for `login` / `list` / `load` | No equivalent integrated REPL |
+| Unified CLI | `ait shell` REPL for `login` / `session --list` / `session --load`; input `history` and Ctrl+R (see user manual) | No equivalent integrated REPL |
 
 ## Installation
 

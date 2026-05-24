@@ -39,4 +39,4 @@ ai:
 # Quick setup: ait ai ollama setup   (choose models_dir; or --models-dir)
 # Providers: ait ai provider enable|disable <deepseek|minimax|ollama>
 # Status/service: ait ai ollama status | start --wait | stop | disable
-# List providers: ait ai model list
+# List providers: positional meta on `ait ai` (e.g. `ait ai model list`), not a top-level `ait models`
