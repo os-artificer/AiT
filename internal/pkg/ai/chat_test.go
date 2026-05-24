@@ -23,13 +23,17 @@ import (
 
 func TestSystemPrompt_Scopes(t *testing.T) {
 	meta := PromptMeta{Provider: ProviderMinimax, Model: "MiniMax-M2.5", Mode: aiModeCloudOnly}
-	local := systemPrompt(ScopeLocal, meta)
+	local := systemPrompt(ScopeLocal, AssistEnv{}, meta)
 	if !strings.Contains(local, "local AI mode") || !strings.Contains(local, "ai_provider: minimax") {
 		t.Fatalf("local: %q", local)
 	}
-	remote := systemPrompt(ScopeRemote, meta)
+	remote := systemPrompt(ScopeRemote, AssistEnv{}, meta)
 	if !strings.Contains(remote, "remote AI mode") {
 		t.Fatalf("remote: %q", remote)
+	}
+	agent := systemPrompt(ScopeLocal, AssistEnv{AgentMode: true}, meta)
+	if !strings.Contains(agent, "run_shell") {
+		t.Fatalf("agent prompt: %q", agent)
 	}
 }
 

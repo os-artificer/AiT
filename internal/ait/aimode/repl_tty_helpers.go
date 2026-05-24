@@ -18,7 +18,6 @@ package aimode
 
 import (
 	"bufio"
-	"io"
 	"os"
 	"strings"
 
@@ -35,13 +34,19 @@ func (o Options) withTTYConfirm(br *bufio.Reader) Options {
 		out = os.Stdout
 	}
 
-	o.ConfirmRead = func(prompt string) (bool, error) {
-		_, _ = io.WriteString(out, prompt)
+	o.ConfirmRead = func(prompt string) (ConfirmResult, error) {
+		aimWrite(out, prompt)
 		line, err := shell.ReadTTYLineNoHistory(br, out, "")
 		if err != nil {
-			return false, err
+			return ConfirmResult{}, err
 		}
-		return strings.EqualFold(strings.TrimSpace(line), confirmYes), nil
+		allowPattern := true
+		allowSession := true
+		if strings.Contains(prompt, "HIGH-RISK") {
+			allowPattern = false
+			allowSession = false
+		}
+		return parseConfirmChoice(line, allowPattern, allowSession), nil
 	}
 	return o
 }

@@ -20,6 +20,9 @@ import "io"
 
 const configIntro = "Read and write AiT YAML configuration (session TTL, AI providers, API keys)."
 const configSubcommands = `  init                create or update config.yaml (defaults for missing keys only)
+  view                print config.yaml (creates file if missing)
+  edit                edit config.yaml in $VISUAL or $EDITOR (creates if missing)
+  validate            validate config.yaml syntax and values
   set <key> <value>   set a configuration key
   get <key>           print a configuration value
 `
@@ -34,6 +37,20 @@ const (
 
 	configInitIntro = "Create config.yaml or merge missing keys with built-in defaults. Existing values are not overwritten."
 	configInitUsage = "ait config init [--dry-run]"
+
+	configViewIntro      = "Print the raw config.yaml from AppRoot. Creates the file with defaults when missing."
+	configViewUsage      = "ait config view"
+	configEditIntro      = "Open config.yaml in $VISUAL or $EDITOR (default: vi on Unix, Notepad on Windows). Validates YAML after the editor exits."
+	configEditUsage      = "ait config edit"
+	configEditNotes      = "  Editor order: $VISUAL, then $EDITOR, then the OS default.\n"
+	configValidateIntro  = "Check config.yaml for YAML syntax and configuration value errors. Does not create a missing file."
+	configValidateUsage  = "ait config validate"
+	configValidateChecks = `  YAML syntax (line hints from the parser)
+  session.auth_ttl          valid duration
+  ai.default / ai.fallback  known cloud providers
+  ai.providers.*            base_url, api_style, model, models_dir
+  ai.tiered.*               tiered routing fields
+`
 )
 
 const configKeys = `  session.auth_ttl              duration for session unlock (e.g. 168h, 7d)
@@ -65,6 +82,8 @@ func WriteConfigHelp(w io.Writer) error {
 	}
 	if err := b.WriteExamples(
 		"ait config init",
+		"ait config view",
+		"ait config validate",
 		"ait config get session.auth_ttl",
 		"ait config set deepseek.model deepseek-chat",
 	); err != nil {
@@ -131,4 +150,55 @@ func WriteConfigInitHelp(w io.Writer) error {
 		return err
 	}
 	return b.Finish("init")
+}
+
+// WriteConfigViewHelp prints ait config view --help to w.
+func WriteConfigViewHelp(w io.Writer) error {
+	b := newHelpBody(w)
+	if err := b.WriteIntro(configViewIntro); err != nil {
+		return err
+	}
+	if err := b.WriteUsage(configViewUsage); err != nil {
+		return err
+	}
+	if err := b.WriteExamples("ait config view"); err != nil {
+		return err
+	}
+	return b.Finish("view")
+}
+
+// WriteConfigEditHelp prints ait config edit --help to w.
+func WriteConfigEditHelp(w io.Writer) error {
+	b := newHelpBody(w)
+	if err := b.WriteIntro(configEditIntro); err != nil {
+		return err
+	}
+	if err := b.WriteUsage(configEditUsage); err != nil {
+		return err
+	}
+	if err := b.WriteSection("Notes:", configEditNotes); err != nil {
+		return err
+	}
+	if err := b.WriteExamples("ait config edit"); err != nil {
+		return err
+	}
+	return b.Finish("edit")
+}
+
+// WriteConfigValidateHelp prints ait config validate --help to w.
+func WriteConfigValidateHelp(w io.Writer) error {
+	b := newHelpBody(w)
+	if err := b.WriteIntro(configValidateIntro); err != nil {
+		return err
+	}
+	if err := b.WriteUsage(configValidateUsage); err != nil {
+		return err
+	}
+	if err := b.WriteSection("Checks:", configValidateChecks); err != nil {
+		return err
+	}
+	if err := b.WriteExamples("ait config validate"); err != nil {
+		return err
+	}
+	return b.Finish("validate")
 }

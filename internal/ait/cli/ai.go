@@ -50,17 +50,33 @@ func runRemoteAIMode(p sshclient.RemoteAIParams) error {
 		return ai.NotConfiguredErr()
 	}
 
-	return aimode.RunREPL(p.Ctx, aimode.Options{
-		Scope:      ai.ScopeRemote,
-		AI:         p.AI,
-		HostLabel:  p.HostLabel,
-		RemoteCwd:  p.RemoteCwd,
-		Scrollback: p.Scrollback,
-		Remote:     &ptyRemoteRunner{stdin: p.Stdin},
-		In:         os.Stdin,
-		Out:        os.Stdout,
-		ErrOut:     os.Stderr,
-	}, p.InitialQuestion)
+	var in io.Reader = os.Stdin
+	useTTY := false
+	if p.ReplIn != nil {
+		in = p.ReplIn
+		useTTY = true
+	}
+
+	opts := aimode.Options{
+		Scope:          ai.ScopeRemote,
+		AI:             p.AI,
+		HostLabel:      p.HostLabel,
+		RemoteCwd:      p.RemoteCwd,
+		Scrollback:     p.Scrollback,
+		Remote:         &ptyRemoteRunner{stdin: p.Stdin},
+		CLI:            func(argv []string, out, errOut io.Writer) error { return ExecuteWriters(argv, out, errOut) },
+		In:             in,
+		Out:            os.Stdout,
+		ErrOut:         os.Stderr,
+		UseTTYLineEdit: useTTY,
+	}
+	if p.RunCapture != nil {
+		opts.Capture = aimode.NewCaptureRunner(func(ctx context.Context, cmd string) (string, error) {
+			_ = ctx
+			return p.RunCapture(cmd)
+		})
+	}
+	return aimode.RunREPL(p.Ctx, opts, p.InitialQuestion)
 }
 
 func runLocalAIModeFromShell(ctx context.Context, mgr *session.Manager) error {
@@ -107,12 +123,13 @@ func localAIClient(mgr *session.Manager, modelOverride string) (*ai.Client, erro
 
 func localAIModeOptions(aiClient *ai.Client) aimode.Options {
 	return aimode.Options{
-		Scope:  ai.ScopeLocal,
-		AI:     aiClient,
-		Local:  aimode.DefaultLocalRunner(),
-		CLI:    func(argv []string, out, errOut io.Writer) error { return ExecuteWriters(argv, out, errOut) },
-		In:     os.Stdin,
-		Out:    os.Stdout,
-		ErrOut: os.Stderr,
+		Scope:   ai.ScopeLocal,
+		AI:      aiClient,
+		Local:   aimode.DefaultLocalRunner(),
+		Capture: aimode.DefaultLocalCaptureRunner(),
+		CLI:     func(argv []string, out, errOut io.Writer) error { return ExecuteWriters(argv, out, errOut) },
+		In:      os.Stdin,
+		Out:     os.Stdout,
+		ErrOut:  os.Stderr,
 	}
 }
