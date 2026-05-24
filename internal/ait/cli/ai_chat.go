@@ -24,6 +24,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/aimode"
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
 	"github.com/spf13/cobra"
@@ -57,7 +58,7 @@ func resolveChatMessage(cmd *cobra.Command, args []string) (string, error) {
 	if len(args) > 0 {
 		msg := strings.TrimSpace(strings.Join(args, " "))
 		if msg == "" {
-			return "", aimode.ErrChatMessageRequired
+			return "", ai.ChatMessageRequiredErr()
 		}
 		return msg, nil
 	}
@@ -68,7 +69,7 @@ func resolveChatMessage(cmd *cobra.Command, args []string) (string, error) {
 	}
 	msg := strings.TrimSpace(string(data))
 	if msg == "" {
-		return "", aimode.ErrChatMessageRequired
+		return "", ai.ChatMessageRequiredErr()
 	}
 	return msg, nil
 }

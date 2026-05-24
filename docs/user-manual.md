@@ -28,6 +28,8 @@ This document describes post-install configuration, commands, prompts, data loca
 
 # List, restore, switch sessions
 ./bin/ait session --list
+./bin/ait session --list -v    # include FULL_ID for scripts
+./bin/ait session --load       # interactive pick by # from list
 ./bin/ait session --load prod
 ./bin/ait session --switch staging
 
@@ -52,9 +54,9 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | Command | Description |
 |---------|-------------|
 | `ait shell` | Interactive mode (`AiT> `): `login`, `list`, `help`, `clear`, etc.; `exit` to quit; TTY: UTF-8 input, **Ctrl+L** clear screen |
-| `ait login` | Connect to host; `--save` or `--alias` to persist session; `host cmd` for one-shot |
-| `ait session --list` | List saved sessions |
-| `ait session --load <id\|alias>` | Restore session; use `--password` when auth expired |
+| `ait login` | Connect to host; `--save` or `--alias` to bookmark new hosts; re-login to a listed user@host:port updates that row; `host cmd` for one-shot |
+| `ait session --list` | List saved sessions (`#` column; use `-v` for full UUID) |
+| `ait session --load [<id\|alias>]` | Restore session (omit id to pick); use alias or `FULL_ID` from `-v`, not the short ID column |
 | `ait session --suspend` | Use `!ait suspend` inside SSH session |
 | `ait session --switch [id\|alias]` | Switch session (suspend current, then load target) |
 | `ait session --delete <id\|alias>` | Delete one session |

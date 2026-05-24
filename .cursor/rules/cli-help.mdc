@@ -23,6 +23,12 @@ alwaysApply: false
 - `Long`: `Run 'ait <cmd> --help' for usage and examples.`
 - `SilenceUsage: true`
 
+## 用户可见报错（Hint 模板）
+
+- 参数/校验/可恢复操作类错误使用 [`internal/pkg/errhint`](internal/pkg/errhint)：`errhint.WithTry(cause, explanation, tries...)`。
+- 首行保留 sentinel（供 `errors.Is`）；空行 + 一句说明 + `Try:` + 每行 2 空格缩进的命令；**错误字符串不含 `AiT:`**（由 `errhint.Print` 按 CLI/REPL/SSH 加前缀）。
+- 禁止 `; use ...` 单行堆叠长 hint；不把 hint 正文写进 `--help`（仍用 helpdoc）。
+
 ## 章节顺序
 
 首行说明 →（可选）说明段 → `Usage:` → `Arguments:` →（可选）`Flag order:` → 标志段 →（SSH 类）`Not supported:` → `Examples:` → 尾注 `  -h, --help      help for <cmd>`

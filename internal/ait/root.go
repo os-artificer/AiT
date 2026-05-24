@@ -18,11 +18,11 @@
 package ait
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/os-artificer/AiT/internal/ait/cli"
 	"github.com/os-artificer/AiT/internal/ait/login"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
 // Run is the application entry invoked from cmd/ait.
@@ -30,7 +30,7 @@ import (
 // Returns Cobra RunE errors (login, session, get, put, etc.) printed to stderr before return.
 func Run(args []string) error {
 	if err := cli.Execute(args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		errhint.Print(os.Stderr, errhint.SurfaceCLI, err)
 		return err
 	}
 	return nil

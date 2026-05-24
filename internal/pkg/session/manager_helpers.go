@@ -24,6 +24,7 @@ import (
 	"syscall"
 
 	"github.com/os-artificer/AiT/internal/pkg/creds"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
@@ -161,9 +162,10 @@ func (m *Manager) reconcileCurrentOnSwitch(current string, force bool) error {
 
 func (m *Manager) warnOrBlockActiveSwitch(cur *store.Session, force bool) error {
 	if !force {
-		return fmt.Errorf(
-			"current session %s is still active; suspend it first inside SSH with !ait suspend, or use --force",
-			cur.AliasOrID(),
+		return errhint.WithTryMsg(
+			fmt.Sprintf("current session %s is still active", cur.AliasOrID()),
+			"Suspend the current session inside SSH before switching.",
+			trySuspendInSSH, trySwitchForce, trySessionHelp,
 		)
 	}
 

@@ -30,14 +30,14 @@ import (
 )
 
 // ErrAINotConfigured is returned when RunREPL is called without a configured AI client.
-var ErrAINotConfigured = fmt.Errorf("AiT: AI not configured — run: ait config set ai.deepseek.api_key <key> (or ai.minimax.api_key)")
+var ErrAINotConfigured = ai.ErrNotConfigured
 
 // RunREPL runs the AI mode loop until exit/quit or ctx cancel.
 // initialQuestion, if non-empty, is processed as the first user turn (!ait ai <q> / !! <q>).
 // opt.AI must be non-nil. Returns ErrAINotConfigured when opt.AI is nil.
 func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 	if opt.AI == nil {
-		return ErrAINotConfigured
+		return ai.NotConfiguredErr()
 	}
 
 	opt = fillOptionDefaults(opt)
@@ -48,7 +48,7 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 
 	if q := stringsTrim(initialQuestion); q != "" {
 		if isChatCommandWithoutMessage(q) {
-			return ErrChatMessageRequired
+			return ai.ChatMessageRequiredErr()
 		}
 		if msg, ok := parseChatCommand(q); ok {
 			return RunChatOnce(ctx, opt, msg)

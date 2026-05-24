@@ -57,7 +57,7 @@ func (c *Config) SetKey(key, value string) error {
 		return c.setProviderField(id, field, value)
 	}
 
-	return errors.New("unknown config key: " + key)
+	return unknownConfigKeyErr(key)
 }
 
 // GetKey returns the string value for a dotted key.
@@ -79,7 +79,7 @@ func (c *Config) GetKey(key string) (string, error) {
 		return c.getProviderField(id, field)
 	}
 
-	return "", errors.New("unknown config key: " + key)
+	return "", unknownConfigKeyErr(key)
 }
 
 func parseTieredKey(key string) (field string, ok bool) {

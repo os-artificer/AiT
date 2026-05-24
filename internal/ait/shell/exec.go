@@ -74,7 +74,7 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string) (exitRE
 	case replCmdLoad:
 		return false, shellLoad(ctx, mgr, words[1:])
 	case replCmdList:
-		return false, mgr.List(shellCLIOut)
+		return false, mgr.List(shellCLIOut, false)
 	case replCmdSuspend:
 		return false, mgr.SuspendCurrent()
 	default:
@@ -97,9 +97,20 @@ func shellLogin(ctx context.Context, mgr *session.Manager, argv []string) error 
 }
 
 func shellLoad(ctx context.Context, mgr *session.Manager, argv []string) error {
-	id, password, tmux, err := parseLoadArgs(argv)
-	if err != nil {
-		return err
+	var id, password string
+	var tmux bool
+	var err error
+
+	if len(argv) == 0 {
+		id, err = mgr.PickSession()
+		if err != nil {
+			return err
+		}
+	} else {
+		id, password, tmux, err = parseLoadArgs(argv)
+		if err != nil {
+			return err
+		}
 	}
 
 	return mgr.Load(ctx, id, tmux, password)

@@ -63,7 +63,7 @@ func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
 			if arg == "--session" {
 				i++
 				if i >= len(argv) {
-					return TransferSpec{}, fmt.Errorf("--session requires a value")
+					return TransferSpec{}, sessionFlagRequiresValueErr()
 				}
 				session = argv[i]
 				continue
@@ -82,7 +82,7 @@ func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
 		return TransferSpec{}, err
 	}
 
-	local, remote, dest, err := classifyTransferPaths(positionals, session)
+	local, remote, dest, err := classifyTransferPaths(positionals, session, cmdLabel)
 	if err != nil {
 		return TransferSpec{}, err
 	}
@@ -105,14 +105,14 @@ func transferCmdLabel(op TransferOp) string {
 	return "get"
 }
 
-func classifyTransferPaths(positionals []string, session string) (local, remote, dest string, err error) {
+func classifyTransferPaths(positionals []string, session, cmdLabel string) (local, remote, dest string, err error) {
 	switch len(positionals) {
 	case 2:
 		return classifyTwoPaths(positionals, session)
 	case 3:
 		return classifyThreePaths(positionals)
 	default:
-		return "", "", "", fmt.Errorf("need 2 or 3 path arguments (local and remote)")
+		return "", "", "", transferPathCountErr(cmdLabel)
 	}
 }
 

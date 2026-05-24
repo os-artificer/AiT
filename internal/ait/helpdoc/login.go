@@ -56,6 +56,10 @@ AiT flags:
   --port N        legacy: same as -p
   --identity P    legacy: same as -i
 
+Persistence:
+  If user@host:port is already in ait session --list, login updates that row and
+  refreshes auth TTL even without --save or --alias. Use --save or --alias for first-time bookmarks.
+
 Not supported by ait login (use the system ssh client instead):
   -L, -R, -D, -X, -Y, -f, -N, -M, -S, -O, -W, -w
 
@@ -65,9 +69,9 @@ Examples:
   ait login -p22 deploy@10.0.0.5 -i ~/.ssh/id_ed25519
   ait login -F ~/.ssh/config.d/work -J bastion app.internal
   ait login -o Port=22 -o User=root legacy-host
-  ait login user@host                             # interactive (not saved; use --save or --alias)
+  ait login user@host                             # interactive (new host: not saved unless --save/--alias)
   ait login --save user@host                      # save session (no alias)
-  ait login user@host uptime                      # one-shot (not saved unless --save or --alias)
+  ait login user@host uptime                      # one-shot (not saved unless --save/--alias or known connection)
   ait login --alias prod --tmux user@prod         # save as alias + tmux (no --save needed)
   ait login --host 192.168.1.1 --user root        # legacy flags
 
