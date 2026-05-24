@@ -42,9 +42,18 @@ func RunREPL(ctx context.Context, mgr *session.Manager, in io.Reader, out io.Wri
 
 // ReadTTYLine reads one line from br while stdin is in raw mode (Enter submits).
 // out receives echoed input and editing control output.
-// prompt is redrawn after Ctrl+L when non-empty.
-func ReadTTYLine(br *bufio.Reader, out io.Writer, prompt string) (string, error) {
-	return terminal.ReadLineRaw(br, out, prompt)
+// hist, when non-nil, enables Up/Down recall and records submitted lines.
+func ReadTTYLine(br *bufio.Reader, out io.Writer, prompt string, hist *terminal.LineHistory) (string, error) {
+	return terminal.ReadLine(br, out, terminal.LineEditOptions{
+		Prompt:        prompt,
+		History:       hist,
+		RecordHistory: hist != nil,
+	})
+}
+
+// ReadTTYLineNoHistory reads one line without history recall or recording (confirm prompts, pickers).
+func ReadTTYLineNoHistory(br *bufio.Reader, out io.Writer, prompt string) (string, error) {
+	return terminal.ReadLine(br, out, terminal.LineEditOptions{Prompt: prompt})
 }
 
 func reportShellError(err error) {
@@ -90,6 +99,7 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 	_, _ = io.WriteString(out, "Type help for commands. Use exit or quit to leave.\r\n")
 
 	br := bufio.NewReader(os.Stdin)
+	hist := terminal.NewLineHistory()
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -97,7 +107,7 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 
 		prompt := shellPrompt()
 		_, _ = io.WriteString(out, prompt)
-		line, err := ReadTTYLine(br, out, prompt)
+		line, err := ReadTTYLine(br, out, prompt, hist)
 		if err != nil {
 			if err == io.EOF {
 				return nil
