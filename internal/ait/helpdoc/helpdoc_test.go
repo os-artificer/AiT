@@ -125,7 +125,7 @@ func TestWriteConfigHelpSections(t *testing.T) {
 	if err := WriteConfigHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
-	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Subcommands:", "help for config")
+	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Subcommands:", "help for config", "view", "validate")
 }
 
 func TestWriteConfigSetGetHelpSections(t *testing.T) {

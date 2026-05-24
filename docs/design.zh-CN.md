@@ -30,7 +30,7 @@ ait session --switch [id|alias] [--tmux] [--password] [--force]  # 切换会话�
 ait session --delete <id|alias|all> [--force]         # 删除单个或全部会话
 ait get [ssh-flags] <paths...>   # OpenSSH 参数；路径/顺序见 get/put 小节
 ait put [ssh-flags] <paths...>
-ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
+ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUAL/$EDITOR（Unix vi / Windows Notepad）
 ```
 
 **AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ait ai [--model <云端-provider>]`** 或 **`ait shell` 内 `ai`** 进入本机 AI REPL（`AiT AI>`），`run` / `ait` 经确认后在本机执行。已连接 SSH 时用 **`!ait ai`** / **`!!`** 进入远程 AI（`AiT AI user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ait ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ait ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议](#会话内-meta-协议ait--)。
@@ -205,7 +205,7 @@ CREATE TABLE app_meta (
 
 ```text
 <AppRoot>/
-├── config.yaml       # 主配置（ait config init / set / get）
+├── config.yaml       # 主配置（ait config init / view / edit / validate / set / get）
 ├── ait.db            # SQLite 会话
 ├── repl_history      # REPL 输入历史
 ├── scrollback/       # suspend 侧车
@@ -213,7 +213,7 @@ CREATE TABLE app_meta (
 └── ollama/models/    # 推荐 Ollama models_dir 默认路径
 ```
 
-首次安装：执行 `ait config init` 创建或补全 `config.yaml`（仅缺失项；API key 仍走 keyring）。
+首次安装：执行 `ait config init` 创建或补全 `config.yaml`（仅缺失项；API key 仍走 keyring）。**`ait config view`** 打印文件（缺失时自动 init）。**`ait config edit`** 经 `$VISUAL`/`$EDITOR` 编辑（Unix 默认 `vi`，Windows 默认 Notepad），保存后自动校验。**`ait config validate`** 检查 YAML 语法与配置项（session TTL、provider URL、tiered 等）；逐条打印错误原因；失败 exit 1。
 
 ## 包布局（当前）
 
@@ -234,8 +234,8 @@ CREATE TABLE app_meta (
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
-| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、`LookPath` | `paths_appdir.go`, `paths.go`, `openssh.go`, `exec.go` |
-| [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置、init | `config.go`, `config_load.go`, `config_init.go` |
+| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、编辑器 | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
+| [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置、init、validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
 | [`internal/pkg/pathsafe/`](../internal/pkg/pathsafe/) | 会话/路径校验 | `path.go` |
 | [`configs/ait.example.yaml`](../configs/ait.example.yaml) | 配置模板（密钥走 keyring） | — |

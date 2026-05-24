@@ -65,6 +65,9 @@ Optional config template:
 | `ait get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ait get --help` |
 | `ait put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
 | `ait config init [--dry-run]` | Create or merge `config.yaml` (missing keys only); `--dry-run` prints planned changes |
+| `ait config view` | Print `config.yaml` to stdout (creates file if missing) |
+| `ait config edit` | Edit in `$VISUAL`/`$EDITOR` (default: vi on Unix, Notepad on Windows); validates after exit |
+| `ait config validate` | Validate YAML and values; prints each error with field path; exit 1 on failure |
 | `ait config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
 | `ait ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ait ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
@@ -171,6 +174,9 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 | `session --switch` while current session still **active** | Suspend inside SSH (`!ait suspend`) or `session --switch --force` |
 | Empty `ait ai chat` (no message / stdin) | `chat requires a message` → pass a message or pipe stdin |
 | Unknown config key | `ait config get <key>` or see example YAML |
+| `ait config validate` failure | Fix listed field paths or run `ait config edit` |
+| Missing config file for `validate` | Run `ait config init` first |
+| Editor not available (`edit`) | Set `EDITOR` (Windows: `set EDITOR=code --wait`) |
 
 ---
 

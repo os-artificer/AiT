@@ -65,6 +65,9 @@
 | `ait get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ait get --help` |
 | `ait put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
 | `ait config init [--dry-run]` | 创建或补全 `config.yaml`（仅缺失项）；`--dry-run` 仅打印计划变更 |
+| `ait config view` | 打印 `config.yaml` 到 stdout（缺失时自动 init） |
+| `ait config edit` | 用 `$VISUAL`/`$EDITOR` 编辑（Unix 默认 vi，Windows 默认 Notepad）；退出后自动校验 |
+| `ait config validate` | 校验 YAML 与配置项；逐条打印错误原因；失败 exit 1 |
 | `ait config set/get <key>` | 配置项；`ai.<provider>.api_key` 经密钥环存储 |
 | `ait ai [--model deepseek\|minimax]` | 本机 AI REPL（TTY 为 UTF-8 输入）；可选本会话云端 provider 覆盖 |
 | `ait ai model list` | 列出 AI provider（ENABLED、可达性、Ollama tags） |
@@ -171,6 +174,9 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 | 当前会话仍为 **active** 时 `session --switch` | 在 SSH 内 `!ait suspend` 或 `session --switch --force` |
 | 空 `ait ai chat`（无消息/stdin） | `chat requires a message` → 传入消息或管道 stdin |
 | 未知配置键 | `ait config get <key>` 或参考示例 YAML |
+| `ait config validate` 失败 | 按字段路径修正或 `ait config edit` |
+| `validate` 时无配置文件 | 先执行 `ait config init` |
+| `edit` 无可用编辑器 | 设置 `EDITOR`（Windows：`set EDITOR=code --wait`） |
 
 ---
 

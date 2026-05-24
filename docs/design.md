@@ -30,7 +30,7 @@ ait session --switch [id|alias] [--tmux] [--password] [--force]  # Switch sessio
 ait session --delete <id|alias|all> [--force]         # Delete one or all saved sessions
 ait get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like login (see get/put section)
 ait put [ssh-flags] <paths...>
-ait config set|get ...        # Includes session.auth_ttl (default 168h = 7 days)
+ait config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUAL/$EDITOR (vi / Notepad)
 ```
 
 **AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ait ai [--model <cloud-provider>]`** or **`ai` inside `ait shell`** runs a local AI REPL (`AiT AI>`); commands run on this machine only after you confirm (`run`, optional `ait` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait).
@@ -205,7 +205,7 @@ CREATE TABLE app_meta (
 
 ```text
 <AppRoot>/
-├── config.yaml       # main YAML (ait config init / set / get)
+├── config.yaml       # main YAML (ait config init / view / edit / validate / set / get)
 ├── ait.db            # SQLite sessions
 ├── repl_history      # REPL input history
 ├── scrollback/       # suspend sidecars
@@ -213,7 +213,7 @@ CREATE TABLE app_meta (
 └── ollama/models/    # recommended Ollama models_dir default
 ```
 
-First-time setup: `ait config init` creates or merges `config.yaml` (missing keys only; API keys still via keyring).
+First-time setup: `ait config init` creates or merges `config.yaml` (missing keys only; API keys still via keyring). **`ait config view`** prints the file (creates it when missing). **`ait config edit`** opens `$VISUAL`/`$EDITOR` (default: `vi` on Unix, Notepad on Windows) and validates after save. **`ait config validate`** checks YAML syntax and values (session TTL, provider URLs, tiered fields); prints each error with a field path; exit 1 on failure.
 
 ## Package layout (current)
 
@@ -234,8 +234,8 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file) | `transfer.go`, `parse.go` |
-| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, `LookPath` | `paths_appdir.go`, `paths.go`, `openssh.go`, `exec.go` |
-| [`internal/pkg/config/`](../internal/pkg/config/) | YAML config, init | `config.go`, `config_load.go`, `config_init.go` |
+| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, editor | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
+| [`internal/pkg/config/`](../internal/pkg/config/) | YAML config, init, validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
 | [`internal/pkg/pathsafe/`](../internal/pkg/pathsafe/) | Session/path validation | `path.go` |
 | [`configs/ait.example.yaml`](../configs/ait.example.yaml) | Config template (secrets via keyring) | — |
