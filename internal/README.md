@@ -36,7 +36,7 @@ Helpers live in `*_helpers.go` beside each package’s main files.
 | `ollama` | Ollama setup, `FetchTags`, `EnsureLocal` |
 | `transfer` | SFTP get/put (single file) |
 | `platform` | `AppRoot` / `AIT_HOME` / `AIT_DATA_DIR`, paths, OpenSSH path, `LookPath` |
-| `config` | YAML configuration (`Load`/`Save`/`EnsureFile`; `ait config init`) |
+| `config` | YAML configuration (`Load`/`Save`/`EnsureFile`/`Validate`; `ait config init/view/edit/validate`) |
 | `creds` | OS keyring for secrets |
 | `pathsafe` | Safe session IDs and scrollback paths |
 

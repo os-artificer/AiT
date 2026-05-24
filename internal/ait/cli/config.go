@@ -30,7 +30,7 @@ func newConfigCmd() *cobra.Command {
 		Use:   "config",
 		Short: "Manage AiT configuration",
 	}
-	cmd.AddCommand(newConfigSetCmd(), newConfigGetCmd(), newConfigInitCmd())
+	cmd.AddCommand(newConfigSetCmd(), newConfigGetCmd(), newConfigInitCmd(), newConfigViewCmd(), newConfigEditCmd(), newConfigValidateCmd())
 	bindHelp(cmd, helpdoc.WriteConfigHelp)
 	return cmd
 }
