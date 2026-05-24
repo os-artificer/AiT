@@ -138,12 +138,12 @@ flowchart TB
 
 ### Session switching (`session --switch`)
 
-Switch among multiple saved sessions without manually `suspend` then `load`.
+Switch among saved sessions. When no local foreground SSH is active, behavior matches `load <target>`.
 
 | Scenario | Behavior |
 |----------|----------|
 | No foreground SSH locally | Equivalent to `load <target>` (same TTL/password rules) |
-| Foreground SSH exists locally | **Suspend current** first (writes `session_state`, tmux detach) → **load target**; `--force` marks current suspended **without** saving scrollback/cwd |
+| Current session still `active` in DB | **Blocked** with errhint: run `!ait suspend` inside SSH first, or `session --switch --force` (marks current suspended **without** saving scrollback/cwd) → then **load target** |
 | Target omitted | `list`-style numbered menu; user selects id/alias (`--tmux` follows current connection mode or target `tmux_enabled` in DB) |
 
 ```text
@@ -154,17 +154,13 @@ ait session --switch prod --tmux  # Switch and attach target in tmux mode
 
 **Inside interactive SSH:** prefer CLI `ait session --switch`; use `!ait suspend` for suspend.
 
-**Compared with `load`:** `load` connects only to the target; `switch` ensures the current session suspends first so scrollback/cwd are not dropped, and updates `app_meta.current_session_id`.
+**Compared with `load`:** `load` connects only to the target; `switch` additionally checks whether the current session is still `active` and blocks until you suspend (or `--force`), then loads the target and updates `app_meta.current_session_id`.
 
 **Tmux mode switching:** detach current session → SSH to target → `tmux attach -t ait-<target_id>`; tmux sessions on different hosts do not interfere.
 
 ## Data model (SQLite)
 
-Locations ([`internal/pkg/platform`](../internal/pkg/platform)):
-
-- Linux: `~/.local/share/ait/ait.db`
-- macOS: `~/Library/Application Support/ait/ait.db`
-- Windows: `%LOCALAPPDATA%\ait\ait.db`
+Database file: `<AppRoot>/ait.db` where **`AppRoot`** is the unified runtime directory ([`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)). Defaults: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%\ait`. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. See [Runtime file layout](#runtime-file-layout-approot) for the full tree.
 
 ```sql
 CREATE TABLE sessions (
@@ -201,11 +197,11 @@ CREATE TABLE app_meta (
 
 - Successful `login` with `--save` or `--alias`, or to an **existing** user@host:port → upsert `sessions`, set `auth_expires_at`; if `--tmux`, set `tmux_enabled=1` and initialize remote tmux; write `app_meta.current_session_id`. Login to a new host without those flags does not upsert.
 - `suspend` → write `session_state`, `status=suspended`; in tmux mode `tmux detach` before closing SSH
-- `session --delete <id>` / `session --delete all` → delete DB rows plus scrollback sidecars; tmux mode optional `--kill-tmux` kills remote sessions (`delete all` defaults to not killing remote tmux to avoid accidents; documented)
+- `session --delete <id>` / `session --delete all` → delete DB rows, scrollback sidecars, and per-session keyring entries (does not kill remote tmux sessions)
 
 **Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `ait config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<AppRoot>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
 
-**Runtime file layout (`AppRoot`):** All AiT-owned runtime files live under one directory (`platform.AppRoot()` = `DataDir()` = `ConfigDir()`). Set **`AIT_HOME`** (or **`AIT_DATA_DIR`** when `AIT_HOME` is unset) to override. Default paths: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%/ait`. On Linux upgrade, a legacy `~/.config/ait/config.yaml` is migrated into `AppRoot` on first `config.Load`. Layout:
+**Runtime file layout (`AppRoot`):** All AiT-owned runtime files live under one directory (`platform.AppRoot()` = `DataDir()` = `ConfigDir()`). Set **`AIT_HOME`** (or **`AIT_DATA_DIR`** when `AIT_HOME` is unset) to override. Default paths: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%/ait`. On Linux upgrade, a legacy config at `$XDG_CONFIG_HOME/ait/config.yaml` (typically `~/.config/ait/config.yaml`) is migrated into `AppRoot` on first `config.Load`. Layout:
 
 ```text
 <AppRoot>/
@@ -238,8 +234,8 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file) | `transfer.go`, `parse.go` |
-| [`internal/pkg/platform/`](../internal/pkg/platform/) | Data dirs, OpenSSH, `LookPath` | `paths.go`, `openssh.go`, `exec.go` |
-| [`internal/pkg/config/`](../internal/pkg/config/) | YAML config | `config.go`, `config_load.go` |
+| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, `LookPath` | `paths_appdir.go`, `paths.go`, `openssh.go`, `exec.go` |
+| [`internal/pkg/config/`](../internal/pkg/config/) | YAML config, init | `config.go`, `config_load.go`, `config_init.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
 | [`internal/pkg/pathsafe/`](../internal/pkg/pathsafe/) | Session/path validation | `path.go` |
 | [`configs/ait.example.yaml`](../configs/ait.example.yaml) | Config template (secrets via keyring) | — |
@@ -253,7 +249,7 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | Scenario | Prompt | How it is set |
 |----------|--------|----------------|
 | `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt.go) |
-| SSH remote | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) single-line inject after `load`/`login`; setup does not printf the prompt remotely—local writes it once and `copyOut` drops a duplicate precmd line (no extra Enter); filter hides setup echo (independent of standalone `ait get`/`put` SFTP) |
+| SSH remote | `AiT user@host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) single-line inject after `load`/`login`; setup does not printf the prompt remotely—local writes it once and `copyOut` drops a duplicate precmd line (no extra Enter); filter hides setup echo (independent of standalone `ait get`/`put` SFTP) |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode.go`](../internal/pkg/ssh/client/localmode.go)) |
 
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.
@@ -262,7 +258,7 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 
 **TTY keys (local REPL):** Ctrl+A/E (line start/end), Left/Right (cursor), Up/Down (recall loaded input history, including prior sessions), **Ctrl+R** (reverse incremental search through input history), Ctrl+U/K/W (kill line/word), Backspace, Tab, Ctrl+C (cancel line), Ctrl+D (EOF when empty), Ctrl+L (clear screen, keep buffer). History records only commands submitted at the main prompt—not confirm `[y/N]` answers, session picker input, or AiT local-mode env/rc setup. See `help` / `ait shell --help` Keys section.
 
-**Input history persistence:** Local `ait shell` and `ait ai` share a bash-style **`history`** builtin (list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) over the same in-memory list used by Up/Down and Ctrl+R. Lines are appended to **`$DataDir/repl_history`** (mode `0600`) as you submit commands; the file is loaded on REPL start. In AI mode, **`clear`** clears chat/conversation history only; **`history`** manages input history.
+**Input history persistence:** Local `ait shell` and `ait ai` share a bash-style **`history`** builtin (list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) over the same in-memory list used by Up/Down and Ctrl+R. Lines are appended to **`<AppRoot>/repl_history`** (mode `0600`) as you submit commands; the file is loaded on REPL start. In AI mode, **`clear`** clears chat/conversation history only; **`history`** manages input history.
 
 **Clear screen (`ait shell` / local TTY):** In `ait shell`, type **`clear`** to erase the terminal via [`terminal.ClearScreen`](../internal/pkg/terminal/screen.go) (VT100 ANSI). In a TTY, **Ctrl+L** clears the screen and redraws the current prompt plus the in-progress line (buffer kept; same as bash/readline). Local `ait ai` TTY also supports **Ctrl+L** for display only; **`clear` in AI mode** still clears chat history, not the same as shell `clear`.
 
@@ -350,9 +346,9 @@ flowchart LR
 ### suspend / list / load
 
 - **suspend**: `!ait suspend`; tmux mode detaches first; write `session_state` (optional scrollback/cwd) → close SSH
-- **list**: prints `id`, `alias`, `host`, `user`, `status`, `tmux`, `auth_expires_at` (days remaining)
+- **list**: tabular output `#`, `ID` (alias or 8-char prefix), `TARGET` (`user@host:port`), `STATUS`, `TMUX`, `REMAINING` (auth TTL); `-v` adds `FULL_ID` (use alias or full UUID for `--load` / `--switch`, not the short ID column)
 - **load**: TTL check → (prompt password if expired) → reconnect → default replay plus cwd or `--tmux` attach → update `current_session_id`
-- **switch**: when `current_session_id` differs from target → `Suspend(current)` → `Load(target)`; same target is no-op with notice
+- **switch**: if current session is `active` and not `--force`, block with errhint; with `--force`, mark current suspended without saving scrollback/cwd → `Load(target)`; same target is no-op with notice
 
 ### Session switch flow
 
@@ -369,11 +365,12 @@ sequenceDiagram
     User->>CLI: select target
   end
   CLI->>Sess: Switch(target)
-  alt current foreground exists
-    Sess->>Sess: Suspend(current)
+  alt current session active and not --force
+    Sess-->>User: errhint (suspend or --force)
+  else
+    Sess->>Sess: Load(target)
+    Sess->>DB: set current_session_id
   end
-  Sess->>Sess: Load(target)
-  Sess->>DB: set current_session_id
 ```
 
 ### Session cleanup
@@ -383,7 +380,7 @@ ait session --delete all         # Delete all sessions + session_state + sidecar
 ait session --delete <id|alias>  # Delete one; confirmation when present (--force skips)
 ```
 
-Cobra layout: `ait session --delete` is the parent; `all` and `<id|alias>` are mutually exclusive targets (`all` is a fixed sub-arg/subcommand with secondary confirmation or `--force`).
+Cobra layout: `ait session` exposes `--delete` as a **string flag** (`--delete all` or `--delete <id|alias>`), not a `delete` subcommand tree. `all` requires secondary confirmation unless `--force`.
 
 - `delete all`: transaction clears both tables; walks data dir deleting scrollback files; bulk clears keyring `ait/session/*`
 - `delete <id|alias>`: `ON DELETE CASCADE` removes `session_state`; deletes matching sidecar and keyring entries

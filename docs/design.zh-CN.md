@@ -138,12 +138,12 @@ flowchart TB
 
 ### 会话切换（`session --switch`）
 
-在多个已保存会话之间切换，无需手动 `suspend` 再 `load`。
+在多个已保存会话之间切换。本地无前台 SSH 时，行为等同 `load <target>`。
 
 | 场景 | 行为 |
 |------|------|
 | 本地无前台 SSH | 等同 `load <target>`（TTL/密码规则相同） |
-| 本地有前台 SSH | 先 **suspend 当前**（写 `session_state`、tmux detach）→ 再 **load 目标**；`--force` 仅标记当前为 suspended，**不**保存 scrollback/cwd |
+| DB 中当前会话仍为 `active` | **阻断**并输出 errhint：须先在 SSH 内 `!ait suspend`，或 `session --switch --force`（仅标记当前为 suspended，**不**保存 scrollback/cwd）→ 再 **load 目标** |
 | 未指定目标 | `list` 展示编号菜单，用户选择 id/alias（支持 `--tmux` 继承当前连接模式或按目标会话 DB 中 `tmux_enabled`） |
 
 ```text
@@ -154,17 +154,13 @@ ait session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 
 **交互 SSH 内：** 会话切换以 CLI `ait session --switch` 为主；挂起使用 `!ait suspend`。
 
-**与 `load` 区别：** `load` 仅连接目标；`switch` 保证当前会话先挂起保存，避免丢失当前 scrollback/cwd，并更新 `app_meta.current_session_id`。
+**与 `load` 区别：** `load` 仅连接目标；`switch` 会检查当前会话是否仍为 `active`，须先挂起（或 `--force`）再加载目标，并更新 `app_meta.current_session_id`。
 
 **tmux 模式切换：** 当前会话 `detach` → 目标会话 SSH → `tmux attach -t ait-<target_id>`；两台主机上的 tmux 会话互不影响。
 
 ## 数据模型（SQLite）
 
-文件位置（[`internal/pkg/platform`](../internal/pkg/platform)）：
-
-- Linux: `~/.local/share/ait/ait.db`
-- macOS: `~/Library/Application Support/ait/ait.db`
-- Windows: `%LOCALAPPDATA%\ait\ait.db`
+数据库文件：`<AppRoot>/ait.db`，其中 **`AppRoot`** 为统一运行时目录（[`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)）。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%\ait`。可用 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。完整目录树见 [运行时文件布局](#运行时文件布局approot)。
 
 ```sql
 CREATE TABLE sessions (
@@ -201,11 +197,11 @@ CREATE TABLE app_meta (
 
 - `login` 且带 `--save`/`--alias`，或目标 **已存在** 于 session 列表 → upsert `sessions`、设置 `auth_expires_at`；若 `--tmux` 则 `tmux_enabled=1` 并初始化远程 tmux；写 `app_meta.current_session_id`。连接新主机且无上述 flag 时不 upsert。
 - `suspend` → 写 `session_state`，`status=suspended`；tmux 模式先 `tmux detach` 再断 SSH
-- `session --delete <id>` / `session --delete all` → 删 DB 行 + 删除 scrollback sidecar；tmux 模式可选 `--kill-tmux` 远程杀会话（`delete all` 默认不杀远程 tmux，避免误删；文档说明）
+- `session --delete <id>` / `session --delete all` → 删 DB 行、scrollback sidecar 及 per-session keyring 条目（**不**杀远程 tmux 会话）
 
 **凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`ait config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<AppRoot>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
 
-**运行时文件布局（`AppRoot`）：** 所有 AiT 自有运行时文件位于同一目录（`platform.AppRoot()` = `DataDir()` = `ConfigDir()`）。可通过 **`AIT_HOME`**（未设置时可用 **`AIT_DATA_DIR`**）覆盖。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%/ait`。Linux 升级时，旧版 `~/.config/ait/config.yaml` 在首次 `config.Load` 时迁入 `AppRoot`。目录结构：
+**运行时文件布局（`AppRoot`）：** 所有 AiT 自有运行时文件位于同一目录（`platform.AppRoot()` = `DataDir()` = `ConfigDir()`）。可通过 **`AIT_HOME`**（未设置时可用 **`AIT_DATA_DIR`**）覆盖。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%/ait`。Linux 升级时，旧版 `$XDG_CONFIG_HOME/ait/config.yaml`（通常为 `~/.config/ait/config.yaml`）在首次 `config.Load` 时迁入 `AppRoot`。目录结构：
 
 ```text
 <AppRoot>/
@@ -238,8 +234,8 @@ CREATE TABLE app_meta (
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
-| [`internal/pkg/platform/`](../internal/pkg/platform/) | 数据目录、OpenSSH、`LookPath` | `paths.go`, `openssh.go`, `exec.go` |
-| [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置 | `config.go`, `config_load.go` |
+| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、`LookPath` | `paths_appdir.go`, `paths.go`, `openssh.go`, `exec.go` |
+| [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置、init | `config.go`, `config_load.go`, `config_init.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
 | [`internal/pkg/pathsafe/`](../internal/pkg/pathsafe/) | 会话/路径校验 | `path.go` |
 | [`configs/ait.example.yaml`](../configs/ait.example.yaml) | 配置模板（密钥走 keyring） | — |
@@ -253,7 +249,7 @@ CREATE TABLE app_meta (
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
 | `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt.go) |
-| SSH 远程 | `AiT <user>@<host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) 在 `load`/`login` 后单行注入；setup 不在远程 printf 提示符，由本地写出一次，`copyOut` 丢弃 precmd 重复行（无需再按 Enter）；本地过滤隐藏 setup 回显（与独立 `ait get`/`put` 的 SFTP 无关） |
+| SSH 远程 | `AiT user@host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) 在 `load`/`login` 后单行注入；setup 不在远程 printf 提示符，由本地写出一次，`copyOut` 丢弃 precmd 重复行（无需再按 Enter）；本地过滤隐藏 setup 回显（与独立 `ait get`/`put` 的 SFTP 无关） |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode.go`](../internal/pkg/ssh/client/localmode.go)） |
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
@@ -262,7 +258,7 @@ CREATE TABLE app_meta (
 
 **TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（光标）、Up/Down（召回已加载输入历史，含跨会话记录）、**Ctrl+R**（输入历史反向增量搜索）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Tab、Ctrl+C（取消当前行）、Ctrl+D（空行 EOF）、Ctrl+L（清屏保留缓冲）。历史仅记录主提示符下 Enter 提交的命令，不含确认 `[y/N]`、选 session 输入或 `!ait local` 的 env/rc 脚本。见 `help` / `ait shell --help` 的 Keys 段。
 
-**输入历史持久化：** 本机 `ait shell` 与 `ait ai` 共用 bash 风格 **`history`** 内置命令（列出、`history n`、`-c`、`-d`、`-s`、`-a`、`-r`、`-w`），与 Up/Down、Ctrl+R 操作同一内存列表。提交命令会追加到 **`$DataDir/repl_history`**（权限 `0600`）；REPL 启动时加载。AI 模式下 **`clear`** 仅清对话历史；**`history`** 管理输入行历史。
+**输入历史持久化：** 本机 `ait shell` 与 `ait ai` 共用 bash 风格 **`history`** 内置命令（列出、`history n`、`-c`、`-d`、`-s`、`-a`、`-r`、`-w`），与 Up/Down、Ctrl+R 操作同一内存列表。提交命令会追加到 **`<AppRoot>/repl_history`**（权限 `0600`）；REPL 启动时加载。AI 模式下 **`clear`** 仅清对话历史；**`history`** 管理输入行历史。
 
 **清屏（`ait shell` / 本机 TTY）：** 在 `ait shell` 中输入 **`clear`** 通过 [`terminal.ClearScreen`](../internal/pkg/terminal/screen.go) 清空终端（VT100 ANSI）。TTY 下 **Ctrl+L** 清屏并在底部重显当前提示符与未提交行（保留行缓冲，与 bash/readline 一致）。本机 `ait ai` TTY 也支持 **Ctrl+L** 仅清显示；**`ait ai` 的 `clear`** 仍表示清空对话历史，与 shell 的 `clear` 不同。
 
@@ -350,9 +346,9 @@ flowchart LR
 ### suspend / list / load
 
 - **suspend**：`!ait suspend`；tmux 模式先 detach；写 `session_state`（可选 scrollback/cwd）→ 关 SSH
-- **list**：输出 `id`, `alias`, `host`, `user`, `status`, `tmux`, `auth_expires_at`（剩余天数）
+- **list**：表格输出 `#`、`ID`（alias 或 8 位前缀）、`TARGET`（`user@host:port`）、`STATUS`、`TMUX`、`REMAINING`（auth TTL）；`-v` 增加 `FULL_ID`（`--load` / `--switch` 请用 alias 或完整 UUID，勿用 ID 列短码）
 - **load**：TTL 校验 →（过期则读密码）→ 重连 → 默认回放+cwd 或 `--tmux` attach → 更新 `current_session_id`
-- **switch**：若 `current_session_id` 存在且与目标不同 → `Suspend(current)` → `Load(target)`；目标与当前相同则 no-op 并提示
+- **switch**：当前会话为 `active` 且未 `--force` 时阻断并 errhint；`--force` 时仅标记当前 suspended、不保存 scrollback/cwd → `Load(target)`；目标与当前相同则 no-op 并提示
 
 ### session --switch 流程
 
@@ -369,11 +365,12 @@ sequenceDiagram
     User->>CLI: select target
   end
   CLI->>Sess: Switch(target)
-  alt current foreground exists
-    Sess->>Sess: Suspend(current)
+  alt current session active and not --force
+    Sess-->>User: errhint (suspend or --force)
+  else
+    Sess->>Sess: Load(target)
+    Sess->>DB: set current_session_id
   end
-  Sess->>Sess: Load(target)
-  Sess->>DB: set current_session_id
 ```
 
 ### session 清理
@@ -383,7 +380,7 @@ ait session --delete all         # 删除全部 sessions + session_state + sidec
 ait session --delete <id|alias>  # 删除单条；存在则确认提示（--force 跳过）
 ```
 
-cobra 结构：`ait session --delete` 为父命令，`all` 与 `<id|alias>` 为互斥目标（`all` 为固定子参数/子命令，需二次确认或 `--force`）。
+Cobra 结构：`ait session` 的 **`--delete` 为 string flag**（`--delete all` 或 `--delete <id|alias>`），非 `delete` 子命令树。`all` 须二次确认，除非 `--force`。
 
 - `delete all`：事务内清空两表；遍历数据目录删除 scrollback 文件；批量清除 keyring `ait/session/*`
 - `delete <id|alias>`：`ON DELETE CASCADE` 清理 `session_state`；删对应 sidecar 与 keyring 项
