@@ -2,7 +2,7 @@
 
 **Languages:** English (this page) · [简体中文](AGENTS.zh-CN.md)
 
-**AiT** (AI Terminal) is a Go CLI: an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, Deepseek assistant, and SFTP file get/put. Module: `github.com/os-artificer/AiT`. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
+**AiT** (AI Terminal) is a Go CLI: an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, multi-provider AI (Deepseek, MiniMax, optional tiered Ollama), and SFTP file get/put. Module: `github.com/os-artificer/AiT`. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
 
 ## Build and test
 
@@ -67,7 +67,7 @@ Prefer extending `internal/pkg/*` and `internal/ait` over new top-level director
 |---------|------------------|
 | `ait` (root) | `root.go` — `Run`, `ExitCode` |
 | `ait/app` | `manager.go`, `context.go` |
-| `ait/cli` | `root.go`, `login.go`, `shell.go`, `load.go`, `session.go`, … |
+| `ait/cli` | `root.go`, `login.go`, `shell.go`, `session.go`, `config.go`, `ai.go`, … |
 | `ait/login` | `run.go`, `helpers.go`, `help.go` |
 | `ait/shell` | `repl.go`, `exec.go`, `parse.go`, `io.go`, `*_helpers.go` |
 | `ait/aimode` | `scope.go`, `policy.go`, `repl.go`, `exec.go`, `run_local.go`, `prompt.go` — AI REPL (local/remote runners injected) |
@@ -106,7 +106,7 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 ## CLI quick reference
 
 ```text
-ait shell                              # AiT> REPL: login, list, load, help, exit
+ait shell                              # AiT> REPL: login, session --list/--load, history, help, exit
 ait login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 # ssh-options: -p -l -i -F -J -o ... ; legacy --host/--user still supported
 # Requires OpenSSH client (ssh) on PATH for ssh -G (all platforms)
