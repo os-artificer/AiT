@@ -86,11 +86,13 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 - **Linux / macOS：** `export LANG=zh_CN.UTF-8`（或 `en_US.UTF-8`）；Terminal.app、iTerm2、GNOME Terminal 等。
 - **Windows：** 使用 [Windows Terminal](https://aka.ms/terminal)；在设置中启用 UTF-8，或在旧版控制台执行 `chcp 65001`。
 - **输入法：** 使用系统 IME 组字，确认后字符进入当前行；AiT 不显示应用内预编辑框。
-- **Tab：** 在当前行插入制表符（可用于缩进）；与旧版仅支持 ASCII 的行输入不同。
+- **Tab：** 在当前行插入制表符（可用于缩进）。
+- **TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（移动光标）、Up/Down（仅本会话已提交命令）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Ctrl+C（取消当前行）、Ctrl+D（空行退出）、Ctrl+L（清屏保留缓冲）。在 `ait shell` / `ait ai` 中输入 `help` 查看完整 Keys 列表。
+- **历史：** 仅主提示符 `AiT>` / `AiT AI>` 下 Enter 提交的命令会进入历史，不含 `[y/N]` 确认、选 session 输入或 AiT 内部 env 设置。
 - **非 TTY：** `echo 你好 | ait ai chat` 无需额外 locale 配置。
 - **清屏：** `ait shell` 中输入 `clear` 或 TTY 下按 **Ctrl+L** 清空显示，REPL 不退出。`ait ai` 中 **Ctrl+L** 仅清显示；`clear` 清空对话历史。
 
-SSH 会话（`ait login`）由远程 shell 决定编码；本节针对本机 `AiT>` / `AiT AI>` 行编辑。
+SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编辑；本节针对本机 `AiT>` / `AiT AI>`。
 
 ## 提示符
 

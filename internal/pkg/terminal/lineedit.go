@@ -19,11 +19,8 @@ package terminal
 import (
 	"bufio"
 	"io"
-	"strings"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -45,28 +42,48 @@ type lineEditResult struct {
 	err  error
 }
 
-// ReadLineRaw reads one edited line from br while stdin is in raw mode.
+// ReadLine reads one edited line from br while stdin is in raw mode.
 // The caller must put the terminal in raw mode with term.MakeRaw before calling.
-// br is typically bufio.NewReader(os.Stdin); out receives echoed runes and control feedback.
-// prompt is redrawn after Ctrl+L when non-empty (bash/readline-style clear screen).
-// Returns io.EOF on Ctrl+D with an empty line; Ctrl+C returns ("", nil) after writing "^C\r\n" to out.
-// Accepts UTF-8 printable runes (including CJK); Tab (\t) is inserted for REPL line indentation.
-// Backspace uses terminal display width. IME preedit is handled by the terminal, not drawn by AiT.
-func ReadLineRaw(br *bufio.Reader, out io.Writer, prompt string) (string, error) {
-	var runes []rune
+// br is typically bufio.NewReader(os.Stdin); out receives echoed input and editing feedback.
+// opt.Prompt is redrawn after Ctrl+L and when inserting or deleting away from the line end.
+// opt.History supplies Up/Down recall when non-nil; opt.RecordHistory stores submitted lines.
+// Returns the line without trailing newline on Enter. Empty Enter is ignored (line not submitted).
+// Returns io.EOF on Ctrl+D with an empty line, or when stdin closes with no buffered input.
+// Ctrl+C returns ("", nil) after writing "^C\r\n" to out. Accepts UTF-8 printable runes and Tab.
+func ReadLine(br *bufio.Reader, out io.Writer, opt LineEditOptions) (string, error) {
+	st := newEditState()
+	prompt := opt.Prompt
+
 	for {
 		r, _, err := br.ReadRune()
 		if err != nil {
-			res := handleLineEOF(err, runes)
+			res := handleLineEOF(err, st.runes)
+			recordSubmittedLine(opt, res.line, res.done && res.err == nil && res.line != "")
 			return res.line, res.err
 		}
 
-		res, next := handleLineRune(br, out, prompt, runes, r)
-		runes = next
+		res := handleEditRune(br, out, prompt, opt.History, &st, r)
 		if res.done {
+			if res.line != "" && res.err == nil && opt.RecordHistory {
+				recordSubmittedLine(opt, res.line, true)
+			}
 			return res.line, res.err
 		}
 	}
+}
+
+func recordSubmittedLine(opt LineEditOptions, line string, submitted bool) {
+	if !submitted || !opt.RecordHistory || opt.History == nil {
+		return
+	}
+	if shouldRecordLine(line) {
+		opt.History.Add(line)
+	}
+}
+
+// ReadLineRaw reads one edited line without history recall or recording (legacy wrapper).
+func ReadLineRaw(br *bufio.Reader, out io.Writer, prompt string) (string, error) {
+	return ReadLine(br, out, LineEditOptions{Prompt: prompt})
 }
 
 func handleLineEOF(err error, runes []rune) lineEditResult {
@@ -76,39 +93,58 @@ func handleLineEOF(err error, runes []rune) lineEditResult {
 	return lineEditResult{err: err, done: true}
 }
 
-func handleLineRune(br *bufio.Reader, out io.Writer, prompt string, runes []rune, r rune) (lineEditResult, []rune) {
+func handleEditRune(br *bufio.Reader, out io.Writer, prompt string, hist *LineHistory, st *editState, r rune) lineEditResult {
 	switch r {
 	case '\r':
-		return handleLineCR(br, out, runes)
+		return handleLineCR(br, out, st.runes)
 	case '\n':
-		if len(runes) > 0 {
-			return lineEditResult{line: string(runes), done: true}, runes
+		if len(st.runes) > 0 {
+			return lineEditResult{line: string(st.runes), done: true}
 		}
-		return lineEditResult{}, runes
+		return lineEditResult{}
 	case ctrlC:
 		_, _ = io.WriteString(out, "^C\r\n")
-		return lineEditResult{line: "", done: true}, runes
+		return lineEditResult{line: "", done: true}
 	case ctrlD:
-		if len(runes) == 0 {
-			return lineEditResult{err: io.EOF, done: true}, runes
+		if len(st.runes) == 0 {
+			return lineEditResult{err: io.EOF, done: true}
 		}
-		return lineEditResult{line: string(runes), done: true}, runes
+		return lineEditResult{line: string(st.runes), done: true}
 	case ctrlL:
-		return lineEditResult{}, redrawLineAfterClear(out, prompt, runes)
+		redrawLineAfterClear(out, prompt, st.runes, st.cursor)
+		return lineEditResult{}
+	case ctrlA:
+		st.moveCursor(out, prompt, 0)
+		return lineEditResult{}
+	case ctrlE:
+		st.moveCursor(out, prompt, len(st.runes))
+		return lineEditResult{}
+	case ctrlU:
+		st.killLine(out, prompt)
+		return lineEditResult{}
+	case ctrlK:
+		st.killToEnd(out, prompt)
+		return lineEditResult{}
+	case ctrlW:
+		st.killWordBefore(out, prompt)
+		return lineEditResult{}
 	case keyBS, keyDEL:
-		return lineEditResult{}, eraseLastRune(out, runes)
+		st.deleteBeforeCursor(out, prompt)
+		return lineEditResult{}
 	case utf8.RuneError:
-		return lineEditResult{}, runes
+		return lineEditResult{}
 	case keyESC:
-		_ = consumeEscapeSeq(br)
-		return lineEditResult{}, runes
+		key, err := parseEscapeSeq(br)
+		if err == nil && key != escapeNone {
+			handleEscapeKey(out, prompt, st, hist, key)
+		}
+		return lineEditResult{}
 	default:
 		if !isLineInputRune(r) {
-			return lineEditResult{}, runes
+			return lineEditResult{}
 		}
-		runes = append(runes, r)
-		_, _ = io.WriteString(out, string(r))
-		return lineEditResult{}, runes
+		st.insertRune(out, prompt, r)
+		return lineEditResult{}
 	}
 }
 
@@ -116,9 +152,9 @@ func isLineInputRune(r rune) bool {
 	return r == '\t' || (r != utf8.RuneError && unicode.IsPrint(r))
 }
 
-func handleLineCR(br *bufio.Reader, out io.Writer, runes []rune) (lineEditResult, []rune) {
+func handleLineCR(br *bufio.Reader, out io.Writer, runes []rune) lineEditResult {
 	if len(runes) == 0 {
-		return lineEditResult{}, runes
+		return lineEditResult{}
 	}
 	_, _ = io.WriteString(out, "\r\n")
 
@@ -128,52 +164,5 @@ func handleLineCR(br *bufio.Reader, out io.Writer, runes []rune) (lineEditResult
 			_ = br.UnreadByte()
 		}
 	}
-	return lineEditResult{line: string(runes), done: true}, runes
-}
-
-func redrawLineAfterClear(out io.Writer, prompt string, runes []rune) []rune {
-	ClearScreen(out)
-	if prompt != "" {
-		_, _ = io.WriteString(out, prompt+string(runes))
-	}
-	return runes
-}
-
-func eraseLastRune(out io.Writer, runes []rune) []rune {
-	if len(runes) == 0 {
-		return runes
-	}
-	last := runes[len(runes)-1]
-	runes = runes[:len(runes)-1]
-	width := runewidth.RuneWidth(last)
-	if width < 1 {
-		width = 1
-	}
-	var erase strings.Builder
-	for i := 0; i < width; i++ {
-		erase.WriteString("\b \b")
-	}
-	_, _ = io.WriteString(out, erase.String())
-	return runes
-}
-
-// consumeEscapeSeq reads bytes after ESC until a known sequence ends (CSI final byte csiFinalByteMin–csiFinalByteMax).
-func consumeEscapeSeq(br *bufio.Reader) error {
-	b, err := br.ReadByte()
-	if err != nil {
-		return err
-	}
-	if b != csiIntroducerByte {
-		return nil
-	}
-
-	for {
-		c, err := br.ReadByte()
-		if err != nil {
-			return err
-		}
-		if c >= csiFinalByteMin && c <= csiFinalByteMax {
-			return nil
-		}
-	}
+	return lineEditResult{line: string(runes), done: true}
 }

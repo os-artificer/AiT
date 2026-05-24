@@ -64,6 +64,9 @@ func WriteAIHelp(w io.Writer) error {
 	if err := b.WriteSection(helpSectionInSSH, aiHelpInSSHBody); err != nil {
 		return err
 	}
+	if err := WriteTTYKeysHelp(w, TTYKeysAI); err != nil {
+		return err
+	}
 	if err := b.WriteExamples(
 		"ait ai",
 		"ait ai chat \"summarize this\"",
@@ -98,6 +101,9 @@ func WriteAIREPLHelp(w io.Writer, scope ai.Scope) error {
 		return err
 	}
 	if err := b.WriteSection(helpSectionCommands, cmds); err != nil {
+		return err
+	}
+	if err := WriteTTYKeysHelp(w, TTYKeysAI); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(examples); err != nil {
