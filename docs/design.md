@@ -203,7 +203,21 @@ CREATE TABLE app_meta (
 - `suspend` → write `session_state`, `status=suspended`; in tmux mode `tmux detach` before closing SSH
 - `session --delete <id>` / `session --delete all` → delete DB rows plus scrollback sidecars; tmux mode optional `--kill-tmux` kills remote sessions (`delete all` defaults to not killing remote tmux to avoid accidents; documented)
 
-**Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `ait config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<DataDir>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
+**Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `ait config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<AppRoot>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
+
+**Runtime file layout (`AppRoot`):** All AiT-owned runtime files live under one directory (`platform.AppRoot()` = `DataDir()` = `ConfigDir()`). Set **`AIT_HOME`** (or **`AIT_DATA_DIR`** when `AIT_HOME` is unset) to override. Default paths: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%/ait`. On Linux upgrade, a legacy `~/.config/ait/config.yaml` is migrated into `AppRoot` on first `config.Load`. Layout:
+
+```text
+<AppRoot>/
+├── config.yaml       # main YAML (ait config init / set / get)
+├── ait.db            # SQLite sessions
+├── repl_history      # REPL input history
+├── scrollback/       # suspend sidecars
+├── keyring/          # file keyring fallback
+└── ollama/models/    # recommended Ollama models_dir default
+```
+
+First-time setup: `ait config init` creates or merges `config.yaml` (missing keys only; API keys still via keyring).
 
 ## Package layout (current)
 
@@ -244,9 +258,9 @@ CREATE TABLE app_meta (
 
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.
 
-**Local REPL input (UTF-8, macOS / Linux / Windows):** Interactive `ait shell` and local `ait ai` read stdin as **UTF-8** via [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) (Emacs-style editing, arrow keys, in-session Up/Down history). Use a UTF-8 terminal: Linux/macOS `LANG=*.UTF-8`; Windows **Windows Terminal** with UTF-8 (avoid legacy non-UTF code pages). IME composition is handled by the terminal; committed text arrives as UTF-8 bytes (preedit underline is not drawn by AiT). Piped or redirected stdin (`echo … | ait shell`) already accepted UTF-8; SSH remote shells forward bytes unchanged.
+**Local REPL input (UTF-8, macOS / Linux / Windows):** Interactive `ait shell` and local `ait ai` read stdin as **UTF-8** via [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) (Emacs-style editing, arrow keys, Up/Down over loaded input history). Use a UTF-8 terminal: Linux/macOS `LANG=*.UTF-8`; Windows **Windows Terminal** with UTF-8 (avoid legacy non-UTF code pages). IME composition is handled by the terminal; committed text arrives as UTF-8 bytes (preedit underline is not drawn by AiT). Piped or redirected stdin (`echo … | ait shell`) already accepted UTF-8; SSH remote shells forward bytes unchanged.
 
-**TTY keys (local REPL):** Ctrl+A/E (line start/end), Left/Right (cursor), Up/Down (recall lines from this REPL session only), **Ctrl+R** (reverse incremental search through input history), Ctrl+U/K/W (kill line/word), Backspace, Tab, Ctrl+C (cancel line), Ctrl+D (EOF when empty), Ctrl+L (clear screen, keep buffer). History records only commands submitted at the main prompt—not confirm `[y/N]` answers, session picker input, or AiT local-mode env/rc setup. See `help` / `ait shell --help` Keys section.
+**TTY keys (local REPL):** Ctrl+A/E (line start/end), Left/Right (cursor), Up/Down (recall loaded input history, including prior sessions), **Ctrl+R** (reverse incremental search through input history), Ctrl+U/K/W (kill line/word), Backspace, Tab, Ctrl+C (cancel line), Ctrl+D (EOF when empty), Ctrl+L (clear screen, keep buffer). History records only commands submitted at the main prompt—not confirm `[y/N]` answers, session picker input, or AiT local-mode env/rc setup. See `help` / `ait shell --help` Keys section.
 
 **Input history persistence:** Local `ait shell` and `ait ai` share a bash-style **`history`** builtin (list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) over the same in-memory list used by Up/Down and Ctrl+R. Lines are appended to **`$DataDir/repl_history`** (mode `0600`) as you submit commands; the file is loaded on REPL start. In AI mode, **`clear`** clears chat/conversation history only; **`history`** manages input history.
 

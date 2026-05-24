@@ -21,7 +21,7 @@ import "io"
 const sectionTTYKeysCommon = `  Ctrl+A, Home     move cursor to start of line
   Ctrl+E, End      move cursor to end of line
   Left, Right      move cursor one character (UTF-8 aware)
-  Up, Down         recall previous / next input from this REPL session
+  Up, Down         recall previous / next line from loaded input history (incl. prior sessions)
   Ctrl+R           reverse incremental search through input history
   Backspace, Del   delete character before cursor
   Ctrl+U           delete entire line

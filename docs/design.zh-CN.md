@@ -203,7 +203,21 @@ CREATE TABLE app_meta (
 - `suspend` → 写 `session_state`，`status=suspended`；tmux 模式先 `tmux detach` 再断 SSH
 - `session --delete <id>` / `session --delete all` → 删 DB 行 + 删除 scrollback sidecar；tmux 模式可选 `--kill-tmux` 远程杀会话（`delete all` 默认不杀远程 tmux，避免误删；文档说明）
 
-**凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`ait config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<DataDir>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
+**凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`ait config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<AppRoot>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
+
+**运行时文件布局（`AppRoot`）：** 所有 AiT 自有运行时文件位于同一目录（`platform.AppRoot()` = `DataDir()` = `ConfigDir()`）。可通过 **`AIT_HOME`**（未设置时可用 **`AIT_DATA_DIR`**）覆盖。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%/ait`。Linux 升级时，旧版 `~/.config/ait/config.yaml` 在首次 `config.Load` 时迁入 `AppRoot`。目录结构：
+
+```text
+<AppRoot>/
+├── config.yaml       # 主配置（ait config init / set / get）
+├── ait.db            # SQLite 会话
+├── repl_history      # REPL 输入历史
+├── scrollback/       # suspend 侧车
+├── keyring/          # 文件密钥环回退
+└── ollama/models/    # 推荐 Ollama models_dir 默认路径
+```
+
+首次安装：执行 `ait config init` 创建或补全 `config.yaml`（仅缺失项；API key 仍走 keyring）。
 
 ## 包布局（当前）
 
@@ -244,9 +258,9 @@ CREATE TABLE app_meta (
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
 
-**本地 REPL 输入（UTF-8，macOS / Linux / Windows）：** 交互式 `ait shell` 与本机 `ait ai` 通过 [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) 以 **UTF-8** 读取 stdin（Emacs 行编辑、方向键、本会话 Up/Down 历史）。请使用 UTF-8 终端：Linux/macOS 设置 `LANG=*.UTF-8`；Windows 推荐 **Windows Terminal** 并启用 UTF-8（避免非 UTF-8 代码页）。IME 组字由终端负责，确认后以 UTF-8 字节送入进程（AiT 不绘制预编辑下划线）。管道/重定向 stdin（`echo … | ait shell`）本就支持 UTF-8；SSH 远程 shell 按字节转发，不受此限制。
+**本地 REPL 输入（UTF-8，macOS / Linux / Windows）：** 交互式 `ait shell` 与本机 `ait ai` 通过 [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) 以 **UTF-8** 读取 stdin（Emacs 行编辑、方向键、Up/Down 遍历已加载输入历史）。请使用 UTF-8 终端：Linux/macOS 设置 `LANG=*.UTF-8`；Windows 推荐 **Windows Terminal** 并启用 UTF-8（避免非 UTF-8 代码页）。IME 组字由终端负责，确认后以 UTF-8 字节送入进程（AiT 不绘制预编辑下划线）。管道/重定向 stdin（`echo … | ait shell`）本就支持 UTF-8；SSH 远程 shell 按字节转发，不受此限制。
 
-**TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（光标）、Up/Down（仅本会话已提交命令）、**Ctrl+R**（输入历史反向增量搜索）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Tab、Ctrl+C（取消当前行）、Ctrl+D（空行 EOF）、Ctrl+L（清屏保留缓冲）。历史仅记录主提示符下 Enter 提交的命令，不含确认 `[y/N]`、选 session 输入或 `!ait local` 的 env/rc 脚本。见 `help` / `ait shell --help` 的 Keys 段。
+**TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（光标）、Up/Down（召回已加载输入历史，含跨会话记录）、**Ctrl+R**（输入历史反向增量搜索）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Tab、Ctrl+C（取消当前行）、Ctrl+D（空行 EOF）、Ctrl+L（清屏保留缓冲）。历史仅记录主提示符下 Enter 提交的命令，不含确认 `[y/N]`、选 session 输入或 `!ait local` 的 env/rc 脚本。见 `help` / `ait shell --help` 的 Keys 段。
 
 **输入历史持久化：** 本机 `ait shell` 与 `ait ai` 共用 bash 风格 **`history`** 内置命令（列出、`history n`、`-c`、`-d`、`-s`、`-a`、`-r`、`-w`），与 Up/Down、Ctrl+R 操作同一内存列表。提交命令会追加到 **`$DataDir/repl_history`**（权限 `0600`）；REPL 启动时加载。AI 模式下 **`clear`** 仅清对话历史；**`history`** 管理输入行历史。
 

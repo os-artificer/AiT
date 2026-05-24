@@ -48,8 +48,8 @@ make test-cross  # windows + darwin go build
 | `internal/pkg/ai/` | 多 provider 路由、tiered、模型列表 |
 | `internal/pkg/ollama/` | Ollama 自动配置、`FetchTags`、`EnsureLocal` |
 | `internal/pkg/transfer/` | SFTP get/put（单文件） |
-| `internal/pkg/platform/` | 数据/配置目录、`OpenSSHPath`、`LookPath` |
-| `internal/pkg/config/` | YAML 配置 |
+| `internal/pkg/platform/` | `AppRoot` / `DataDir` / `ConfigDir`（`AIT_HOME`）、路径、`OpenSSHPath` |
+| `internal/pkg/config/` | YAML 配置（`Load`/`Save`/`EnsureFile`；`ait config init`） |
 | `internal/pkg/creds/` | 操作系统密钥环 |
 | `internal/pkg/pathsafe/` | 会话 ID 与路径校验 |
 | `pkg/` | 对外可导入库（当前为空） |
@@ -117,7 +117,7 @@ ait session --switch [id|alias] [--tmux] [--password] [--force]
 ait session --delete <id|alias|all> [--force]
 ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain；flag/路径顺序任意
 ait put [ssh-flags] <paths...>
-ait config set|get <key> [<value>]
+ait config init|set|get <key> [<value>]
 ```
 
 提示符：`AiT>`（`ait shell`）、`AiT AI>`（`ait ai`）、`AiT AI user@host>`（SSH AI）、`AiT user@host>`（SSH）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。

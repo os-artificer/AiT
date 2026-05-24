@@ -20,16 +20,85 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
-
-type appDirKind int
 
 const (
-	appDirData appDirKind = iota
-	appDirConfig
+	envHome    = "AIT_HOME"
+	envDataDir = "AIT_DATA_DIR"
+	configFile = "config.yaml"
 )
 
-func appDir(kind appDirKind) (string, error) {
+// AppRoot returns the unified AiT runtime directory (config, DB, scrollback, history, keyring).
+// When AIT_HOME or AIT_DATA_DIR is set, that path is used; otherwise the OS default data home.
+// Creates the directory with mode 0700 when missing.
+func AppRoot() (string, error) {
+	if root := resolveHomeOverride(); root != "" {
+		if err := os.MkdirAll(root, 0o700); err != nil {
+			return "", err
+		}
+		return root, nil
+	}
+
+	return defaultAppRoot()
+}
+
+// DataDir returns AppRoot (all runtime files live under one directory).
+func DataDir() (string, error) {
+	return AppRoot()
+}
+
+// ConfigDir returns AppRoot (config.yaml lives beside other runtime files).
+func ConfigDir() (string, error) {
+	return AppRoot()
+}
+
+// ConfigPath returns the path to config.yaml under AppRoot.
+func ConfigPath() (string, error) {
+	dir, err := AppRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, configFile), nil
+}
+
+// LegacyConfigPath returns the pre-unification Linux config.yaml path, or "" when not applicable.
+// Used only to migrate config on first Load.
+func LegacyConfigPath() (string, error) {
+	dir, err := legacyConfigDir()
+	if err != nil || dir == "" {
+		return "", err
+	}
+	return filepath.Join(dir, configFile), nil
+}
+
+func legacyConfigDir() (string, error) {
+	if runtime.GOOS != "linux" {
+		return "", nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, appName), nil
+	}
+	return filepath.Join(home, ".config", appName), nil
+}
+
+func resolveHomeOverride() string {
+	if v := strings.TrimSpace(os.Getenv(envHome)); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(os.Getenv(envDataDir)); v != "" {
+		return v
+	}
+	return ""
+}
+
+func defaultAppRoot() (string, error) {
 	var base string
 	switch runtime.GOOS {
 	case "windows":
@@ -49,19 +118,10 @@ func appDir(kind appDirKind) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		switch kind {
-		case appDirData:
-			if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-				base = filepath.Join(xdg, appName)
-			} else {
-				base = filepath.Join(home, ".local", "share", appName)
-			}
-		case appDirConfig:
-			if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-				base = filepath.Join(xdg, appName)
-			} else {
-				base = filepath.Join(home, ".config", appName)
-			}
+		if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+			base = filepath.Join(xdg, appName)
+		} else {
+			base = filepath.Join(home, ".local", "share", appName)
 		}
 	}
 
