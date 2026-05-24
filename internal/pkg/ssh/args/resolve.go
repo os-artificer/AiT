@@ -188,7 +188,7 @@ func Resolve(spec Spec) (Resolved, error) {
 	}
 
 	if len(spec.RemoteCommand) > 0 && spec.Tmux {
-		return Resolved{}, fmt.Errorf("cannot use --tmux with a remote command")
+		return Resolved{}, TmuxWithRemoteCommandErr()
 	}
 
 	return r, nil

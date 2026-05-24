@@ -19,11 +19,12 @@ ait ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir
 ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH-compatible: -p -l -i -F -J -o, etc.; destination is [user@]host or a config Host alias
         # Requires local OpenSSH client (ssh -G) for config resolution; data plane is Go x/crypto/ssh (Windows/macOS/Linux)
-        # Persists to SQLite only with --save (bookmark by id) or --alias (named save; implies --save)
-        # With command: one-shot execution (similar to ssh host cmd); not saved unless --save or --alias
+        # Persists to SQLite with --save (bookmark by id) or --alias (named save; implies --save)
+        # Also updates an existing row when user@host:port is already saved (refreshes auth TTL)
+        # With command: one-shot execution (similar to ssh host cmd); new hosts need --save or --alias
         # Legacy --host/--user remain supported for backward compatibility
-ait session --list
-ait session --load <id|alias> [--tmux] [--password]   # Reconnect within auth TTL; after expiry, prompts for password
+ait session --list [-v]   # # column for pick-by-number; -v adds FULL_ID (complete UUID)
+ait session --load [<id|alias>] [--tmux] [--password]   # Omit id to pick; id must be alias or full UUID (not list ID column)
 ait session --suspend         # Local CLI only; inside SSH use !ait suspend
 ait session --switch [id|alias] [--tmux] [--password] [--force]  # Switch session; omit id to pick
 ait session --delete <id|alias|all> [--force]         # Delete one or all saved sessions
@@ -43,7 +44,7 @@ Use **`!ait local` / `!ait remote`** to toggle local versus remote input while S
 | **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally replay scrollback saved at last suspend | No keep-alive guarantee |
 | **tmux keep-alive** | `login`/`load` with `--tmux` | After SSH: `tmux attach -t ait-<session_id>` (or `new -s` if missing) | Shell/process survives disconnect |
 
-**Login metadata is persisted only with `--save` or `--alias`** (host/port/user/identity/alias and authentication expiry); plain `ait login host` does not write SQLite. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
+**Login metadata is persisted with `--save` or `--alias` for new connections**, or automatically when the same user@host:port already exists in the session list (row updated, auth TTL refreshed). Plain `ait login host` to an unknown host does not write SQLite. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
 
 ## Architecture overview
 
@@ -198,7 +199,7 @@ CREATE TABLE app_meta (
 -- 键 current_session_id：当前/上次前台会话 UUID（switch/load/login 后更新）
 ```
 
-- Successful `login` with `--save` or `--alias` → upsert `sessions`, set `auth_expires_at`; if `--tmux`, set `tmux_enabled=1` and initialize remote tmux; write `app_meta.current_session_id`. Login without those flags does not upsert.
+- Successful `login` with `--save` or `--alias`, or to an **existing** user@host:port → upsert `sessions`, set `auth_expires_at`; if `--tmux`, set `tmux_enabled=1` and initialize remote tmux; write `app_meta.current_session_id`. Login to a new host without those flags does not upsert.
 - `suspend` → write `session_state`, `status=suspended`; in tmux mode `tmux detach` before closing SSH
 - `session --delete <id>` / `session --delete all` → delete DB rows plus scrollback sidecars; tmux mode optional `--kill-tmux` kills remote sessions (`delete all` defaults to not killing remote tmux to avoid accidents; documented)
 
@@ -300,9 +301,9 @@ sequenceDiagram
 
 - **Config resolution**: `internal/pkg/ssh/args` invokes local `ssh -G` (`platform.OpenSSHPath`: Linux/macOS on PATH; Windows also tries `System32\OpenSSH\ssh.exe`)
 - **Dial**: `client.DialChain` supports `ProxyJump` / `ProxyCommand` (Unix `sh -c`, Windows `cmd /c`)
-- **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite unless `--save` or `--alias`. One-shot with `--save` or `--alias` upserts the connection profile and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
+- **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing** user@host:port updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
 - Auth order: `-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
-- Interactive login writes or updates the session row only with `--save` or `--alias`; `!ait suspend` requires a saved session
+- Interactive login writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise `!ait suspend` requires a saved session
 
 ### Local mode (!ait local / remote)
 

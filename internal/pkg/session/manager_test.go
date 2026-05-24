@@ -89,7 +89,7 @@ func TestDeleteAllWithForce(t *testing.T) {
 
 func TestListEmpty(t *testing.T) {
 	m := newTestManager(t)
-	if err := m.List(io.Discard); err != nil {
+	if err := m.List(io.Discard, false); err != nil {
 		t.Fatalf("List: %v", err)
 	}
 }
@@ -135,12 +135,15 @@ func TestListTableColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := m.List(&buf); err != nil {
+	if err := m.List(&buf, false); err != nil {
 		t.Fatalf("List: %v", err)
 	}
 	out := buf.String()
 	if strings.Contains(out, "auth:") {
 		t.Fatal("list output must not contain auth: prefix")
+	}
+	if !strings.Contains(out, "#") || !strings.Contains(out, "ID") {
+		t.Fatal("list output missing # and ID headers")
 	}
 	if !strings.Contains(out, "REMAINING") {
 		t.Fatal("list output missing REMAINING header")
@@ -164,6 +167,55 @@ func TestListTableColumns(t *testing.T) {
 	}
 	if col1 != col2 {
 		t.Fatalf("REMAINING column misaligned: %d vs %d\n%s", col1, col2, out)
+	}
+}
+
+func TestListVerbose_IncludesFullID(t *testing.T) {
+	m := newTestManager(t)
+	saveSession(t, m, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "")
+
+	var buf bytes.Buffer
+	if err := m.List(&buf, true); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "FULL_ID") {
+		t.Fatal("verbose list missing FULL_ID header")
+	}
+	if !strings.Contains(out, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee") {
+		t.Fatalf("verbose list missing full uuid:\n%s", out)
+	}
+}
+
+func TestPickSession_SelectByNumber(t *testing.T) {
+	m := newTestManager(t)
+	saveSession(t, m, "id-first", "")
+	saveSession(t, m, "id-second", "second")
+
+	in := strings.NewReader("2\n")
+	id, err := m.PickSessionFrom(in, io.Discard)
+	if err != nil {
+		t.Fatalf("PickSessionFrom: %v", err)
+	}
+	if id != "id-second" {
+		t.Fatalf("got id %q want id-second", id)
+	}
+}
+
+func TestLoad_DisplayIDNotFound(t *testing.T) {
+	m := newTestManager(t)
+	fullID := "621b71ac-0000-4000-8000-000000000001"
+	saveSession(t, m, fullID, "")
+
+	err := m.Load(context.Background(), "621b71ac", false, "")
+	if !errors.Is(err, store.ErrSessionNotFound) {
+		t.Fatalf("expected ErrSessionNotFound, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "display only") {
+		t.Fatalf("expected display hint, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Try:") {
+		t.Fatalf("expected Try block, got %v", err)
 	}
 }
 

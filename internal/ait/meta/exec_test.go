@@ -67,6 +67,9 @@ func TestExecuteBlockedAI(t *testing.T) {
 	if !strings.Contains(err.Error(), "!ait ai") {
 		t.Errorf("unexpected error: %v", err)
 	}
+	if !strings.Contains(err.Error(), "Try:") {
+		t.Errorf("expected Try block: %v", err)
+	}
 }
 
 func TestExecuteBlockedLogin(t *testing.T) {
@@ -74,8 +77,11 @@ func TestExecuteBlockedLogin(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for login in session")
 	}
-	if !strings.Contains(err.Error(), "exit the SSH") {
+	if !strings.Contains(err.Error(), "Exit the SSH") && !strings.Contains(err.Error(), "exit") {
 		t.Errorf("unexpected error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Try:") {
+		t.Errorf("expected Try block: %v", err)
 	}
 }
 

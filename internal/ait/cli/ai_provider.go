@@ -48,7 +48,7 @@ func newProviderEnableCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if !config.IsKnownProvider(id) {
-				return fmt.Errorf(errUnknownProviderFmt, id)
+				return unknownProviderErr(id)
 			}
 			cfg, err := config.Load()
 			if err != nil {
@@ -100,7 +100,7 @@ func newProviderDisableCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if !config.IsKnownProvider(id) {
-				return fmt.Errorf(errUnknownProviderFmt, id)
+				return unknownProviderErr(id)
 			}
 			cfg, err := config.Load()
 			if err != nil {

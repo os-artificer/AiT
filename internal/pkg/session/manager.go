@@ -30,8 +30,10 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	sshargs "github.com/os-artificer/AiT/internal/pkg/ssh/args"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
@@ -74,13 +76,14 @@ type Manager struct {
 }
 
 // Login dials the remote host and runs an interactive shell or a one-shot remote command.
-// A session profile is persisted only when opts.Save is set or opts.Alias is non-empty.
+// A session profile is persisted when opts.Save or opts.Alias is set, or when the same
+// username+host+port already exists in the store (existing rows are updated and TTL refreshed).
 // ctx cancels dial and interactive I/O. opts must include Host; RemoteCommand and Tmux cannot be combined.
 // Returns dial/auth errors, store errors, fmt.Errorf for invalid flag combinations, or sshclient.RemoteExitError for one-shot exits.
 func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	opts.Port = normalizePort(opts.Port)
 	if len(opts.RemoteCommand) > 0 && opts.Tmux {
-		return fmt.Errorf("cannot use --tmux with a remote command")
+		return sshargs.TmuxWithRemoteCommandErr()
 	}
 
 	sshOpts := sshclient.Options{
@@ -126,8 +129,12 @@ func (m *Manager) dialLogin(sshOpts sshclient.Options, password, host string) (*
 }
 
 func (m *Manager) loginRunOnce(ctx context.Context, client *sshclient.Client, opts LoginOpts) error {
-	if shouldPersistLogin(opts) {
-		if err := m.persistLoginSession(client, opts); err != nil {
+	plan, err := m.planLoginPersistence(opts, uuid.New().String())
+	if err != nil {
+		return err
+	}
+	if plan.persist {
+		if err := m.persistLoginSession(client, opts, plan); err != nil {
 			return err
 		}
 	}
@@ -137,47 +144,33 @@ func (m *Manager) loginRunOnce(ctx context.Context, client *sshclient.Client, op
 }
 
 func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client, opts LoginOpts, sshOpts sshclient.Options) error {
-	persist := shouldPersistLogin(opts)
-	id := uuid.New().String()
-	if persist {
-		var err error
-		id, err = m.resolvePersistSessionID(opts, id)
-		if err != nil {
-			return err
-		}
+	newID := uuid.New().String()
+	plan, err := m.planLoginPersistence(opts, newID)
+	if err != nil {
+		return err
 	}
 
-	authMethod := sshclient.DetectAuthMethod(sshOpts)
-	ttl, _ := m.Config.AuthTTL()
-	expires := time.Now().Add(ttl).Unix()
-	tmuxName := tmux.SessionName(id)
-	sess := &store.Session{
-		ID: id, Alias: opts.Alias, Host: opts.Host, Port: normalizePort(opts.Port),
-		Username: opts.User, IdentityPath: opts.IdentityPath,
-		AuthMethod: authMethod, AuthExpiresAt: expires,
-		TmuxEnabled: opts.Tmux, TmuxSession: tmuxName,
-		Status: store.StatusSuspended,
-	}
+	sess := buildSessionForLogin(opts, sshOpts, plan, loginAuthExpiry(m))
 
-	if persist {
+	if plan.persist {
 		if err := m.persistInteractiveLogin(sess, opts); err != nil {
 			return err
 		}
 	}
 
 	if opts.Tmux {
-		if err := tmux.Ensure(client.Conn(), tmuxName); err != nil {
-			if persist {
-				m.clearSessionOnFailure(id, true)
+		if err := tmux.Ensure(client.Conn(), sess.TmuxSession); err != nil {
+			if plan.persist {
+				m.clearSessionOnFailure(sess.ID, true)
 			}
 			return fmt.Errorf("tmux: %w (is tmux installed on remote?)", err)
 		}
 	}
 
 	initialCmds := sshclient.RemotePromptInitialCommands(sess.Username, sess.Host)
-	err := m.runInteractive(ctx, client, sess, initialCmds, persist)
-	if err != nil && persist {
-		m.clearSessionOnFailure(id, true)
+	err = m.runInteractive(ctx, client, sess, initialCmds, plan.persist)
+	if err != nil && plan.persist {
+		m.clearSessionOnFailure(sess.ID, true)
 	}
 	return err
 }
@@ -214,28 +207,26 @@ func (m *Manager) persistInteractiveLogin(sess *store.Session, opts LoginOpts) e
 	return m.Store.SetMeta(store.MetaCurrentSession, sess.ID)
 }
 
-func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts) error {
+func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts, plan loginPersistPlan) error {
 	_ = client
-	id, err := m.resolvePersistSessionID(opts, uuid.New().String())
-	if err != nil {
-		return err
+	if !plan.persist {
+		return nil
 	}
 
-	ttl, _ := m.Config.AuthTTL()
-	expires := time.Now().Add(ttl).Unix()
-	sess := &store.Session{
-		ID: id, Alias: opts.Alias, Host: opts.Host, Port: normalizePort(opts.Port),
-		Username: opts.User, IdentityPath: opts.IdentityPath,
-		AuthExpiresAt: expires, Status: store.StatusSuspended,
+	sshOpts := sshclient.Options{
+		Host: opts.Host, Port: opts.Port, User: opts.User,
+		IdentityPath: opts.IdentityPath, IdentityExplicit: opts.IdentityExplicit,
+		Password: opts.Password,
 	}
+	sess := buildSessionForLogin(opts, sshOpts, plan, loginAuthExpiry(m))
 	if err := m.Store.UpsertSession(sess); err != nil {
 		return err
 	}
 
 	if opts.Password != "" {
-		_ = creds.SetSessionUnlock(id, opts.Password)
+		_ = creds.SetSessionUnlock(sess.ID, opts.Password)
 	}
-	return m.Store.SetMeta(store.MetaCurrentSession, id)
+	return m.Store.SetMeta(store.MetaCurrentSession, sess.ID)
 }
 
 // Load reconnects to a saved session by id or alias, optionally enabling tmux and supplying a password override.
@@ -244,7 +235,7 @@ func (m *Manager) persistLoginSession(client *sshclient.Client, opts LoginOpts) 
 func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, password string) error {
 	sess, err := m.Store.GetSession(idOrAlias)
 	if err != nil {
-		return err
+		return wrapLoadNotFound(idOrAlias, err)
 	}
 	if useTmux {
 		sess.TmuxEnabled = true
@@ -396,7 +387,7 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 		OnMetaCLI:       m.MetaCLI,
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
 			if !persisted {
-				return fmt.Errorf("%s", errEphemeralSuspendRequiresPersist)
+				return ephemeralSuspendErr()
 			}
 			return m.suspend(sess.ID, scroll, cwd, cols, rows)
 		},
@@ -434,7 +425,10 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 func (m *Manager) SuspendCurrent() error {
 	id, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if id == "" {
-		return fmt.Errorf("no current session; use !ait suspend inside SSH or ait session --load first")
+		return errhint.WithTryMsg("no current session",
+			"Load or switch to a session first, or suspend from inside SSH.",
+			tryLoadFromLocal, trySuspendInSSH, trySessionHelp,
+		)
 	}
 	fmt.Println("Suspend from the local shell is not supported.")
 	fmt.Println("Reconnect to the session and run !ait suspend inside SSH.")
@@ -466,40 +460,49 @@ func (m *Manager) Switch(ctx context.Context, target string, useTmux bool, passw
 // PickSession lists saved sessions on stdout and reads a selection from stdin.
 // Returns the chosen session UUID, fmt.Errorf for empty/invalid input or no sessions, or store list errors.
 func (m *Manager) PickSession() (string, error) {
+	return m.PickSessionFrom(os.Stdin, os.Stdout)
+}
+
+// PickSessionFrom is like PickSession but reads the selection from in and writes prompts to out.
+// Returns the chosen session UUID, fmt.Errorf for empty/invalid input or no sessions, or store list errors.
+func (m *Manager) PickSessionFrom(in io.Reader, out io.Writer) (string, error) {
 	list, err := m.Store.ListSessions()
 	if err != nil {
 		return "", err
 	}
 	if len(list) == 0 {
-		return "", fmt.Errorf("no saved sessions")
+		return "", errhint.WithTryMsg("no saved sessions",
+			"Save a connection before loading or switching.",
+			tryLoginSave, tryLoginAlias, trySessionHelp,
+		)
 	}
 
 	for i, s := range list {
-		fmt.Printf("  %d) %s  %s@%s:%d  [%s]\n", i+1, s.AliasOrID(), s.Username, s.Host, s.Port, s.Status)
+		fmt.Fprintf(out, "  %d) %s  %s@%s:%d  [%s]\n", i+1, s.AliasOrID(), s.Username, s.Host, s.Port, s.Status)
 	}
 
-	fmt.Print("Select session (number, id, or alias): ")
-	reader := bufio.NewReader(os.Stdin)
+	fmt.Fprint(out, "Select session (number, id, or alias): ")
+	reader := bufio.NewReader(in)
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
 	line = strings.TrimSpace(line)
 	if line == "" {
-		return "", fmt.Errorf("%s", errInvalidSelection)
+		return "", invalidSelectionErr()
 	}
 
 	var n int
 	if _, err := fmt.Sscanf(line, "%d", &n); err == nil {
 		if n < 1 || n > len(list) {
-			return "", fmt.Errorf("%s", errInvalidSelection)
+			return "", invalidSelectionErr()
 		}
 		return list[n-1].ID, nil
 	}
 	if sess, err := m.Store.GetSession(line); err == nil {
 		return sess.ID, nil
 	}
-	return "", fmt.Errorf("%s", errInvalidSelection)
+	return "", invalidSelectionErr()
 }
 
 // Delete removes one session after optional confirmation (unless force is true).
@@ -552,8 +555,9 @@ func (m *Manager) DeleteAll(force bool) error {
 }
 
 // List writes a tab-separated table of saved sessions to w (or a short message when empty).
+// When verbose is true, a FULL_ID column with the complete session UUID is included.
 // Returns store.ListSessions or tabwriter flush errors.
-func (m *Manager) List(w io.Writer) error {
+func (m *Manager) List(w io.Writer, verbose bool) error {
 	list, err := m.Store.ListSessions()
 	if err != nil {
 		return err
@@ -564,9 +568,13 @@ func (m *Manager) List(w io.Writer) error {
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tTARGET\tSTATUS\tTMUX\tREMAINING")
+	if verbose {
+		fmt.Fprintln(tw, "#\tID\tFULL_ID\tTARGET\tSTATUS\tTMUX\tREMAINING")
+	} else {
+		fmt.Fprintln(tw, "#\tID\tTARGET\tSTATUS\tTMUX\tREMAINING")
+	}
 	now := time.Now().Unix()
-	for _, s := range list {
+	for i, s := range list {
 		remain := time.Duration(s.AuthExpiresAt-now) * time.Second
 		remainingLabel := remain.Round(time.Hour).String()
 		if remain <= 0 {
@@ -576,8 +584,14 @@ func (m *Manager) List(w io.Writer) error {
 		if s.TmuxEnabled {
 			tmuxCol = "tmux"
 		}
-		fmt.Fprintf(tw, "%s\t%s@%s:%d\t%s\t%s\t%s\n",
-			s.AliasOrID(), s.Username, s.Host, s.Port, s.Status, tmuxCol, remainingLabel)
+		target := fmt.Sprintf("%s@%s:%d", s.Username, s.Host, s.Port)
+		if verbose {
+			fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				i+1, s.AliasOrID(), s.ID, target, s.Status, tmuxCol, remainingLabel)
+		} else {
+			fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\t%s\n",
+				i+1, s.AliasOrID(), target, s.Status, tmuxCol, remainingLabel)
+		}
 	}
 	return tw.Flush()
 }

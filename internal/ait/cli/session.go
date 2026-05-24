@@ -27,7 +27,7 @@ import (
 )
 
 func newSessionCmd() *cobra.Command {
-	var doList, doSuspend, tmux, force bool
+	var doList, doSuspend, verbose, tmux, force bool
 	var loadTarget, switchTarget, deleteTarget, password string
 
 	cmd := &cobra.Command{
@@ -43,9 +43,22 @@ func newSessionCmd() *cobra.Command {
 			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
 				switch act.kind {
 				case sessionActionList:
-					return mgr.List(cmd.OutOrStdout())
+					return mgr.List(cmd.OutOrStdout(), verbose)
 				case sessionActionLoad:
-					return mgr.Load(ctx, act.target, tmux, password)
+					target, err := resolveLoadTarget(act.target, args)
+					if err != nil {
+						return err
+					}
+					if target == "" {
+						if err := session.CheckInteractiveStdin(); err != nil {
+							return err
+						}
+						target, err = mgr.PickSession()
+						if err != nil {
+							return err
+						}
+					}
+					return mgr.Load(ctx, target, tmux, password)
 				case sessionActionSuspend:
 					return mgr.SuspendCurrent()
 				case sessionActionDelete:
@@ -59,6 +72,9 @@ func newSessionCmd() *cobra.Command {
 						return err
 					}
 					if target == "" {
+						if err := session.CheckInteractiveStdin(); err != nil {
+							return err
+						}
 						target, err = mgr.PickSession()
 						if err != nil {
 							return err
@@ -73,11 +89,15 @@ func newSessionCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&doList, flagNameList, false, "list saved sessions")
-	cmd.Flags().StringVar(&loadTarget, flagNameLoad, "", "load session by id or alias")
+	cmd.Flags().BoolVarP(&verbose, flagNameVerbose, "v", false, "with --list, include FULL_ID column")
+	cmd.Flags().StringVar(&loadTarget, flagNameLoad, "", "load session by id or alias (omit value to pick)")
 	cmd.Flags().BoolVar(&doSuspend, flagNameSuspend, false, "suspend current session (prefer !ait suspend in SSH)")
 	cmd.Flags().StringVar(&switchTarget, flagNameSwitch, "", "switch to session id or alias (omit value to pick)")
 	cmd.Flags().StringVar(&deleteTarget, flagNameDelete, "", "delete session id, alias, or all")
 	if f := cmd.Flags().Lookup(flagNameSwitch); f != nil {
+		f.NoOptDefVal = "-"
+	}
+	if f := cmd.Flags().Lookup(flagNameLoad); f != nil {
 		f.NoOptDefVal = "-"
 	}
 	cmd.Flags().BoolVar(&tmux, flagNameTmux, false, "use remote tmux for load or switch")

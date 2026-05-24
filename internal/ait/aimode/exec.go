@@ -61,7 +61,7 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 		return false, execRun(ctx, opt, st, rest)
 	case replCmdAit:
 		if opt.Scope != ai.ScopeLocal {
-			return false, fmt.Errorf("%s", errAitSubcmdLocalOnly)
+			return false, aitSubcmdLocalOnlyErr()
 		}
 		return false, execAit(ctx, opt, st, rest)
 	default:
@@ -80,7 +80,7 @@ func setPolicy(st *sessionState, rest string, out io.Writer) error {
 		st.sessionTrusted = false
 		aimWrite(out, msgExecPolicyOnceCRLF)
 	default:
-		return fmt.Errorf(errFmtUnknownPolicy, rest)
+		return unknownPolicyErr(rest)
 	}
 	return nil
 }
@@ -88,7 +88,7 @@ func setPolicy(st *sessionState, rest string, out io.Writer) error {
 func execRun(ctx context.Context, opt Options, st *sessionState, cmd string) error {
 	cmd = strings.TrimSpace(cmd)
 	if cmd == "" {
-		return fmt.Errorf("%s", errUsageRunCommand)
+		return usageRunCommandErr()
 	}
 
 	ok, err := confirmExec(optWithPolicy(opt, st.policy), cmd, &st.sessionTrusted)
@@ -102,13 +102,13 @@ func execRun(ctx context.Context, opt Options, st *sessionState, cmd string) err
 
 	if opt.Scope == ai.ScopeRemote {
 		if opt.Remote == nil {
-			return fmt.Errorf("%s", errRemoteRunnerNotConfig)
+			return remoteRunnerNotConfiguredErr()
 		}
 		return opt.Remote.Run(cmd)
 	}
 
 	if opt.Local == nil {
-		return fmt.Errorf("%s", errLocalRunnerNotConfig)
+		return localRunnerNotConfiguredErr()
 	}
 	return opt.Local.Run(ctx, cmd)
 }
@@ -117,7 +117,7 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 	_ = ctx
 	argsLine = strings.TrimSpace(argsLine)
 	if argsLine == "" {
-		return fmt.Errorf("%s", errUsageAitSubcommand)
+		return usageAitSubcommandErr()
 	}
 
 	ok, err := confirmExec(optWithPolicy(opt, st.policy), "ait "+argsLine, &st.sessionTrusted)
@@ -129,7 +129,7 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 		return nil
 	}
 	if opt.CLI == nil {
-		return fmt.Errorf("%s", errCLIExecutorNotConfig)
+		return cliExecutorNotConfiguredErr()
 	}
 
 	argv := strings.Fields(argsLine)
@@ -138,7 +138,7 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 
 func setModel(ctx context.Context, opt Options, rest string, out io.Writer) error {
 	if opt.AI == nil {
-		return ErrAINotConfigured
+		return ai.NotConfiguredErr()
 	}
 	rest = strings.ToLower(strings.TrimSpace(rest))
 	if rest == "" || rest == replModelStatus {
@@ -166,7 +166,7 @@ func setModel(ctx context.Context, opt Options, rest string, out io.Writer) erro
 
 func askAI(ctx context.Context, opt Options, st *sessionState, question string) error {
 	if opt.AI == nil {
-		return ErrAINotConfigured
+		return ai.NotConfiguredErr()
 	}
 
 	env := ai.AssistEnv{Scope: opt.Scope, HostLabel: opt.HostLabel, RemoteCwd: opt.RemoteCwd}
