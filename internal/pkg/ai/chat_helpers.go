@@ -24,7 +24,7 @@ func assistMessages(userPrompt, scrollback, remoteCwd string, meta PromptMeta) [
 	env := AssistEnv{Scope: ScopeLocal, Scrollback: scrollback, RemoteCwd: remoteCwd}
 	user := prependEnvContext(userPrompt, env)
 	return []openai.ChatCompletionMessage{
-		{Role: openai.ChatMessageRoleSystem, Content: systemPrompt(ScopeLocal, meta)},
+		{Role: openai.ChatMessageRoleSystem, Content: systemPrompt(ScopeLocal, env, meta)},
 		{Role: openai.ChatMessageRoleUser, Content: user},
 	}
 }

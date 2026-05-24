@@ -48,37 +48,6 @@ type forwardStdinResult struct {
 	err    error
 }
 
-// startStdinReader spawns a goroutine reading os.Stdin one byte at a time.
-// The returned channel is closed when stdin reaches EOF or an error occurs.
-// stop() asks the goroutine to exit; the goroutine may still be blocked in
-// the read syscall until the next byte arrives or the process exits.
-func startStdinReader() (<-chan stdinByte, func()) {
-	out := make(chan stdinByte, 32)
-	stop := make(chan struct{})
-	go func() {
-		defer close(out)
-		buf := make([]byte, 1)
-		for {
-			n, err := os.Stdin.Read(buf)
-			if n > 0 {
-				select {
-				case out <- stdinByte{b: buf[0]}:
-				case <-stop:
-					return
-				}
-			}
-			if err != nil {
-				select {
-				case out <- stdinByte{err: err}:
-				case <-stop:
-				}
-				return
-			}
-		}
-	}()
-	return out, func() { close(stop) }
-}
-
 func termPrintln(w io.Writer, s string) {
 	s = strings.ReplaceAll(s, "\r\n", "\n")
 	s = strings.ReplaceAll(s, "\n", termEOL)
@@ -192,6 +161,12 @@ func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQ
 		return nil
 	}
 
+	var replIn io.Reader
+	if c.stdinReader != nil {
+		replIn = c.stdinReader.beginREPL()
+		defer c.stdinReader.endREPL()
+	}
+
 	err := opts.OnRemoteAI(RemoteAIParams{
 		Ctx:             ctx,
 		Stdin:           stdin,
@@ -200,6 +175,10 @@ func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQ
 		HostLabel:       c.opts.User + "@" + c.opts.Host,
 		RemoteCwd:       c.remoteCwd,
 		Scrollback:      func() string { return c.scroll.RecentLines(50) },
+		ReplIn:          replIn,
+		RunCapture: func(cmd string) (string, error) {
+			return c.RunPTYCapture(stdin, cmd)
+		},
 	})
 
 	c.finishMetaInteraction(stdin)

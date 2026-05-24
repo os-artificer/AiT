@@ -30,7 +30,7 @@ ait session --switch [id|alias] [--tmux] [--password] [--force]  # 切换会话�
 ait session --delete <id|alias|all> [--force]         # 删除单个或全部会话
 ait get [ssh-flags] <paths...>   # OpenSSH 参数；路径/顺序见 get/put 小节
 ait put [ssh-flags] <paths...>
-ait config set|get ...        # 含 session.auth_ttl（默认 168h = 7 天）
+ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUAL/$EDITOR（Unix vi / Windows Notepad）
 ```
 
 **AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ait ai [--model <云端-provider>]`** 或 **`ait shell` 内 `ai`** 进入本机 AI REPL（`AiT AI>`），`run` / `ait` 经确认后在本机执行。已连接 SSH 时用 **`!ait ai`** / **`!!`** 进入远程 AI（`AiT AI user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ait ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ait ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议](#会话内-meta-协议ait--)。
@@ -205,7 +205,7 @@ CREATE TABLE app_meta (
 
 ```text
 <AppRoot>/
-├── config.yaml       # 主配置（ait config init / set / get）
+├── config.yaml       # 主配置（ait config init / view / edit / validate / set / get）
 ├── ait.db            # SQLite 会话
 ├── repl_history      # REPL 输入历史
 ├── scrollback/       # suspend 侧车
@@ -213,7 +213,7 @@ CREATE TABLE app_meta (
 └── ollama/models/    # 推荐 Ollama models_dir 默认路径
 ```
 
-首次安装：执行 `ait config init` 创建或补全 `config.yaml`（仅缺失项；API key 仍走 keyring）。
+首次安装：执行 `ait config init` 创建或补全 `config.yaml`（仅缺失项；API key 仍走 keyring）。**`ait config view`** 打印文件（缺失时自动 init）。**`ait config edit`** 经 `$VISUAL`/`$EDITOR` 编辑（Unix 默认 `vi`，Windows 默认 Notepad），保存后自动校验。**`ait config validate`** 检查 YAML 语法与配置项（session TTL、provider URL、tiered 等）；逐条打印错误原因；失败 exit 1。
 
 ## 包布局（当前）
 
@@ -234,8 +234,8 @@ CREATE TABLE app_meta (
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
-| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、`LookPath` | `paths_appdir.go`, `paths.go`, `openssh.go`, `exec.go` |
-| [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置、init | `config.go`, `config_load.go`, `config_init.go` |
+| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、编辑器 | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
+| [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置、init、validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
 | [`internal/pkg/pathsafe/`](../internal/pkg/pathsafe/) | 会话/路径校验 | `path.go` |
 | [`configs/ait.example.yaml`](../configs/ait.example.yaml) | 配置模板（密钥走 keyring） | — |
@@ -433,10 +433,12 @@ sequenceDiagram
 
 | 入口 | 作用域 | 提示符 | 命令执行 |
 |------|--------|--------|----------|
-| `ait ai`、`ait shell` 内 `ai` | 本机 | `AiT AI>` | `run` → 本机 shell；`ait` → 确认后跑 Cobra |
-| SSH 内 `!ait ai`、`!!` | 远程 | `AiT AI user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
+| `ait ai`、`ait shell` 内 `ai` | 本机 | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run` → 本机 shell；`ait` → 确认后跑 Cobra |
+| SSH 内 `!ait ai`、`!!` | 远程 | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
 
-**REPL：** `help`、`exit`/`quit`、`clear`、`model`（无参：路由状态含 tiered）、`model list`（同 `ait ai model list`）、`model <云端-provider>`（本会话覆盖；`model ollama` 拒绝）、`policy per-cmd`（默认）、`policy once`/`trust`、自然语言多轮 `Chat`、`run` / 本机 `ait`。
+**REPL：** `help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **ask** 仅问答；**agent** 规划并执行）、`approve each|session`（默认 **each**；**session** 低危首次同意后免问；`trust` 同 session）、`model`（路由状态）、`model list`、`model <云端-provider>`（`model ollama` 拒绝）、自然语言（Ask→`Chat`；Agent→工具循环）、`run` / 本机 `ait`。已弃用：`policy per-cmd|once` → `approve`（stderr 提示）。
+
+**Agent 执行：** 支持 OpenAI tools 的走 function calling，否则 JSON。远程 `run_shell` 用 PTY+scrollback 截取；本机 `CombinedOutput`。交互式 TUI（`vim`/`less`/`top` 等）不自动执行。高危命令在 `approve session` 下仍逐条确认。
 
 **多 provider 配置：** YAML `ai` 含 `default`（仅云端：`deepseek` 或 `minimax`）、可选 `fallback`、可选 `tiered`（`enabled`、`local_provider`、`max_prompt_chars`、`max_history_turns`、`complex_keywords`）、各 `providers.<id>`。旧版顶层 `deepseek:` 并入 `ai.providers.deepseek`。MiniMax 支持 `openai` / `anthropic`。Ollama 为 OpenAI 兼容 `http://127.0.0.1:11434/v1`（允许 localhost HTTP，无需 API key）。tiered 开启时 `ClassifyPrompt` 将简单首轮发往 Ollama；否则 Chat/Assist 按云端顺序（`--model` / REPL `model`，否则 `ai.default`，再 fallback）。Ollama 失败升到云端。`SuggestInstall` 始终走云端。系统提示注入事实字段 `ai_provider`、`ai_model`、`ai_mode`（`local_first` | `cloud_only`），避免模型编造后端。`AIT_AI_FAILOVER_LOG=1` 可在 stderr 打印切换。
 
@@ -446,7 +448,7 @@ sequenceDiagram
 
 **Ollama CLI（`ait ai ollama`）：** `setup` 交互选择 `models_dir`（`OLLAMA_MODELS`；备选 AiT 数据目录、`~/.ollama/models`、自定义；`--models-dir`）；写入 tiered 与 ollama 并探测/安装/拉模型；`status` 查配置与服务；`start`/`stop` 控制 `ollama serve`；`disable` 禁用 provider（可选 `--stop`）。见 [`internal/pkg/ollama/`](../internal/pkg/ollama/)。
 
-**授权：** 默认每条 `run`/`ait` 前 `[y/N]`；`session_once` 本会话首次同意后直至退出 AI 模式。
+**授权：** 每次执行前多行确认：`y` 仅本次，`c` 信任首词模式，`s` 信任本会话低危，`n` 跳过（高危仅 y/n）。`approve each`/`approve session` 命令不变；`exit`/`quit` 清除信任。
 
 **单轮 chat：** `ait ai chat` 与 `!ait ai chat <msg>` / `!! chat <msg>` 走 `RunChatOnce`（单次 `Chat`，不进 REPL）；空 `chat` 返回用法错误。
 

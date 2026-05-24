@@ -22,15 +22,21 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 )
 
-const promptLocal = "AiT AI> "
-
-// Prompt returns the AI mode prompt for the given scope and host label (user@host for remote).
-func Prompt(scope ai.Scope, hostLabel string) string {
+// Prompt returns the AI mode prompt for scope, host label, and interaction mode.
+func Prompt(scope ai.Scope, hostLabel string, mode InteractionMode) string {
+	modeLabel := interactionPromptLabel(mode)
 	if scope == ai.ScopeRemote {
 		if hostLabel != "" {
-			return fmt.Sprintf("AiT AI %s> ", hostLabel)
+			return fmt.Sprintf("AiT AI(%s) %s> ", modeLabel, hostLabel)
 		}
-		return "AiT AI remote> "
+		return fmt.Sprintf("AiT AI(%s) remote> ", modeLabel)
 	}
-	return promptLocal
+	return fmt.Sprintf("AiT AI(%s)> ", modeLabel)
+}
+
+func interactionPromptLabel(m InteractionMode) string {
+	if m == ModeAgent {
+		return "Agent"
+	}
+	return "Ask"
 }

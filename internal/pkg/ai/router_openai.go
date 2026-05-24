@@ -25,15 +25,32 @@ import (
 )
 
 func (ep *endpoint) chatOpenAI(ctx context.Context, messages []openai.ChatCompletionMessage) (string, error) {
-	resp, err := ep.openai.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+	return ep.chatOpenAIRequest(ctx, messages, nil)
+}
+
+func (ep *endpoint) chatOpenAIAgent(ctx context.Context, messages []openai.ChatCompletionMessage) (string, error) {
+	tools := agentTools()
+	return ep.chatOpenAIRequest(ctx, messages, tools)
+}
+
+func (ep *endpoint) chatOpenAIRequest(ctx context.Context, messages []openai.ChatCompletionMessage, tools []openai.Tool) (string, error) {
+	req := openai.ChatCompletionRequest{
 		Model:    ep.model,
 		Messages: messages,
-	})
+	}
+	if len(tools) > 0 {
+		req.Tools = tools
+	}
+	resp, err := ep.openai.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return "", err
 	}
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf(errEmptyResponseFmt, ep.id)
 	}
-	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
+	msg := resp.Choices[0].Message
+	if len(msg.ToolCalls) > 0 {
+		return toolCallToAgentJSON(msg.ToolCalls[0])
+	}
+	return strings.TrimSpace(msg.Content), nil
 }

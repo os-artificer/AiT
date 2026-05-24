@@ -53,9 +53,12 @@ type Options struct {
 	Scrollback  func() string
 	Local       LocalRunner
 	Remote      RemoteRunner
+	Capture     CapturingRunner
 	CLI         func([]string, io.Writer, io.Writer) error
 	In          io.Reader
 	Out         io.Writer
 	ErrOut      io.Writer
-	ConfirmRead func(prompt string) (bool, error)
+	ConfirmRead func(prompt string) (ConfirmResult, error)
+	// UseTTYLineEdit enables runAITTY when In is not os.Stdin (SSH remote AI ReplIn).
+	UseTTYLineEdit bool
 }

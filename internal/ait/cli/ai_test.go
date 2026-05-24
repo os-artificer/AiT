@@ -33,11 +33,21 @@ func TestAIHelpSections(t *testing.T) {
 	for _, want := range []string{
 		"Usage:", "Examples:", "help for ai", "ait ai", "ait ai model list", "ait ai ollama status", "ait ai ollama setup",
 		"ait ai --model minimax", "Subcommands:", "chat", "provider enable", "ollama status", "start", "stop", "disable",
-		"--model", "deepseek|minimax", "run <command>", "policy", "model list", "!ait ai",
+		"--model", "deepseek|minimax", "run <command>", "mode ask|agent", "approve each|session", "trust", "model list", "!ait ai",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}
+	}
+}
+
+func TestLocalAIModeOptions_HasCaptureAndCLI(t *testing.T) {
+	opt := localAIModeOptions(nil)
+	if opt.Capture == nil {
+		t.Fatal("local AI mode missing Capture runner")
+	}
+	if opt.CLI == nil {
+		t.Fatal("local AI mode missing CLI executor")
 	}
 }
 

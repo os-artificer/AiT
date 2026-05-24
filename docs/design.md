@@ -30,7 +30,7 @@ ait session --switch [id|alias] [--tmux] [--password] [--force]  # Switch sessio
 ait session --delete <id|alias|all> [--force]         # Delete one or all saved sessions
 ait get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like login (see get/put section)
 ait put [ssh-flags] <paths...>
-ait config set|get ...        # Includes session.auth_ttl (default 168h = 7 days)
+ait config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUAL/$EDITOR (vi / Notepad)
 ```
 
 **AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ait ai [--model <cloud-provider>]`** or **`ai` inside `ait shell`** runs a local AI REPL (`AiT AI>`); commands run on this machine only after you confirm (`run`, optional `ait` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait).
@@ -205,7 +205,7 @@ CREATE TABLE app_meta (
 
 ```text
 <AppRoot>/
-├── config.yaml       # main YAML (ait config init / set / get)
+├── config.yaml       # main YAML (ait config init / view / edit / validate / set / get)
 ├── ait.db            # SQLite sessions
 ├── repl_history      # REPL input history
 ├── scrollback/       # suspend sidecars
@@ -213,7 +213,7 @@ CREATE TABLE app_meta (
 └── ollama/models/    # recommended Ollama models_dir default
 ```
 
-First-time setup: `ait config init` creates or merges `config.yaml` (missing keys only; API keys still via keyring).
+First-time setup: `ait config init` creates or merges `config.yaml` (missing keys only; API keys still via keyring). **`ait config view`** prints the file (creates it when missing). **`ait config edit`** opens `$VISUAL`/`$EDITOR` (default: `vi` on Unix, Notepad on Windows) and validates after save. **`ait config validate`** checks YAML syntax and values (session TTL, provider URLs, tiered fields); prints each error with a field path; exit 1 on failure.
 
 ## Package layout (current)
 
@@ -234,8 +234,8 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file) | `transfer.go`, `parse.go` |
-| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, `LookPath` | `paths_appdir.go`, `paths.go`, `openssh.go`, `exec.go` |
-| [`internal/pkg/config/`](../internal/pkg/config/) | YAML config, init | `config.go`, `config_load.go`, `config_init.go` |
+| [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, editor | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
+| [`internal/pkg/config/`](../internal/pkg/config/) | YAML config, init, validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
 | [`internal/pkg/pathsafe/`](../internal/pkg/pathsafe/) | Session/path validation | `path.go` |
 | [`configs/ait.example.yaml`](../configs/ait.example.yaml) | Config template (secrets via keyring) | — |
@@ -433,10 +433,12 @@ Package: [`internal/ait/aimode/`](../internal/ait/aimode/) (REPL, exec policy, r
 
 | Entry | Scope | Prompt | Command execution |
 |-------|-------|--------|-------------------|
-| `ait ai`, `ai` in `ait shell` | Local | `AiT AI>` | `run <cmd>` → local `sh -c` / `cmd /c`; `ait <args>` → Cobra after confirm |
-| `!ait ai`, `!!` in SSH | Remote | `AiT AI user@host>` | `run <cmd>` → PTY stdin (`cmd\n`); no local `exec` for remote work |
+| `ait ai`, `ai` in `ait shell` | Local | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run <cmd>` → local `sh -c` / `cmd /c`; `ait <args>` → Cobra after confirm |
+| `!ait ai`, `!!` in SSH | Remote | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` | `run <cmd>` → PTY stdin (`cmd\n`); no local `exec` for remote work |
 
-**REPL commands:** `help`, `exit`/`quit`, `clear`, `model` (no-arg: routing status including tiered), `model list` (same as `ait ai model list`), `model <cloud-provider>` (session override; `model ollama` rejected), `policy per-cmd` (default), `policy once` / `trust` (one confirm per AI session), free-text questions (multi-turn `Chat` history), `run` / local-only `ait`.
+**REPL commands:** `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default **ask**: Q&A only; **agent**: plan/run via JSON or OpenAI tools), `approve each|session` (default **each**; **session** trusts safe commands after first yes; `trust` = `approve session`), `model` (routing status), `model list`, `model <cloud-provider>` (`model ollama` rejected), free-text (Ask → `Chat`; Agent → tool loop with `run_shell` / `ait_cli` / `answer`), `run` / local-only `ait`. Deprecated: `policy per-cmd|once` → `approve each|session` (stderr hint).
+
+**Agent execution:** OpenAI-compatible providers use native function tools when available; others use JSON-in-prompt. `run_shell` uses `RunPTYCapture` + scrollback delta on remote; local uses `CombinedOutput`. Interactive TUI commands (`vim`, `less`, `top`, …) are never auto-run. High-risk commands always require `[y/N]` even with `approve session`.
 
 **Multi-provider config:** YAML block `ai` with `default` (cloud only: `deepseek` or `minimax`), optional `fallback`, optional `tiered` (`enabled`, `local_provider`, `max_prompt_chars`, `max_history_turns`, `complex_keywords`), and `providers.<id>` (`api_style`, `base_url`, `model`). Legacy top-level `deepseek:` merges into `ai.providers.deepseek` on load. MiniMax supports `api_style: openai` (`https://api.minimax.io/v1`) or `anthropic` (`https://api.minimax.io/anthropic`). Ollama uses OpenAI-compatible `http://127.0.0.1:11434/v1` (localhost HTTP allowed; no API key). When tiered is on, `ClassifyPrompt` sends simple first-turn prompts to Ollama; otherwise Chat/Assist use cloud order (session `--model` / REPL `model`, else `ai.default`, then failover). Ollama errors fail up to cloud. `SuggestInstall` always uses cloud. System prompt injects factual `ai_provider`, `ai_model`, `ai_mode` (`local_first` | `cloud_only`) so the model does not invent backends. Set `AIT_AI_FAILOVER_LOG=1` to log switches on stderr.
 
@@ -446,7 +448,7 @@ Package: [`internal/ait/aimode/`](../internal/ait/aimode/) (REPL, exec policy, r
 
 **Ollama CLI (under `ait ai ollama`):** `setup` prompts for `models_dir` (persisted as `ai.providers.ollama.models_dir`, applied as `OLLAMA_MODELS` on AiT-started `serve`/`pull`; alternatives: AiT data dir, `~/.ollama/models`, custom; `--models-dir`); merges tiered + `providers.ollama` and may install/pull; `status` shows config + API reachability; `start`/`stop` control `ollama serve`; `disable` sets `providers.ollama.enabled` false (optional `--stop`). Package: [`internal/pkg/ollama/`](../internal/pkg/ollama/).
 
-**Authorization:** default `per_cmd` — `[y/N]` before each `run`/`ait`. `session_once` — first approval sets trust until `exit`/`quit` leaves AI mode (state resets on next entry).
+**Authorization:** Multi-line confirm before each `run`/`ait`/Agent tool: **`y`** once, **`c`** trust first shell token for the session, **`s`** trust all low-risk for the session, **`n`** skip (high-risk: **`y`**/`n` only). `approve each`/`approve session` CLI commands unchanged. Internal `ExecPolicy` names unchanged.
 
 **One-shot chat:** `ait ai chat` and `!ait ai chat <msg>` / `!! chat <msg>` call `RunChatOnce` (single `Chat`, no REPL). Empty `chat` returns a usage error.
 

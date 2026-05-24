@@ -30,9 +30,11 @@ import (
 
 // sessionState holds per-REPL AI chat history and exec trust.
 type sessionState struct {
-	history        []ai.ChatMessage
-	sessionTrusted bool
-	policy         ExecPolicy
+	history         []ai.ChatMessage
+	sessionTrusted  bool
+	trustedPatterns map[string]struct{}
+	policy          ExecPolicy
+	interaction     InteractionMode
 }
 
 // ExecuteLine handles one AI mode line. Returns exitAI true when the user typed exit/quit.
@@ -46,7 +48,7 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 	word, rest := firstWord(line)
 	switch word {
 	case replCmdExit, replCmdQuit:
-		st.sessionTrusted = false
+		clearExecTrust(st)
 		return true, nil
 	case replCmdHelp, replArgH, replArgHelp:
 		PrintHelp(opt.Out, opt.Scope)
@@ -62,8 +64,14 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 			args = parts[1:]
 		}
 		return false, terminal.RunHistoryCommand(opt.Out, hist, args)
+	case replCmdMode:
+		return false, setMode(ctx, opt, st, rest, opt.Out)
+	case replCmdApprove:
+		return false, setApprove(st, rest, opt.Out, opt.ErrOut)
+	case replCmdTrust:
+		return false, setApprove(st, "session", opt.Out, opt.ErrOut)
 	case replCmdPolicy:
-		return false, setPolicy(st, rest, opt.Out)
+		return false, setPolicyDeprecated(st, rest, opt.Out, opt.ErrOut)
 	case replCmdModel:
 		return false, setModel(ctx, opt, rest, opt.Out)
 	case replCmdRun:
@@ -74,24 +82,11 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 		}
 		return false, execAit(ctx, opt, st, rest)
 	default:
+		if st.interaction == ModeAgent {
+			return false, runAgentTurn(ctx, opt, st, line)
+		}
 		return false, askAI(ctx, opt, st, line)
 	}
-}
-
-func setPolicy(st *sessionState, rest string, out io.Writer) error {
-	switch strings.ToLower(strings.TrimSpace(rest)) {
-	case "per-cmd", "per_cmd", "":
-		st.policy = ExecPolicyPerCmd
-		st.sessionTrusted = false
-		aimWrite(out, msgExecPolicyPerCmdCRLF)
-	case "once", "session_once", "trust":
-		st.policy = ExecPolicySessionOnce
-		st.sessionTrusted = false
-		aimWrite(out, msgExecPolicyOnceCRLF)
-	default:
-		return unknownPolicyErr(rest)
-	}
-	return nil
 }
 
 func execRun(ctx context.Context, opt Options, st *sessionState, cmd string) error {
@@ -100,7 +95,13 @@ func execRun(ctx context.Context, opt Options, st *sessionState, cmd string) err
 		return usageRunCommandErr()
 	}
 
-	ok, err := confirmExec(optWithPolicy(opt, st.policy), cmd, &st.sessionTrusted)
+	risk := ClassifyRisk(cmd)
+	if risk == RiskInteractive {
+		aimWrite(opt.Out, msgInteractiveSkipCRLF)
+		return nil
+	}
+
+	ok, err := confirmExecRisk(optWithPolicy(opt, st.policy), st, cmd, CommandPatternKey(cmd), risk)
 	if err != nil {
 		return err
 	}
@@ -129,7 +130,9 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 		return usageAitSubcommandErr()
 	}
 
-	ok, err := confirmExec(optWithPolicy(opt, st.policy), "ait "+argsLine, &st.sessionTrusted)
+	risk := ClassifyAitRisk(argsLine)
+	label := "ait " + argsLine
+	ok, err := confirmExecRisk(optWithPolicy(opt, st.policy), st, label, CommandPatternKeyAit(argsLine), risk)
 	if err != nil {
 		return err
 	}
@@ -151,8 +154,7 @@ func setModel(ctx context.Context, opt Options, rest string, out io.Writer) erro
 	}
 	rest = strings.ToLower(strings.TrimSpace(rest))
 	if rest == "" || rest == replModelStatus {
-		meta := opt.AI.StatusLine()
-		aimWrite(out, meta+"\r\n")
+		aimWrite(out, opt.AI.StatusLine()+"\r\n")
 		return nil
 	}
 	if rest == replModelList {

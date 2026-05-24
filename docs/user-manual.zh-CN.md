@@ -65,6 +65,9 @@
 | `ait get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ait get --help` |
 | `ait put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
 | `ait config init [--dry-run]` | 创建或补全 `config.yaml`（仅缺失项）；`--dry-run` 仅打印计划变更 |
+| `ait config view` | 打印 `config.yaml` 到 stdout（缺失时自动 init） |
+| `ait config edit` | 用 `$VISUAL`/`$EDITOR` 编辑（Unix 默认 vi，Windows 默认 Notepad）；退出后自动校验 |
+| `ait config validate` | 校验 YAML 与配置项；逐条打印错误原因；失败 exit 1 |
 | `ait config set/get <key>` | 配置项；`ai.<provider>.api_key` 经密钥环存储 |
 | `ait ai [--model deepseek\|minimax]` | 本机 AI REPL（TTY 为 UTF-8 输入）；可选本会话云端 provider 覆盖 |
 | `ait ai model list` | 列出 AI provider（ENABLED、可达性、Ollama tags） |
@@ -101,9 +104,9 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | 场景 | 提示符 |
 |------|--------|
 | `ait shell` | `AiT> ` |
-| `ait ai`（本机） | `AiT AI> ` |
+| `ait ai`（本机） | `AiT AI(Ask)> ` 或 `mode agent` 后为 `AiT AI(Agent)> ` |
 | SSH 远程 | `AiT user@host> ` |
-| SSH AI 模式（`!ait ai` / `!!`） | `AiT AI user@host> ` |
+| SSH AI 模式（`!ait ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
 ---
@@ -120,10 +123,12 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 
 | 场景 | 进入方式 | 执行位置 |
 |------|----------|----------|
-| 本机（系统 shell 或 `ait shell`） | `ait ai`、`ait ai --model minimax`，或 shell 内 `ai` | `AiT AI>` — `run` 在本机；`ait` 子命令经确认后跑 CLI |
-| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | `AiT AI user@host>` — `run` 写入远程 PTY |
+| 本机（系统 shell 或 `ait shell`） | `ait ai`、`ait ai --model minimax`，或 shell 内 `ai` | `AiT AI(Ask)>` / `AiT AI(Agent)>` — `run` 在本机；`ait` 经确认后跑 CLI |
+| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` — `run` 写入远程 PTY |
 
-模式内：`help`、`exit`/`quit`、`clear`、`model`（显示路由含 tiered）、`model list`（同 `ait ai model list`）、`model <deepseek|minimax>`（本会话云端覆盖；`model ollama` 拒绝）、`policy per-cmd`（每条确认）、`policy once`（本会话确认一次）。勿用 `!ait ai` 当 meta 子命令。
+每次 `run` / Agent 执行前有多行确认：**`y`** 仅本次，**`c`** 信任本会话内同**首词**命令，**`s`** 信任本会话所有低危命令，**`n`** 跳过。高危仅 **`y`** / **`n`**。
+
+模式内：`help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 ask）、`approve each|session`（默认 each；`trust` 同 session）、`model` / `model list` / `model <deepseek|minimax>`，自然语言（ask 问答 / agent 自动规划）或 `run` / 本机 `ait`。`policy` 已弃用（请用 `approve`）。勿用 `!ait ai` 当 meta 子命令。
 
 启用 tiered 时，短句首轮走本地 Ollama；过长、含代码块、复杂关键词或多轮历史走云端。`--model` / `model <云端>` 本会话跳过 Ollama。
 
@@ -171,6 +176,9 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 | 当前会话仍为 **active** 时 `session --switch` | 在 SSH 内 `!ait suspend` 或 `session --switch --force` |
 | 空 `ait ai chat`（无消息/stdin） | `chat requires a message` → 传入消息或管道 stdin |
 | 未知配置键 | `ait config get <key>` 或参考示例 YAML |
+| `ait config validate` 失败 | 按字段路径修正或 `ait config edit` |
+| `validate` 时无配置文件 | 先执行 `ait config init` |
+| `edit` 无可用编辑器 | 设置 `EDITOR`（Windows：`set EDITOR=code --wait`） |
 
 ---
 
