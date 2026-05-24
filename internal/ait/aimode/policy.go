@@ -18,60 +18,79 @@ package aimode
 
 import (
 	"bufio"
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 )
 
-const confirmYes = "y"
-
 // confirmExec returns whether the user approved running cmd under opt's scope and policy.
-// sessionTrusted is updated when the user accepts session_once trust.
-func confirmExec(opt Options, cmd string, sessionTrusted *bool) (bool, error) {
-	if opt.ExecPolicy == ExecPolicySessionOnce && *sessionTrusted {
+func confirmExec(opt Options, st *sessionState, cmdLabel, patternKey string, risk RiskLevel) (bool, error) {
+	return confirmExecRisk(opt, st, cmdLabel, patternKey, risk)
+}
+
+// confirmExecRisk confirms execution using an explicit risk level and session trust state.
+func confirmExecRisk(opt Options, st *sessionState, cmdLabel, patternKey string, risk RiskLevel) (bool, error) {
+	if risk == RiskInteractive {
+		return false, nil
+	}
+
+	if risk != RiskHigh && st.isPatternTrusted(patternKey) {
+		return true, nil
+	}
+	if risk != RiskHigh && opt.ExecPolicy == ExecPolicySessionOnce && st.sessionTrusted {
 		return true, nil
 	}
 
-	prompt := confirmPrompt(opt, cmd)
+	allowPattern := risk != RiskHigh
+	allowSession := risk != RiskHigh
+	prompt := confirmPromptRisk(opt, cmdLabel, risk)
+
 	if opt.ConfirmRead != nil {
-		ok, err := opt.ConfirmRead(prompt)
+		res, err := opt.ConfirmRead(prompt)
 		if err != nil {
 			return false, err
 		}
-		if ok && opt.ExecPolicy == ExecPolicySessionOnce {
-			*sessionTrusted = true
+		if !res.Run {
+			return false, nil
 		}
-		return ok, nil
+		if res.TrustSession {
+			st.sessionTrusted = true
+			st.policy = ExecPolicySessionOnce
+		}
+		if res.TrustPattern {
+			st.addTrustedPattern(patternKey)
+		}
+		return true, nil
 	}
 
-	_, _ = io.WriteString(opt.Out, prompt)
+	aimWrite(opt.Out, prompt)
 	line, err := readConfirmLine(opt.In)
 	if err != nil {
 		return false, err
 	}
 
-	ok := strings.EqualFold(strings.TrimSpace(line), confirmYes)
-	if ok && opt.ExecPolicy == ExecPolicySessionOnce {
-		*sessionTrusted = true
+	res := parseConfirmChoice(line, allowPattern, allowSession)
+	if !res.Run {
+		return false, nil
 	}
-	return ok, nil
+	if res.TrustSession {
+		st.sessionTrusted = true
+		st.policy = ExecPolicySessionOnce
+	}
+	if res.TrustPattern {
+		st.addTrustedPattern(patternKey)
+	}
+	return true, nil
 }
 
-func confirmPrompt(opt Options, cmd string) string {
-	label := "local"
+func scopeLabel(opt Options) string {
 	if opt.Scope == ai.ScopeRemote {
-		label = "remote"
 		if opt.HostLabel != "" {
-			label = opt.HostLabel
+			return opt.HostLabel
 		}
+		return "remote"
 	}
-
-	if opt.ExecPolicy == ExecPolicySessionOnce {
-		return fmt.Sprintf("AiT: [%s] run: %s\nTrust commands for this AI session? [y/N] ", label, cmd)
-	}
-	return fmt.Sprintf("AiT: [%s] run: %s\nRun? [y/N] ", label, cmd)
+	return "local"
 }
 
 func readConfirmLine(in io.Reader) (string, error) {

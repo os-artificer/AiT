@@ -52,8 +52,8 @@ func TestExecuteLine_PerCmdSkipsWithoutYes(t *testing.T) {
 		Local:  &local,
 		Out:    io.Discard,
 		ErrOut: io.Discard,
-		ConfirmRead: func(string) (bool, error) {
-			return false, nil
+		ConfirmRead: func(string) (ConfirmResult, error) {
+			return ConfirmResult{}, nil
 		},
 	}
 	st := &sessionState{policy: ExecPolicyPerCmd}
@@ -75,9 +75,9 @@ func TestExecuteLine_SessionOnceTrustsAfterYes(t *testing.T) {
 		Remote: &remote,
 		Out:    io.Discard,
 		ErrOut: io.Discard,
-		ConfirmRead: func(string) (bool, error) {
+		ConfirmRead: func(string) (ConfirmResult, error) {
 			n++
-			return true, nil
+			return ConfirmResult{Run: true, TrustSession: true}, nil
 		},
 	}
 	st := &sessionState{policy: ExecPolicySessionOnce}
@@ -96,13 +96,17 @@ func TestExecuteLine_SessionOnceTrustsAfterYes(t *testing.T) {
 }
 
 func TestExecuteLine_ExitClearsSessionTrust(t *testing.T) {
-	st := &sessionState{policy: ExecPolicySessionOnce, sessionTrusted: true}
+	st := &sessionState{
+		policy:          ExecPolicySessionOnce,
+		sessionTrusted:  true,
+		trustedPatterns: map[string]struct{}{"hostname": {}},
+	}
 	exit, err := ExecuteLine(context.Background(), Options{}, st, "exit", nil)
 	if err != nil || !exit {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
-	if st.sessionTrusted {
-		t.Fatal("sessionTrusted should clear on exit")
+	if st.sessionTrusted || st.trustedPatterns != nil {
+		t.Fatal("exec trust should clear on exit")
 	}
 }
 
@@ -113,17 +117,17 @@ func TestExecuteLine_AitBlockedOnRemote(t *testing.T) {
 	}
 }
 
-func TestExecuteLine_PolicyOnce(t *testing.T) {
+func TestExecuteLine_ApproveSession(t *testing.T) {
 	var buf bytes.Buffer
 	st := &sessionState{policy: ExecPolicyPerCmd}
 
-	if err := setPolicy(st, "once", &buf); err != nil {
+	if err := setApprove(st, "session", &buf, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if st.policy != ExecPolicySessionOnce {
 		t.Fatal("policy not session_once")
 	}
-	if !strings.Contains(buf.String(), "session_once") {
+	if !strings.Contains(buf.String(), "approve: session") {
 		t.Fatalf("output=%q", buf.String())
 	}
 }

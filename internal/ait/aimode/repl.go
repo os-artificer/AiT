@@ -42,10 +42,7 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 	}
 
 	opt = fillOptionDefaults(opt)
-	st := &sessionState{policy: opt.ExecPolicy}
-	if st.policy == 0 {
-		st.policy = ExecPolicyPerCmd
-	}
+	st := newSessionState(opt)
 
 	var historySeed string
 	if q := stringsTrim(initialQuestion); q != "" {
@@ -67,7 +64,7 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 	}
 
 	fd := int(os.Stdin.Fd())
-	if opt.In == os.Stdin && term.IsTerminal(fd) {
+	if term.IsTerminal(fd) && (opt.In == os.Stdin || opt.UseTTYLineEdit) {
 		return runAITTY(ctx, opt, st, fd, historySeed)
 	}
 	return runAIPlain(ctx, opt, st)
@@ -91,7 +88,6 @@ func fillOptionDefaults(opt Options) Options {
 
 func runAIPlain(ctx context.Context, opt Options, st *sessionState) error {
 	sc := bufio.NewScanner(opt.In)
-	prompt := Prompt(opt.Scope, opt.HostLabel)
 	hist := terminal.NewReplLineHistory(opt.ErrOut)
 
 	for {
@@ -99,6 +95,7 @@ func runAIPlain(ctx context.Context, opt Options, st *sessionState) error {
 			return ctx.Err()
 		}
 
+		prompt := Prompt(opt.Scope, opt.HostLabel, st.interaction)
 		_, _ = io.WriteString(opt.Out, prompt)
 		if !sc.Scan() {
 			if err := sc.Err(); err != nil {
@@ -126,7 +123,6 @@ func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int, histor
 
 	br := bufio.NewReader(opt.In)
 	opt = opt.withTTYConfirm(br)
-	prompt := Prompt(opt.Scope, opt.HostLabel)
 	hist := terminal.NewReplLineHistory(opt.ErrOut)
 	if historySeed != "" {
 		hist.Add(historySeed)
@@ -137,6 +133,7 @@ func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int, histor
 			return ctx.Err()
 		}
 
+		prompt := Prompt(opt.Scope, opt.HostLabel, st.interaction)
 		_, _ = io.WriteString(opt.Out, prompt)
 		line, err := shell.ReadTTYLine(br, opt.Out, prompt, hist)
 		if err != nil {

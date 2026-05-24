@@ -104,9 +104,9 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | 场景 | 提示符 |
 |------|--------|
 | `ait shell` | `AiT> ` |
-| `ait ai`（本机） | `AiT AI> ` |
+| `ait ai`（本机） | `AiT AI(Ask)> ` 或 `mode agent` 后为 `AiT AI(Agent)> ` |
 | SSH 远程 | `AiT user@host> ` |
-| SSH AI 模式（`!ait ai` / `!!`） | `AiT AI user@host> ` |
+| SSH AI 模式（`!ait ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
 ---
@@ -123,10 +123,12 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 
 | 场景 | 进入方式 | 执行位置 |
 |------|----------|----------|
-| 本机（系统 shell 或 `ait shell`） | `ait ai`、`ait ai --model minimax`，或 shell 内 `ai` | `AiT AI>` — `run` 在本机；`ait` 子命令经确认后跑 CLI |
-| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | `AiT AI user@host>` — `run` 写入远程 PTY |
+| 本机（系统 shell 或 `ait shell`） | `ait ai`、`ait ai --model minimax`，或 shell 内 `ai` | `AiT AI(Ask)>` / `AiT AI(Agent)>` — `run` 在本机；`ait` 经确认后跑 CLI |
+| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` — `run` 写入远程 PTY |
 
-模式内：`help`、`exit`/`quit`、`clear`、`model`（显示路由含 tiered）、`model list`（同 `ait ai model list`）、`model <deepseek|minimax>`（本会话云端覆盖；`model ollama` 拒绝）、`policy per-cmd`（每条确认）、`policy once`（本会话确认一次）。勿用 `!ait ai` 当 meta 子命令。
+每次 `run` / Agent 执行前有多行确认：**`y`** 仅本次，**`c`** 信任本会话内同**首词**命令，**`s`** 信任本会话所有低危命令，**`n`** 跳过。高危仅 **`y`** / **`n`**。
+
+模式内：`help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 ask）、`approve each|session`（默认 each；`trust` 同 session）、`model` / `model list` / `model <deepseek|minimax>`，自然语言（ask 问答 / agent 自动规划）或 `run` / 本机 `ait`。`policy` 已弃用（请用 `approve`）。勿用 `!ait ai` 当 meta 子命令。
 
 启用 tiered 时，短句首轮走本地 Ollama；过长、含代码块、复杂关键词或多轮历史走云端。`--model` / `model <云端>` 本会话跳过 Ollama。
 

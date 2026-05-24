@@ -104,9 +104,9 @@ SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line 
 | Context | Prompt |
 |---------|--------|
 | `ait shell` | `AiT> ` |
-| `ait ai` (local) | `AiT AI> ` |
+| `ait ai` (local) | `AiT AI(Ask)> ` or `AiT AI(Agent)> ` after `mode agent` |
 | SSH remote | `AiT user@host> ` |
-| SSH AI mode (`!ait ai` / `!!`) | `AiT AI user@host> ` |
+| SSH AI mode (`!ait ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
 ---
@@ -123,10 +123,12 @@ Configure at least one **cloud** provider API key (see top of this page), unless
 
 | Where | How to enter | What runs |
 |-------|----------------|-----------|
-| Local (system shell or `ait shell`) | `ait ai` or `ait ai --model minimax`, or `ai` in `ait shell` | `AiT AI>` — `run <cmd>` runs on **this machine**; `ait <subcmd>` runs AiT CLI after confirm |
-| Inside SSH | `!ait ai` or `!!` (optional first question) | `AiT AI user@host>` — `run <cmd>` runs on **remote host** via the live session |
+| Local (system shell or `ait shell`) | `ait ai` or `ait ai --model minimax`, or `ai` in `ait shell` | `AiT AI(Ask)>` / `AiT AI(Agent)>` — `run <cmd>` runs on **this machine**; `ait <subcmd>` runs AiT CLI after confirm |
+| Inside SSH | `!ait ai` or `!!` (optional first question) | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` — `run <cmd>` runs on **remote host** via the live session |
 
-In AI mode: `help`, `exit`/`quit`, `clear`, `model` (show routing including tiered), `model list` (same as `ait ai model list`), `model <deepseek|minimax>` (cloud override for this session; `model ollama` is rejected), `policy per-cmd` (confirm each `run`), `policy once` (confirm once per AI session), then type questions or `run …`. Do not use `!ait ai` as a meta subcommand (`!ait ai` line form only).
+Before each `run` / Agent tool execution, AiT shows a multi-line confirm menu: **`y`** run once, **`c`** trust this command’s first word for the rest of the AI session, **`s`** trust all safe commands this session, **`n`** skip. High-risk commands offer only **`y`** / **`n`**.
+
+In AI mode: `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default ask), `approve each|session` (default each; `trust` = session), `model` / `model list` / `model <deepseek|minimax>`, then questions (ask) or agent planning, or `run …` / local `ait …`. `policy` is deprecated (use `approve`). Do not use `!ait ai` as a meta subcommand (`!ait ai` line form only).
 
 With tiered routing on, short first-turn questions use local Ollama; longer prompts, code fences, complex keywords, or multi-turn history use cloud providers. `--model` / `model <cloud>` skip Ollama for that session.
 

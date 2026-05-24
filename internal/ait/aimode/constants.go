@@ -26,6 +26,9 @@ const (
 	replCmdClear    = "clear"
 	replCmdHistory  = "history"
 	replCmdPolicy   = "policy"
+	replCmdApprove  = "approve"
+	replCmdTrust    = "trust"
+	replCmdMode     = "mode"
 	replCmdModel    = "model"
 	replCmdRun      = "run"
 	replCmdAit      = "ait"
@@ -49,5 +52,13 @@ const (
 	errCannotSetOllamaProvider = "AiT: cannot set session provider to ollama (use tiered routing for local models)"
 	msgExecPolicyPerCmdCRLF    = "exec policy: per_cmd (confirm each run)\r\n"
 	msgExecPolicyOnceCRLF      = "exec policy: session_once (confirm once per AI session)\r\n"
+	msgApproveEachCRLF         = "approve: each — confirm before every command\r\n"
+	msgApproveSessionCRLF      = "approve: session — trust safe commands after first yes\r\n"
+	msgModeAskCRLF             = "mode: ask — Q&A only; use run to execute commands\r\n"
+	msgModeAgentCRLF           = "mode: agent — plan and run commands after confirmation\r\n"
+	msgPolicyDeprecated        = "AiT: policy is deprecated; use approve each or approve session"
+	msgInteractiveSkipCRLF     = "interactive command not run in Agent mode; use shell or run manually\r\n"
 	msgAIProviderSetFmt        = "AI provider set to %s\r\n"
+	agentMaxSteps              = 8
+	agentMaxOutputBytes        = 8192
 )
