@@ -64,6 +64,7 @@ func reportShellError(err error) {
 
 func runShellREPLPlain(ctx context.Context, mgr *session.Manager, in io.Reader, out io.Writer) error {
 	sc := bufio.NewScanner(in)
+	hist := terminal.NewReplLineHistory(os.Stderr)
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -77,7 +78,7 @@ func runShellREPLPlain(ctx context.Context, mgr *session.Manager, in io.Reader, 
 			return nil
 		}
 
-		exit, err := ExecuteLine(ctx, mgr, sc.Text())
+		exit, err := ExecuteLine(ctx, mgr, sc.Text(), hist)
 		reportShellError(err)
 		if exit {
 			return nil
@@ -99,7 +100,7 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 	_, _ = io.WriteString(out, "Type help for commands. Use exit or quit to leave.\r\n")
 
 	br := bufio.NewReader(os.Stdin)
-	hist := terminal.NewLineHistory()
+	hist := terminal.NewReplLineHistory(os.Stderr)
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -115,7 +116,7 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 			return err
 		}
 
-		exit, err := ExecuteLine(ctx, mgr, line)
+		exit, err := ExecuteLine(ctx, mgr, line, hist)
 		reportShellError(err)
 		if exit {
 			_, _ = io.WriteString(out, "\r\n")

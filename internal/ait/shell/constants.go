@@ -29,6 +29,7 @@ const (
 	replCmdList    = "list"
 	replCmdSuspend = "suspend"
 	replCmdClear   = "clear"
+	replCmdHistory = "history"
 )
 
 // IO — error prefix and runner messages.

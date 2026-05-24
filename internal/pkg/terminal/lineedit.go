@@ -128,6 +128,8 @@ func handleEditRune(br *bufio.Reader, out io.Writer, prompt string, hist *LineHi
 	case ctrlW:
 		st.killWordBefore(out, prompt)
 		return lineEditResult{}
+	case ctrlR:
+		return runReverseSearch(br, out, prompt, hist, st)
 	case keyBS, keyDEL:
 		st.deleteBeforeCursor(out, prompt)
 		return lineEditResult{}

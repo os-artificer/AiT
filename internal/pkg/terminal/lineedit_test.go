@@ -286,3 +286,65 @@ func TestLineHistory_Dedup(t *testing.T) {
 		t.Fatalf("len = %d, want 1", h.Len())
 	}
 }
+
+func TestReadLine_CtrlRSearch(t *testing.T) {
+	hist := NewLineHistory()
+	hist.Add("list")
+	hist.Add("help")
+
+	br := bufio.NewReader(bytes.NewReader([]byte{ctrlR, '\r'}))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{History: hist})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "help" {
+		t.Errorf("line = %q, want help (newest match)", line)
+	}
+}
+
+func TestReadLine_CtrlRCycle(t *testing.T) {
+	hist := NewLineHistory()
+	hist.Add("alpha")
+	hist.Add("beta-list")
+	hist.Add("gamma-list")
+
+	input := []byte{ctrlR, ctrlR, ctrlR, '\r'}
+	br := bufio.NewReader(bytes.NewReader(input))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{History: hist})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "alpha" {
+		t.Errorf("line = %q, want alpha (older match after two Ctrl+R)", line)
+	}
+}
+
+func TestReadLine_CtrlRAbort(t *testing.T) {
+	hist := NewLineHistory()
+	hist.Add("list")
+
+	input := []byte{'x', ctrlR, ctrlG, 'y', '\r'}
+	br := bufio.NewReader(bytes.NewReader(input))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{History: hist})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "xy" {
+		t.Errorf("line = %q, want xy (search aborted, prior buffer kept)", line)
+	}
+}
+
+func TestReadLine_CtrlRAcceptRight(t *testing.T) {
+	hist := NewLineHistory()
+	hist.Add("list")
+
+	input := []byte{ctrlR, '\x1b', '[', 'C', '!', '\r'}
+	br := bufio.NewReader(bytes.NewReader(input))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{History: hist})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "list!" {
+		t.Errorf("line = %q, want list!", line)
+	}
+}

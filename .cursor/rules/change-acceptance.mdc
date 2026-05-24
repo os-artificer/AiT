@@ -190,6 +190,39 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | K8 | Ctrl+L 保留缓冲并重绘（A* 不回退） | `TestReadLineRawCtrlLRedrawsLine` |
 | K9 | help 含 Keys 段 | `TestWriteShellHelpSections`、`TestWriteShellREPLHelpSections`、`TestWriteAIHelpSections` |
 
+#### history 命令（K10–K14）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| K10 | `history` 输出带 1-based 序号（`%5d` 格式） | `TestHistoryCommand_List` |
+| K11 | `history n` 仅最近 n 条 | `TestHistoryCommand_LastN` |
+| K12 | `history -c` 清空内存；Up 无条目 | `TestHistoryCommand_Clear` |
+| K13 | `history -d offset` 删除指定序号 | `TestHistoryCommand_Delete` |
+| K14 | `history -s` 添加行；`-a/-r/-w` 文件同步 | `TestHistoryCommand_SetLine`、`TestLineHistory_FileSync` |
+
+#### Ctrl+R 反向搜索（K15–K17）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| K15 | Ctrl+R 空 query 显示最新匹配 | `TestReadLine_CtrlRSearch` |
+| K16 | 连续 Ctrl+R 更旧匹配 | `TestReadLine_CtrlRCycle` |
+| K17 | Ctrl+G 取消恢复原行；Right 接受并继续编辑 | `TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight` |
+
+#### REPL 集成与隔离（K18–K20）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| K18 | `ait shell` `history` 内置命令 | `TestExecuteLineHistory_Shell` |
+| K19 | `ait ai` `history` 与 `clear` 分离（chat vs 输入历史） | `TestExecuteLineHistory_AIMode` |
+| K20 | 确认 `[y/N]` / pick 仍不污染历史（K6 不回退） | `TestAIMode_ConfirmNoHistory`、`TestReadLine_NoHistoryOnPick` |
+
+#### 持久化与路径（K21–K22）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| K21 | `platform.HistoryPath` 位于 DataDir、`repl_history` | `TestHistoryPath_UnderDataDir` |
+| K22 | REPL 启动 `LoadFromFile` 失败不阻断；文件权限 0600 | `TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode` |
+
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
@@ -211,6 +244,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 - [ ] H3a–H3d：AI/config/ollama hint（见 **H3**）
 - [ ] H4a–H4d：REPL/meta/aimode hint（见 **H4**）
 - [ ] K1–K9：REPL 行编辑与历史（见 **K\***）
+- [ ] K10–K22：history 命令、Ctrl+R、持久化（见 **K\*** 明细 K10–K22）
 - [ ] 相关自动化测试未删除或弱化
 
 手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai chat --help`、`timeout 5 ./bin/ait ai chat ping`、`echo ping | timeout 5 ./bin/ait ai chat`。
@@ -232,7 +266,19 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 ./bin/ait ai      # run 确认后 Up 不应出现 y/n
 ```
 
-自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`。
+手动烟雾（history / Ctrl+R，K10–K22）：
+
+```bash
+./bin/ait shell
+# list → history → history 2 → history -d 1 → history -c
+# Ctrl+R 搜 list；Ctrl+G 取消；双按 Ctrl+R 更旧匹配
+# exit 再进 shell → Up 可见（K14 持久化）
+./bin/ait ai
+# run echo hi → 确认 y → history 不含 y（K20）
+# Ctrl+R 搜 run；clear 后 history 仍有输入行（K19）
+```
+
+自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`、`TestHistoryCommand_List`、`TestHistoryCommand_LastN`、`TestHistoryCommand_Clear`、`TestHistoryCommand_Delete`、`TestHistoryCommand_SetLine`、`TestLineHistory_FileSync`、`TestReadLine_CtrlRSearch`、`TestReadLine_CtrlRCycle`、`TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight`、`TestExecuteLineHistory_Shell`、`TestExecuteLineHistory_AIMode`、`TestReadLine_NoHistoryOnPick`、`TestHistoryPath_UnderDataDir`、`TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode`。
 
 ## 新功能
 
@@ -264,7 +310,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | S* | `ait session` 统一 flag | `TestTopLevelListLoadSuspendRemoved`、`TestSessionCmd_*`、`TestExecuteLineList`、`TestWriteSessionHelpSections` |
 | B* | session 列表 `#` / load 交互 / `-v` FULL_ID | `TestSessionCmd_ListNumberColumn`、`TestSessionCmd_LoadPickNonTTY`、`TestPickSession_SelectByNumber`、`TestListVerbose_IncludesFullID` |
 | H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecuteBlockedLogin` |
-| K* | REPL 行编辑与历史 | `TestReadLine_HistoryUpDown`、`TestReadLine_ArrowKeysUTF8`、`TestAIMode_ConfirmNoHistory` |
+| K* | REPL 行编辑与历史 | `TestReadLine_HistoryUpDown`、`TestReadLine_ArrowKeys`、`TestAIMode_ConfirmNoHistory`、`TestHistoryCommand_List`、`TestReadLine_CtrlRSearch`、`TestExecuteLineHistory_Shell` |
 
 ## 索引
 
