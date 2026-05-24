@@ -49,8 +49,8 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/ai/` | Multi-provider router, tiered Ollama, model list (`router.go`, `tiered.go`, `models_list.go`, …) |
 | `internal/pkg/ollama/` | Ollama setup, `FetchTags`, `EnsureLocal`, `ManualSetupInstructions` |
 | `internal/pkg/transfer/` | SFTP get/put (single file) |
-| `internal/pkg/platform/` | Data/config dirs, `OpenSSHPath`, `LookPath`, OS paths |
-| `internal/pkg/config/` | YAML config (`config.go` types; `config_load.go` Load/Save) |
+| `internal/pkg/platform/` | `AppRoot` / `DataDir` / `ConfigDir` (`AIT_HOME`), paths, OpenSSH |
+| `internal/pkg/config/` | YAML config (`Load`/`Save`/`EnsureFile`; `ait config init`) |
 | `internal/pkg/creds/` | OS keyring (API key, session unlock) |
 | `internal/pkg/pathsafe/` | Session ID and path validation (scrollback sidecars) |
 | `pkg/` | Reserved for public importable libs (empty today) |
@@ -121,7 +121,7 @@ ait session --switch [id|alias] [--tmux] [--password] [--force]
 ait session --delete <id|alias|all> [--force]
 ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain; flags/paths any order
 ait put [ssh-flags] <paths...>
-ait config set|get <key> [<value>]
+ait config init|set|get <key> [<value>]
 ```
 
 Prompts: `AiT>` (`ait shell`), `AiT AI>` (`ait ai`), `AiT AI user@host>` (SSH AI mode), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).

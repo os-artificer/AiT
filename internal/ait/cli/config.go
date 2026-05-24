@@ -18,6 +18,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/config"
@@ -29,7 +30,7 @@ func newConfigCmd() *cobra.Command {
 		Use:   "config",
 		Short: "Manage AiT configuration",
 	}
-	cmd.AddCommand(newConfigSetCmd(), newConfigGetCmd())
+	cmd.AddCommand(newConfigSetCmd(), newConfigGetCmd(), newConfigInitCmd())
 	bindHelp(cmd, helpdoc.WriteConfigHelp)
 	return cmd
 }
@@ -92,6 +93,41 @@ func newConfigGetCmd() *cobra.Command {
 		},
 	}
 	bindHelp(cmd, helpdoc.WriteConfigGetHelp)
+	return cmd
+}
+
+func newConfigInitCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Create or update config.yaml with defaults for missing keys",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			res, err := config.EnsureFile(dryRun)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			switch {
+			case res.Created && !dryRun:
+				fmt.Fprintf(out, "Created %s\n", res.Path)
+			case res.Created && dryRun:
+				fmt.Fprintf(out, "Would create %s\n", res.Path)
+			case res.Updated:
+				if dryRun {
+					fmt.Fprintf(out, "Would update %s (added: %s)\n", res.Path, strings.Join(res.AddedKeys, ", "))
+				} else if len(res.AddedKeys) > 0 {
+					fmt.Fprintf(out, "Updated %s (added: %s)\n", res.Path, strings.Join(res.AddedKeys, ", "))
+				} else {
+					fmt.Fprintf(out, "Updated %s\n", res.Path)
+				}
+			default:
+				fmt.Fprintf(out, "Config at %s is up to date\n", res.Path)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print changes without writing config.yaml")
+	bindHelp(cmd, helpdoc.WriteConfigInitHelp)
 	return cmd
 }
 
