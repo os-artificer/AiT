@@ -9,7 +9,8 @@ This document describes post-install configuration, commands, prompts, data loca
 ## Quick start
 
 ```bash
-# AI API keys (OS keyring, or encrypted files under ~/.local/share/ait/keyring on headless Linux)
+# AI API keys (OS keyring, or encrypted files under <AppRoot>/keyring on headless Linux)
+# First-time config: ./bin/ait config init
 # On servers without D-Bus, set a master password: export AIT_KEYRING_FILE_PASSWORD='your-secret'
 ./bin/ait config set ai.deepseek.api_key <your-key>
 ./bin/ait config set ai.minimax.api_key <your-key>   # optional second provider
@@ -43,8 +44,8 @@ This document describes post-install configuration, commands, prompts, data loca
 Optional config template:
 
 ```bash
-mkdir -p ~/.config/ait
-cp configs/ait.example.yaml ~/.config/ait/config.yaml
+./bin/ait config init
+# Or manually: mkdir -p ~/.local/share/ait && cp configs/ait.example.yaml ~/.local/share/ait/config.yaml
 ```
 
 ---
@@ -63,6 +64,7 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | `ait session --delete all` | Delete all sessions (confirmation; `--force` to skip) |
 | `ait get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ait get --help` |
 | `ait put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
+| `ait config init` | Create or merge `config.yaml` (missing keys only) |
 | `ait config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
 | `ait ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ait ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
@@ -87,8 +89,8 @@ On **macOS, Linux, and Windows**, interactive `ait shell` and `ait ai` accept **
 - **Windows:** Use [Windows Terminal](https://aka.ms/terminal); enable UTF-8 in settings or run `chcp 65001` in legacy consoles.
 - **IME:** Type with your system input method; after you confirm composition, characters appear in the line. AiT does not show an in-app preedit box.
 - **Tab:** Inserts a tab character into the current line (for indentation).
-- **TTY keys (local REPL):** Ctrl+A/E (start/end of line), Left/Right (move cursor), Up/Down (recall prior commands from this session only), **Ctrl+R** (reverse incremental search), Ctrl+U/K/W (kill line/to end/word), Backspace, Ctrl+C (cancel line), Ctrl+D (exit when empty), Ctrl+L (clear screen, keep buffer). Type `help` in `ait shell` or `ait ai` for the full Keys list.
-- **History:** Only commands you submit at the main `AiT>` / `AiT AI>` prompt are stored—not `[y/N]` confirm answers, session picker input, or AiT internal env setup. Use the **`history`** command (bash subset: list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) to inspect or manage input history. Lines persist across sessions in **`$DataDir/repl_history`**. In `ait ai`, **`clear`** clears chat history only; **`history`** is input history.
+- **TTY keys (local REPL):** Ctrl+A/E (start/end of line), Left/Right (move cursor), Up/Down (recall loaded input history, including prior sessions via `<AppRoot>/repl_history`), **Ctrl+R** (reverse incremental search), Ctrl+U/K/W (kill line/to end/word), Backspace, Ctrl+C (cancel line), Ctrl+D (exit when empty), Ctrl+L (clear screen, keep buffer). Type `help` in `ait shell` or `ait ai` for the full Keys list.
+- **History:** Only commands you submit at the main `AiT>` / `AiT AI>` prompt are stored—not `[y/N]` confirm answers, session picker input, or AiT internal env setup. Use the **`history`** command (bash subset: list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) to inspect or manage input history. Lines persist across sessions in **`<AppRoot>/repl_history`** (see **Data directory** below). In `ait ai`, **`clear`** clears chat history only; **`history`** is input history.
 - **Non-TTY:** `echo 你好 | ait ai chat` works without special locale setup.
 - **Clear screen:** In `ait shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ait ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
 
@@ -143,15 +145,17 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 
 ---
 
-## Data and config paths
+## Data directory
 
-| Platform | Data (SQLite, `scrollback/`) | Config |
-|----------|------------------------------|--------|
-| Linux | `~/.local/share/ait/` | `~/.config/ait/config.yaml` |
-| macOS | `~/Library/Application Support/ait/` | same |
-| Windows | `%LOCALAPPDATA%\ait\` | `%LOCALAPPDATA%\ait\config.yaml` |
+| Platform | Default `AppRoot` (config, DB, scrollback, history, …) |
+|----------|--------------------------------------------------------|
+| Linux | `~/.local/share/ait/` |
+| macOS | `~/Library/Application Support/ait/` |
+| Windows | `%LOCALAPPDATA%\ait\` |
 
-API keys and SSH password cache use the **OS keyring**, not plaintext SQLite. When no desktop keyring is available, secrets are stored as encrypted files under `<DataDir>/keyring` (Linux default: `~/.local/share/ait/keyring`). Set `AIT_KEYRING_FILE_PASSWORD` in production headless environments.
+All AiT runtime files live under one **`AppRoot`** directory. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. On Linux upgrade from older builds, `~/.config/ait/config.yaml` is migrated automatically. Run **`ait config init`** after install to create or fill in missing keys in `config.yaml`.
+
+API keys and SSH password cache use the **OS keyring**, not plaintext SQLite. When no desktop keyring is available, secrets are stored as encrypted files under `<AppRoot>/keyring`. Set `AIT_KEYRING_FILE_PASSWORD` in production headless environments.
 
 ---
 

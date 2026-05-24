@@ -18,6 +18,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -26,20 +27,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const configFileName = "config.yaml"
+
 // Load reads config.yaml from the platform config directory, or returns defaults when missing.
-// Applies DefaultDeepseekBase and DefaultDeepseekModel when those fields are empty after parse.
-// Errors: platform.ConfigDir failure; os.ReadFile (other than not exist); yaml.Unmarshal.
+// On Linux, migrates a legacy ~/.config/ait/config.yaml into AppRoot when the new file is absent.
+// Applies normalizeAI when a file is present. Errors: platform.ConfigPath failure; ReadFile; yaml.Unmarshal.
 func Load() (*Config, error) {
 	cfg := defaults()
 
-	dir, err := platform.ConfigDir()
+	path, err := platform.ConfigPath()
 	if err != nil {
 		return cfg, err
 	}
-	path := filepath.Join(dir, "config.yaml")
+
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return cfg, nil
+		return loadOrMigrateLegacy(cfg)
 	}
 	if err != nil {
 		return nil, err
@@ -50,6 +53,35 @@ func Load() (*Config, error) {
 	}
 
 	normalizeAI(cfg)
+	return cfg, nil
+}
+
+func loadOrMigrateLegacy(cfg *Config) (*Config, error) {
+	legacyPath, err := platform.LegacyConfigPath()
+	if err != nil {
+		return cfg, err
+	}
+	if legacyPath == "" {
+		return cfg, nil
+	}
+
+	b, err := os.ReadFile(legacyPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return cfg, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if err := yaml.Unmarshal(b, cfg); err != nil {
+		return nil, err
+	}
+	normalizeAI(cfg)
+
+	if err := Save(cfg); err != nil {
+		return nil, err
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "AiT: migrated config from %s\r\n", legacyPath)
 	return cfg, nil
 }
 
@@ -80,7 +112,7 @@ func Save(cfg *Config) error {
 		return err
 	}
 
-	final := filepath.Join(dir, "config.yaml")
+	final := filepath.Join(dir, configFileName)
 	tmp := filepath.Join(dir, ".config.yaml.tmp")
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
