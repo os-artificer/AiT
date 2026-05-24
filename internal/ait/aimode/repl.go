@@ -25,6 +25,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/shell"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
 	"golang.org/x/term"
 )
@@ -46,6 +47,7 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 		st.policy = ExecPolicyPerCmd
 	}
 
+	var historySeed string
 	if q := stringsTrim(initialQuestion); q != "" {
 		if isChatCommandWithoutMessage(q) {
 			return ai.ChatMessageRequiredErr()
@@ -61,11 +63,12 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 		if exit || isMetaREPLCommand(q) {
 			return nil
 		}
+		historySeed = q
 	}
 
 	fd := int(os.Stdin.Fd())
 	if opt.In == os.Stdin && term.IsTerminal(fd) {
-		return runAITTY(ctx, opt, st, fd)
+		return runAITTY(ctx, opt, st, fd, historySeed)
 	}
 	return runAIPlain(ctx, opt, st)
 }
@@ -111,7 +114,7 @@ func runAIPlain(ctx context.Context, opt Options, st *sessionState) error {
 	}
 }
 
-func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int) error {
+func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int, historySeed string) error {
 	old, err := term.MakeRaw(fd)
 	if err != nil {
 		return fmt.Errorf("terminal: %w", err)
@@ -123,6 +126,10 @@ func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int) error 
 	br := bufio.NewReader(opt.In)
 	opt = opt.withTTYConfirm(br)
 	prompt := Prompt(opt.Scope, opt.HostLabel)
+	hist := terminal.NewLineHistory()
+	if historySeed != "" {
+		hist.Add(historySeed)
+	}
 
 	for {
 		if ctx.Err() != nil {
@@ -130,7 +137,7 @@ func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int) error 
 		}
 
 		_, _ = io.WriteString(opt.Out, prompt)
-		line, err := shell.ReadTTYLine(br, opt.Out, prompt)
+		line, err := shell.ReadTTYLine(br, opt.Out, prompt, hist)
 		if err != nil {
 			if err == io.EOF {
 				return nil

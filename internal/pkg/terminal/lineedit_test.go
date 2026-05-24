@@ -66,7 +66,7 @@ func TestReadLineRawUTF8Chinese(t *testing.T) {
 func TestReadLineRawBackspaceUTF8(t *testing.T) {
 	var input []byte
 	input = append(input, []byte("a你")...)
-	input = append(input, 127) // DEL
+	input = append(input, 127)
 	input = append(input, '\r')
 	br := bufio.NewReader(bytes.NewReader(input))
 	line, err := ReadLineRaw(br, io.Discard, "")
@@ -78,8 +78,8 @@ func TestReadLineRawBackspaceUTF8(t *testing.T) {
 	}
 }
 
-func TestReadLineRawIgnoresEscape(t *testing.T) {
-	br := bufio.NewReader(bytes.NewReader([]byte("hi\x1b[A\r")))
+func TestReadLineRawIgnoresUnknownEscape(t *testing.T) {
+	br := bufio.NewReader(bytes.NewReader([]byte("hi\x1b[Z\r")))
 	line, err := ReadLineRaw(br, io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
@@ -160,5 +160,129 @@ func TestReadLineRawCtrlLNoPrompt(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "AiT>") {
 		t.Errorf("unexpected prompt redraw, got %q", out.String())
+	}
+}
+
+func TestReadLine_CtrlAE(t *testing.T) {
+	br := bufio.NewReader(bytes.NewReader([]byte{'h', 'i', ctrlE, ctrlA, 'x', '\r'}))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "xhi" {
+		t.Errorf("line = %q, want xhi", line)
+	}
+}
+
+func TestReadLine_ArrowKeysUTF8(t *testing.T) {
+	input := []byte("a")
+	input = append(input, []byte("你")...)
+	input = append(input, '\x1b', '[', 'D')
+	input = append(input, 'b', '\r')
+	br := bufio.NewReader(bytes.NewReader(input))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "ab你" {
+		t.Errorf("line = %q, want ab你", line)
+	}
+}
+
+func TestReadLine_InsertMidLineDisplay(t *testing.T) {
+	prompt := "P> "
+	input := append([]byte("ab"), '\x1b', '[', 'D', 'X', '\r')
+	br := bufio.NewReader(bytes.NewReader(input))
+	var out bytes.Buffer
+	line, err := ReadLine(br, &out, LineEditOptions{Prompt: prompt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "aXb" {
+		t.Errorf("line = %q, want aXb", line)
+	}
+	if !strings.Contains(out.String(), prompt+"aXb") {
+		t.Errorf("out = %q, want redraw containing %qaXb", out.String(), prompt)
+	}
+}
+
+func TestReadLine_HistoryUpDown(t *testing.T) {
+	hist := NewLineHistory()
+	hist.Add("first")
+	hist.Add("second")
+
+	br := bufio.NewReader(bytes.NewReader([]byte{'\x1b', '[', 'A', '\x1b', '[', 'A', '\r'}))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{History: hist})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "first" {
+		t.Errorf("line = %q, want first", line)
+	}
+}
+
+func TestReadLine_HistorySkipEmpty(t *testing.T) {
+	hist := NewLineHistory()
+	br := bufio.NewReader(bytes.NewReader([]byte{'\r', 'x', '\r'}))
+	_, err := ReadLine(br, io.Discard, LineEditOptions{History: hist, RecordHistory: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hist.Len() != 1 || hist.At(0) != "x" {
+		t.Fatalf("history = [%q], want [x]", hist.At(0))
+	}
+
+	br = bufio.NewReader(bytes.NewReader([]byte{ctrlC}))
+	_, err = ReadLine(br, io.Discard, LineEditOptions{History: hist, RecordHistory: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hist.Len() != 1 {
+		t.Fatalf("history len = %d, want 1 after Ctrl+C", hist.Len())
+	}
+}
+
+func TestReadLine_KillKeys(t *testing.T) {
+	input := append([]byte("hello world"), ctrlU, 'x', '\r')
+	br := bufio.NewReader(bytes.NewReader(input))
+	line, err := ReadLine(br, io.Discard, LineEditOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "x" {
+		t.Errorf("Ctrl+U line = %q, want x", line)
+	}
+
+	input = append([]byte("hello world"), '\x1b', '[', 'H')
+	for i := 0; i < 6; i++ {
+		input = append(input, '\x1b', '[', 'C')
+	}
+	input = append(input, ctrlK, '\r')
+	br = bufio.NewReader(bytes.NewReader(input))
+	line, err = ReadLine(br, io.Discard, LineEditOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "hello " {
+		t.Errorf("Ctrl+K line = %q, want hello ", line)
+	}
+
+	input = append([]byte("hello world"), ctrlW, '\r')
+	br = bufio.NewReader(bytes.NewReader(input))
+	line, err = ReadLine(br, io.Discard, LineEditOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "hello " {
+		t.Errorf("Ctrl+W line = %q, want hello ", line)
+	}
+}
+
+func TestLineHistory_Dedup(t *testing.T) {
+	h := NewLineHistory()
+	h.Add("list")
+	h.Add("list")
+	if h.Len() != 1 {
+		t.Fatalf("len = %d, want 1", h.Len())
 	}
 }
