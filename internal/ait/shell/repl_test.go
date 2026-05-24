@@ -25,10 +25,11 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 func TestExecuteLineExit(t *testing.T) {
-	exit, err := ExecuteLine(context.Background(), nil, "exit")
+	exit, err := ExecuteLine(context.Background(), nil, "exit", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +39,7 @@ func TestExecuteLineExit(t *testing.T) {
 }
 
 func TestExecuteLineQuit(t *testing.T) {
-	exit, err := ExecuteLine(context.Background(), nil, "quit")
+	exit, err := ExecuteLine(context.Background(), nil, "quit", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,7 @@ func TestReadTTYLineEndsOnCRAlone(t *testing.T) {
 
 func TestExecuteLineHelp(t *testing.T) {
 	var buf bytes.Buffer
-	exit, err := ExecuteLine(context.Background(), nil, "help")
+	exit, err := ExecuteLine(context.Background(), nil, "help", nil)
 	if err != nil || exit {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
@@ -79,5 +80,24 @@ func TestExecuteLineHelp(t *testing.T) {
 func TestShellPrompt(t *testing.T) {
 	if shellPrompt() != client.BasePrompt {
 		t.Errorf("shellPrompt = %q", shellPrompt())
+	}
+}
+
+func TestReadLine_NoHistoryOnPick(t *testing.T) {
+	hist := terminal.NewLineHistory()
+	hist.Add("list")
+
+	br := bufio.NewReader(bytes.NewReader([]byte("2\r\x1b[A\r")))
+	_, err := ReadTTYLineNoHistory(br, io.Discard, "Select: ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	line, err := ReadTTYLine(br, io.Discard, "AiT> ", hist)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "list" {
+		t.Fatalf("line = %q, want list (picker input must not pollute history)", line)
 	}
 }

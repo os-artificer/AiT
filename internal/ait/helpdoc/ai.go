@@ -28,7 +28,8 @@ const aiNote = "Requires ai.<provider>.api_key for cloud providers. With ai.tier
 
 const aiREPLCommands = `  help              show AI mode help
   exit, quit        leave AI mode
-  clear             clear chat history
+  clear             clear chat history (not input history; see history)
+  history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   model             show current AI routing (provider, tiered)
   model list        list configured providers (same as ait ai model list)
   model <provider>  set cloud provider for this session (deepseek|minimax)
@@ -97,7 +98,7 @@ func WriteAIREPLHelp(w io.Writer, scope ai.Scope) error {
 	if err := b.WriteIntro(intro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("help | model [provider] | run <cmd> | policy per-cmd|once | clear | exit"); err != nil {
+	if err := b.WriteUsage("help | model [provider] | run <cmd> | policy per-cmd|once | history | clear | exit"); err != nil {
 		return err
 	}
 	if err := b.WriteSection(helpSectionCommands, cmds); err != nil {

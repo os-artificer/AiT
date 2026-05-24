@@ -22,6 +22,7 @@ const sectionTTYKeysCommon = `  Ctrl+A, Home     move cursor to start of line
   Ctrl+E, End      move cursor to end of line
   Left, Right      move cursor one character (UTF-8 aware)
   Up, Down         recall previous / next input from this REPL session
+  Ctrl+R           reverse incremental search through input history
   Backspace, Del   delete character before cursor
   Ctrl+U           delete entire line
   Ctrl+K           delete from cursor to end of line

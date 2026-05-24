@@ -25,6 +25,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 // sessionState holds per-REPL AI chat history and exec trust.
@@ -35,7 +36,8 @@ type sessionState struct {
 }
 
 // ExecuteLine handles one AI mode line. Returns exitAI true when the user typed exit/quit.
-func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string) (exitAI bool, err error) {
+// hist holds REPL input history for the history builtin; may be nil in tests.
+func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string, hist *terminal.LineHistory) (exitAI bool, err error) {
 	line = normalizeLine(line)
 	if line == "" {
 		return false, nil
@@ -53,6 +55,13 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 		st.history = nil
 		aimWrite(opt.Out, msgConversationClearedCRLF)
 		return false, nil
+	case replCmdHistory:
+		parts := strings.Fields(line)
+		var args []string
+		if len(parts) > 1 {
+			args = parts[1:]
+		}
+		return false, terminal.RunHistoryCommand(opt.Out, hist, args)
 	case replCmdPolicy:
 		return false, setPolicy(st, rest, opt.Out)
 	case replCmdModel:

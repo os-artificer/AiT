@@ -22,6 +22,7 @@ const shellIntro = "Start an interactive AiT command loop at the AiT> prompt."
 const shellNote = "Type commands directly (no !ait prefix). Use exit or quit to leave."
 const shellREPLCommands = `  help              show REPL help
   clear             clear terminal screen
+  history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
   ai                enter local AI mode (same as ait ai)
   login [flags] destination [command ...]  (--save or --alias to persist)
@@ -34,7 +35,7 @@ const shellREPLCommands = `  help              show REPL help
 const (
 	shellSectionPrompts     = "Prompts"
 	shellREPLHelpIntro      = "AiT shell — type commands directly, press Enter to run (no !ait prefix):"
-	shellREPLHelpUsage      = "help | clear | login [flags] destination | load <id|alias> | list | exit"
+	shellREPLHelpUsage      = "help | clear | history | login [flags] destination | load <id|alias> | list | exit"
 	shellREPLHelpNoteTTY    = "In a TTY, Ctrl+L clears the screen and redraws the prompt (line buffer kept)."
 	shellExampleLoginServer = "login myserver"
 )

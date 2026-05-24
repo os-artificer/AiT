@@ -59,3 +59,12 @@ func ScrollbackDir() (string, error) {
 	}
 	return p, nil
 }
+
+// HistoryPath returns the REPL input history file under DataDir.
+func HistoryPath() (string, error) {
+	dir, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "repl_history"), nil
+}
