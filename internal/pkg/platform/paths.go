@@ -23,19 +23,7 @@ import (
 
 const appName = "ait"
 
-// DataDir returns the per-user AiT data directory, creating it with mode 0700 when missing.
-// Returns the path, or os.UserHomeDir / MkdirAll errors.
-func DataDir() (string, error) {
-	return appDir(appDirData)
-}
-
-// ConfigDir returns the per-user AiT config directory, creating it with mode 0700 when missing.
-// Returns the path, or os.UserHomeDir / MkdirAll errors.
-func ConfigDir() (string, error) {
-	return appDir(appDirConfig)
-}
-
-// DBPath returns the default SQLite database file path under DataDir.
+// DBPath returns the default SQLite database file path under AppRoot (DataDir).
 // Returns the joined path, or DataDir errors.
 func DBPath() (string, error) {
 	dir, err := DataDir()

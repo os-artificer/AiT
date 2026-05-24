@@ -19,7 +19,8 @@ package helpdoc
 import "io"
 
 const configIntro = "Read and write AiT YAML configuration (session TTL, AI providers, API keys)."
-const configSubcommands = `  set <key> <value>   set a configuration key
+const configSubcommands = `  init                create or update config.yaml (defaults for missing keys only)
+  set <key> <value>   set a configuration key
   get <key>           print a configuration value
 `
 
@@ -30,6 +31,9 @@ const (
 	configGetIntro     = "Print a configuration value."
 	configGetUsage     = "ait config get <key>"
 	configGetArguments = "  key     configuration key (see Keys below)\n"
+
+	configInitIntro = "Create config.yaml or merge missing keys with built-in defaults. Existing values are not overwritten."
+	configInitUsage = "ait config init [--dry-run]"
 )
 
 const configKeys = `  session.auth_ttl              duration for session unlock (e.g. 168h, 7d)
@@ -60,6 +64,7 @@ func WriteConfigHelp(w io.Writer) error {
 		return err
 	}
 	if err := b.WriteExamples(
+		"ait config init",
 		"ait config get session.auth_ttl",
 		"ait config set deepseek.model deepseek-chat",
 	); err != nil {
@@ -111,4 +116,19 @@ func WriteConfigGetHelp(w io.Writer) error {
 		return err
 	}
 	return b.Finish("get")
+}
+
+// WriteConfigInitHelp prints ait config init --help to w.
+func WriteConfigInitHelp(w io.Writer) error {
+	b := newHelpBody(w)
+	if err := b.WriteIntro(configInitIntro); err != nil {
+		return err
+	}
+	if err := b.WriteUsage(configInitUsage); err != nil {
+		return err
+	}
+	if err := b.WriteExamples("ait config init", "ait config init --dry-run"); err != nil {
+		return err
+	}
+	return b.Finish("init")
 }

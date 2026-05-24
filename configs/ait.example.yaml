@@ -1,5 +1,5 @@
 # AiT example configuration
-# Copy to your config dir (see docs/design.md) as config.yaml
+# Copy to AppRoot as config.yaml (see docs/design.md); or run: ait config init
 
 session:
   # Authentication cache TTL for load/switch without re-entering password
