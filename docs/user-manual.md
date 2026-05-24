@@ -59,20 +59,20 @@ Optional config template:
 | `ait session --list` | List saved sessions (`#` column; use `-v` for full UUID) |
 | `ait session --load [<id\|alias>]` | Restore session (omit id to pick); use alias or `FULL_ID` from `-v`, not the short ID column |
 | `ait session --suspend` | Use `!ait suspend` inside SSH session |
-| `ait session --switch [id\|alias]` | Switch session (suspend current, then load target) |
+| `ait session --switch [id\|alias]` | Switch session (blocked if current session still `active`; run `!ait suspend` or use `--force` first) |
 | `ait session --delete <id\|alias>` | Delete one session |
 | `ait session --delete all` | Delete all sessions (confirmation; `--force` to skip) |
 | `ait get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ait get --help` |
 | `ait put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
-| `ait config init` | Create or merge `config.yaml` (missing keys only) |
+| `ait config init [--dry-run]` | Create or merge `config.yaml` (missing keys only); `--dry-run` prints planned changes |
 | `ait config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
 | `ait ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ait ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
 | `ait ai chat [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ait ai chat` / `!! chat` |
-| `ait ai provider enable <provider>` | Enable provider; for `ollama`, optional install checks ([y/N]) |
+| `ait ai provider enable <provider>` | Enable provider; for `ollama`: optional install checks ([y/N]); flags `--yes`, `--no-install`, `--no-pull` |
 | `ait ai provider disable <provider>` | Disable provider (no AI requests sent to it) |
 | `ait ai ollama status` | Ollama tiered/enabled flags, API reachability, pulled models |
-| `ait ai ollama setup` | Enable tiered routing and set up Ollama (install prompt [y/N]) |
+| `ait ai ollama setup [--dry-run]` | Enable tiered routing and set up Ollama (install prompt [y/N]); `--dry-run` prints planned steps |
 | `ait ai ollama start` | Start `ollama serve` (`--wait` until API up) |
 | `ait ai ollama stop` | Stop local `ollama serve` |
 | `ait ai ollama disable` | Disable Ollama provider in config (`--stop` to stop serve) |
@@ -101,7 +101,9 @@ SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line 
 | Context | Prompt |
 |---------|--------|
 | `ait shell` | `AiT> ` |
-| SSH remote | `AiT <user>@<host> ` |
+| `ait ai` (local) | `AiT AI> ` |
+| SSH remote | `AiT user@host> ` |
+| SSH AI mode (`!ait ai` / `!!`) | `AiT AI user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
 ---
@@ -153,9 +155,22 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 | macOS | `~/Library/Application Support/ait/` |
 | Windows | `%LOCALAPPDATA%\ait\` |
 
-All AiT runtime files live under one **`AppRoot`** directory. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. On Linux upgrade from older builds, `~/.config/ait/config.yaml` is migrated automatically. Run **`ait config init`** after install to create or fill in missing keys in `config.yaml`.
+All AiT runtime files live under one **`AppRoot`** directory. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. On Linux upgrade from older builds, legacy config at `$XDG_CONFIG_HOME/ait/config.yaml` (typically `~/.config/ait/config.yaml`) is migrated automatically. Run **`ait config init`** after install to create or fill in missing keys in `config.yaml`.
 
 API keys and SSH password cache use the **OS keyring**, not plaintext SQLite. When no desktop keyring is available, secrets are stored as encrypted files under `<AppRoot>/keyring`. Set `AIT_KEYRING_FILE_PASSWORD` in production headless environments.
+
+---
+
+## Error hints
+
+Many CLI errors include a **`Try:`** block with suggested next commands (see `internal/pkg/errhint`):
+
+| Situation | Typical hint |
+|-----------|--------------|
+| `--load` with list **ID column** (8-char prefix) | `The list ID column is for display only` → use alias, `FULL_ID` from `-v`, or interactive `--load` |
+| `session --switch` while current session still **active** | Suspend inside SSH (`!ait suspend`) or `session --switch --force` |
+| Empty `ait ai chat` (no message / stdin) | `chat requires a message` → pass a message or pipe stdin |
+| Unknown config key | `ait config get <key>` or see example YAML |
 
 ---
 

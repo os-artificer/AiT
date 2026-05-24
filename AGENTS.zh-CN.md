@@ -2,7 +2,7 @@
 
 **语言：** [English](AGENTS.md) · 简体中文（本文）
 
-**AiT**（AI Terminal）为 Go CLI：具备 SQLite 会话持久化、可选远程 tmux 保活、Deepseek 助手与 SFTP 文件 get/put 的 AI 增强 SSH 客户端。模块：`github.com/os-artificer/AiT`。目录布局遵循 [golang-standards/project-layout](https://github.com/golang-standards/project-layout)。
+**AiT**（AI Terminal）为 Go CLI：具备 SQLite 会话持久化、可选远程 tmux 保活、多 provider AI（Deepseek、MiniMax、可选 tiered Ollama）与 SFTP 文件 get/put 的 AI 增强 SSH 客户端。模块：`github.com/os-artificer/AiT`。目录布局遵循 [golang-standards/project-layout](https://github.com/golang-standards/project-layout)。
 
 ## 构建与测试
 
@@ -66,7 +66,7 @@ make test-cross  # windows + darwin go build
 |----|----------------|
 | `ait`（根） | `root.go` — `Run`、`ExitCode` |
 | `ait/app` | `manager.go`、`context.go` |
-| `ait/cli` | `root.go`、`login.go`、`shell.go`、`load.go`、`session.go` 等 |
+| `ait/cli` | `root.go`、`login.go`、`shell.go`、`session.go`、`config.go`、`ai.go` 等 |
 | `ait/login` | `run.go`、`helpers.go`、`help.go` |
 | `ait/shell` | `repl.go`、`exec.go`、`parse.go`、`io.go`、`*_helpers.go` |
 | `ait/aimode` | `scope.go`、`policy.go`、`repl.go`、`exec.go`、`run_local.go`、`prompt.go` — AI REPL（Runner 由调用方注入） |
@@ -104,7 +104,7 @@ make test-cross  # windows + darwin go build
 ## CLI 速查
 
 ```text
-ait shell
+ait shell                              # AiT> REPL：login、session --list/--load、history、help、exit
 ait login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 ait ai [--model deepseek|minimax]            # 本机 AI REPL（AiT AI>）；tiered 可先走 Ollama
 ait ai model list

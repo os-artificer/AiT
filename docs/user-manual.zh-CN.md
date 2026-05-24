@@ -59,20 +59,20 @@
 | `ait session --list` | 列出已保存会话（`#` 列；`-v` 输出完整 UUID） |
 | `ait session --load [<id\|alias>]` | 恢复会话（可省略 id 交互选择）；请用 alias 或 `-v` 的 FULL_ID，勿用 ID 列短码 |
 | `ait session --suspend` | 在 SSH 会话内使用 `!ait suspend` |
-| `ait session --switch [id\|alias]` | 切换会话（先挂起当前再加载目标） |
+| `ait session --switch [id\|alias]` | 切换会话（当前会话仍为 `active` 时阻断；须先 `!ait suspend` 或 `--force`） |
 | `ait session --delete <id\|alias>` | 删除单个会话 |
 | `ait session --delete all` | 删除全部会话（须确认；`--force` 跳过确认） |
 | `ait get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ait get --help` |
 | `ait put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
-| `ait config init` | 创建或补全 `config.yaml`（仅缺失项） |
+| `ait config init [--dry-run]` | 创建或补全 `config.yaml`（仅缺失项）；`--dry-run` 仅打印计划变更 |
 | `ait config set/get <key>` | 配置项；`ai.<provider>.api_key` 经密钥环存储 |
 | `ait ai [--model deepseek\|minimax]` | 本机 AI REPL（TTY 为 UTF-8 输入）；可选本会话云端 provider 覆盖 |
 | `ait ai model list` | 列出 AI provider（ENABLED、可达性、Ollama tags） |
 | `ait ai chat [message...]` | 单轮提问；无参数时从 stdin 读取；SSH：`!ait ai chat` / `!! chat` |
-| `ait ai provider enable <provider>` | 启用 provider；`ollama` 可选检查/安装（[y/N]） |
+| `ait ai provider enable <provider>` | 启用 provider；`ollama` 可选检查/安装（[y/N]）；标志 `--yes`、`--no-install`、`--no-pull` |
 | `ait ai provider disable <provider>` | 禁用 provider（不再向其发送 AI 请求） |
 | `ait ai ollama status` | 查看 tiered/启用状态、API 可达性、已拉取模型 |
-| `ait ai ollama setup` | 启用 tiered 并配置 Ollama（安装前 [y/N] 确认） |
+| `ait ai ollama setup [--dry-run]` | 启用 tiered 并配置 Ollama（安装前 [y/N]）；`--dry-run` 仅打印计划步骤 |
 | `ait ai ollama start` | 启动 `ollama serve`（`--wait` 等待 API） |
 | `ait ai ollama stop` | 停止本机 `ollama serve` |
 | `ait ai ollama disable` | 在配置中禁用 Ollama（`--stop` 可同时停服） |
@@ -101,7 +101,9 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | 场景 | 提示符 |
 |------|--------|
 | `ait shell` | `AiT> ` |
-| SSH 远程 | `AiT <user>@<host> ` |
+| `ait ai`（本机） | `AiT AI> ` |
+| SSH 远程 | `AiT user@host> ` |
+| SSH AI 模式（`!ait ai` / `!!`） | `AiT AI user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
 ---
@@ -153,9 +155,22 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | macOS | `~/Library/Application Support/ait/` |
 | Windows | `%LOCALAPPDATA%\ait\` |
 
-可通过 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。Linux 从旧版升级时，`~/.config/ait/config.yaml` 会在首次读取时自动迁入 `AppRoot`。安装后建议执行 **`ait config init`** 补全缺失配置项。
+可通过 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。Linux 从旧版升级时，旧路径 `$XDG_CONFIG_HOME/ait/config.yaml`（通常为 `~/.config/ait/config.yaml`）会在首次读取时自动迁入 `AppRoot`。安装后建议执行 **`ait config init`** 补全缺失配置项。
 
 Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明文写入 SQLite。无桌面密钥环时，加密文件位于 `<AppRoot>/keyring`。headless 生产环境请设置 `AIT_KEYRING_FILE_PASSWORD`。
+
+---
+
+## 错误提示（Try:）
+
+许多 CLI 错误会附带 **`Try:`** 建议命令块（见 `internal/pkg/errhint`）：
+
+| 场景 | 典型提示 |
+|------|----------|
+| `--load` 使用列表 **ID 列**（8 位前缀） | `The list ID column is for display only` → 请用 alias、`-v` 的 FULL_ID 或交互式 `--load` |
+| 当前会话仍为 **active** 时 `session --switch` | 在 SSH 内 `!ait suspend` 或 `session --switch --force` |
+| 空 `ait ai chat`（无消息/stdin） | `chat requires a message` → 传入消息或管道 stdin |
+| 未知配置键 | `ait config get <key>` 或参考示例 YAML |
 
 ---
 
