@@ -19,7 +19,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 
 | 原则 | 要求 |
 |------|------|
-| **语义不变** | 未改动路径：参数解析、拨号、SFTP、会话状态机、错误文案、退出码、提示符与改动前一致 |
+| **语义不变** | 未改动路径：参数解析、拨号、SFTP、会话状态机、错误文案、退出码、提示符与改动前一致；**errhint 多行模板**路径首行 sentinel/`errors.Is` 须保持，排版与 `Try:` 块为预期变更（非回退） |
 | **范围最小** | 禁止 drive-by 重构、顺手改默认值或无关文件 |
 | **已修复不回退** | 全库 **R1–R18**（见下）须保持；相关测试不得删除或弱化断言 |
 | **跨平台** | 涉及 TTY/路径/exec 时须 `make test-cross` 通过 |
@@ -71,9 +71,14 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | D9 | 有 alias 后 `--save` 复用 | `TestResolvePersistSessionID_SaveReusesAliasedRow` |
 | D10 | alias 改 host 清 scrollback | `TestResolveLoginSessionIDClearsScrollbackOnHostChange` |
 | D11 | interactive 路径复用 id | （`resolvePersistSessionID` 与 D1 同路径） |
-| D12 | 无 save/alias 不落库 | `TestShouldPersistLogin`、`TestLoginRunOncePersistGating` |
-| D13 | store 非 NotFound 错误向上传播 | `TestResolvePersistSessionID_StoreError` |
-| D14 | one-shot `--save` 写 current session | `TestPersistLoginSessionSetsMeta`、`TestLoginRunOncePersistGating` |
+| D12 | 无 save/alias 且连接不存在 → 不落库 | `TestShouldPersistLogin`、`TestLoginNoSaveNoExistingStillEphemeral` |
+| D13 | 已有连接无 flag login → 1 行、同 id、TTL 延长 | `TestLoginUpdateExistingWithoutSave` |
+| D14 | 无 flag 更新时 alias 保留 | `TestLoginUpdateExistingPreservesAlias` |
+| D15 | 无 flag、新连接 → 0 行 | `TestLoginNoSaveNoExistingStillEphemeral` |
+| D16 | 无 flag 更新已有连接 → meta 设置 | `TestLoginUpdateExistingSetsMeta`、`TestPlanLoginPersistenceExistingWithoutSave` |
+| D17 | store 非 NotFound 错误向上传播 | `TestResolvePersistSessionID_StoreError` |
+| D18 | one-shot `--save` 写 current session | `TestPersistLoginSessionSetsMeta`、`TestLoginRunOncePersistGating` |
+| D19 | 无 flag 更新已有连接时保留 tmux | `TestLoginUpdateExistingPreservesTmuxEnabled` |
 
 ### S* 明细（`ait session` flag CLI）
 
@@ -83,12 +88,12 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | S2 | `session switch`/`delete` 子命令 unknown | `TestSessionSubcommandsRemoved` |
 | S3 | 无 action → 错误 | `TestSessionCmd_NoActionFails` |
 | S4 | 互斥 flag | `TestSessionCmd_MutuallyExclusiveFlags` |
-| S5 | `--list` 空库 / R13 列格式 | `TestSessionCmd_ListEmpty`、`TestListTableColumns` |
-| S6 | `--load` 未知 id | `TestSessionCmd_LoadNotFound` |
+| S5 | `--list` 空库 / R13 列格式（含 `#` 列） | `TestSessionCmd_ListEmpty`、`TestListTableColumns`、`TestSessionCmd_ListNumberColumn` |
+| S6 | `--load` 未知 id | `TestSessionCmd_LoadNotFound`、`TestSessionCmd_LoadDisplayIDNotFound` |
 | S7 | `--load --tmux` 写 store | `TestLoad_SetsTmuxEnabledBeforeDial` |
 | S8 | `--suspend` 无 current | `TestSessionCmd_SuspendNoCurrent` |
 | S9 | `--switch` 未知 | `TestSessionCmd_SwitchNotFound` |
-| S10 | `--switch` 空库 pick | `TestSessionCmd_SwitchPickEmpty` |
+| S10 | `--switch` 非 TTY 无参 pick 失败 | `TestSessionCmd_SwitchPickNonTTY` |
 | S11 | delete 语义 | `TestDeleteWithForce`（manager） |
 | S12 | `--delete all --force` | `TestSessionCmd_DeleteAllForceEmptyStore` |
 | S13 | `session --help` | `TestSessionCmdHelpExecute` |
@@ -97,6 +102,79 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | S16 | REPL `list` | `TestExecuteLineList` |
 | S17 | REPL `load` | `shellLoad` 路径保留 |
 | S18 | Meta `!ait list` → `session --list` | `TestExecuteSubcommandUsesCRLFStdout` |
+
+### B* 明细（session 列表序号与 load 交互）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| B1 | `--list` 含 `#` 列且从 1 递增 | `TestSessionCmd_ListNumberColumn`、`TestListTableColumns` |
+| B2 | `--load <8-char-list-id>` → `ErrSessionNotFound` + 多行 hint（`display only` + `Try:`；见 **H1a**） | `TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound` |
+| B3 | `PickSessionFrom` 序号 `2` → 第二条 UUID | `TestPickSession_SelectByNumber` |
+| B4 | `--load <alias>` 在 dial 前解析成功 | `TestSessionCmd_LoadAliasFound` |
+| B5 | `--list -v` 输出 `FULL_ID` 与完整 UUID | `TestSessionCmd_ListVerboseFullID`、`TestListVerbose_IncludesFullID` |
+| B6 | 非 TTY `ait session --load` 快速失败 | `TestSessionCmd_LoadPickNonTTY` |
+| B7 | REPL `load` 无参走 picker | `shellLoad` 无参分支（`TestPickSession_SelectByNumber` 覆盖 picker） |
+
+### Hint 模板规范（用户可见校验错误）
+
+| 规则 | 要求 |
+|------|------|
+| 格式 | 首行 sentinel → 空行 → 一句说明 → `Try:` → 2 空格缩进命令行 |
+| `errors.Is` | 首行 sentinel 不变；用 `errhint.WithTry` / `%w` |
+| 前缀 | 错误字符串不含 `AiT:`；CLI 用 `errhint.Print(SurfaceCLI)` |
+| REPL/SSH | 多行不压扁；TTY 首行 `AiT:` |
+| Cobra | 保持 `SilenceUsage`（R3）；hint 替代 inline usage |
+| 排除 | dial/IO/远程 exit 码等纯技术错误不在此模板范围 |
+
+实现约定见 [cli-help.mdc](cli-help.mdc) 与 [`internal/pkg/errhint`](internal/pkg/errhint)。
+
+### H* 明细（多行 Hint 模板）
+
+#### H0（基础设施）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| H0a | `WithTry` 保留 `errors.Is` | `TestWithTry_PreservesIs` |
+| H0b | `FormatTryBlock` 2 空格缩进 | `TestFormatTryBlock_Lines` |
+| H0c | CLI stderr 无 `AiT:` | `TestPrint_CLI_NoPrefix` |
+| H0d | TTY 多行不压扁、单 `AiT:` | `TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline` |
+
+#### H1（session + CLI flag）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| H1a | 8 位 list ID → `ErrSessionNotFound` + `display only` + `Try:` | `TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound` |
+| H1b | 非 TTY `--load` → `ErrNonInteractivePick` + `Try:` | `TestSessionCmd_LoadPickNonTTY` |
+| H1c | 无 session action → 多行 + `Try:` | `TestSessionCmd_NoActionFails` |
+| H1d | 互斥 flag → 多行 + `Try:` | `TestSessionCmd_MutuallyExclusiveFlags` |
+| H1e | `#` / `-v` FULL_ID（与 B1/B5 同行为） | `TestSessionCmd_ListNumberColumn`、`TestListVerbose_IncludesFullID` 等 B* |
+
+#### H2（login / get / put argv）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| H2a | 无 destination → `Try:` + `ait login --help` | `TestDestinationRequiredErr_Format` |
+| H2b | `--tmux` + remote cmd 冲突 → `Try:` | `TestTmuxWithRemoteCommandErr_Format` |
+| H2c | transfer 路径个数不足 → `Try:` | `TestTransferPathCountErr_Format` |
+| H2d | meta get/put 参数不足（SSH） | `TestTransferUsageHint_Format` |
+
+#### H3（AI / config / ollama）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| H3a | 空 `ait ai chat` → `ErrChatMessageRequired` + `Try:` | `TestAICmd_ChatEmptyNoTTY` |
+| H3b | unknown config key + `Try:` | `TestUnknownConfigKeyErr_Format` |
+| H3c | AI not configured 统一文案 + `Try:` | `TestSetModel_ErrNoAI` |
+| H3d | ollama 非交互 install hint | `ollama` 包测试通过（`setup_confirm` 路径） |
+
+#### H4（REPL / meta / aimode）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| H4a | meta blocked login 多行 + `Try:` | `TestExecuteBlockedLogin` |
+| H4b | meta blocked ai 多行 + `Try:` | `TestExecuteBlockedAI` |
+| H4c | REPL 单行 err 仍单 `AiT:` | `TestShellPrintErr` |
+| H4d | aimode chat 空消息 | `TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage` |
 
 ## 验收勾选（PR / Agent 交付）
 
@@ -110,13 +188,29 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 - [ ] R18d：首行裸 `chat` 返回需消息错误（`TestRunREPL_InitialChatEmptyMessage`、`TestParseChatCommand`）
 - [ ] R18e：非 chat 首行进 REPL（`TestRunREPL_InitialNonChatShowsPrompt`、`TestIsMetaREPLCommand`）
 - [ ] R18f：远程单轮 CRLF（`TestRunREPL_InitialChatOnceRemoteCRLF`）
-- [ ] D1–D14：登录连接去重与 meta（见 **D* 明细**）
+- [ ] D1–D19：登录连接去重与已有连接更新（见 **D* 明细**）
 - [ ] S1–S18：`ait session` flag CLI（见 **S* 明细**）
+- [ ] B1–B7：session 列表 `#` 与 load 交互（见 **B* 明细**）
+- [ ] H0a–H0d：errhint 基础设施（见 **H0**）
+- [ ] H1a–H1e：session hint + `#`/`-v`（见 **H1**、**B\***）
+- [ ] H2a–H2d：login/get/put argv hint（见 **H2**）
+- [ ] H3a–H3d：AI/config/ollama hint（见 **H3**）
+- [ ] H4a–H4d：REPL/meta/aimode hint（见 **H4**）
 - [ ] 相关自动化测试未删除或弱化
 
 手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai chat --help`、`timeout 5 ./bin/ait ai chat ping`、`echo ping | timeout 5 ./bin/ait ai chat`。
 
-自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`。
+手动烟雾（多行 Hint，H*）：
+
+```bash
+./bin/ait session --load 621b71ac    # H1a：多行 Try
+./bin/ait session                    # H1c：无 flag → Try
+./bin/ait login                      # H2a：destination required → Try
+./bin/ait config get bad.key         # H3b：unknown config key → Try
+./bin/ait ai chat </dev/null         # H3a：chat 需消息 → Try
+```
+
+自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`。
 
 ## 新功能
 
@@ -146,6 +240,8 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | L* | login 可选保存（`--save` / `--alias` 隐含保存） | `TestShouldPersistLogin`、`TestPersistLoginSessionSaveOnly`、`TestPersistLoginSessionAliasOnly`、`TestParseSave`、`TestLoginHelpMatchesLegacyGolden` |
 | D* | login 同连接复用行并延期 TTL | `TestResolvePersistSessionID_*`、`TestFindSessionByConnection_*`、`TestPersistLoginSession_ExtendsAuthExpiry` |
 | S* | `ait session` 统一 flag | `TestTopLevelListLoadSuspendRemoved`、`TestSessionCmd_*`、`TestExecuteLineList`、`TestWriteSessionHelpSections` |
+| B* | session 列表 `#` / load 交互 / `-v` FULL_ID | `TestSessionCmd_ListNumberColumn`、`TestSessionCmd_LoadPickNonTTY`、`TestPickSession_SelectByNumber`、`TestListVerbose_IncludesFullID` |
+| H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecuteBlockedLogin` |
 
 ## 索引
 

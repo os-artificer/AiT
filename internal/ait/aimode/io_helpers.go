@@ -19,6 +19,8 @@ package aimode
 import (
 	"io"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
 func aimWrite(w io.Writer, s string) {
@@ -29,6 +31,10 @@ func aimWrite(w io.Writer, s string) {
 func aimPrintErr(w io.Writer, msg string) {
 	msg = strings.TrimSpace(msg)
 	if msg == "" {
+		return
+	}
+	if strings.Contains(msg, "\n") {
+		errhint.Print(w, errhint.SurfaceTTY, errhint.NewSentinel(msg))
 		return
 	}
 	aimWrite(w, msgPrefixAiT+msg+"\r\n")

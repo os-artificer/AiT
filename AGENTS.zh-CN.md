@@ -111,8 +111,8 @@ ait ai model list
 ait ai chat [message...]
 ait ai provider enable|disable <provider>
 ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup 安装前 [y/N]）
-ait session --list
-ait session --load <id|alias> [--tmux] [--password]
+ait session --list [-v]
+ait session --load [<id|alias>] [--tmux] [--password]
 ait session --switch [id|alias] [--tmux] [--password] [--force]
 ait session --delete <id|alias|all> [--force]
 ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain；flag/路径顺序任意
@@ -120,7 +120,7 @@ ait put [ssh-flags] <paths...>
 ait config set|get <key> [<value>]
 ```
 
-提示符：`AiT>`（`ait shell`）、`AiT AI>`（`ait ai`）、`AiT AI user@host>`（SSH AI）、`AiT user@host>`（SSH）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)。
+提示符：`AiT>`（`ait shell`）、`AiT AI>`（`ait ai`）、`AiT AI user@host>`（SSH AI）、`AiT user@host>`（SSH）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。
 
 ## 注意事项
 

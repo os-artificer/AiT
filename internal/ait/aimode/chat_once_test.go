@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -122,7 +123,7 @@ func TestRunChatOnce_EmptyMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = RunChatOnce(context.Background(), Options{AI: client, Out: &bytes.Buffer{}}, "  ")
-	if err != ErrChatMessageRequired {
+	if !errors.Is(err, ai.ErrChatMessageRequired) {
 		t.Fatalf("got %v", err)
 	}
 }

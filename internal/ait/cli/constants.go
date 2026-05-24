@@ -45,6 +45,7 @@ const (
 	flagNameTmux     = "tmux"
 	flagNamePassword = "password"
 	flagNameForce    = "force"
+	flagNameVerbose  = "verbose"
 )
 
 // Session — validation errors.

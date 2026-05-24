@@ -178,6 +178,9 @@ func TestAICmd_ChatEmptyNoTTY(t *testing.T) {
 				!isAllowedChatCLIErr(err) {
 				t.Fatalf("unexpected error: %v", err)
 			}
+			if !strings.Contains(err.Error(), "Try:") {
+				t.Fatalf("expected Try block: %v", err)
+			}
 		case <-time.After(5 * time.Second):
 			t.Fatal("ait ai chat (empty) blocked (expected quick error)")
 		}

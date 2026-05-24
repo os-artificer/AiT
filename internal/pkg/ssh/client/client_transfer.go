@@ -22,6 +22,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/transfer"
 )
 
@@ -38,7 +39,8 @@ func (c *Client) handleTransferPut(ctx context.Context, stdin io.Writer, args []
 
 func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transfer.Direction, usage string, args []string) error {
 	if len(args) != 2 {
-		termPrintln(os.Stderr, "AiT: "+usage)
+		err := transferUsageHintErr(usage)
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
@@ -50,7 +52,7 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 		err = transfer.Put(ctx, c.conn, args[0], args[1])
 	}
 	if err != nil {
-		termPrintf(os.Stderr, "AiT: %v", err)
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
 	}
 	c.finishMetaInteraction(stdin)
 	return nil

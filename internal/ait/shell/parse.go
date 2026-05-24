@@ -17,7 +17,6 @@
 package shell
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -49,7 +48,7 @@ func parseShellLine(line string) ([]string, error) {
 	}
 
 	if inQuote {
-		return nil, fmt.Errorf("unclosed quote")
+		return nil, unclosedQuoteErr()
 	}
 	if cur.Len() > 0 {
 		words = append(words, cur.String())
@@ -57,10 +56,11 @@ func parseShellLine(line string) ([]string, error) {
 	return words, nil
 }
 
-// parseLoadArgs parses load arguments: load <id|alias> [--tmux] [--password P].
+// parseLoadArgs parses load arguments: load [<id|alias>] [--tmux] [--password P].
+// An empty argv is valid; the caller runs interactive pick (load with no arguments).
 func parseLoadArgs(argv []string) (idOrAlias, password string, tmux bool, err error) {
 	if len(argv) < 1 {
-		return "", "", false, fmt.Errorf("usage: load <id|alias> [--tmux] [--password P]")
+		return "", "", false, loadUsageErr()
 	}
 	idOrAlias = argv[0]
 
@@ -71,11 +71,11 @@ func parseLoadArgs(argv []string) (idOrAlias, password string, tmux bool, err er
 		case "--password":
 			i++
 			if i >= len(argv) {
-				return "", "", false, fmt.Errorf("--password requires a value")
+				return "", "", false, passwordRequiresValueErr()
 			}
 			password = argv[i]
 		default:
-			return "", "", false, fmt.Errorf("unknown load flag %q", argv[i])
+			return "", "", false, unknownLoadFlagErr(argv[i])
 		}
 	}
 	return idOrAlias, password, tmux, nil

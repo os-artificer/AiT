@@ -19,10 +19,12 @@ package helpdoc
 import "io"
 
 const sessionIntro = "List, load, suspend, switch, or delete saved SSH sessions in the local AiT database."
-const sessionNote = "Inside an active SSH session, use !ait suspend to suspend (not ait session --suspend)."
+const sessionNote = "Inside an active SSH session, use !ait suspend to suspend (not ait session --suspend). " +
+	"List # column matches interactive pick by number; ID column is display-only unless you set an alias."
 
-const sessionFlags = `  --list              list saved sessions
-  --load <id|alias>   reconnect to a saved session
+const sessionFlags = `  --list              list saved sessions (# column for pick-by-number)
+  --list -v           include FULL_ID (complete UUID) for scripting
+  --load [<id|alias>] reconnect (omit value to pick interactively by #)
   --suspend           suspend from local CLI (prefer !ait suspend in SSH)
   --switch [id|alias] switch to another session (omit value to pick interactively)
   --delete <id|alias|all>   delete one session or all sessions
@@ -39,7 +41,7 @@ func WriteSessionHelp(w io.Writer) error {
 	if err := b.WriteIntro(sessionIntro, sessionNote); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ait session [--list | --load <id|alias> | --switch [id|alias] | --suspend | --delete <id|alias|all>]"); err != nil {
+	if err := b.WriteUsage("ait session [--list [-v] | --load [<id|alias>] | --switch [id|alias] | --suspend | --delete <id|alias|all>]"); err != nil {
 		return err
 	}
 	if err := b.WriteSection(helpSectionAITFlags, sessionFlags); err != nil {
@@ -47,6 +49,8 @@ func WriteSessionHelp(w io.Writer) error {
 	}
 	if err := b.WriteExamples(
 		"ait session --list",
+		"ait session --list -v",
+		"ait session --load",
 		"ait session --load prod --tmux",
 		"ait session --switch",
 		"ait session --switch prod --force",

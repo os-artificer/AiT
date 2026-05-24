@@ -28,6 +28,8 @@
 
 # 列出、恢复、切换会话
 ./bin/ait session --list
+./bin/ait session --list -v    # 含 FULL_ID，便于脚本
+./bin/ait session --load       # 按列表 # 交互选择
 ./bin/ait session --load prod
 ./bin/ait session --switch staging
 
@@ -52,9 +54,9 @@ cp configs/ait.example.yaml ~/.config/ait/config.yaml
 | 命令 | 说明 |
 |------|------|
 | `ait shell` | 交互模式（`AiT> `）：`login`、`list`、`help`、`clear` 等；`exit` 退出；TTY：UTF-8 输入，**Ctrl+L** 清屏 |
-| `ait login` | 连接主机；`--save` 或 `--alias` 保存会话；`host cmd` 为一次性执行 |
-| `ait session --list` | 列出已保存会话 |
-| `ait session --load <id\|alias>` | 恢复会话；认证过期须 `--password` |
+| `ait login` | 连接主机；`--save` 或 `--alias` 首次保存；对已列入 session 列表的 user@host:port 重连会更新该行；`host cmd` 为一次性执行 |
+| `ait session --list` | 列出已保存会话（`#` 列；`-v` 输出完整 UUID） |
+| `ait session --load [<id\|alias>]` | 恢复会话（可省略 id 交互选择）；请用 alias 或 `-v` 的 FULL_ID，勿用 ID 列短码 |
 | `ait session --suspend` | 在 SSH 会话内使用 `!ait suspend` |
 | `ait session --switch [id\|alias]` | 切换会话（先挂起当前再加载目标） |
 | `ait session --delete <id\|alias>` | 删除单个会话 |

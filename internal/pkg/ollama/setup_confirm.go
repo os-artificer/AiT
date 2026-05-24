@@ -22,6 +22,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
 const confirmYes = "y"
@@ -65,7 +67,12 @@ func ResolveInstallAllowed(binaryMissing bool, opts Options, confirm ConfirmFunc
 		return false, nil
 	}
 	if !isTerminalIn(os.Stdin) {
-		_, _ = fmt.Fprintln(opts.Err, "AiT: non-interactive terminal; use --yes to allow Ollama install or --no-install to skip")
+		errhint.Print(opts.Err, errhint.SurfaceTTY, errhint.WithTry(errhint.NewSentinel("non-interactive terminal"),
+			"Ollama install confirmation requires a TTY or explicit flags.",
+			"ait ai ollama setup --yes",
+			"ait ai ollama setup --no-install",
+			"ait ai ollama setup --help",
+		))
 		return false, nil
 	}
 	if confirm == nil {

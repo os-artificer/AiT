@@ -140,7 +140,7 @@ func TestWriteSessionHelpSections(t *testing.T) {
 	helpMustContain(t, buf.String(),
 		"Usage:", "Examples:", "help for session",
 		"--list", "--load", "--switch", "--suspend", "--delete", "--tmux", "--force",
-		"delete all",
+		"FULL_ID", "delete all",
 	)
 }
 

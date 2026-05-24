@@ -110,7 +110,7 @@ func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 			}
 			return i, nil
 		}
-		return i, fmt.Errorf("unknown flag %q", arg)
+		return i, unknownFlagErr(arg, cmdLabel)
 	}
 }
 
