@@ -19,6 +19,7 @@ package ai
 import (
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/router"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 )
@@ -36,7 +37,7 @@ func TestResolveTryOrder_SkipsDisabled(t *testing.T) {
 	keyed := map[ProviderID]struct{}{
 		config.ProviderDeepseek: {},
 	}
-	order := resolveTryOrder(cfg, "", keyed)
+	order := router.ResolveTryOrder(cfg, "", keyed)
 	for _, id := range order {
 		if id == config.ProviderMinimax {
 			t.Fatalf("order=%v should not include disabled minimax", order)

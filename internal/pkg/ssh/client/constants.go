@@ -16,28 +16,19 @@
 
 package client
 
-// metaPrefixes is the exhaustive set of strict meta openers. The scanner
-// only commits to meta mode once a candidate buffer matches one exactly.
-var metaPrefixes = []string{
-	"!ait ai ",
-	"!ait ai\n",
-	"!ait local ",
-	"!ait local\n",
-	"!ait remote\n",
-	metaPrefixAitSpace,
-	"!! ",
-	"!!\n",
-}
+import (
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
+)
 
-// Meta — in-session !ait / !! prefix strings.
+// Meta — in-session !ait / !! prefix strings (aliased from the meta subpackage).
 const (
-	metaPrefixAitSpace = "!ait "
-	metaPrefixAitAI    = "!ait ai"
-	metaLineSuspend    = "!ait suspend"
-	metaLineLocal      = "!ait local"
-	metaLineRemote     = "!ait remote"
-	metaLineBare       = "!ait"
-	metaLineHelp       = "!ait help"
+	metaPrefixAitSpace = meta.PrefixAitSpace
+	metaPrefixAitAI    = meta.PrefixAitAI
+	metaLineSuspend    = meta.LineSuspend
+	metaLineLocal      = meta.LineLocal
+	metaLineRemote     = meta.LineRemote
+	metaLineBare       = meta.LineBare
+	metaLineHelp       = meta.LineHelp
 )
 
 // IO — CRLF line endings for remote TTY output.

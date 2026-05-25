@@ -22,21 +22,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/models"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/ollama"
 )
 
-// ModelRow is one configured provider row for ListModels output.
-type ModelRow struct {
-	Provider  ProviderID
-	Model     string
-	APIStyle  string
-	Role      string
-	Key       string
-	Enabled   string
-	Reachable string
-}
+// ModelRow is one configured provider row for ListModels output (alias of models.Row).
+type ModelRow = models.Row
 
 // ModelsReport is the structured result of ListModels.
 type ModelsReport struct {
@@ -112,8 +105,8 @@ func (c *Client) ListModels(ctx context.Context) (*ModelsReport, error) {
 			Provider:  id,
 			Model:     pc.Model,
 			APIStyle:  style,
-			Role:      providerRole(c.cfg, id, hasKey, enabled),
-			Key:       keyLabel(id, hasKey),
+			Role:      models.ProviderRole(c.cfg, id, hasKey, enabled),
+			Key:       models.KeyLabel(id, hasKey),
 			Enabled:   enabledLabel,
 			Reachable: reachable,
 		})
@@ -133,7 +126,7 @@ func (r *ModelsReport) Format() string {
 	if r == nil {
 		return ""
 	}
-	out := formatModelsTable(r.Rows)
+	out := models.FormatTable(r.Rows)
 	if r.TagsNote != "" {
 		out += "\n" + r.TagsNote + "\n"
 	} else if len(r.OllamaTags) > 0 {
@@ -143,12 +136,4 @@ func (r *ModelsReport) Format() string {
 		}
 	}
 	return out
-}
-
-func probeReachable(ctx context.Context, client *http.Client, ep *endpoint) bool {
-	if ep.id == ProviderOllama {
-		_, note, err := ollama.FetchTags(ctx, client, ep.baseURL, ep.model)
-		return err == nil && note == ""
-	}
-	return true
 }

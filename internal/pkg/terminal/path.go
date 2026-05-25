@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 )
 
 var scrollbackBaseName = regexp.MustCompile(`^[a-zA-Z0-9-]+\.log$`)
@@ -59,16 +58,4 @@ func ResolveScrollbackPath(dir, stored string) (string, error) {
 		return "", fmt.Errorf("scrollback path escapes data directory")
 	}
 	return fullAbs, nil
-}
-
-// trimUTF8Tail returns the last max bytes of s without splitting a UTF-8 rune.
-func trimUTF8Tail(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	i := len(s) - max
-	for i < len(s) && !utf8.RuneStart(s[i]) {
-		i++
-	}
-	return s[i:]
 }

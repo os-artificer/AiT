@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	clilogin "github.com/os-artificer/AiT/internal/ait/cli/login"
 )
 
 func TestLoginCmdErrorNoUsage(t *testing.T) {
@@ -38,14 +40,14 @@ func TestLoginCmdErrorNoUsage(t *testing.T) {
 }
 
 func TestLoginCmdSilenceUsage(t *testing.T) {
-	cmd := newLoginCmd()
+	cmd := clilogin.New(runWithManager)
 	if !cmd.SilenceUsage || !cmd.SilenceErrors {
 		t.Fatalf("login cmd SilenceUsage=%v SilenceErrors=%v", cmd.SilenceUsage, cmd.SilenceErrors)
 	}
 }
 
 func TestLoginCmdHelpRunE(t *testing.T) {
-	cmd := newLoginCmd()
+	cmd := clilogin.New(runWithManager)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)

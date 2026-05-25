@@ -127,10 +127,6 @@ func hostKeyCallbackFor(opts Options) (ssh.HostKeyCallback, error) {
 	return hostKeyCallbackAt(path, opts.Host, opts.Port, mode, opts.BatchMode)
 }
 
-func hostKeyCallback() (ssh.HostKeyCallback, error) {
-	return hostKeyCallbackAt(KnownHostsPath(), "", 0, "ask", false)
-}
-
 func hostKeyCallbackAt(path, host string, port int, mode string, batch bool) (ssh.HostKeyCallback, error) {
 	if os.Getenv("AIT_SSH_INSECURE") == "1" {
 		return ssh.InsecureIgnoreHostKey(), nil //nolint:gosec // explicit opt-in for dev

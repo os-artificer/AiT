@@ -23,18 +23,18 @@ import (
 	"io"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/ait/aimode/approve"
+	"github.com/os-artificer/AiT/internal/ait/aimode/risk"
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
-// sessionState holds per-REPL AI chat history and exec trust.
+// sessionState holds per-REPL AI chat history and embeds approve.Trust for exec confirmation state.
 type sessionState struct {
-	history         []ai.ChatMessage
-	sessionTrusted  bool
-	trustedPatterns map[string]struct{}
-	policy          ExecPolicy
-	interaction     InteractionMode
+	history       []ai.ChatMessage
+	interaction   InteractionMode
+	approve.Trust // embedded value: Policy / SessionTrusted / TrustedPatterns and helper methods
 }
 
 // ExecuteLine handles one AI mode line. Returns exitAI true when the user typed exit/quit.
@@ -48,7 +48,7 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 	word, rest := firstWord(line)
 	switch word {
 	case replCmdExit, replCmdQuit:
-		clearExecTrust(st)
+		st.Trust.Clear()
 		return true, nil
 	case replCmdHelp, replArgH, replArgHelp:
 		PrintHelp(opt.Out, opt.Scope)
@@ -63,7 +63,7 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 		if len(parts) > 1 {
 			args = parts[1:]
 		}
-		return false, terminal.RunHistoryCommand(opt.Out, hist, args)
+		return false, terminal.RunHistoryCommand(terminal.NewCRLFWriter(opt.Out), hist, args)
 	case replCmdMode:
 		return false, setMode(ctx, opt, st, rest, opt.Out)
 	case replCmdApprove:
@@ -95,13 +95,13 @@ func execRun(ctx context.Context, opt Options, st *sessionState, cmd string) err
 		return usageRunCommandErr()
 	}
 
-	risk := ClassifyRisk(cmd)
-	if risk == RiskInteractive {
+	lvl := risk.Classify(cmd)
+	if lvl == risk.Interactive {
 		aimWrite(opt.Out, msgInteractiveSkipCRLF)
 		return nil
 	}
 
-	ok, err := confirmExecRisk(optWithPolicy(opt, st.policy), st, cmd, CommandPatternKey(cmd), risk)
+	ok, err := confirmExecRisk(optWithPolicy(opt, st.Trust.Policy), st, cmd, approve.PatternKey(cmd), lvl)
 	if err != nil {
 		return err
 	}
@@ -130,9 +130,9 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 		return usageAitSubcommandErr()
 	}
 
-	risk := ClassifyAitRisk(argsLine)
+	lvl := risk.ClassifyAit(argsLine)
 	label := "ait " + argsLine
-	ok, err := confirmExecRisk(optWithPolicy(opt, st.policy), st, label, CommandPatternKeyAit(argsLine), risk)
+	ok, err := confirmExecRisk(optWithPolicy(opt, st.Trust.Policy), st, label, approve.PatternKeyAit(argsLine), lvl)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func execAit(ctx context.Context, opt Options, st *sessionState, argsLine string
 	}
 
 	argv := strings.Fields(argsLine)
-	return opt.CLI(argv, opt.Out, opt.ErrOut)
+	return opt.CLI(argv, terminal.NewCRLFWriter(opt.Out), terminal.NewCRLFWriter(opt.ErrOut))
 }
 
 func setModel(ctx context.Context, opt Options, rest string, out io.Writer) error {
@@ -195,7 +195,7 @@ func askAI(ctx context.Context, opt Options, st *sessionState, question string) 
 	return nil
 }
 
-func optWithPolicy(opt Options, p ExecPolicy) Options {
+func optWithPolicy(opt Options, p approve.Policy) Options {
 	opt.ExecPolicy = p
 	return opt
 }
@@ -205,4 +205,35 @@ func PrintHelp(w io.Writer, scope ai.Scope) {
 	var buf bytes.Buffer
 	_ = helpdoc.WriteAIREPLHelp(&buf, scope)
 	aimWrite(w, buf.String())
+}
+
+// confirmExec returns whether the user approved running cmd under opt's scope and policy.
+func confirmExec(opt Options, st *sessionState, cmdLabel, patternKey string, lvl risk.Level) (bool, error) {
+	return confirmExecRisk(opt, st, cmdLabel, patternKey, lvl)
+}
+
+// confirmExecRisk adapts aimode Options to approve.Inputs and delegates to approve.Confirm.
+func confirmExecRisk(opt Options, st *sessionState, cmdLabel, patternKey string, lvl risk.Level) (bool, error) {
+	return approve.Confirm(approve.Inputs{
+		Trust:       &st.Trust,
+		ScopeLabel:  scopeLabel(opt),
+		CmdLabel:    cmdLabel,
+		PatternKey:  patternKey,
+		Risk:        lvl,
+		Policy:      opt.ExecPolicy,
+		ConfirmRead: opt.ConfirmRead,
+		Out:         opt.Out,
+		In:          opt.In,
+		Write:       aimWrite,
+	})
+}
+
+func scopeLabel(opt Options) string {
+	if opt.Scope == ai.ScopeRemote {
+		if opt.HostLabel != "" {
+			return opt.HostLabel
+		}
+		return "remote"
+	}
+	return "local"
 }
