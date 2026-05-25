@@ -30,13 +30,6 @@ func runCommand(ctx context.Context, name string, args []string, modelsDir strin
 	return cmd.Run()
 }
 
-func runShell(ctx context.Context, script string) error {
-	cmd := exec.CommandContext(ctx, "sh", "-c", script)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 func runOllama(ctx context.Context, modelsDir string, args ...string) error {
 	ctx, cancel := context.WithTimeout(ctx, pullTimeout)
 	defer cancel()

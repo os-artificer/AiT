@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	cliconfig "github.com/os-artificer/AiT/internal/ait/cli/config"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
 )
 
@@ -64,13 +65,13 @@ func TestConfigEditCmd(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("AIT_HOME", root)
 
-	openEditorFn = func(path string) error {
+	cliconfig.OpenEditorFn = func(path string) error {
 		if !strings.Contains(path, "config.yaml") {
 			t.Fatalf("path=%q", path)
 		}
 		return nil
 	}
-	t.Cleanup(func() { openEditorFn = platform.OpenEditor })
+	t.Cleanup(func() { cliconfig.OpenEditorFn = platform.OpenEditor })
 
 	if _, err := os.Stat(filepath.Join(root, "config.yaml")); !os.IsNotExist(err) {
 		if err == nil {
@@ -98,13 +99,13 @@ func TestConfigEditCmd_InvalidYAML(t *testing.T) {
 	}
 
 	path := filepath.Join(root, "config.yaml")
-	openEditorFn = func(p string) error {
+	cliconfig.OpenEditorFn = func(p string) error {
 		if p != path {
 			t.Fatalf("path=%q", p)
 		}
 		return os.WriteFile(p, []byte("session: [\n"), 0o600)
 	}
-	t.Cleanup(func() { openEditorFn = platform.OpenEditor })
+	t.Cleanup(func() { cliconfig.OpenEditorFn = platform.OpenEditor })
 
 	var errOut bytes.Buffer
 	err := ExecuteWriters([]string{"config", "edit"}, &bytes.Buffer{}, &errOut)

@@ -266,6 +266,15 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | K21 | `platform.HistoryPath` 位于 DataDir、`repl_history` | `TestHistoryPath_UnderDataDir` |
 | K22 | REPL 启动 `LoadFromFile` 失败不阻断；文件权限 0600 | `TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode` |
 
+#### Raw-TTY 输出 CRLF（K23–K24）
+
+raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` 不再自动转 `\r\n`，会产生"阶梯排版"。任何在 raw TTY 上输出多行的代码路径**必须**经由 `aimWrite` / `shellWriteTTY` / `terminal.NewCRLFWriter` 转 CRLF；新增 raw-TTY 输出入口须先确认所用 writer 是 CRLF 安全（直接写 `os.Stdout` 触发回归）。
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| K23 | AI REPL `history` / `history n` 在 raw TTY 每条 entry 起于列 0；`crlf.NewWriter` 对已含 `\r\n` 的输入幂等（不产生 `\r\r\n`） | `TestExecuteLineHistory_AIMode`（断言 `\r\n` 且禁止 `\r\r\n`）、`TestExecuteLineHistory_AIMode_CRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` | `ait login user@host` → `!!` → `mode agent` → `history`；每行起于列 0 |
+| K24 | `ait shell` `load` 无参 picker 的编号列表与 `Select session …: ` 提示走 `shellCLIOut`（raw TTY 下为 `terminal.NewCRLFWriter(os.Stdout)`） | `TestExecuteLineLoad_PickerCRLF` | `./bin/ait shell` → `load`；列表每行起于列 0 |
+
 ### P* 明细（AppRoot / AIT_HOME）
 
 | ID | 验收行为 | 自动化测试 |
@@ -346,6 +355,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 - [ ] H4a–H4d：REPL/meta/aimode hint（见 **H4**）
 - [ ] K1–K9：REPL 行编辑与历史（见 **K\***）
 - [ ] K10–K22：history 命令、Ctrl+R、持久化（见 **K\*** 明细 K10–K22）
+- [ ] K23–K24：raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker；见 **K\*** 明细 K23–K24）
 - [ ] P1–P6：AppRoot / AIT_HOME 单目录（见 **P\***）
 - [ ] G1–G16：`ait config init` / `view` / `edit` / `validate`（见 **G\***）
 - [ ] 相关自动化测试未删除或弱化
@@ -381,6 +391,17 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 # Ctrl+R 搜 run；clear 后 history 仍有输入行（K19）
 ```
 
+手动烟雾（raw-TTY CRLF，K23–K24）：
+
+```bash
+./bin/ait shell
+# load            # K24：编号列表 + Select session 提示每行起于列 0
+# exit
+./bin/ait ai
+# history         # 本地 AI REPL；每条 entry 起于列 0
+# 进 SSH 后 !! → mode agent → history    # K23：远程 AI REPL；每条 entry 起于列 0
+```
+
 手动烟雾（SSH 远程 AI UTF-8，R19）：
 
 ```bash
@@ -414,7 +435,7 @@ run hostname -I         # A20c：Ask 下手动 run 仍可用
 # 确认选 s / c            # A21c/A21f；高危仅 y/n # A21d
 ```
 
-自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`；R19 → `TestStdinReader_PauseExclusive`、`TestStdinReader_DrainWhilePaused`、`TestStdinReader_ResumeAfterPause`、`TestReplStdinReader_UTF8`、`TestMetaScanner_BangBangUTF8Query`；A20–A30 → `TestSessionState_Defaults`、`TestSetMode_*`、`TestAskAI_NoRunCapture`、`TestSetApprove_*`、`TestTrustAliasSession`、`TestPolicyDeprecatedAlias_*`、`TestConfirm_HighRiskIgnoresSession`、`TestApproveSession_LowRiskSkipsSecond`、`TestClassifyRisk_*`、`TestAgentTurn_RunActionMock`、`TestScrollDelta_*`、`TestIsMetaREPLCommand_ModeApprove`、`TestModeStatusLine_IncludesApprove`、`TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent`、`TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI`、`TestClassifyRisk_Interactive`、`TestAgent_SkipsVim`；A21 → `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt`、`TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix`、`TestConfirm_HighRiskNoSessionOption`、`TestAIMode_ConfirmNoHistory`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`、`TestHistoryCommand_List`、`TestHistoryCommand_LastN`、`TestHistoryCommand_Clear`、`TestHistoryCommand_Delete`、`TestHistoryCommand_SetLine`、`TestLineHistory_FileSync`、`TestReadLine_CtrlRSearch`、`TestReadLine_CtrlRCycle`、`TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight`、`TestExecuteLineHistory_Shell`、`TestExecuteLineHistory_AIMode`、`TestReadLine_NoHistoryOnPick`、`TestHistoryPath_UnderDataDir`、`TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode`；P* → `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig`、`TestAppRoot_EmptyIgnores`、`TestConfigSave_AfterMigration`；G* → `TestConfigEnsureFile_Creates`、`TestConfigEnsureFile_MergesPartial`、`TestConfigEnsureFile_NoOp`、`TestConfigEnsureFile_NoRootDeepseek`、`TestConfigInitCmd`、`TestConfigInitCmd_DryRun`、`TestConfigViewCmd`、`TestConfigViewCmd_Existing`、`TestConfigEditCmd`、`TestConfigEditCmd_InvalidYAML`、`TestConfigValidateCmd_OK`、`TestConfigValidateCmd_MissingFile`、`TestConfigValidateCmd_BadYAML`、`TestConfigValidateCmd_BadTTL`、`TestConfigValidateCmd_BadURL`、`TestValidate_OK`、`TestValidate_MissingFile`、`TestValidate_BadYAML`、`TestValidate_BadTTL`、`TestValidate_BadMinimaxURL`、`TestOpenEditor_Unix`、`TestShellQuote`。
+自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`；R19 → `TestStdinReader_PauseExclusive`、`TestStdinReader_DrainWhilePaused`、`TestStdinReader_ResumeAfterPause`、`TestReplStdinReader_UTF8`、`TestMetaScanner_BangBangUTF8Query`；A20–A30 → `TestSessionState_Defaults`、`TestSetMode_*`、`TestAskAI_NoRunCapture`、`TestSetApprove_*`、`TestTrustAliasSession`、`TestPolicyDeprecatedAlias_*`、`TestConfirm_HighRiskIgnoresSession`、`TestApproveSession_LowRiskSkipsSecond`、`TestClassifyRisk_*`、`TestAgentTurn_RunActionMock`、`TestScrollDelta_*`、`TestIsMetaREPLCommand_ModeApprove`、`TestModeStatusLine_IncludesApprove`、`TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent`、`TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI`、`TestClassifyRisk_Interactive`、`TestAgent_SkipsVim`；A21 → `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt`、`TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix`、`TestConfirm_HighRiskNoSessionOption`、`TestAIMode_ConfirmNoHistory`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`、`TestHistoryCommand_List`、`TestHistoryCommand_LastN`、`TestHistoryCommand_Clear`、`TestHistoryCommand_Delete`、`TestHistoryCommand_SetLine`、`TestLineHistory_FileSync`、`TestReadLine_CtrlRSearch`、`TestReadLine_CtrlRCycle`、`TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight`、`TestExecuteLineHistory_Shell`、`TestExecuteLineHistory_AIMode`、`TestReadLine_NoHistoryOnPick`、`TestHistoryPath_UnderDataDir`、`TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode`、`TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites`；P* → `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig`、`TestAppRoot_EmptyIgnores`、`TestConfigSave_AfterMigration`；G* → `TestConfigEnsureFile_Creates`、`TestConfigEnsureFile_MergesPartial`、`TestConfigEnsureFile_NoOp`、`TestConfigEnsureFile_NoRootDeepseek`、`TestConfigInitCmd`、`TestConfigInitCmd_DryRun`、`TestConfigViewCmd`、`TestConfigViewCmd_Existing`、`TestConfigEditCmd`、`TestConfigEditCmd_InvalidYAML`、`TestConfigValidateCmd_OK`、`TestConfigValidateCmd_MissingFile`、`TestConfigValidateCmd_BadYAML`、`TestConfigValidateCmd_BadTTL`、`TestConfigValidateCmd_BadURL`、`TestValidate_OK`、`TestValidate_MissingFile`、`TestValidate_BadYAML`、`TestValidate_BadTTL`、`TestValidate_BadMinimaxURL`、`TestOpenEditor_Unix`、`TestShellQuote`。
 
 ## 新功能
 
@@ -447,6 +468,7 @@ run hostname -I         # A20c：Ask 下手动 run 仍可用
 | B* | session 列表 `#` / load 交互 / `-v` FULL_ID | `TestSessionCmd_ListNumberColumn`、`TestSessionCmd_LoadPickNonTTY`、`TestPickSession_SelectByNumber`、`TestListVerbose_IncludesFullID` |
 | H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecuteBlockedLogin` |
 | K* | REPL 行编辑与 history | `TestReadLine_HistoryUpDown`、`TestHistoryCommand_List`、`TestReadLine_CtrlRSearch`、`TestExecuteLineHistory_Shell` |
+| K23–K24 | raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker） | `TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` |
 | P* | AppRoot / AIT_HOME 单目录 | `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig` |
 | G* | `ait config init/view/edit/validate` | `TestConfigEnsureFile_Creates`、`TestConfigInitCmd`、`TestConfigViewCmd`、`TestConfigEditCmd`、`TestConfigValidateCmd_*`、`TestValidate_*`、`TestOpenEditor_Unix` |
 | A20* | AI REPL Ask/Agent + approve | `TestSessionState_Defaults`、`TestSetMode_*`、`TestAgentTurn_RunActionMock`、`TestAgent_SkipsVim` |

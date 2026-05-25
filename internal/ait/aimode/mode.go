@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/ait/aimode/approve"
+	"github.com/os-artificer/AiT/internal/pkg/ai"
 )
 
 // InteractionMode is Ask (Q&A only) or Agent (plan and execute commands).
@@ -62,14 +65,14 @@ func setApprove(st *sessionState, rest string, out io.Writer, errOut io.Writer) 
 		aimWrite(out, formatApproveStatus(st)+"\r\n")
 		return nil
 	case "each", "per-cmd", "per_cmd":
-		st.policy = ExecPolicyPerCmd
-		clearExecTrust(st)
+		st.Trust.Policy = approve.PolicyPerCmd
+		st.Trust.Clear()
 		aimWrite(out, msgApproveEachCRLF)
 		return nil
 	case "session", "once", "session_once", "trust":
-		st.policy = ExecPolicySessionOnce
-		st.sessionTrusted = false
-		st.trustedPatterns = nil
+		st.Trust.Policy = approve.PolicySessionOnce
+		st.Trust.SessionTrusted = false
+		st.Trust.TrustedPatterns = nil
 		aimWrite(out, msgApproveSessionCRLF)
 		return nil
 	default:
@@ -78,7 +81,7 @@ func setApprove(st *sessionState, rest string, out io.Writer, errOut io.Writer) 
 }
 
 func setPolicyDeprecated(st *sessionState, rest string, out io.Writer, errOut io.Writer) error {
-	_, _ = fmt.Fprintln(errOut, msgPolicyDeprecated)
+	aimWrite(errOut, msgPolicyDeprecated+"\n")
 	return setApprove(st, mapPolicyToApprove(rest), out, errOut)
 }
 
@@ -95,12 +98,12 @@ func mapPolicyToApprove(rest string) string {
 
 func formatModeStatus(opt Options, st *sessionState) string {
 	return msgPrefixAiT + "mode " + interactionLabel(st.interaction) +
-		" · approve " + approveLabel(st.policy) +
+		" · approve " + approveLabel(st.Trust.Policy) +
 		" · " + providerStatusSuffix(opt)
 }
 
 func formatApproveStatus(st *sessionState) string {
-	return msgPrefixAiT + "approve: " + approveLabel(st.policy)
+	return msgPrefixAiT + "approve: " + approveLabel(st.Trust.Policy)
 }
 
 func interactionLabel(m InteractionMode) string {
@@ -110,8 +113,8 @@ func interactionLabel(m InteractionMode) string {
 	return "ask"
 }
 
-func approveLabel(p ExecPolicy) string {
-	if p == ExecPolicySessionOnce {
+func approveLabel(p approve.Policy) string {
+	if p == approve.PolicySessionOnce {
 		return "session"
 	}
 	return "each"
@@ -129,10 +132,29 @@ func providerStatusSuffix(opt Options) string {
 func newSessionState(opt Options) *sessionState {
 	st := &sessionState{
 		interaction: ModeAsk,
-		policy:      opt.ExecPolicy,
+		Trust:       approve.Trust{Policy: opt.ExecPolicy},
 	}
-	if st.policy == 0 {
-		st.policy = ExecPolicyPerCmd
+	if st.Trust.Policy == 0 {
+		st.Trust.Policy = approve.PolicyPerCmd
 	}
 	return st
+}
+
+// Prompt returns the AI mode prompt for scope, host label, and interaction mode.
+func Prompt(scope ai.Scope, hostLabel string, mode InteractionMode) string {
+	modeLabel := interactionPromptLabel(mode)
+	if scope == ai.ScopeRemote {
+		if hostLabel != "" {
+			return fmt.Sprintf("AiT AI(%s) %s> ", modeLabel, hostLabel)
+		}
+		return fmt.Sprintf("AiT AI(%s) remote> ", modeLabel)
+	}
+	return fmt.Sprintf("AiT AI(%s)> ", modeLabel)
+}
+
+func interactionPromptLabel(m InteractionMode) string {
+	if m == ModeAgent {
+		return "Agent"
+	}
+	return "Ask"
 }

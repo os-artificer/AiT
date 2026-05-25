@@ -17,9 +17,13 @@
 package aimode
 
 import (
+	"bufio"
 	"io"
+	"os"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/ait/aimode/approve"
+	"github.com/os-artificer/AiT/internal/ait/shell"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
@@ -67,4 +71,31 @@ func isMetaREPLCommand(line string) bool {
 	default:
 		return false
 	}
+}
+
+func (o Options) withTTYConfirm(br *bufio.Reader) Options {
+	if o.ConfirmRead != nil {
+		return o
+	}
+
+	out := o.Out
+	if out == nil {
+		out = os.Stdout
+	}
+
+	o.ConfirmRead = func(prompt string) (approve.Result, error) {
+		aimWrite(out, prompt)
+		line, err := shell.ReadTTYLineNoHistory(br, out, "")
+		if err != nil {
+			return approve.Result{}, err
+		}
+		allowPattern := true
+		allowSession := true
+		if strings.Contains(prompt, "HIGH-RISK") {
+			allowPattern = false
+			allowSession = false
+		}
+		return approve.ParseChoice(line, allowPattern, allowSession), nil
+	}
+	return o
 }

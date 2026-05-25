@@ -29,6 +29,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/localmode"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
 
@@ -67,7 +68,7 @@ type Client struct {
 	opts                Options
 	scroll              *terminal.Buffer
 	remoteCwd           string
-	localShell          localShell
+	localShell          localmode.Shell
 	pauseRemoteOut      atomic.Bool
 	lastRemoteOut       atomic.Int64
 	remoteSetupSuppress atomic.Bool
@@ -232,10 +233,10 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	}
 
 	c.stdinReader = startStdinReader()
-	stdinCh := c.stdinReader.ch
+	stdinCh := c.stdinReader.Ch
 
 	shutdown := func() {
-		c.stdinReader.stop()
+		c.stdinReader.Stop()
 		_ = sess.Close()
 		wg.Wait()
 	}
@@ -305,12 +306,6 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 	time.Sleep(initialCommandSettleDelay)
 	c.waitRemoteOutputQuietAfter(injectAt, remoteOutputQuietPeriod, remoteOutputQuietMaxWait)
 	return nil
-}
-
-// stdinByte is one byte plus a sticky error from os.Stdin.
-type stdinByte struct {
-	b   byte
-	err error
 }
 
 // forwardStdin pipes stdin to the remote shell, deferring meta-line handling
@@ -391,20 +386,20 @@ func (c *Client) runMetaCLI(stdin io.Writer, opts InteractiveOpts, args []string
 }
 
 func (c *Client) enterLocalMode() error {
-	if c.localShell.running() {
+	if c.localShell.Running() {
 		aitModeNotice("already in local mode (type !ait remote to return)")
 		return nil
 	}
 
-	if c.localShell.active() {
-		c.localShell.stop()
+	if c.localShell.Active() {
+		c.localShell.Stop()
 	}
 
 	fd := int(os.Stdin.Fd())
 	cols, rows := termSize(fd)
 
 	c.pauseRemoteOut.Store(true)
-	if err := c.localShell.start(cols, rows, c.onLocalShellExit); err != nil {
+	if err := c.localShell.Start(cols, rows, c.onLocalShellExit); err != nil {
 		c.pauseRemoteOut.Store(false)
 		return fmt.Errorf("local shell: %w", err)
 	}
@@ -423,16 +418,16 @@ func (c *Client) onLocalShellExit() {
 }
 
 func (c *Client) exitLocalMode() error {
-	if c.localShell.running() {
-		c.localShell.stop()
+	if c.localShell.Running() {
+		c.localShell.Stop()
 		c.pauseRemoteOut.Store(false)
 		remote := RemotePrompt(c.opts.User, c.opts.Host)
 		aitModeNotice("remote mode — prompt " + remote)
 		return nil
 	}
 
-	if c.localShell.active() {
-		c.localShell.stop()
+	if c.localShell.Active() {
+		c.localShell.Stop()
 	}
 
 	aitModeNotice("not in local mode (type !ait local to switch)")

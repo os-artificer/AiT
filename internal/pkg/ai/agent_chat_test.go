@@ -18,45 +18,8 @@ package ai
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
-
-	openai "github.com/sashabaranov/go-openai"
 )
-
-func TestToolCallToAgentJSON_RunShell(t *testing.T) {
-	tc := openai.ToolCall{
-		Type: openai.ToolTypeFunction,
-		Function: openai.FunctionCall{
-			Name:      agentToolRunShell,
-			Arguments: `{"command":"hostname -I"}`,
-		},
-	}
-	got, err := toolCallToAgentJSON(tc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(got, `"action":"run_shell"`) || !strings.Contains(got, "hostname -I") {
-		t.Fatalf("got %q", got)
-	}
-}
-
-func TestChatAgent_ToolCall(t *testing.T) {
-	tc := openai.ToolCall{
-		Type: openai.ToolTypeFunction,
-		Function: openai.FunctionCall{
-			Name:      agentToolAnswer,
-			Arguments: `{"text":"ok"}`,
-		},
-	}
-	got, err := toolCallToAgentJSON(tc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(got, `"action":"answer"`) {
-		t.Fatalf("got %q", got)
-	}
-}
 
 func TestChatAgent_JSONFallbackContent(t *testing.T) {
 	raw := `{"action":"answer","text":"done"}`

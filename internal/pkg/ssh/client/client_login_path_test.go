@@ -33,7 +33,7 @@ func TestLoginInteractivePathDoesNotUseTransferPackage(t *testing.T) {
 	}
 	dir := filepath.Dir(file)
 
-	files := []string{"client.go", "prompt.go", "client_init_helpers.go"}
+	files := []string{"client.go", "aliases.go", "client_init_helpers.go", filepath.Join("prompt", "prompt.go")}
 	for _, name := range files {
 		path := filepath.Join(dir, name)
 		body, err := os.ReadFile(path)

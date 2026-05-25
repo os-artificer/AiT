@@ -92,7 +92,7 @@ func TestSessionCmd_NoActionFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), errSessionActionRequired) {
+	if !strings.Contains(err.Error(), "specify one session action") {
 		t.Fatalf("err=%v", err)
 	}
 	if !strings.Contains(err.Error(), "Try:") {
@@ -105,7 +105,7 @@ func TestSessionCmd_MutuallyExclusiveFlags(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), errSessionActionExclusive) {
+	if !strings.Contains(err.Error(), "only one session action flag may be set") {
 		t.Fatalf("err=%v", err)
 	}
 	if !strings.Contains(err.Error(), "Try:") {

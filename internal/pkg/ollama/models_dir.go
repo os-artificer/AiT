@@ -17,11 +17,11 @@
 package ollama
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
@@ -99,28 +99,14 @@ func ResolveModelsDir(cfg *config.Config, flagOverride string) (string, error) {
 }
 
 func expandModelsPath(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", fmt.Errorf("empty models directory")
-	}
-	if strings.HasPrefix(raw, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		if raw == "~" {
-			raw = home
-		} else if strings.HasPrefix(raw, "~/") {
-			raw = filepath.Join(home, strings.TrimPrefix(raw, "~/"))
-		} else {
-			return "", fmt.Errorf("invalid path %q", raw)
-		}
-	}
-	abs, err := filepath.Abs(raw)
+	abs, err := platform.ExpandUserAbsPath(raw)
 	if err != nil {
+		if errors.Is(err, platform.ErrEmptyPath) {
+			return "", fmt.Errorf("empty models directory")
+		}
 		return "", err
 	}
-	return filepath.Clean(abs), nil
+	return abs, nil
 }
 
 // SetProviderModelsDir writes models_dir on ai.providers.ollama.
