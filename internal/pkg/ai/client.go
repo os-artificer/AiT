@@ -27,9 +27,10 @@ import (
 
 // Assist sends userPrompt with optional scrollback and remoteCwd context via cloud providers only.
 func (c *Client) Assist(ctx context.Context, userPrompt, scrollback, remoteCwd string) (string, error) {
-	return c.chatWithFailover(ctx, func(meta PromptMeta) []openai.ChatCompletionMessage {
+	reply, _, err := c.chatWithFailover(ctx, func(meta PromptMeta) []openai.ChatCompletionMessage {
 		return assistMessages(userPrompt, scrollback, remoteCwd, meta)
 	})
+	return reply, err
 }
 
 // SuggestInstall asks the AI for brief install instructions for command on the local OS (cloud only).

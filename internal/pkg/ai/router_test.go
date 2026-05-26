@@ -282,9 +282,134 @@ func TestChat_OpenAI(t *testing.T) {
 	deep := newMockOpenAIServer(t, 200, "chat-reply")
 	mini := newMockOpenAIServer(t, 200, "x")
 	client := setupTwoProviderClient(t, testCfgDefaultDeepseek(), deep, mini)
-	reply, hist, err := client.Chat(context.Background(), nil, "hello", AssistEnv{Scope: ScopeLocal})
+	reply, _, hist, err := client.Chat(context.Background(), nil, "hello", AssistEnv{Scope: ScopeLocal})
 	if err != nil || reply != "chat-reply" || len(hist) != 2 {
 		t.Fatalf("reply=%q hist=%d err=%v", reply, len(hist), err)
+	}
+}
+
+// TestChat_AnthropicThinkingBlock verifies that MiniMax's Anthropic-compatible
+// API returns thinking in the "thinking" field (not "text"), and that we
+// extract it correctly without leaking it into the user-visible reply.
+func TestChat_AnthropicThinkingBlock(t *testing.T) {
+	testAIEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// MiniMax Anthropic format: thinking uses "thinking" field, not "text"
+		_, _ = io.WriteString(w, `{"content":[`+
+			`{"type":"thinking","thinking":"I should check the system","signature":"abc123"},`+
+			`{"type":"text","text":"The system is fine."}`+
+			`]}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := creds.SetProviderAPIKey(config.ProviderMinimax, "mk"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := testCfgDefaultDeepseek()
+	cfg.AI.Default = config.ProviderMinimax
+	cfg.AI.Providers[config.ProviderMinimax] = config.ProviderConfig{
+		APIStyle: config.APIStyleAnthropic,
+		BaseURL:  srv.URL,
+		Model:    "MiniMax-M2.5",
+	}
+
+	client, err := NewClient(cfg, WithProviderOverride(config.ProviderMinimax))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, thinking, _, err := client.Chat(context.Background(), nil, "check system", AssistEnv{Scope: ScopeLocal})
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if reply != "The system is fine." {
+		t.Fatalf("reply=%q", reply)
+	}
+	if thinking != "I should check the system" {
+		t.Fatalf("thinking=%q", thinking)
+	}
+}
+
+// TestChat_AnthropicRedactedThinking verifies that redacted_thinking blocks
+// are silently skipped without causing errors or leaking into the reply.
+func TestChat_AnthropicRedactedThinking(t *testing.T) {
+	testAIEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"content":[`+
+			`{"type":"redacted_thinking","signature":"xyz"},`+
+			`{"type":"text","text":"Here is the answer."}`+
+			`]}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := creds.SetProviderAPIKey(config.ProviderMinimax, "mk"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := testCfgDefaultDeepseek()
+	cfg.AI.Default = config.ProviderMinimax
+	cfg.AI.Providers[config.ProviderMinimax] = config.ProviderConfig{
+		APIStyle: config.APIStyleAnthropic,
+		BaseURL:  srv.URL,
+		Model:    "MiniMax-M2.5",
+	}
+
+	client, err := NewClient(cfg, WithProviderOverride(config.ProviderMinimax))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, thinking, _, err := client.Chat(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if reply != "Here is the answer." {
+		t.Fatalf("reply=%q", reply)
+	}
+	if thinking != "" {
+		t.Fatalf("thinking=%q, want empty for redacted_thinking", thinking)
+	}
+}
+
+// The history must contain only the clean reply (no tags).
+func TestChat_MiniMaxThinkingTags(t *testing.T) {
+	testAIEnv(t)
+	if err := creds.SetProviderAPIKey(config.ProviderMinimax, "k"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate a MiniMax response with inline reasoning tags.
+	body := openAISuccessBody("\u003Cthink\u003ELet me reason\u003C/think\u003EThe answer is 42")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, body)
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := &config.Config{}
+	cfg.AI.Default = config.ProviderMinimax
+	cfg.AI.Providers = map[string]config.ProviderConfig{
+		config.ProviderMinimax: {APIStyle: config.APIStyleOpenAI, BaseURL: srv.URL + "/v1", Model: "MiniMax-M2.5"},
+	}
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reply, thinking, hist, err := client.Chat(context.Background(), nil, "what?", AssistEnv{Scope: ScopeLocal})
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if reply != "The answer is 42" {
+		t.Fatalf("reply=%q, want clean text without tags", reply)
+	}
+	if thinking != "Let me reason" {
+		t.Fatalf("thinking=%q", thinking)
+	}
+	// History must store clean reply only (no thinking tags).
+	if len(hist) != 2 || hist[1].Content != "The answer is 42" {
+		t.Fatalf("hist[1].Content=%q", hist[1].Content)
 	}
 }
 

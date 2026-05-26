@@ -53,21 +53,25 @@ type AssistEnv struct {
 }
 
 // Chat sends history plus user to the configured AI provider(s) with failover.
-func (c *Client) Chat(ctx context.Context, history []ChatMessage, user string, env AssistEnv) (reply string, updated []ChatMessage, err error) {
+// Returns the clean reply text, optional thinking/reasoning content, updated
+// conversation history, and any error. The thinking field contains reasoning
+// extracted from MiniMax in-content tags or DeepSeek reasoning_content; it is
+// not stored in the updated history to avoid wasting tokens on subsequent turns.
+func (c *Client) Chat(ctx context.Context, history []ChatMessage, user string, env AssistEnv) (reply, thinking string, updated []ChatMessage, err error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
-		return "", history, fmt.Errorf("empty prompt")
+		return "", "", history, fmt.Errorf("empty prompt")
 	}
 
-	reply, err = c.completion(ctx, user, len(history), func(meta PromptMeta) []openai.ChatCompletionMessage {
+	reply, thinking, err = c.completion(ctx, user, len(history), func(meta PromptMeta) []openai.ChatCompletionMessage {
 		return buildChatMessages(env.Scope, history, user, env, meta)
 	})
 	if err != nil {
-		return "", history, err
+		return "", "", history, err
 	}
 
 	updated = append(append([]ChatMessage{}, history...), ChatMessage{Role: "user", Content: user}, ChatMessage{Role: "assistant", Content: reply})
-	return reply, updated, nil
+	return reply, thinking, updated, nil
 }
 
 func buildChatMessages(scope Scope, history []ChatMessage, user string, env AssistEnv, meta PromptMeta) []openai.ChatCompletionMessage {
