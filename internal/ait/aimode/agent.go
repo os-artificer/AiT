@@ -37,7 +37,7 @@ func runAgentTurn(ctx context.Context, opt Options, st *sessionState, question s
 	userMsg := question
 
 	for step := 0; step < agentMaxSteps; step++ {
-		reply, updated, err := opt.AI.ChatAgent(ctx, st.history, userMsg, env)
+		reply, _, updated, err := opt.AI.ChatAgent(ctx, st.history, userMsg, env)
 		if err != nil {
 			return err
 		}

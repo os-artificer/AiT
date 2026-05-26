@@ -192,16 +192,16 @@ func (c *Client) TieredEnabled() bool {
 	return ok
 }
 
-func (c *Client) completion(ctx context.Context, user string, historyLen int, build func(PromptMeta) []openai.ChatCompletionMessage) (string, error) {
+func (c *Client) completion(ctx context.Context, user string, historyLen int, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
 	useLocal := router.ClassifyPrompt(c.cfg, user, historyLen, c.sessionProvider, c.skipTiered)
 	localID := c.cfg.LocalProviderID()
 
 	if useLocal {
 		if ep, ok := c.endpoints[localID]; ok {
 			meta := PromptMeta{Provider: localID, Model: ep.model, Mode: aiModeLocalFirst}
-			reply, err := c.complete(ctx, ep, build(meta))
+			reply, thinking, err := c.complete(ctx, ep, build(meta))
 			if err == nil {
-				return reply, nil
+				return reply, thinking, nil
 			}
 			if order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints)); len(order) > 0 {
 				router.LogFailover(nil, localID, order[0], err)
@@ -212,16 +212,16 @@ func (c *Client) completion(ctx context.Context, user string, historyLen int, bu
 	return c.chatWithFailover(ctx, build)
 }
 
-func (c *Client) completionAgent(ctx context.Context, user string, historyLen int, build func(PromptMeta) []openai.ChatCompletionMessage) (string, error) {
+func (c *Client) completionAgent(ctx context.Context, user string, historyLen int, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
 	useLocal := router.ClassifyPrompt(c.cfg, user, historyLen, c.sessionProvider, c.skipTiered)
 	localID := c.cfg.LocalProviderID()
 
 	if useLocal {
 		if ep, ok := c.endpoints[localID]; ok {
 			meta := PromptMeta{Provider: localID, Model: ep.model, Mode: aiModeLocalFirst}
-			reply, err := c.completeAgent(ctx, ep, build(meta))
+			reply, thinking, err := c.completeAgent(ctx, ep, build(meta))
 			if err == nil {
-				return reply, nil
+				return reply, thinking, nil
 			}
 			if order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints)); len(order) > 0 {
 				router.LogFailover(nil, localID, order[0], err)
@@ -232,10 +232,10 @@ func (c *Client) completionAgent(ctx context.Context, user string, historyLen in
 	return c.chatWithFailoverAgent(ctx, build)
 }
 
-func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, error) {
+func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
 	order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
 	if len(order) == 0 {
-		return "", fmt.Errorf("no enabled cloud AI providers with API keys configured")
+		return "", "", fmt.Errorf("no enabled cloud AI providers with API keys configured")
 	}
 
 	var errs []error
@@ -244,22 +244,22 @@ func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMet
 		lastID = id
 		ep := c.endpoints[id]
 		meta := PromptMeta{Provider: id, Model: ep.model, Mode: aiModeCloudOnly}
-		reply, err := c.completeAgent(ctx, ep, build(meta))
+		reply, thinking, err := c.completeAgent(ctx, ep, build(meta))
 		if err == nil {
-			return reply, nil
+			return reply, thinking, nil
 		}
 		errs = append(errs, fmt.Errorf("%s: %w", id, err))
 		if i+1 < len(order) {
 			router.LogFailover(nil, id, order[i+1], err)
 		}
 	}
-	return "", router.AggregateErrors(lastID, errs)
+	return "", "", router.AggregateErrors(lastID, errs)
 }
 
-func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, error) {
+func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
 	order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
 	if len(order) == 0 {
-		return "", fmt.Errorf("no enabled cloud AI providers with API keys configured")
+		return "", "", fmt.Errorf("no enabled cloud AI providers with API keys configured")
 	}
 
 	var errs []error
@@ -268,26 +268,26 @@ func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []
 		lastID = id
 		ep := c.endpoints[id]
 		meta := PromptMeta{Provider: id, Model: ep.model, Mode: aiModeCloudOnly}
-		reply, err := c.complete(ctx, ep, build(meta))
+		reply, thinking, err := c.complete(ctx, ep, build(meta))
 		if err == nil {
-			return reply, nil
+			return reply, thinking, nil
 		}
 		errs = append(errs, fmt.Errorf("%s: %w", id, err))
 		if i+1 < len(order) {
 			router.LogFailover(nil, id, order[i+1], err)
 		}
 	}
-	return "", router.AggregateErrors(lastID, errs)
+	return "", "", router.AggregateErrors(lastID, errs)
 }
 
-func (c *Client) complete(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, error) {
+func (c *Client) complete(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, string, error) {
 	if ep.apiStyle == config.APIStyleAnthropic {
 		return ep.chatAnthropic(ctx, messages)
 	}
 	return ep.chatOpenAI(ctx, messages)
 }
 
-func (c *Client) completeAgent(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, error) {
+func (c *Client) completeAgent(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, string, error) {
 	if ep.apiStyle == config.APIStyleAnthropic {
 		return ep.chatAnthropic(ctx, messages)
 	}

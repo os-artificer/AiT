@@ -64,7 +64,7 @@ func setupTieredClient(t *testing.T, ollamaStatus, cloudStatus int, ollamaReply,
 func TestTiered_SimpleUsesOllamaT1(t *testing.T) {
 	client, ollama, cloud := setupTieredClient(t, 200, 200, "local-ok", "cloud-ok")
 
-	reply, _, err := client.Chat(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
+	reply, _, _, err := client.Chat(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
 	if err != nil || reply != "local-ok" {
 		t.Fatalf("reply=%q err=%v", reply, err)
 	}
@@ -80,7 +80,7 @@ func TestTiered_ComplexUsesCloudT2(t *testing.T) {
 	client, ollama, cloud := setupTieredClient(t, 200, 200, "local", "cloud-ok")
 
 	prompt := "please ```implement``` a full system"
-	reply, _, err := client.Chat(context.Background(), nil, prompt, AssistEnv{Scope: ScopeLocal})
+	reply, _, _, err := client.Chat(context.Background(), nil, prompt, AssistEnv{Scope: ScopeLocal})
 	if err != nil || reply != "cloud-ok" {
 		t.Fatalf("reply=%q err=%v", reply, err)
 	}
@@ -95,7 +95,7 @@ func TestTiered_ComplexUsesCloudT2(t *testing.T) {
 func TestTiered_OllamaFailoverT3(t *testing.T) {
 	client, ollama, cloud := setupTieredClient(t, 503, 200, "", "cloud-ok")
 
-	reply, _, err := client.Chat(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
+	reply, _, _, err := client.Chat(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
 	if err != nil || reply != "cloud-ok" {
 		t.Fatalf("reply=%q err=%v", reply, err)
 	}
@@ -110,7 +110,7 @@ func TestTiered_SessionOverrideSkipsOllamaT4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reply, _, err := client.Chat(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
+	reply, _, _, err := client.Chat(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
 	if err != nil || reply != "cloud-ok" {
 		t.Fatalf("reply=%q err=%v", reply, err)
 	}
@@ -135,7 +135,7 @@ func TestTiered_OnlyOllamaNoCloudKeyT7(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = client.Chat(context.Background(), nil, strings.Repeat("x", 400), AssistEnv{})
+	_, _, _, err = client.Chat(context.Background(), nil, strings.Repeat("x", 400), AssistEnv{})
 	if err == nil {
 		t.Fatal("expected error for complex prompt without cloud key")
 	}

@@ -52,8 +52,8 @@ func validateProviderBaseURL(providerID, apiStyle, raw string) error {
 			return errors.New("deepseek base_url host must be api.deepseek.com (set AIT_ALLOW_CUSTOM_AI_URL=1 to override)")
 		}
 	case ProviderMinimax:
-		if host != "api.minimax.io" {
-			return errors.New("minimax base_url host must be api.minimax.io (set AIT_ALLOW_CUSTOM_AI_URL=1 to override)")
+		if host != "api.minimaxi.com" {
+			return errors.New("minimax base_url host must be api.minimaxi.com (set AIT_ALLOW_CUSTOM_AI_URL=1 to override)")
 		}
 	default:
 		return errors.New("unknown provider: " + providerID)

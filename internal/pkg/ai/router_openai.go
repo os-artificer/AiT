@@ -26,15 +26,15 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-func (ep *endpoint) chatOpenAI(ctx context.Context, messages []openai.ChatCompletionMessage) (string, error) {
+func (ep *endpoint) chatOpenAI(ctx context.Context, messages []openai.ChatCompletionMessage) (string, string, error) {
 	return ep.chatOpenAIRequest(ctx, messages, nil)
 }
 
-func (ep *endpoint) chatOpenAIAgent(ctx context.Context, messages []openai.ChatCompletionMessage) (string, error) {
+func (ep *endpoint) chatOpenAIAgent(ctx context.Context, messages []openai.ChatCompletionMessage) (string, string, error) {
 	return ep.chatOpenAIRequest(ctx, messages, agent.Tools())
 }
 
-func (ep *endpoint) chatOpenAIRequest(ctx context.Context, messages []openai.ChatCompletionMessage, tools []openai.Tool) (string, error) {
+func (ep *endpoint) chatOpenAIRequest(ctx context.Context, messages []openai.ChatCompletionMessage, tools []openai.Tool) (string, string, error) {
 	req := openai.ChatCompletionRequest{
 		Model:    ep.model,
 		Messages: messages,
@@ -44,14 +44,28 @@ func (ep *endpoint) chatOpenAIRequest(ctx context.Context, messages []openai.Cha
 	}
 	resp, err := ep.openai.CreateChatCompletion(ctx, req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf(errEmptyResponseFmt, ep.id)
+		return "", "", fmt.Errorf(errEmptyResponseFmt, ep.id)
 	}
 	msg := resp.Choices[0].Message
 	if len(msg.ToolCalls) > 0 {
-		return agent.ToolCallToJSON(msg.ToolCalls[0])
+		toolJSON, err := agent.ToolCallToJSON(msg.ToolCalls[0])
+		if err != nil {
+			return "", "", err
+		}
+		return toolJSON, "", nil
 	}
-	return strings.TrimSpace(msg.Content), nil
+
+	content := strings.TrimSpace(msg.Content)
+	reply, thinking := ExtractReply(content)
+
+	// DeepSeek reasoner puts reasoning in a separate field; prefer it over
+	// in-content tags when present.
+	if msg.ReasoningContent != "" {
+		thinking = strings.TrimSpace(msg.ReasoningContent)
+	}
+
+	return reply, thinking, nil
 }
