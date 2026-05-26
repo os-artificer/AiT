@@ -45,6 +45,9 @@ func TestRenderPrompt_HighRiskOmitsPatternSession(t *testing.T) {
 	if !strings.Contains(p, "Choice [y/N]:") {
 		t.Fatal("expected y/N only")
 	}
+	if !strings.Contains(p, "HIGH-RISK") {
+		t.Fatal("expected HIGH-RISK label")
+	}
 }
 
 // A21c: ParseChoice maps y/c/s correctly and respects allowPattern/allowSession gating.

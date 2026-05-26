@@ -69,7 +69,7 @@ func RunOnce(ctx context.Context, in Input) error {
 		env.Scrollback = in.Scrollback()
 	}
 
-	reply, _, err := in.AI.Chat(ctx, nil, msg, env)
+	reply, _, _, err := in.AI.Chat(ctx, nil, msg, env)
 	if err != nil {
 		return err
 	}

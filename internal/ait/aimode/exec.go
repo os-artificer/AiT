@@ -185,7 +185,7 @@ func askAI(ctx context.Context, opt Options, st *sessionState, question string) 
 		env.Scrollback = opt.Scrollback()
 	}
 
-	reply, updated, err := opt.AI.Chat(ctx, st.history, question, env)
+	reply, _, updated, err := opt.AI.Chat(ctx, st.history, question, env)
 	if err != nil {
 		return err
 	}
