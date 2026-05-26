@@ -23,6 +23,42 @@ var interactiveCommands = map[string]struct{}{
 	"tmux": {}, "screen": {},
 }
 
+// readCommands are observably read-only shell commands that can be
+// auto-approved without user confirmation in Agent mode.
+// The key is the first token of the command (lowercased).
+// Commands listed in interactiveCommands take priority (e.g. less, more).
+var readCommands = map[string]struct{}{
+	// file listing / inspection
+	"ls": {}, "cat": {}, "head": {}, "tail": {},
+	"find": {}, "locate": {}, "file": {}, "stat": {}, "wc": {}, "md5sum": {},
+	"sha256sum": {}, "sha1sum": {},
+	// search / filter (pure read; sed/awk/tee omitted — they can write)
+	"grep": {}, "egrep": {}, "fgrep": {}, "rg": {},
+	"sort": {}, "uniq": {}, "cut": {}, "tr": {}, "paste": {}, "column": {},
+	// system info
+	"which": {}, "whereis": {}, "whoami": {}, "hostname": {}, "hostnamectl": {},
+	"uname": {}, "date": {}, "uptime": {}, "id": {}, "w": {}, "who": {},
+	"last": {}, "lsb_release": {}, "lscpu": {}, "lsblk": {}, "lspci": {},
+	"lsusb": {}, "free": {}, "df": {}, "du": {}, "ps": {}, "pwd": {},
+	"echo": {}, "env": {}, "printenv": {}, "arch": {}, "nproc": {},
+	// network info (read-only queries)
+	"ip": {}, "ifconfig": {}, "netstat": {}, "ss": {}, "dig": {}, "nslookup": {},
+	"host": {}, "ping": {}, "traceroute": {}, "arp": {}, "route": {},
+	// misc read-only
+	"basename": {}, "dirname": {}, "realpath": {}, "readlink": {},
+	"diff": {}, "tree": {}, "jq": {}, "yq": {}, "type": {}, "command": {},
+	// git — only certain subcommands are auto-approved (see readGitSubcommands)
+	"git": {},
+}
+
+// readGitSubcommands are git subcommands that are safe to auto-approve.
+var readGitSubcommands = map[string]struct{}{
+	"status": {}, "log": {}, "diff": {}, "show": {}, "branch": {},
+	"remote": {}, "tag": {}, "stash": {}, "blame": {}, "shortlog": {},
+	"describe": {}, "reflog": {}, "rev-parse": {}, "ls-files": {},
+	"ls-remote": {}, "ls-tree": {}, "whatchanged": {}, "name-rev": {},
+}
+
 var highRiskFragments = []string{
 	"rm -rf", "rm -fr", "mkfs", "dd if=", "shutdown", "reboot", "poweroff",
 	"halt", ":(){", "chmod -r 777", "chmod 777", "> /dev/", "| bash", "| sh",

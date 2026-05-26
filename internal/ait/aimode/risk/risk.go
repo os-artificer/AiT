@@ -24,8 +24,10 @@ import "strings"
 type Level int
 
 const (
-	// Low is a normal shell command.
+	// Low is a normal shell command (may read or write).
 	Low Level = iota
+	// Read is an observably read-only command; auto-approved in Agent mode.
+	Read
 	// High is destructive or privileged; always confirm per command.
 	High
 	// Interactive is a TTY UI; never auto-run in Agent mode.
@@ -34,6 +36,7 @@ const (
 
 // Classify returns the risk Level of running cmd as a shell command.
 // Returns Low for empty input, Interactive when cmd launches a TTY UI,
+// Read when cmd is an observably read-only command,
 // High when cmd matches any denylist fragment, otherwise Low.
 func Classify(cmd string) Level {
 	cmd = strings.TrimSpace(cmd)
@@ -43,6 +46,9 @@ func Classify(cmd string) Level {
 	if IsInteractive(cmd) {
 		return Interactive
 	}
+	if IsRead(cmd) {
+		return Read
+	}
 	lower := strings.ToLower(cmd)
 	for _, frag := range highRiskFragments {
 		if strings.Contains(lower, frag) {
@@ -50,6 +56,41 @@ func Classify(cmd string) Level {
 		}
 	}
 	return Low
+}
+
+// IsRead reports whether cmd is an observably read-only command.
+// It checks the first token (or the second when prefixed with sudo)
+// against the readCommands map. For git, it also checks the subcommand
+// against readGitSubcommands.
+func IsRead(cmd string) bool {
+	fields := strings.Fields(strings.TrimSpace(cmd))
+	if len(fields) == 0 {
+		return false
+	}
+	name := strings.ToLower(fields[0])
+	if name == "sudo" && len(fields) > 1 {
+		name = strings.ToLower(fields[1])
+		fields = fields[1:]
+	}
+	if _, ok := readCommands[name]; !ok {
+		return false
+	}
+	// git is in readCommands but only certain subcommands are read-only.
+	if name == "git" && len(fields) > 1 {
+		sub := strings.ToLower(fields[1])
+		// Handle flags between git and subcommand, e.g. "git -C /tmp status"
+		for i := 1; i < len(fields); i++ {
+			f := fields[i]
+			if strings.HasPrefix(f, "-") {
+				continue
+			}
+			sub = strings.ToLower(f)
+			break
+		}
+		_, ok := readGitSubcommands[sub]
+		return ok
+	}
+	return true
 }
 
 // IsInteractive reports whether cmd starts an interactive TUI program.

@@ -123,7 +123,7 @@ Respond with a single JSON object only (no markdown), one of:
 {"action":"run_shell","command":"<shell command>"}
 {"action":"ait_cli","args":"<ait subcommand args without leading ait>"}
 {"action":"answer","text":"<final reply to user>"}
-Commands run on %s after user confirmation. Do not run vim/less/top or other interactive TUI programs.
+Commands run on %s. Read-only commands (ls, cat, grep, ps, etc.) are auto-approved; write/destructive commands require user confirmation. Do not run vim/less/top or other interactive TUI programs.
 Never ask for secrets. Provider: %s, model: %s.`,
 		scopeHint, runTarget, meta.Provider, meta.Model)
 }
