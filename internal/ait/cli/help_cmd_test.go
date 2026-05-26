@@ -20,10 +20,12 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	clitransfer "github.com/os-artificer/AiT/internal/ait/cli/transfer"
 )
 
 func TestGetCmdHelpRunE(t *testing.T) {
-	cmd := newGetCmd()
+	cmd := clitransfer.NewGet(runWithManager)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
@@ -36,7 +38,7 @@ func TestGetCmdHelpRunE(t *testing.T) {
 }
 
 func TestPutCmdHelpRunE(t *testing.T) {
-	cmd := newPutCmd()
+	cmd := clitransfer.NewPut(runWithManager)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)

@@ -34,22 +34,48 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 |------|------|
 | `cmd/ait/main.go` | Thin `main` — delegates to `internal/ait.Run` |
 | `internal/ait/` | CLI entry (`Run`, `ExitCode`); subpackages below |
-| `internal/ait/cli/` | Cobra command tree, `Execute` / `ExecuteWriters`, `help_bind.go` |
-| `internal/ait/helpdoc/` | Login-style `--help` text (`Write*Help`, OpenSSH shared blocks) |
+| `internal/ait/cli/` | Cobra command tree facade: `Execute` / `ExecuteWriters`, `newRootCmd`, manager glue (subcommands wired from subpackages below) |
+| `internal/ait/cli/ai/` | `ait ai` command (`chat`, `provider enable|disable`, local AI REPL runner) |
+| `internal/ait/cli/config/` | `ait config` command (`set`, `get`, `init`, `view`, `edit`, `validate`) |
+| `internal/ait/cli/session/` | `ait session` command (`--list`, `--load`, `--suspend`, `--switch`, `--delete`) |
+| `internal/ait/cli/transfer/` | `ait get` / `ait put` SFTP commands |
+| `internal/ait/cli/ollama/` | `ait ai ollama` subcommands (`status`, `setup`, `start`, `stop`, `disable`) |
+| `internal/ait/cli/login/` | `ait login` OpenSSH-compatible command |
+| `internal/ait/helpdoc/` | Login-style `--help` text (`Write*Help`, OpenSSH shared blocks); `Bind` / `BindCustomArgv` Cobra helpers |
 | `internal/ait/app/` | `NewManager`, `CommandContext` (store/config/ai bootstrap) |
 | `internal/ait/login/` | OpenSSH login parse/resolve, help, exit codes |
 | `internal/ait/shell/` | `ait shell` REPL (`AiT>`), TTY I/O, line execution |
 | `internal/ait/meta/` | In-session `!ait <subcmd>` delegation |
 | `internal/pkg/ssh/args/` | OpenSSH argv parse, `ssh -G` resolve, `Resolved` → `client.Options` |
-| `internal/pkg/session/` | Login, load, suspend, switch, delete, list (`manager.go`, `manager_helpers.go`) |
-| `internal/pkg/store/` | SQLite schema, migrations, CRUD (`store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go`) |
-| `internal/pkg/ssh/client/` | Dial, PTY, `!ait` meta, local mode, host keys (see file layout below) |
+| `internal/pkg/session/` | Login, load, suspend, switch, delete, list (`manager.go`, `manager_login.go`, `manager_load.go`, `manager_suspend_switch.go`, `manager_list_pick.go`, `manager_helpers.go`) |
+| `internal/pkg/store/` | SQLite schema, migrations, CRUD (`store.go`, `store_sessions.go`, `store_state.go`, `store_meta.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go`) |
+| `internal/pkg/ssh/client/` | `Client`, `Options`, `Dial`, `DialChain`, `RunInteractive` facade (see file layout below) |
+| `internal/pkg/ssh/client/prompt/` | AiT display prompt strings + remote PS1 setup fragments |
+| `internal/pkg/ssh/client/scrollback/` | Remote PTY scrollback `Delta` + capture timing constants |
+| `internal/pkg/ssh/client/localmode/` | `!ait local` PTY `Shell`, env, bash/zsh init scripts |
+| `internal/pkg/ssh/client/meta/` | `!ait` / `!!` byte-level scanner + meta line constants |
+| `internal/pkg/ssh/client/dial/` | ProxyCommand stdio conn, jump parser, OpenSSH key signer |
+| `internal/pkg/ssh/client/pty/` | TTY stdin reader, REPL byte channel, cross-platform resize watcher |
+| `internal/pkg/ssh/client/transfer/` | `!ait get|put` meta argv parsing + usage hint |
 | `internal/pkg/tmux/` | Remote tmux ensure/attach/detach |
-| `internal/pkg/terminal/` | Scrollback buffer, replay, path resolution (`scrollback.go`, `scrollback_io.go`, `path.go`, helpers) |
-| `internal/pkg/ai/` | Multi-provider router, tiered Ollama, model list (`router.go`, `tiered.go`, `models_list.go`, …) |
+| `internal/pkg/terminal/` | Terminal facade (`path.go`) with type aliases to subpackages |
+| `internal/pkg/terminal/scrollback/` | Ring-buffer scrollback `Buffer` (write/replay, file IO) |
+| `internal/pkg/terminal/screen/` | ANSI screen primitives (clear) |
+| `internal/pkg/terminal/crlf/` | CRLF-normalizing `io.Writer` |
+| `internal/pkg/terminal/lineedit/` | `ReadLine` (Ctrl+A/E, history nav, Ctrl+R search) |
+| `internal/pkg/terminal/history/` | `LineHistory` (in-memory + file sync) and `history` command |
+| `internal/pkg/ai/` | `Client`, `Chat`, multi-provider routing facade |
+| `internal/ait/aimode/risk/` | `Classify`, `Interactive`, `ClassifyAit` — command risk classification |
+| `internal/ait/aimode/approve/` | `Confirm`, `Policy`, `PatternKey`, `SessionTrust` — approval prompts and trust |
+| `internal/ait/aimode/agent/` | `Action`, `ParseAction`, `Run`, `CapturingRunner` — Agent mode execution |
+| `internal/ait/aimode/chat/` | `RunOnce`, `ParseCommand` — AI chat one-shot |
+| `internal/pkg/ai/provider/` | `ProviderID` constants and sentinel errors |
+| `internal/pkg/ai/router/` | Routing helpers (Strategy + Chain of Responsibility — failover order, classify, API-key hint) |
+| `internal/pkg/ai/agent/` | Function-call `Tools()` + tool-call → AiT Agent JSON adapter |
+| `internal/pkg/ai/models/` | `ait ai model list` row formatting + role / key labels |
 | `internal/pkg/ollama/` | Ollama setup, `FetchTags`, `EnsureLocal`, `ManualSetupInstructions` |
 | `internal/pkg/transfer/` | SFTP get/put (single file) |
-| `internal/pkg/platform/` | `AppRoot` / `DataDir` / `ConfigDir` (`AIT_HOME`), paths, OpenSSH |
+| `internal/pkg/platform/` | `AppRoot` / `DataDir` / `ConfigDir` (`AIT_HOME`), `ExpandUserAbsPath`, paths, OpenSSH |
 | `internal/pkg/config/` | YAML config (`Load`/`Save`/`EnsureFile`/`Validate`; `ait config init/view/edit/validate`) |
 | `internal/pkg/creds/` | OS keyring (API key, session unlock) |
 | `internal/pkg/pathsafe/` | Session ID and path validation (scrollback sidecars) |
@@ -66,27 +92,33 @@ Prefer extending `internal/pkg/*` and `internal/ait` over new top-level director
 | Package | Files (examples) |
 |---------|------------------|
 | `ait` (root) | `root.go` — `Run`, `ExitCode` |
-| `ait/app` | `manager.go`, `context.go` |
-| `ait/cli` | `root.go`, `login.go`, `shell.go`, `session.go`, `config.go`, `ai.go`, … |
+| `ait/app` | `manager.go`, `context.go`, `run.go` (`Runner`) |
+| `ait/cli` | `root.go`, `manager.go`, integration tests; subcommands live in `cli/{ai,config,session,transfer,ollama,login}` |
 | `ait/login` | `run.go`, `helpers.go`, `help.go` |
 | `ait/shell` | `repl.go`, `exec.go`, `parse.go`, `io.go`, `*_helpers.go` |
-| `ait/aimode` | `scope.go`, `policy.go`, `repl.go`, `exec.go`, `run_local.go`, `prompt.go` — AI REPL (local/remote runners injected) |
+| `ait/aimode` | `scope.go`, `mode.go`, `repl.go`, `exec.go`, `run_local.go`, `agent.go` — AI REPL (subpackages `risk`, `approve`, `agent`, `chat`) |
 | `ait/meta` | `exec.go` — `Execute`, `SetExecutorWriters` (wired from `cli` init; CRLF stdout in SSH) |
 
 ### `internal/pkg/ssh/client` file layout
 
+The package keeps only `Client`-bearing methods and the user-facing facade
+(`Dial`, `DialChain`, `RunInteractive`, `RunPTYCapture`, alias files for each
+subpackage's exported symbols). Receiver-free helpers live in the subpackages
+listed above.
+
 | Files | Role |
 |-------|------|
-| `client.go` | `Client`, `Options`, `RunInteractive`, meta handling |
-| `client_dial.go` | `Dial`, `DetectAuthMethod`, `buildAuth`, `loadSigner` |
-| `client_interactive_helpers.go` | stdin reader, term print, pwd capture, forward helpers |
+| `client.go` | `Client`, `Options`, `RunInteractive`, meta dispatch, local-mode hooks |
+| `client_dial.go`, `client_dial_config.go` | `Dial`, `DetectAuthMethod`, `buildAuth`, `buildSSHClientConfig` |
 | `dialchain.go`, `dialchain_helpers.go` | `DialChain`, proxy jump, `RunRemoteCommand` |
-| `hostkeys.go` | known_hosts callbacks |
-| `metascanner.go`, `metascanner_helpers.go` | `!ait` / `!!` line detection |
-| `localmode.go`, `localmode_init.go`, `localmode_init_helpers.go` | `!ait local` PTY |
-| `prompt.go` | Remote/local prompt strings |
-| `resize.go`, `resize_unix.go`, `resize_windows.go`, `resize_helpers.go` | Window resize |
-| `proxy_conn.go`, `proxy_unix.go`, `proxy_windows.go` | ProxyCommand stdio conn |
+| `hostkeys.go` | known_hosts callbacks with TTY confirm / accept-new |
+| `client_interactive_helpers.go` | meta dispatch helpers, refresh remote prompt, AI/transfer entry points |
+| `client_init_helpers.go`, `client_setup_filter_helpers.go` | PTY setup output filter (suppresses PS1 leakage) |
+| `client_transfer.go`, `client_transfer_helpers.go` | `Client.handleTransfer*` over SFTP, transfer hint wrappers |
+| `scrollback_capture.go` | `Client.RunPTYCapture` driving `scrollback.Delta` |
+| `resize.go` | `sessionResize` adapter wired into `pty.Watch` |
+| `ai_mode.go` | `RemoteAIParams` / `RemoteAIRunner` types for remote AI REPL |
+| `prompt_alias.go`, `meta_alias.go`, `pty_alias.go` | Facade aliases re-exporting subpackage symbols under their legacy names |
 
 Package-level helpers live in `*_helpers.go` (not mixed with struct methods in the same file).
 
@@ -95,7 +127,7 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 - **Human contributors**: [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow and Go coding standards.
 - **Go coding standards**: when generating or refactoring Go, follow [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) — import groups (stdlib / module / third-party), one method-bearing struct per file, package-level functions in separate `*_helpers.go`, line width 150 (`.editorconfig`), nesting ≤2, blank line between responsibility blocks inside functions (§11), full godoc on exports.
 - **Reuse**: follow [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc) — search existing helpers/shared packages before duplicating logic.
-- **CLI help**: all `ait <cmd> --help` uses login-style sections via [`internal/ait/helpdoc`](internal/ait/helpdoc) and [`cli/help_bind.go`](internal/ait/cli/help_bind.go); see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc).
+- **CLI help**: all `ait <cmd> --help` uses login-style sections via [`internal/ait/helpdoc`](internal/ait/helpdoc) (`helpdoc.Bind` / `helpdoc.BindCustomArgv`); see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc).
 - **Formatting**: tabs for Go; run `make fmt` before finishing Go changes.
 - **Tests**: `*_test.go` beside implementation; `make test` must pass. Store tests use `:memory:` SQLite.
 - **`internal/`**: module-private — do not import from outside this module.
@@ -134,4 +166,5 @@ Prompts: `AiT>` (`ait shell`), `AiT AI(Ask)>` / `AiT AI(Agent)>` (`ait ai`; `mod
 - **`session --switch` from local shell** cannot suspend an active SSH; user must `!ait suspend` inside the session first, or use `--force` (does not save current scrollback/cwd).
 - `third_party/` is for vendored tools, not primary app code.
 - `init/` and `deployments/` are ops configs — avoid unrelated refactors there.
+- `cli` subpackages register through their `New(...)` factory in [`cli/root.go`](internal/ait/cli/root.go); add new commands in a subpackage and wire them via `root.AddCommand(...)`.
 - Do not add markdown files unless the user asks (except updating `README.md` / `AGENTS.md` / `docs/` when documenting the product).

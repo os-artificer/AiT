@@ -20,8 +20,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/user"
 	"path/filepath"
+	"time"
 
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/dial"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
@@ -79,7 +82,7 @@ func buildAuth(opts Options) ([]ssh.AuthMethod, net.Conn, error) {
 				continue
 			}
 			if _, err := os.Stat(p); err == nil {
-				if signer, err := loadSigner(p, opts.Password); err == nil {
+				if signer, err := dial.LoadSigner(p, opts.Password); err == nil {
 					methods = append(methods, ssh.PublicKeys(signer))
 					return
 				}
@@ -93,7 +96,7 @@ func buildAuth(opts Options) ([]ssh.AuthMethod, net.Conn, error) {
 				return nil, agentConn, fmt.Errorf("identity file not found: %s", opts.IdentityPath)
 			}
 			tryDefaultKeys()
-		} else if signer, err := loadSigner(opts.IdentityPath, opts.Password); err == nil {
+		} else if signer, err := dial.LoadSigner(opts.IdentityPath, opts.Password); err == nil {
 			methods = append(methods, ssh.PublicKeys(signer))
 		} else if opts.IdentityExplicit {
 			return nil, agentConn, err
@@ -121,19 +124,56 @@ func buildAuth(opts Options) ([]ssh.AuthMethod, net.Conn, error) {
 	return methods, agentConn, nil
 }
 
+// loadSigner is a small wrapper around dial.LoadSigner kept for tests that
+// reference the unexported symbol.
 func loadSigner(path, passphrase string) (ssh.Signer, error) {
-	b, err := os.ReadFile(path)
+	return dial.LoadSigner(path, passphrase)
+}
+
+func normalizeDialOptions(opts *Options) error {
+	if opts.User == "" {
+		u, err := user.Current()
+		if err != nil {
+			return err
+		}
+		opts.User = u.Username
+	}
+
+	if opts.Port == 0 {
+		opts.Port = 22
+	}
+	return nil
+}
+
+func buildSSHClientConfig(opts Options) (*ssh.ClientConfig, net.Conn, error) {
+	auth, agentConn, err := buildAuth(opts)
 	if err != nil {
-		return nil, err
+		return nil, agentConn, err
 	}
 
-	signer, err := ssh.ParsePrivateKey(b)
-	if err == nil {
-		return signer, nil
+	hkc, err := hostKeyCallbackFor(opts)
+	if err != nil {
+		if agentConn != nil {
+			_ = agentConn.Close()
+		}
+		return nil, nil, err
 	}
 
-	if passphrase != "" {
-		return ssh.ParsePrivateKeyWithPassphrase(b, []byte(passphrase))
+	timeout := opts.ConnectTimeout
+	if timeout == 0 {
+		timeout = 15 * time.Second
 	}
-	return nil, err
+
+	return &ssh.ClientConfig{
+		User:            opts.User,
+		Auth:            auth,
+		HostKeyCallback: hkc,
+		Timeout:         timeout,
+	}, agentConn, nil
+}
+
+func abortSSHSetup(agentConn net.Conn) {
+	if agentConn != nil {
+		_ = agentConn.Close()
+	}
 }

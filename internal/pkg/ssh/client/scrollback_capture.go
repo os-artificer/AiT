@@ -20,13 +20,12 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/scrollback"
 )
 
-const ptyCaptureQuiet = 120 * time.Millisecond
-
-const ptyCaptureMaxWait = 8 * time.Second
-
 // RunPTYCapture sends cmd to the remote shell via stdin and returns new scrollback output.
+// Returns io.ErrClosedPipe when stdin is nil, or empty string when cmd is empty after trimming.
 func (c *Client) RunPTYCapture(stdin io.Writer, cmd string) (string, error) {
 	if stdin == nil {
 		return "", io.ErrClosedPipe
@@ -43,20 +42,11 @@ func (c *Client) RunPTYCapture(stdin io.Writer, cmd string) (string, error) {
 		return "", err
 	}
 
-	c.waitRemoteOutputQuietAfter(injectAt, ptyCaptureQuiet, ptyCaptureMaxWait)
-	return scrollDelta(snap, c.scroll.String()), nil
+	c.waitRemoteOutputQuietAfter(injectAt, scrollback.CaptureQuiet, scrollback.CaptureMaxWait)
+	return scrollback.Delta(snap, c.scroll.String()), nil
 }
 
-// scrollDelta returns the suffix of after not present in before.
+// scrollDelta is retained as a private wrapper for the existing client-package tests.
 func scrollDelta(before, after string) string {
-	if after == before {
-		return ""
-	}
-	if strings.HasPrefix(after, before) {
-		return strings.TrimSpace(after[len(before):])
-	}
-	if len(after) > len(before) {
-		return strings.TrimSpace(after)
-	}
-	return strings.TrimSpace(after)
+	return scrollback.Delta(before, after)
 }

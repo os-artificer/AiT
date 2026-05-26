@@ -22,6 +22,25 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
+func unknownModeErr(mode string) error {
+	return errhint.WithTryMsg(fmt.Sprintf("unknown mode %q", mode),
+		"Switch AI interaction mode.",
+		"mode ask",
+		"mode agent",
+		"help",
+	)
+}
+
+func unknownApproveErr(approve string) error {
+	return errhint.WithTryMsg(fmt.Sprintf("unknown approve %q", approve),
+		"Set how often commands are confirmed.",
+		"approve each",
+		"approve session",
+		"trust",
+		"help",
+	)
+}
+
 func unknownPolicyErr(policy string) error {
 	return errhint.WithTryMsg(fmt.Sprintf("unknown policy %q", policy),
 		"Set exec confirmation policy for the AI session.",

@@ -1,0 +1,66 @@
+/**
+ * Copyright 2026 AiT authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+**/
+
+package transfer
+
+import (
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestArgsFromMetaLine_Get(t *testing.T) {
+	cmd, args, ok := ArgsFromMetaLine("!ait get /etc/hosts ./hosts")
+	if !ok || cmd != "get" {
+		t.Fatalf("cmd=%q ok=%v", cmd, ok)
+	}
+	if !reflect.DeepEqual(args, []string{"/etc/hosts", "./hosts"}) {
+		t.Fatalf("args=%v", args)
+	}
+}
+
+func TestArgsFromMetaLine_Put(t *testing.T) {
+	cmd, args, ok := ArgsFromMetaLine("!ait put ./a /b")
+	if !ok || cmd != "put" {
+		t.Fatalf("cmd=%q ok=%v", cmd, ok)
+	}
+	if !reflect.DeepEqual(args, []string{"./a", "/b"}) {
+		t.Fatalf("args=%v", args)
+	}
+}
+
+func TestArgsFromMetaLine_NonTransfer(t *testing.T) {
+	if _, _, ok := ArgsFromMetaLine("!ait list"); ok {
+		t.Fatal("non-transfer meta should not match")
+	}
+	if _, _, ok := ArgsFromMetaLine("ait get x y"); ok {
+		t.Fatal("missing prefix should not match")
+	}
+}
+
+func TestUsageHintErr_Format(t *testing.T) {
+	err := UsageHintErr(UsageGet)
+	s := err.Error()
+	if !strings.Contains(s, "Try:") {
+		t.Fatalf("missing Try block: %q", s)
+	}
+	if !strings.Contains(s, UsageGet) {
+		t.Fatalf("missing usage sentinel: %q", s)
+	}
+	if !strings.Contains(s, "!ait get <remote-path> <local-path>") {
+		t.Fatalf("missing get try line: %q", s)
+	}
+}

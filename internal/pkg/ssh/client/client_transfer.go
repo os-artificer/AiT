@@ -20,14 +20,14 @@ import (
 	"context"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	xfer "github.com/os-artificer/AiT/internal/pkg/ssh/client/transfer"
 	"github.com/os-artificer/AiT/internal/pkg/transfer"
 )
 
-const transferUsageGet = "usage: !ait get <remote-path> <local-path>"
-const transferUsagePut = "usage: !ait put <local-path> <remote-path>"
+const transferUsageGet = xfer.UsageGet
+const transferUsagePut = xfer.UsagePut
 
 func (c *Client) handleTransferGet(ctx context.Context, stdin io.Writer, args []string) error {
 	return c.handleTransfer(ctx, stdin, transfer.DirGet, transferUsageGet, args)
@@ -59,17 +59,9 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 }
 
 func transferArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {
-	if !strings.HasPrefix(line, metaPrefixAitSpace) {
-		return "", nil, false
-	}
-	parts := strings.Fields(strings.TrimPrefix(line, metaPrefixAitSpace))
-	if len(parts) == 0 {
-		return "", nil, false
-	}
-	switch parts[0] {
-	case "get", "put":
-		return parts[0], parts[1:], true
-	default:
-		return "", nil, false
-	}
+	return xfer.ArgsFromMetaLine(line)
+}
+
+func transferUsageHintErr(usage string) error {
+	return xfer.UsageHintErr(usage)
 }

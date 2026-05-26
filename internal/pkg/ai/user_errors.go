@@ -16,45 +16,25 @@
 
 package ai
 
-import (
-	"fmt"
+import "github.com/os-artificer/AiT/internal/pkg/ai/provider"
 
-	"github.com/os-artificer/AiT/internal/pkg/errhint"
-)
-
-// ErrNotConfigured is the sentinel when no AI client is available.
-var ErrNotConfigured = errhint.NewSentinel("AI not configured")
+// ErrNotConfigured is the sentinel when no AI client is available (alias).
+var ErrNotConfigured = provider.ErrNotConfigured
 
 // NotConfiguredErr returns a multi-line hint for missing AI configuration.
 func NotConfiguredErr() error {
-	return errhint.WithTry(ErrNotConfigured,
-		"Set a cloud provider API key or enable tiered Ollama routing.",
-		"ait config set ai.deepseek.api_key <key>",
-		"ait config set ai.minimax.api_key <key>",
-		"ait ai provider enable ollama",
-		"ait ai --help",
-	)
+	return provider.NotConfiguredErr()
 }
 
-// ErrChatMessageRequired is the sentinel when chat has no message.
-var ErrChatMessageRequired = errhint.NewSentinel("chat requires a message")
+// ErrChatMessageRequired is the sentinel when chat has no message (alias).
+var ErrChatMessageRequired = provider.ErrChatMessageRequired
 
 // ChatMessageRequiredErr returns a multi-line hint for empty chat input.
 func ChatMessageRequiredErr() error {
-	return errhint.WithTry(ErrChatMessageRequired,
-		"Provide a message on the command line or via stdin.",
-		"ait ai chat <message>",
-		"echo ping | ait ai chat",
-		"!ait ai chat <message>",
-		"ait ai chat --help",
-	)
+	return provider.ChatMessageRequiredErr()
 }
 
 // ProviderDisabledErr reports a disabled provider override.
 func ProviderDisabledErr(id string) error {
-	return errhint.WithTryMsg(fmt.Sprintf("provider %q is disabled", id),
-		"Enable the provider before using it as --model override.",
-		fmt.Sprintf("ait ai provider enable %s", id),
-		"ait ai --help",
-	)
+	return provider.DisabledErr(id)
 }

@@ -17,6 +17,7 @@
 package aimode
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -28,9 +29,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/os-artificer/AiT/internal/ait/shell"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 func TestRunREPL_NoAI(t *testing.T) {
@@ -232,8 +235,8 @@ func TestRunREPL_InitialChatEmptyMessage(t *testing.T) {
 
 	select {
 	case err := <-done:
-		if !errors.Is(err, ErrChatMessageRequired) {
-			t.Fatalf("got %v, want ErrChatMessageRequired", err)
+		if !errors.Is(err, ai.ErrChatMessageRequired) {
+			t.Fatalf("got %v, want ai.ErrChatMessageRequired", err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("RunREPL blocked after empty chat initial line")
@@ -353,5 +356,39 @@ func TestRunREPL_InitialChatOnceRemoteCRLF(t *testing.T) {
 	}
 	if strings.Contains(got, "AiT AI(Ask)>") {
 		t.Fatalf("chat-once should not print local REPL prompt, got %q", got)
+	}
+}
+
+func TestIsMetaREPLCommand(t *testing.T) {
+	meta := []string{"help", "model list", "model", "clear", "policy once", "run echo", "ait list", "-h", "--help"}
+	for _, line := range meta {
+		if !isMetaREPLCommand(line) {
+			t.Errorf("%q should be meta", line)
+		}
+	}
+	nonMeta := []string{"how do I grep logs", "what is docker", "chat hello world", ""}
+	for _, line := range nonMeta {
+		if isMetaREPLCommand(line) {
+			t.Errorf("%q should not be meta", line)
+		}
+	}
+}
+
+func TestAIMode_ConfirmNoHistory(t *testing.T) {
+	hist := terminal.NewLineHistory()
+	hist.Add("run ls")
+
+	br := bufio.NewReader(bytes.NewReader([]byte("y\r\x1b[A\r")))
+	_, err := shell.ReadTTYLineNoHistory(br, io.Discard, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	line, err := shell.ReadTTYLine(br, io.Discard, "AiT AI> ", hist)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "run ls" {
+		t.Fatalf("line = %q, want run ls (confirm y must not pollute history)", line)
 	}
 }

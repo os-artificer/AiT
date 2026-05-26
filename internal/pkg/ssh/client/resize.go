@@ -18,19 +18,16 @@ package client
 
 import "golang.org/x/crypto/ssh"
 
-// resizeHandler receives terminal dimension changes during an interactive session.
-type resizeHandler interface {
-	onResize(cols, rows int)
-}
-
 type sessionResize struct {
 	sess   *ssh.Session
 	client *Client
 }
 
-func (r *sessionResize) onResize(cols, rows int) {
-	if r.client.localShell.active() {
-		_ = r.client.localShell.resize(cols, rows)
+// OnResize implements pty.ResizeHandler; forwards new dimensions to the local
+// shell (when active) and the SSH session window.
+func (r *sessionResize) OnResize(cols, rows int) {
+	if r.client.localShell.Active() {
+		_ = r.client.localShell.Resize(cols, rows)
 	}
 
 	if cols > 0 && rows > 0 {

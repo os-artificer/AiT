@@ -17,12 +17,20 @@
 package cli
 
 import (
+	"context"
 	"io"
 	"os"
 
+	cliai "github.com/os-artificer/AiT/internal/ait/cli/ai"
+	cliconfig "github.com/os-artificer/AiT/internal/ait/cli/config"
+	clilogin "github.com/os-artificer/AiT/internal/ait/cli/login"
+	cliollama "github.com/os-artificer/AiT/internal/ait/cli/ollama"
+	clisession "github.com/os-artificer/AiT/internal/ait/cli/session"
+	clitransfer "github.com/os-artificer/AiT/internal/ait/cli/transfer"
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/ait/meta"
 	"github.com/os-artificer/AiT/internal/ait/shell"
+	"github.com/os-artificer/AiT/internal/pkg/session"
 
 	"github.com/spf13/cobra"
 )
@@ -30,7 +38,7 @@ import (
 func init() {
 	meta.SetExecutorWriters(ExecuteWriters)
 	shell.SetCLIExecutor(ExecuteWriters)
-	shell.SetAIModeRunner(runLocalAIModeFromShell)
+	shell.SetAIModeRunner(cliai.RunLocalFromShell(ExecuteWriters))
 }
 
 func newRootCmd() *cobra.Command {
@@ -44,14 +52,22 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		newShellCmd(),
 		newAICmd(),
-		newLoginCmd(),
-		newGetCmd(),
-		newPutCmd(),
-		newConfigCmd(),
-		newSessionCmd(),
+		clilogin.New(runWithManager),
+		clitransfer.NewGet(runWithManager),
+		clitransfer.NewPut(runWithManager),
+		cliconfig.New(),
+		clisession.New(runWithManager),
 	)
-	bindHelp(root, helpdoc.WriteRootHelp)
+	helpdoc.Bind(root, helpdoc.WriteRootHelp)
 	return root
+}
+
+func newAICmd() *cobra.Command {
+	return cliai.New(cliai.Deps{
+		Exec:       ExecuteWriters,
+		RunWithMgr: runWithManager,
+		OllamaCmd:  cliollama.New(),
+	})
 }
 
 // Execute runs the Cobra root with args on os.Stdout/os.Stderr defaults.
@@ -69,4 +85,18 @@ func ExecuteWriters(args []string, out, errOut io.Writer) error {
 	root.SilenceErrors = true
 
 	return root.Execute()
+}
+
+func newShellCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "shell",
+		Short: "Interactive AiT shell (AiT> prompt)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
+				return shell.RunREPL(ctx, mgr, os.Stdin, os.Stdout)
+			})
+		},
+	}
+	helpdoc.Bind(cmd, helpdoc.WriteShellHelp)
+	return cmd
 }

@@ -16,12 +16,16 @@
 
 package ai
 
-import "github.com/os-artificer/AiT/internal/pkg/config"
+import "github.com/os-artificer/AiT/internal/pkg/ai/provider"
 
+// ProviderID identifies an AI provider (alias of provider.ID).
+type ProviderID = provider.ID
+
+// Public provider identifiers re-exported from internal/pkg/ai/provider.
 const (
-	ProviderDeepseek = config.ProviderDeepseek
-	ProviderMinimax  = config.ProviderMinimax
-	ProviderOllama   = config.ProviderOllama
+	ProviderDeepseek = provider.Deepseek
+	ProviderMinimax  = provider.Minimax
+	ProviderOllama   = provider.Ollama
 )
 
 const ollamaPlaceholderKey = "ollama"
@@ -30,6 +34,3 @@ const (
 	aiModeLocalFirst = "local_first"
 	aiModeCloudOnly  = "cloud_only"
 )
-
-// ProviderID identifies an AI provider.
-type ProviderID = string

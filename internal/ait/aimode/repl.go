@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/os-artificer/AiT/internal/ait/aimode/chat"
 	"github.com/os-artificer/AiT/internal/ait/shell"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
@@ -46,11 +47,11 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 
 	var historySeed string
 	if q := stringsTrim(initialQuestion); q != "" {
-		if isChatCommandWithoutMessage(q) {
+		if chat.IsEmptyCommand(q) {
 			return ai.ChatMessageRequiredErr()
 		}
-		if msg, ok := parseChatCommand(q); ok {
-			return RunChatOnce(ctx, opt, msg)
+		if msg, ok := chat.ParseCommand(q); ok {
+			return runChatOnceFromOpt(ctx, opt, msg)
 		}
 
 		exit, err := ExecuteLine(ctx, opt, st, q, nil)
@@ -160,4 +161,23 @@ func reportAIError(w io.Writer, err error) {
 
 func stringsTrim(s string) string {
 	return normalizeLine(s)
+}
+
+// runChatOnceFromOpt adapts Options to chat.Input for the meta one-shot path.
+// On error, prints via aimPrintErr; returns the underlying error to the caller.
+func runChatOnceFromOpt(ctx context.Context, opt Options, message string) error {
+	opt = fillOptionDefaults(opt)
+	err := chat.RunOnce(ctx, chat.Input{
+		AI:         opt.AI,
+		Message:    message,
+		Scope:      opt.Scope,
+		HostLabel:  opt.HostLabel,
+		RemoteCwd:  opt.RemoteCwd,
+		Scrollback: opt.Scrollback,
+		Out:        opt.Out,
+	})
+	if err != nil {
+		reportAIError(opt.ErrOut, err)
+	}
+	return err
 }
