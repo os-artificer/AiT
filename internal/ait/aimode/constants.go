@@ -55,7 +55,7 @@ const (
 	msgApproveEachCRLF         = "approve: each — confirm before every command\r\n"
 	msgApproveSessionCRLF      = "approve: session — trust safe commands after first yes\r\n"
 	msgModeAskCRLF             = "mode: ask — Q&A only; use run to execute commands\r\n"
-	msgModeAgentCRLF           = "mode: agent — plan and run commands after confirmation\r\n"
+	msgModeAgentCRLF           = "mode: agent — read commands auto-run; write commands need confirmation\r\n"
 	msgPolicyDeprecated        = "AiT: policy is deprecated; use approve each or approve session"
 	msgInteractiveSkipCRLF     = "interactive command not run in Agent mode; use shell or run manually\r\n"
 	msgAIProviderSetFmt        = "AI provider set to %s\r\n"

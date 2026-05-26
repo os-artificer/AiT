@@ -25,10 +25,62 @@ func TestClassify_HighPatterns(t *testing.T) {
 	}
 }
 
-// A20h: plain commands return Low.
+// A20h: plain write commands return Low.
 func TestClassify_Low(t *testing.T) {
-	if Classify("hostname") != Low {
-		t.Fatal("expected low")
+	if Classify("cp a b") != Low {
+		t.Fatal("expected low for cp")
+	}
+	if Classify("mkdir /tmp/dir") != Low {
+		t.Fatal("expected low for mkdir")
+	}
+}
+
+// Read-only commands return Read.
+func TestClassify_Read(t *testing.T) {
+	for _, cmd := range []string{
+		"ls -la", "cat /etc/hosts", "head -n5 file.txt", "tail -f /var/log/syslog",
+		"find /tmp -name '*.go'", "grep -r pattern .", "wc -l file",
+		"ps aux", "pwd", "echo hello", "env", "id", "hostname",
+		"df -h", "du -sh /tmp", "uname -a", "date",
+	} {
+		if Classify(cmd) != Read {
+			t.Fatalf("expected Read for %q", cmd)
+		}
+	}
+}
+
+// git read-only subcommands return Read.
+func TestClassify_GitRead(t *testing.T) {
+	for _, cmd := range []string{
+		"git status", "git log --oneline", "git diff", "git branch -a",
+		"git remote -v", "git show HEAD", "git tag", "git blame file.go",
+	} {
+		if Classify(cmd) != Read {
+			t.Fatalf("expected Read for %q", cmd)
+		}
+	}
+}
+
+// git write subcommands return Low (not Read, not High).
+func TestClassify_GitWrite(t *testing.T) {
+	for _, cmd := range []string{
+		"git add .", "git commit -m x", "git push", "git checkout -b feat",
+		"git reset --hard", "git clean -fd",
+	} {
+		lvl := Classify(cmd)
+		if lvl == Read {
+			t.Fatalf("expected non-Read for %q, got Read", cmd)
+		}
+	}
+}
+
+// IsRead covers sudo-prefixed read-only commands.
+func TestIsRead_SudoPrefix(t *testing.T) {
+	if !IsRead("sudo cat /etc/shadow") {
+		t.Fatal("expected read for sudo cat")
+	}
+	if IsRead("sudo vim /etc/hosts") {
+		t.Fatal("vim is not read-only")
 	}
 }
 

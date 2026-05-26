@@ -162,6 +162,31 @@ func TestConfirm_HighRiskIgnoresSession(t *testing.T) {
 	}
 }
 
+// Risk.Read auto-approves without prompting, regardless of policy.
+func TestConfirm_ReadAutoApproves(t *testing.T) {
+	n := 0
+	tr := &Trust{Policy: PolicyPerCmd}
+	ok, err := Confirm(Inputs{
+		Trust:       tr,
+		ScopeLabel:  "local",
+		CmdLabel:    "ls -la",
+		PatternKey:  "ls",
+		Risk:        risk.Read,
+		Policy:      PolicyPerCmd,
+		ConfirmRead: func(string) (Result, error) { n++; return Result{}, nil },
+		Out:         io.Discard,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("read commands should auto-approve")
+	}
+	if n != 0 {
+		t.Fatalf("confirm was called %d times, want 0", n)
+	}
+}
+
 // A20g: Once the user picks "s" for a low-risk command, the next low-risk command
 // auto-approves without asking again.
 func TestConfirm_ApproveSessionLowRiskSkipsSecond(t *testing.T) {

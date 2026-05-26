@@ -63,10 +63,14 @@ type Inputs struct {
 // Confirm runs the confirmation flow and returns true when the user approved the command.
 // It mutates in.Trust on TrustPattern / TrustSession choices.
 // Risk.Interactive returns (false, nil) without prompting.
+// Risk.Read returns (true, nil) without prompting — read-only commands are auto-approved.
 // Returns an error only when the underlying I/O fails.
 func Confirm(in Inputs) (bool, error) {
 	if in.Risk == risk.Interactive {
 		return false, nil
+	}
+	if in.Risk == risk.Read {
+		return true, nil
 	}
 
 	if in.Risk != risk.High && in.Trust.IsPatternTrusted(in.PatternKey) {

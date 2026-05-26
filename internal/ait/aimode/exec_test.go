@@ -60,7 +60,7 @@ func TestExecuteLine_PerCmdSkipsWithoutYes(t *testing.T) {
 	}
 	st := &sessionState{Trust: approve.Trust{Policy: approve.PolicyPerCmd}}
 
-	_, err := ExecuteLine(context.Background(), opt, st, "run echo hi", nil)
+	_, err := ExecuteLine(context.Background(), opt, st, "run cp a b", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestExecuteLine_SessionOnceTrustsAfterYes(t *testing.T) {
 	st := &sessionState{Trust: approve.Trust{Policy: approve.PolicySessionOnce}}
 
 	for i := 0; i < 2; i++ {
-		if _, err := ExecuteLine(context.Background(), opt, st, "run uptime", nil); err != nil {
+		if _, err := ExecuteLine(context.Background(), opt, st, "run cp a b", nil); err != nil {
 			t.Fatal(err)
 		}
 	}
