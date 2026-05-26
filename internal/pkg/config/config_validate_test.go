@@ -116,7 +116,7 @@ func TestValidate_BadMinimaxURL(t *testing.T) {
 		t.Fatal("expected failure")
 	}
 	s := report.Error()
-	if !strings.Contains(s, "ai.providers.minimax.base_url") || !strings.Contains(s, "api.minimax.io") {
+	if !strings.Contains(s, "ai.providers.minimax.base_url") || !strings.Contains(s, "api.minimaxi.com") {
 		t.Fatalf("issues=%q", s)
 	}
 }
