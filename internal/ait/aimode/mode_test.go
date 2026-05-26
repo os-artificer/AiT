@@ -77,7 +77,7 @@ func testAIClientHandler(t *testing.T, contentForCall func(call int) string) *ai
 
 func TestSessionState_Defaults(t *testing.T) {
 	st := newSessionState(Options{})
-	if st.interaction != ModeAsk {
+	if st.interaction != ModeAgent {
 		t.Fatalf("interaction=%v", st.interaction)
 	}
 	if st.Trust.Policy != approve.PolicyPerCmd {
@@ -246,7 +246,7 @@ func TestModeStatusLine_IncludesApprove(t *testing.T) {
 	st := newSessionState(Options{})
 	client := testAIClient(t, "x")
 	line := formatModeStatus(Options{AI: client}, st)
-	for _, want := range []string{"mode ask", "approve each", "deepseek"} {
+	for _, want := range []string{"mode agent", "approve each", "deepseek"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("missing %q in %q", want, line)
 		}

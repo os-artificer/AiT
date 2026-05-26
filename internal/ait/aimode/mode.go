@@ -131,7 +131,7 @@ func providerStatusSuffix(opt Options) string {
 
 func newSessionState(opt Options) *sessionState {
 	st := &sessionState{
-		interaction: ModeAsk,
+		interaction: ModeAgent,
 		Trust:       approve.Trust{Policy: opt.ExecPolicy},
 	}
 	if st.Trust.Policy == 0 {

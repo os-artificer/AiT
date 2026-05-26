@@ -289,7 +289,7 @@ func TestRunREPL_InitialNonChatShowsPrompt(t *testing.T) {
 	if !strings.Contains(out.String(), "repl-ok") {
 		t.Fatalf("expected first-turn reply, got %q", out.String())
 	}
-	if !strings.Contains(out.String(), "AiT AI(Ask)>") {
+	if !strings.Contains(out.String(), "AiT AI(Agent)>") {
 		t.Fatalf("expected REPL prompt after non-chat initial, got %q", out.String())
 	}
 }

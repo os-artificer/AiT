@@ -26,6 +26,7 @@ import (
 var rootSubcommands = []rootSubcommand{
 	{"shell", "interactive AiT> REPL"},
 	{"ai", "local AI REPL; provider enable/disable; ollama setup/status"},
+	{"version", "print build version information (git commit, build date)"},
 	{"login", "log in to remote host; use --save or --alias to persist (OpenSSH-compatible)"},
 	{"get", "download a file via SFTP"},
 	{"put", "upload a file via SFTP"},
