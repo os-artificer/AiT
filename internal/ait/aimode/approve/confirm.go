@@ -139,12 +139,12 @@ func ParseChoice(line string, allowPattern, allowSession bool) Result {
 func RenderPrompt(scopeLabel, cmd string, lvl risk.Level) string {
 	if lvl == risk.High {
 		return fmt.Sprintf(
-			"AiT: [%s] HIGH-RISK: %s\n  [y] run anyway   [n] skip\nChoice [y/N]: ",
+			"AiT: [%s] HIGH-RISK\n  %s\n  [y] run anyway\n  [n] skip\nChoice [y/N]: ",
 			scopeLabel, cmd,
 		)
 	}
 	return fmt.Sprintf(
-		"AiT: [%s] %s\n  [y] run once   [c] trust this command pattern   [s] trust safe commands this session   [n] skip\nChoice [y/c/s/N]: ",
+		"AiT: [%s]\n  %s\n  [y] run once\n  [c] trust this command pattern\n  [s] trust safe commands this session\n  [n] skip\nChoice [y/c/s/N]: ",
 		scopeLabel, cmd,
 	)
 }

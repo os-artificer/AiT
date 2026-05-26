@@ -41,7 +41,7 @@ func TestNormalizeAI_LegacyDeepseekM5(t *testing.T) {
 func TestValidateMinimaxURLM6(t *testing.T) {
 	cfg := &Config{}
 	normalizeAI(cfg)
-	if err := cfg.SetKey("minimax.base_url", "https://api.minimax.io/v1"); err != nil {
+	if err := cfg.SetKey("minimax.base_url", "https://api.minimaxi.com/v1"); err != nil {
 		t.Fatal(err)
 	}
 	if err := cfg.SetKey("minimax.base_url", "https://evil.example/v1"); err == nil {

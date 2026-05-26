@@ -25,20 +25,22 @@ import (
 )
 
 // ChatAgent sends a turn in Agent mode (tool-style JSON actions). Uses native tools when supported.
-func (c *Client) ChatAgent(ctx context.Context, history []ChatMessage, user string, env AssistEnv) (reply string, updated []ChatMessage, err error) {
+// Returns the clean reply text, optional thinking/reasoning content, updated
+// conversation history, and any error. Thinking is not stored in updated history.
+func (c *Client) ChatAgent(ctx context.Context, history []ChatMessage, user string, env AssistEnv) (reply, thinking string, updated []ChatMessage, err error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
-		return "", history, fmt.Errorf("empty prompt")
+		return "", "", history, fmt.Errorf("empty prompt")
 	}
 
 	env.AgentMode = true
-	reply, err = c.completionAgent(ctx, user, len(history), func(meta PromptMeta) []openai.ChatCompletionMessage {
+	reply, thinking, err = c.completionAgent(ctx, user, len(history), func(meta PromptMeta) []openai.ChatCompletionMessage {
 		return buildChatMessages(env.Scope, history, user, env, meta)
 	})
 	if err != nil {
-		return "", history, err
+		return "", "", history, err
 	}
 
 	updated = append(append([]ChatMessage{}, history...), ChatMessage{Role: "user", Content: user}, ChatMessage{Role: "assistant", Content: reply})
-	return reply, updated, nil
+	return reply, thinking, updated, nil
 }
