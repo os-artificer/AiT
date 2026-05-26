@@ -35,8 +35,8 @@ const (
 	APIStyleOpenAI               = "openai"
 	APIStyleAnthropic            = "anthropic"
 	DefaultMinimaxModel          = "MiniMax-M2.5"
-	DefaultMinimaxBaseOpenAI     = "https://api.minimax.io/v1"
-	DefaultMinimaxBaseAnthropic  = "https://api.minimax.io/anthropic"
+	DefaultMinimaxBaseOpenAI     = "https://api.minimaxi.com/v1"
+	DefaultMinimaxBaseAnthropic  = "https://api.minimaxi.com/anthropic"
 	DefaultOllamaModel           = "llama3.2"
 	DefaultOllamaBase            = "http://127.0.0.1:11434/v1"
 	DefaultTieredMaxPromptChars  = 280
