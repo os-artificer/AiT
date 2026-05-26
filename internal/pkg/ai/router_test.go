@@ -26,6 +26,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/router"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 )
@@ -233,7 +234,7 @@ func TestResolveTryOrder_AutoFallbackM8(t *testing.T) {
 		config.ProviderDeepseek: {},
 		config.ProviderMinimax:  {},
 	}
-	order := resolveTryOrder(cfg, "", keyed)
+	order := router.ResolveTryOrder(cfg, "", keyed)
 	if len(order) != 2 || order[0] != config.ProviderDeepseek || order[1] != config.ProviderMinimax {
 		t.Fatalf("order=%v", order)
 	}

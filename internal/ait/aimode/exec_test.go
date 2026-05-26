@@ -20,9 +20,11 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/ait/aimode/approve"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
@@ -52,11 +54,11 @@ func TestExecuteLine_PerCmdSkipsWithoutYes(t *testing.T) {
 		Local:  &local,
 		Out:    io.Discard,
 		ErrOut: io.Discard,
-		ConfirmRead: func(string) (ConfirmResult, error) {
-			return ConfirmResult{}, nil
+		ConfirmRead: func(string) (approve.Result, error) {
+			return approve.Result{}, nil
 		},
 	}
-	st := &sessionState{policy: ExecPolicyPerCmd}
+	st := &sessionState{Trust: approve.Trust{Policy: approve.PolicyPerCmd}}
 
 	_, err := ExecuteLine(context.Background(), opt, st, "run echo hi", nil)
 	if err != nil {
@@ -75,12 +77,12 @@ func TestExecuteLine_SessionOnceTrustsAfterYes(t *testing.T) {
 		Remote: &remote,
 		Out:    io.Discard,
 		ErrOut: io.Discard,
-		ConfirmRead: func(string) (ConfirmResult, error) {
+		ConfirmRead: func(string) (approve.Result, error) {
 			n++
-			return ConfirmResult{Run: true, TrustSession: true}, nil
+			return approve.Result{Run: true, TrustSession: true}, nil
 		},
 	}
-	st := &sessionState{policy: ExecPolicySessionOnce}
+	st := &sessionState{Trust: approve.Trust{Policy: approve.PolicySessionOnce}}
 
 	for i := 0; i < 2; i++ {
 		if _, err := ExecuteLine(context.Background(), opt, st, "run uptime", nil); err != nil {
@@ -97,15 +99,17 @@ func TestExecuteLine_SessionOnceTrustsAfterYes(t *testing.T) {
 
 func TestExecuteLine_ExitClearsSessionTrust(t *testing.T) {
 	st := &sessionState{
-		policy:          ExecPolicySessionOnce,
-		sessionTrusted:  true,
-		trustedPatterns: map[string]struct{}{"hostname": {}},
+		Trust: approve.Trust{
+			Policy:          approve.PolicySessionOnce,
+			SessionTrusted:  true,
+			TrustedPatterns: map[string]struct{}{"hostname": {}},
+		},
 	}
 	exit, err := ExecuteLine(context.Background(), Options{}, st, "exit", nil)
 	if err != nil || !exit {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
-	if st.sessionTrusted || st.trustedPatterns != nil {
+	if st.Trust.SessionTrusted || st.Trust.TrustedPatterns != nil {
 		t.Fatal("exec trust should clear on exit")
 	}
 }
@@ -119,12 +123,12 @@ func TestExecuteLine_AitBlockedOnRemote(t *testing.T) {
 
 func TestExecuteLine_ApproveSession(t *testing.T) {
 	var buf bytes.Buffer
-	st := &sessionState{policy: ExecPolicyPerCmd}
+	st := &sessionState{Trust: approve.Trust{Policy: approve.PolicyPerCmd}}
 
 	if err := setApprove(st, "session", &buf, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if st.policy != ExecPolicySessionOnce {
+	if st.Trust.Policy != approve.PolicySessionOnce {
 		t.Fatal("policy not session_once")
 	}
 	if !strings.Contains(buf.String(), "approve: session") {
@@ -153,5 +157,93 @@ func TestExecuteLineHistory_AIMode(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "run ls") {
 		t.Fatalf("input history missing after clear: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "\r\n") {
+		t.Fatalf("history output should use CRLF for raw-TTY safety, got %q", out.String())
+	}
+	if strings.Contains(out.String(), "\r\r\n") {
+		t.Fatalf("history output must not double-wrap CRLF, got %q", out.String())
+	}
+}
+
+// TestExecuteAitSubcmdAIMode_CRLF (F2) verifies that the local AI REPL's
+// `ait <subcmd>` execution wraps both stdout and stderr in a CRLF writer so
+// cobra/subcommand bare \n output renders correctly on the raw-mode TTY.
+func TestExecuteAitSubcmdAIMode_CRLF(t *testing.T) {
+	var out, errOut bytes.Buffer
+	opt := Options{
+		Scope:  ai.ScopeLocal,
+		Out:    &out,
+		ErrOut: &errOut,
+		CLI: func(argv []string, w io.Writer, ew io.Writer) error {
+			_, _ = io.WriteString(w, "line1\nline2\n")
+			_, _ = io.WriteString(ew, "err1\nerr2\n")
+			return nil
+		},
+		ConfirmRead: func(string) (approve.Result, error) {
+			return approve.Result{Run: true}, nil
+		},
+	}
+	st := newSessionState(opt)
+
+	exit, err := ExecuteLine(context.Background(), opt, st, "ait list", terminal.NewLineHistory())
+	if err != nil || exit {
+		t.Fatalf("ait list: exit=%v err=%v", exit, err)
+	}
+
+	if got := out.String(); !strings.Contains(got, "line1\r\nline2\r\n") {
+		t.Errorf("stdout missing CRLF: %q", got)
+	}
+	if strings.Contains(out.String(), "\r\r\n") {
+		t.Errorf("stdout double-wrapped CRLF: %q", out.String())
+	}
+	if got := errOut.String(); !strings.Contains(got, "err1\r\nerr2\r\n") {
+		t.Errorf("stderr missing CRLF: %q", got)
+	}
+	if strings.Contains(errOut.String(), "\r\r\n") {
+		t.Errorf("stderr double-wrapped CRLF: %q", errOut.String())
+	}
+}
+
+// TestExecuteLineHistory_AIMode_CRLF (F1) verifies that the multi-line history
+// listing in the AI REPL terminates each entry with \r\n so it renders one row
+// per line on the raw-mode local TTY used by ait ai and the !! remote AI REPL.
+func TestExecuteLineHistory_AIMode_CRLF(t *testing.T) {
+	var out bytes.Buffer
+	st := &sessionState{}
+	hist := terminal.NewLineHistory()
+	hist.Add("first")
+	hist.Add("second")
+	hist.Add("third")
+
+	exit, err := ExecuteLine(context.Background(), Options{Out: &out, ErrOut: io.Discard}, st, "history", hist)
+	if err != nil || exit {
+		t.Fatalf("history: exit=%v err=%v", exit, err)
+	}
+
+	got := out.String()
+	if !strings.Contains(got, "first\r\n") {
+		t.Errorf("missing CRLF after first entry: %q", got)
+	}
+	if !strings.Contains(got, "second\r\n") {
+		t.Errorf("missing CRLF after second entry: %q", got)
+	}
+	if !strings.Contains(got, "third\r\n") {
+		t.Errorf("missing CRLF after third entry: %q", got)
+	}
+	if strings.Contains(got, "\r\r\n") {
+		t.Errorf("double-wrapped CRLF in history output: %q", got)
+	}
+}
+
+func TestDefaultLocalRunner_Echo(t *testing.T) {
+	r := DefaultLocalRunner()
+	ctx := context.Background()
+	cmd := "echo ait-ai-local-test"
+	if runtime.GOOS == "windows" {
+		cmd = "echo ait-ai-local-test"
+	}
+	if err := r.Run(ctx, cmd); err != nil {
+		t.Fatal(err)
 	}
 }

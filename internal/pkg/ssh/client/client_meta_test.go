@@ -41,13 +41,9 @@ func TestRefreshRemotePrompt(t *testing.T) {
 	}
 
 	stdin.Reset()
-	c.localShell.mu.Lock()
-	c.localShell.pty = os.Stdin
-	c.localShell.mu.Unlock()
+	c.localShell.SetPTYForTest(os.Stdin)
 	c.refreshRemotePrompt(&stdin)
-	c.localShell.mu.Lock()
-	c.localShell.pty = nil
-	c.localShell.mu.Unlock()
+	c.localShell.SetPTYForTest(nil)
 	if stdin.Len() != 0 {
 		t.Fatalf("local mode should skip refresh, got %q", stdin.String())
 	}
@@ -196,12 +192,4 @@ func TestHandleMetaLineTransferSkipsOnMetaCLI(t *testing.T) {
 	}
 }
 
-func TestMetascannerHelpLine(t *testing.T) {
-	fwd, _, meta := drive("!ait help\n", true)
-	if len(fwd) != 0 {
-		t.Errorf("forwarded %q", fwd)
-	}
-	if len(meta) != 1 || meta[0] != "!ait help" {
-		t.Errorf("meta=%v want [!ait help]", meta)
-	}
-}
+// Coverage moved to internal/pkg/ssh/client/meta/scanner_test.go (TestMetaScanner_HelpLine).

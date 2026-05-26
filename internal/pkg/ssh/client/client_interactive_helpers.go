@@ -26,6 +26,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
 
 	xterm "golang.org/x/term"
@@ -68,7 +69,7 @@ func (c *Client) finishMetaInteraction(stdin io.Writer) {
 }
 
 func (c *Client) refreshRemotePrompt(stdin io.Writer) {
-	if stdin == nil || c.localShell.active() {
+	if stdin == nil || c.localShell.Active() {
 		return
 	}
 	_, _ = stdin.Write([]byte("\r"))
@@ -92,14 +93,7 @@ func aitModeNotice(lines ...string) {
 }
 
 func aiPromptFromMetaLine(line string) (prompt string, isAI bool) {
-	switch {
-	case strings.HasPrefix(line, "!!"):
-		return strings.TrimSpace(strings.TrimPrefix(line, "!!")), true
-	case strings.HasPrefix(line, metaPrefixAitAI):
-		return strings.TrimSpace(strings.TrimPrefix(line, metaPrefixAitAI)), true
-	default:
-		return "", false
-	}
+	return meta.AIPromptFromLine(line)
 }
 
 func (c *Client) processForwardStdinByte(
@@ -109,11 +103,11 @@ func (c *Client) processForwardStdinByte(
 	scan *metaScanner,
 	opts InteractiveOpts,
 ) forwardStdinResult {
-	if sb.err != nil {
-		return forwardStdinResult{action: fwdStdinReturn, err: sb.err}
+	if sb.Err != nil {
+		return forwardStdinResult{action: fwdStdinReturn, err: sb.Err}
 	}
 
-	fwd, echo, line, hasLine := scan.Feed(sb.b)
+	fwd, echo, line, hasLine := scan.Feed(sb.B)
 	if len(echo) > 0 {
 		_, _ = os.Stdout.Write(echo)
 	}
@@ -130,8 +124,8 @@ func (c *Client) processForwardStdinByte(
 		return forwardStdinResult{action: fwdStdinContinue}
 	}
 
-	if c.localShell.active() {
-		err := c.localShell.write(fwd)
+	if c.localShell.Active() {
+		err := c.localShell.Write(fwd)
 		if err != nil {
 			return forwardStdinResult{action: fwdStdinReturn, err: err}
 		}
@@ -163,8 +157,8 @@ func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQ
 
 	var replIn io.Reader
 	if c.stdinReader != nil {
-		replIn = c.stdinReader.beginREPL()
-		defer c.stdinReader.endREPL()
+		replIn = c.stdinReader.BeginREPL()
+		defer c.stdinReader.EndREPL()
 	}
 
 	err := opts.OnRemoteAI(RemoteAIParams{

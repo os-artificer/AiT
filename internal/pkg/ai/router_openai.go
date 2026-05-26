@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/agent"
+
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -29,8 +31,7 @@ func (ep *endpoint) chatOpenAI(ctx context.Context, messages []openai.ChatComple
 }
 
 func (ep *endpoint) chatOpenAIAgent(ctx context.Context, messages []openai.ChatCompletionMessage) (string, error) {
-	tools := agentTools()
-	return ep.chatOpenAIRequest(ctx, messages, tools)
+	return ep.chatOpenAIRequest(ctx, messages, agent.Tools())
 }
 
 func (ep *endpoint) chatOpenAIRequest(ctx context.Context, messages []openai.ChatCompletionMessage, tools []openai.Tool) (string, error) {
@@ -50,7 +51,7 @@ func (ep *endpoint) chatOpenAIRequest(ctx context.Context, messages []openai.Cha
 	}
 	msg := resp.Choices[0].Message
 	if len(msg.ToolCalls) > 0 {
-		return toolCallToAgentJSON(msg.ToolCalls[0])
+		return agent.ToolCallToJSON(msg.ToolCalls[0])
 	}
 	return strings.TrimSpace(msg.Content), nil
 }

@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/ait/login"
@@ -108,7 +109,7 @@ func shellLoad(ctx context.Context, mgr *session.Manager, argv []string) error {
 	var err error
 
 	if len(argv) == 0 {
-		id, err = mgr.PickSession()
+		id, err = mgr.PickSessionFrom(os.Stdin, shellCLIOut)
 		if err != nil {
 			return err
 		}

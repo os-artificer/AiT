@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/dial"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
 	"golang.org/x/crypto/ssh"
@@ -132,4 +133,49 @@ func BuildRemoteCommandLine(args []string) string {
 		}
 	}
 	return b.String()
+}
+
+// dialProxyJumpChain stays in the client package because it recursively calls
+// DialChain, which depends on private Client construction.
+func dialProxyJumpChain(targetOpts Options, jumps []string, targetAddr string) (net.Conn, error) {
+	if len(jumps) == 0 {
+		return nil, fmt.Errorf("empty proxy jump chain")
+	}
+	jumpDest := jumps[0]
+	jumpUser, jumpHost, jumpPort, err := dial.ParseJumpDestination(jumpDest)
+	if err != nil {
+		return nil, err
+	}
+
+	jumpOpts := targetOpts
+	jumpOpts.Host = jumpHost
+	jumpOpts.Port = jumpPort
+	if jumpPort == 0 {
+		jumpOpts.Port = 22
+	}
+	if jumpUser != "" {
+		jumpOpts.User = jumpUser
+	}
+	jumpOpts.ProxyJump = jumps[1:]
+	jumpOpts.ProxyCommand = ""
+
+	jumpClient, err := DialChain(jumpOpts)
+	if err != nil {
+		return nil, fmt.Errorf("proxy jump %s: %w", jumpDest, err)
+	}
+	defer jumpClient.Close()
+
+	conn, err := jumpClient.conn.Dial("tcp", targetAddr)
+	if err != nil {
+		return nil, fmt.Errorf("forward to %s via %s: %w", targetAddr, jumpDest, err)
+	}
+	return conn, nil
+}
+
+func parsePortString(s string) (int, error) {
+	return dial.ParsePortString(s)
+}
+
+func dialProxyCommand(proxyCommand, targetAddr string) (net.Conn, error) {
+	return dial.ProxyCommand(proxyCommand, targetAddr)
 }

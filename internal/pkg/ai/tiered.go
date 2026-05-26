@@ -17,38 +17,12 @@
 package ai
 
 import (
-	"strings"
-	"unicode/utf8"
-
+	"github.com/os-artificer/AiT/internal/pkg/ai/router"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 )
 
 // ClassifyPrompt reports whether tiered routing should try the local Ollama provider first.
+// Re-exported from internal/pkg/ai/router for backwards compatibility with existing tests.
 func ClassifyPrompt(cfg *config.Config, user string, historyLen int, sessionOverride ProviderID, skipTiered bool) bool {
-	if cfg == nil || !cfg.TieredEnabled() || skipTiered {
-		return false
-	}
-	if !cfg.ProviderEnabled(cfg.LocalProviderID()) {
-		return false
-	}
-	if sessionOverride != "" {
-		return false
-	}
-	if historyLen > cfg.AI.Tiered.MaxHistoryTurns {
-		return false
-	}
-	user = strings.TrimSpace(user)
-	if utf8.RuneCountInString(user) > cfg.AI.Tiered.MaxPromptChars {
-		return false
-	}
-	if strings.Contains(user, "```") {
-		return false
-	}
-	lower := strings.ToLower(user)
-	for _, kw := range cfg.AI.Tiered.ComplexKeywords {
-		if kw != "" && strings.Contains(lower, strings.ToLower(kw)) {
-			return false
-		}
-	}
-	return true
+	return router.ClassifyPrompt(cfg, user, historyLen, sessionOverride, skipTiered)
 }

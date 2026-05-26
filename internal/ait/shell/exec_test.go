@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -152,5 +153,74 @@ func TestExecuteLineHistory_Shell(t *testing.T) {
 func TestShellCLIErrDefault(t *testing.T) {
 	if shellCLIErr != io.Discard {
 		t.Fatalf("shellCLIErr = %v, want io.Discard before SetREPLWriters", shellCLIErr)
+	}
+}
+
+// TestExecuteLineLoad_PickerCRLF (K24) verifies that the `load` no-arg builtin
+// routes the session picker's numbered list and the "Select session" prompt
+// through shellCLIOut (which is the CRLF-wrapped writer on a raw TTY), so each
+// entry renders on its own line. Sends an invalid selection so the picker
+// returns ErrInvalidSelection before mgr.Load tries to dial.
+func TestExecuteLineLoad_PickerCRLF(t *testing.T) {
+	oldOut := shellCLIOut
+	var buf bytes.Buffer
+	shellCLIOut = terminal.NewCRLFWriter(&buf)
+	defer func() { shellCLIOut = oldOut }()
+
+	st, err := store.OpenPath(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.UpsertSession(&store.Session{
+		ID:         "11111111-1111-1111-1111-111111111111",
+		Alias:      "alpha",
+		Host:       "h",
+		Port:       22,
+		Username:   "u",
+		AuthMethod: store.AuthMethodKey,
+		Status:     store.StatusSuspended,
+	}); err != nil {
+		t.Fatalf("UpsertSession: %v", err)
+	}
+
+	cfg := &config.Config{}
+	cfg.Session.AuthTTL = "168h"
+	mgr := &session.Manager{Store: st, Config: cfg}
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	defer pr.Close()
+	if _, err := pw.Write([]byte("999\n")); err != nil {
+		t.Fatalf("pw.Write: %v", err)
+	}
+	_ = pw.Close()
+	oldStdin := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = oldStdin }()
+
+	exit, err := ExecuteLine(context.Background(), mgr, "load", nil)
+	if exit {
+		t.Fatalf("load should not exit REPL")
+	}
+	if err == nil {
+		t.Fatalf("invalid selection should return an error")
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "1) alpha") {
+		t.Fatalf("picker did not write numbered entry to shellCLIOut: %q", got)
+	}
+	if !strings.Contains(got, "\r\n") {
+		t.Errorf("picker missing CRLF (raw-TTY staircase): %q", got)
+	}
+	if !strings.Contains(got, "Select session") {
+		t.Errorf("picker prompt missing: %q", got)
+	}
+	if strings.Contains(got, "\r\r\n") {
+		t.Errorf("picker output double-wrapped CRLF: %q", got)
 	}
 }

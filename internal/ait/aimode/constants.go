@@ -60,5 +60,4 @@ const (
 	msgInteractiveSkipCRLF     = "interactive command not run in Agent mode; use shell or run manually\r\n"
 	msgAIProviderSetFmt        = "AI provider set to %s\r\n"
 	agentMaxSteps              = 8
-	agentMaxOutputBytes        = 8192
 )

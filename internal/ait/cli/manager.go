@@ -20,12 +20,13 @@ import (
 	"context"
 
 	"github.com/os-artificer/AiT/internal/ait/app"
+	cliai "github.com/os-artificer/AiT/internal/ait/cli/ai"
 	"github.com/os-artificer/AiT/internal/ait/meta"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 )
 
 func newManager() (*session.Manager, error) {
-	return app.NewManager(meta.Execute, runRemoteAIMode)
+	return app.NewManager(meta.Execute, cliai.RemoteRunner(ExecuteWriters))
 }
 
 func runWithManager(fn func(ctx context.Context, mgr *session.Manager) error) error {

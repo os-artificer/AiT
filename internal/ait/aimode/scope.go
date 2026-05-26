@@ -20,17 +20,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/os-artificer/AiT/internal/ait/aimode/agent"
+	"github.com/os-artificer/AiT/internal/ait/aimode/approve"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
-)
-
-// ExecPolicy controls how often run/ait commands require user confirmation.
-type ExecPolicy int
-
-const (
-	// ExecPolicyPerCmd asks before each run (default).
-	ExecPolicyPerCmd ExecPolicy = iota
-	// ExecPolicySessionOnce asks once per AI REPL session, then trusts until exit.
-	ExecPolicySessionOnce
 )
 
 // LocalRunner runs a shell command on the local machine.
@@ -47,18 +39,18 @@ type RemoteRunner interface {
 type Options struct {
 	Scope       ai.Scope
 	AI          *ai.Client
-	ExecPolicy  ExecPolicy
+	ExecPolicy  approve.Policy
 	HostLabel   string
 	RemoteCwd   string
 	Scrollback  func() string
 	Local       LocalRunner
 	Remote      RemoteRunner
-	Capture     CapturingRunner
+	Capture     agent.CapturingRunner
 	CLI         func([]string, io.Writer, io.Writer) error
 	In          io.Reader
 	Out         io.Writer
 	ErrOut      io.Writer
-	ConfirmRead func(prompt string) (ConfirmResult, error)
+	ConfirmRead func(prompt string) (approve.Result, error)
 	// UseTTYLineEdit enables runAITTY when In is not os.Stdin (SSH remote AI ReplIn).
 	UseTTYLineEdit bool
 }
