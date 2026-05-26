@@ -52,6 +52,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		newShellCmd(),
 		newAICmd(),
+		newVersionCmd(),
 		clilogin.New(runWithManager),
 		clitransfer.NewGet(runWithManager),
 		clitransfer.NewPut(runWithManager),
