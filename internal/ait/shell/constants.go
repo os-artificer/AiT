@@ -37,4 +37,6 @@ const (
 	msgPrefixAiT                 = "AiT: "
 	errAIModeRunnerNotConfig     = "AiT: AI mode runner not configured"
 	errShellCLIExecutorNotConfig = "AiT: shell CLI executor not configured"
+	errLoginBlockedActive        = "AiT: login is unavailable while a session is active. Use suspend first or session --switch."
+	errLoadBlockedActive         = "AiT: load is unavailable while a session is active. Use suspend first or session --switch."
 )

@@ -14,15 +14,20 @@
  * limitations under the License.
 **/
 
-package ai
+package client
 
 import (
-	"github.com/os-artificer/AiT/internal/pkg/ai/router"
-	"github.com/os-artificer/AiT/internal/pkg/config"
+	"encoding/json"
+	"testing"
 )
 
-// ClassifyPrompt reports whether tiered routing should try the local Ollama provider first.
-// Re-exported from internal/pkg/ai/router for backwards compatibility with existing tests.
-func ClassifyPrompt(cfg *config.Config, user string, historyLen int, sessionOverride ProviderID, skipTiered bool) bool {
-	return router.ClassifyPrompt(cfg, user, historyLen, sessionOverride, skipTiered)
+func TestChatAgent_JSONFallbackContent(t *testing.T) {
+	raw := `{"action":"answer","text":"done"}`
+	act := struct {
+		Action string `json:"action"`
+		Text   string `json:"text"`
+	}{}
+	if err := json.Unmarshal([]byte(raw), &act); err != nil || act.Action != "answer" {
+		t.Fatalf("parse: %v action=%q", err, act.Action)
+	}
 }

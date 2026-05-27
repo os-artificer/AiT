@@ -21,6 +21,6 @@
 // local-first paths.
 //
 // The Strategy choice (OpenAI vs Anthropic API style per provider endpoint)
-// stays in the parent ai package because the strategy implementations are
+// stays in the client subpackage because the strategy implementations are
 // receiver methods on the (unexported) endpoint type.
 package router

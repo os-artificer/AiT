@@ -68,7 +68,7 @@ func TestExecuteLineHelp(t *testing.T) {
 	if err != nil || exit {
 		t.Fatalf("exit=%v err=%v", exit, err)
 	}
-	PrintHelp(&buf)
+	PrintHelp(&buf, false)
 	out := buf.String()
 	for _, want := range []string{"Usage:", "Examples:", "help for help", "login", "-p port"} {
 		if !strings.Contains(out, want) {

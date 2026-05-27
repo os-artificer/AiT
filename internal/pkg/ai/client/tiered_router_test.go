@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package ai
+package client
 
 import (
 	"context"
@@ -59,6 +59,18 @@ func setupTieredClient(t *testing.T, ollamaStatus, cloudStatus int, ollamaReply,
 		t.Fatal(err)
 	}
 	return client, ollama, cloud
+}
+
+func tieredCfg() *config.Config {
+	cfg := &config.Config{}
+	cfg.AI.Tiered.Enabled = true
+	cfg.AI.Tiered.MaxPromptChars = 280
+	cfg.AI.Tiered.MaxHistoryTurns = 0
+	cfg.AI.Tiered.ComplexKeywords = []string{"implement", "debug"}
+	cfg.AI.Providers = map[string]config.ProviderConfig{
+		config.ProviderOllama: {Model: "llama3.2"},
+	}
+	return cfg
 }
 
 func TestTiered_SimpleUsesOllamaT1(t *testing.T) {

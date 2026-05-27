@@ -21,9 +21,6 @@ package provider
 
 import "github.com/os-artificer/AiT/internal/pkg/config"
 
-// ID identifies an AI provider (matches config.Provider* values).
-type ID = string
-
 // Public provider identifiers, re-exported from config so callers can write
 // `provider.Deepseek` without importing config.
 const (
@@ -31,3 +28,6 @@ const (
 	Minimax  = config.ProviderMinimax
 	Ollama   = config.ProviderOllama
 )
+
+// ID identifies an AI provider (matches config.Provider* values).
+type ID = string

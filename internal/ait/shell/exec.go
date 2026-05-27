@@ -19,6 +19,7 @@ package shell
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -36,10 +37,11 @@ var cliExecutor func([]string, io.Writer, io.Writer) error
 var aiModeRunner func(context.Context, *session.Manager) error
 
 // PrintHelp writes AiT shell REPL usage to w (CRLF when raw TTY mode is active).
+// hasActiveSession controls whether login/load commands appear in the help output.
 // w must be non-nil. Does not return an error.
-func PrintHelp(w io.Writer) {
+func PrintHelp(w io.Writer, hasActiveSession bool) {
 	var buf bytes.Buffer
-	_ = helpdoc.WriteShellREPLHelp(&buf)
+	_ = helpdoc.WriteShellREPLHelp(&buf, hasActiveSession)
 	shellWriteTTY(w, buf.String())
 }
 
@@ -60,7 +62,7 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 	case replCmdExit, replCmdQuit:
 		return true, nil
 	case replCmdHelp, replArgH, replArgHelp:
-		PrintHelp(shellCLIOut)
+		PrintHelp(shellCLIOut, mgr.HasActiveSession())
 		return false, nil
 	case replCmdClear:
 		terminal.ClearScreen(shellCLIOut)
@@ -77,8 +79,14 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 		}
 		return false, aiModeRunner(ctx, mgr)
 	case replCmdLogin:
+		if mgr.HasActiveSession() {
+			return false, errors.New(errLoginBlockedActive)
+		}
 		return false, shellLogin(ctx, mgr, words[1:])
 	case replCmdLoad:
+		if mgr.HasActiveSession() {
+			return false, errors.New(errLoadBlockedActive)
+		}
 		return false, shellLoad(ctx, mgr, words[1:])
 	case replCmdList:
 		return false, mgr.List(shellCLIOut, false)

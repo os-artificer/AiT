@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package ai
+package router
 
 import (
 	"strings"

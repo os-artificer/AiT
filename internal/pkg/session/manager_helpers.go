@@ -140,6 +140,24 @@ func (m *Manager) replayScrollbackIfPresent(st *store.SessionState) {
 	terminal.Replay(data)
 }
 
+// HasActiveSession reports whether a session is currently marked active (connected).
+// It reads MetaCurrentSession from the store, fetches the session row, and checks status == Active.
+// Returns true only when both the meta points to an existing session and that session is active.
+func (m *Manager) HasActiveSession() bool {
+	if m == nil || m.Store == nil {
+		return false
+	}
+	current, err := m.Store.GetMeta(store.MetaCurrentSession)
+	if err != nil || current == "" {
+		return false
+	}
+	sess, err := m.Store.GetSession(current)
+	if err != nil {
+		return false
+	}
+	return sess.Status == store.StatusActive
+}
+
 func (m *Manager) reconcileCurrentOnSwitch(current string, force bool) error {
 	if current == "" {
 		return nil
