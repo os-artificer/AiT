@@ -53,6 +53,9 @@ func New(runWithMgr RunWithMgr) *cobra.Command {
 		Short: "Manage saved sessions",
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if helpdoc.HasHelpArg(args) {
+				return helpdoc.WriteSessionHelp(cmd.OutOrStdout())
+			}
 			act, err := detectSessionAction(cmd, doList, doSuspend, loadTarget, switchTarget, deleteTarget)
 			if err != nil {
 				return err

@@ -19,11 +19,11 @@ package transfer
 import (
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/pkg/ssh/args"
+	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
 )
 
 func TestParseTransferViaArgsPackage(t *testing.T) {
-	spec, err := args.ParseTransfer([]string{"-p22", "user@h:/r", "./l"}, args.OpGet)
+	spec, err := sshparse.ParseTransfer([]string{"-p22", "user@h:/r", "./l"}, sshparse.OpGet)
 	if err != nil {
 		t.Fatal(err)
 	}

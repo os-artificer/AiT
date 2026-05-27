@@ -25,6 +25,9 @@ import (
 // ErrNotConfigured is the sentinel when no AI client is available.
 var ErrNotConfigured = errhint.NewSentinel("AI not configured")
 
+// ErrChatMessageRequired is the sentinel when chat has no message.
+var ErrChatMessageRequired = errhint.NewSentinel("chat requires a message")
+
 // NotConfiguredErr returns a multi-line hint for missing AI configuration.
 func NotConfiguredErr() error {
 	return errhint.WithTry(ErrNotConfigured,
@@ -35,9 +38,6 @@ func NotConfiguredErr() error {
 		"ait ai --help",
 	)
 }
-
-// ErrChatMessageRequired is the sentinel when chat has no message.
-var ErrChatMessageRequired = errhint.NewSentinel("chat requires a message")
 
 // ChatMessageRequiredErr returns a multi-line hint for empty chat input.
 func ChatMessageRequiredErr() error {

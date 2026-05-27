@@ -19,11 +19,11 @@ package login
 import (
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/pkg/ssh/args"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 )
 
 func TestOptsFromResolvedSave(t *testing.T) {
-	opts := OptsFromResolved(args.Resolved{Host: "h", Save: true, Alias: "prod"})
+	opts := OptsFromResolved(resolve.Resolved{Host: "h", Save: true, Alias: "prod"})
 	if !opts.Save {
 		t.Fatal("Save not set")
 	}

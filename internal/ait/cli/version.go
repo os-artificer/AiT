@@ -39,57 +39,67 @@ var (
 	buildDate = ""
 )
 
-// resolveVersion returns the semantic version string using a priority chain:
-//  1. ldflags injection  (make build/install VERSION=vX.Y.Z)
+// resolveVersion returns the semantic version string using a priority chain.
+// The bool reports whether the value came from a real source (ldflags or
+// embedded VERSION file) rather than a fallback.
+//
+// Priority:
+//  1. ldflags injection  (make build/install)
 //  2. embedded VERSION file
-//  3. "dev" fallback
-func resolveVersion() string {
+//  3. "" fallback (not real)
+func resolveVersion() (string, bool) {
 	if version != "" {
-		return version
+		return version, true
 	}
 	if v := strings.TrimSpace(embeddedVersion); v != "" {
-		return v
+		return v, true
 	}
-	return "dev"
+	return "", false
 }
 
-// resolveGitCommit returns the git commit hash using a priority chain:
+// resolveGitCommit returns the git commit hash using a priority chain.
+// The bool reports whether the value came from a real source rather than a fallback.
+//
+// Priority:
 //  1. ldflags injection
 //  2. debug.ReadBuildInfo vcs.revision
-//  3. "unknown" fallback
-func resolveGitCommit() string {
+//  3. "" fallback (not real)
+func resolveGitCommit() (string, bool) {
 	if gitCommit != "" {
-		return gitCommit
+		return gitCommit, true
 	}
 	if info, ok := readBuildInfo(); ok {
 		for _, s := range info.Settings {
 			if s.Key == "vcs.revision" {
 				if len(s.Value) > 12 {
-					return s.Value[:12]
+					return s.Value[:12], true
 				}
-				return s.Value
+				return s.Value, true
 			}
 		}
 	}
-	return "unknown"
+	return "", false
 }
 
-// resolveBuildDate returns the build date using a priority chain:
+// resolveBuildDate returns the build date using a priority chain.
+// The bool reports whether the value came from a real source rather than a fallback.
+//
+// Priority:
 //  1. ldflags injection
 //  2. debug.ReadBuildInfo vcs.time
-//  3. "unknown" fallback
-func resolveBuildDate() string {
+//  3. "" fallback (not real)
+func resolveBuildDate() (string, bool) {
 	if buildDate != "" {
-		return buildDate
+		return buildDate, true
 	}
 	if info, ok := readBuildInfo(); ok {
 		for _, s := range info.Settings {
 			if s.Key == "vcs.time" {
-				return s.Value
+				return s.Value, true
 			}
 		}
 	}
-	return "unknown"
+	return "", false
 }
 
 // readBuildInfo is a small wrapper for testability.
@@ -98,23 +108,40 @@ func readBuildInfo() (*debug.BuildInfo, bool) {
 	return info, ok
 }
 
-// Version returns a human-readable build version string containing the
-// semantic version, git commit hash, and build timestamp.
-//
-// Resolution priority per field:
-//   - Version:   ldflags > embedded VERSION file > "dev"
-//   - GitHash:   ldflags > debug.ReadBuildInfo > "unknown"
-//   - Build:     ldflags > debug.ReadBuildInfo > "unknown"
+// Version returns a human-readable build version string.
+// Fields are only included when resolved from a real source
+// (ldflags, embedded VERSION file, or debug.BuildInfo);
+// fallback values are omitted.
 func Version() string {
-	return fmt.Sprintf("Version:   %s\nGitHash:   %s\nBuild:     %s",
-		resolveVersion(), resolveGitCommit(), resolveBuildDate())
+	var b strings.Builder
+
+	v, ok := resolveVersion()
+	if ok {
+		fmt.Fprintf(&b, "Version:   %s\n", v)
+	}
+
+	g, ok := resolveGitCommit()
+	if ok {
+		fmt.Fprintf(&b, "GitHash:   %s\n", g)
+	}
+
+	d, ok := resolveBuildDate()
+	if ok {
+		fmt.Fprintf(&b, "Build:     %s\n", d)
+	}
+
+	// Trim trailing newline so the caller (newVersionCmd) uses Fprintln.
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 func newVersionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print build version information",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if helpdoc.HasHelpArg(args) {
+				return helpdoc.WriteVersionHelp(cmd.OutOrStdout())
+			}
 			_, err := fmt.Fprintln(cmd.OutOrStdout(), Version())
 			return err
 		},

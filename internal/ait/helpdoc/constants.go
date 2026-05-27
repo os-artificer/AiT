@@ -36,6 +36,7 @@ const (
 	helpSectionFlagsOllama       = "Flags (ollama)"
 	helpArgH                     = "-h"
 	helpArgHelp                  = "--help"
+	helpArgCmd                   = "help"
 )
 
 // OpenSSH — blocks embedded by login and transfer help.
