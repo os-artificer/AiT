@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package ai
+package client
 
 import (
 	"context"
@@ -26,15 +26,15 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-// Scope selects local versus remote AI mode context.
-type Scope int
-
 const (
 	// ScopeLocal is ait ai on the local machine (non-SSH).
 	ScopeLocal Scope = iota
 	// ScopeRemote is !ait ai inside an active SSH session.
 	ScopeRemote
 )
+
+// Scope selects local versus remote AI mode context.
+type Scope int
 
 // ChatMessage is one turn in a multi-turn AI conversation.
 type ChatMessage struct {

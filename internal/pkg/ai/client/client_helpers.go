@@ -14,23 +14,26 @@
  * limitations under the License.
 **/
 
-package ai
+package client
 
-import "github.com/os-artificer/AiT/internal/pkg/ai/provider"
+import (
+	"unicode/utf8"
 
-// ProviderID identifies an AI provider (alias of provider.ID).
-type ProviderID = provider.ID
-
-// Public provider identifiers re-exported from internal/pkg/ai/provider.
-const (
-	ProviderDeepseek = provider.Deepseek
-	ProviderMinimax  = provider.Minimax
-	ProviderOllama   = provider.Ollama
+	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 )
 
-const ollamaPlaceholderKey = "ollama"
+// ProviderDisabledErr returns a user-visible error for a disabled provider override.
+func ProviderDisabledErr(id string) error {
+	return provider.DisabledErr(id)
+}
 
-const (
-	aiModeLocalFirst = "local_first"
-	aiModeCloudOnly  = "cloud_only"
-)
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	i := len(s) - max
+	for i < len(s) && !utf8.RuneStart(s[i]) {
+		i++
+	}
+	return s[i:]
+}

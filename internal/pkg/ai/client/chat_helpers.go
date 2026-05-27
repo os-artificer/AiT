@@ -14,17 +14,17 @@
  * limitations under the License.
 **/
 
-package ai
+package client
 
-import "unicode/utf8"
+import (
+	openai "github.com/sashabaranov/go-openai"
+)
 
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
+func assistMessages(userPrompt, scrollback, remoteCwd string, meta PromptMeta) []openai.ChatCompletionMessage {
+	env := AssistEnv{Scope: ScopeLocal, Scrollback: scrollback, RemoteCwd: remoteCwd}
+	user := prependEnvContext(userPrompt, env)
+	return []openai.ChatCompletionMessage{
+		{Role: openai.ChatMessageRoleSystem, Content: systemPrompt(ScopeLocal, env, meta)},
+		{Role: openai.ChatMessageRoleUser, Content: user},
 	}
-	i := len(s) - max
-	for i < len(s) && !utf8.RuneStart(s[i]) {
-		i++
-	}
-	return s[i:]
 }

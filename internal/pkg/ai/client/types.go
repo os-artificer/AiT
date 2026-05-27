@@ -14,20 +14,22 @@
  * limitations under the License.
 **/
 
-package ai
+package client
 
-import (
-	"encoding/json"
-	"testing"
+import "github.com/os-artificer/AiT/internal/pkg/ai/provider"
+
+const (
+	ProviderDeepseek = provider.Deepseek
+	ProviderMinimax  = provider.Minimax
+	ProviderOllama   = provider.Ollama
+
+	ollamaPlaceholderKey = "ollama"
+
+	aiModeLocalFirst = "local_first"
+	aiModeCloudOnly  = "cloud_only"
+
+	errEmptyResponseFmt = "empty response from %s"
 )
 
-func TestChatAgent_JSONFallbackContent(t *testing.T) {
-	raw := `{"action":"answer","text":"done"}`
-	act := struct {
-		Action string `json:"action"`
-		Text   string `json:"text"`
-	}{}
-	if err := json.Unmarshal([]byte(raw), &act); err != nil || act.Action != "answer" {
-		t.Fatalf("parse: %v action=%q", err, act.Action)
-	}
-}
+// ProviderID identifies an AI provider (alias of provider.ID).
+type ProviderID = provider.ID

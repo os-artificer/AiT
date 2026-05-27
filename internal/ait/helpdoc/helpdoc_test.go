@@ -106,10 +106,21 @@ func TestWriteShellHelpSections(t *testing.T) {
 
 func TestWriteShellREPLHelpSections(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteShellREPLHelp(&buf); err != nil {
+	if err := WriteShellREPLHelp(&buf, false); err != nil {
 		t.Fatal(err)
 	}
 	helpMustContain(t, buf.String(), "Usage:", "Examples:", "Commands:", "help for help", "clear", "history", "Ctrl+L", "Ctrl+A", "Up", "Ctrl+R", "-p port")
+
+	buf.Reset()
+	if err := WriteShellREPLHelp(&buf, true); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	helpMustContain(t, out, "Usage:", "Commands:", "help for help", "clear", "history", "Active session",
+		"login and load are unavailable")
+	if strings.Contains(out, "-p port") {
+		t.Error("active-session help must not include login flags (-p port)")
+	}
 }
 
 func TestWriteAIHelpSections(t *testing.T) {

@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package ai
+package client
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/platform"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -292,6 +293,25 @@ func (c *Client) completeAgent(ctx context.Context, ep *endpoint, messages []ope
 		return ep.chatAnthropic(ctx, messages)
 	}
 	return ep.chatOpenAIAgent(ctx, messages)
+}
+
+// Assist sends userPrompt with optional scrollback and remoteCwd context via cloud providers only.
+func (c *Client) Assist(ctx context.Context, userPrompt, scrollback, remoteCwd string) (string, error) {
+	reply, _, err := c.chatWithFailover(ctx, func(meta PromptMeta) []openai.ChatCompletionMessage {
+		return assistMessages(userPrompt, scrollback, remoteCwd, meta)
+	})
+	return reply, err
+}
+
+// SuggestInstall asks the AI for brief install instructions for command on the local OS (cloud only).
+func (c *Client) SuggestInstall(ctx context.Context, command string) (string, error) {
+	prompt := fmt.Sprintf(
+		"The command %q is not installed on this system (%s). "+
+			"Give brief install instructions for the most common package manager on this OS. "+
+			"Do not run commands; only suggest.",
+		command, platform.OSDescription(),
+	)
+	return c.Assist(ctx, prompt, "", "")
 }
 
 // StatusLine returns a one-line summary of the active AI routing for REPL model command.
