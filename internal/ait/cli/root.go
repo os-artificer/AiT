@@ -93,6 +93,9 @@ func newShellCmd() *cobra.Command {
 		Use:   "shell",
 		Short: "Interactive AiT shell (AiT> prompt)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if helpdoc.HasHelpArg(args) {
+				return helpdoc.WriteShellHelp(cmd.OutOrStdout())
+			}
 			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
 				return shell.RunREPL(ctx, mgr, os.Stdin, os.Stdout)
 			})

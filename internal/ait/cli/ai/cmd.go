@@ -58,6 +58,9 @@ func New(d Deps) *cobra.Command {
 		Short: "Interactive local AI mode (AiT AI> prompt)",
 		Long:  "Run AI-assisted REPL on this machine. Inside SSH use !ait ai or !! instead.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if helpdoc.HasHelpArg(args) {
+				return helpdoc.WriteAIHelp(cmd.OutOrStdout())
+			}
 			modelFlag, _ := cmd.Flags().GetString("model")
 			return d.RunWithMgr(func(ctx context.Context, mgr *session.Manager) error {
 				return RunLocal(ctx, mgr, modelFlag, strings.Join(args, " "), d.Exec)
