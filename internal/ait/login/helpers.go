@@ -18,11 +18,11 @@ package login
 
 import (
 	"github.com/os-artificer/AiT/internal/pkg/session"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/args"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 )
 
-// OptsFromResolved maps ssh args.Resolved to session.LoginOpts.
-func OptsFromResolved(r args.Resolved) session.LoginOpts {
+// OptsFromResolved maps ssh resolve.Resolved to session.LoginOpts.
+func OptsFromResolved(r resolve.Resolved) session.LoginOpts {
 	return session.LoginOpts{
 		Alias:                 r.Alias,
 		Save:                  r.Save,

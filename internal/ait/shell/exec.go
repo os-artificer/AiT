@@ -27,8 +27,9 @@ import (
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/ait/login"
 	"github.com/os-artificer/AiT/internal/pkg/session"
-	sshargs "github.com/os-artificer/AiT/internal/pkg/ssh/args"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
+	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -98,12 +99,12 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 }
 
 func shellLogin(ctx context.Context, mgr *session.Manager, argv []string) error {
-	spec, err := sshargs.Parse(argv)
+	spec, err := sshparse.Parse(argv)
 	if err != nil {
 		return err
 	}
 
-	resolved, err := sshargs.Resolve(spec)
+	resolved, err := resolve.Resolve(spec)
 	if err != nil {
 		return err
 	}

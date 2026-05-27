@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package args
+package parse
 
 const (
 	tryLoginHelp    = "ait login --help"

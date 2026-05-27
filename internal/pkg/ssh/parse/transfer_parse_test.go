@@ -14,9 +14,11 @@
  * limitations under the License.
 **/
 
-package args
+package parse
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestParseTransferGluedPortAnyOrder(t *testing.T) {
 	cases := [][]string{

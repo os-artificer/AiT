@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/dial"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/hostkeys"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
@@ -151,7 +152,13 @@ func buildSSHClientConfig(opts Options) (*ssh.ClientConfig, net.Conn, error) {
 		return nil, agentConn, err
 	}
 
-	hkc, err := hostKeyCallbackFor(opts)
+	hkc, err := hostkeys.Callback(hostkeys.Options{
+		Host:                  opts.Host,
+		Port:                  opts.Port,
+		KnownHostsPath:        opts.KnownHostsPath,
+		StrictHostKeyChecking: opts.StrictHostKeyChecking,
+		BatchMode:             opts.BatchMode,
+	})
 	if err != nil {
 		if agentConn != nil {
 			_ = agentConn.Close()
