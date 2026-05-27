@@ -23,8 +23,9 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/args"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
+	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 	pkgtransfer "github.com/os-artificer/AiT/internal/pkg/transfer"
 
 	"github.com/spf13/cobra"
@@ -35,15 +36,15 @@ type RunWithMgr func(fn func(ctx context.Context, mgr *session.Manager) error) e
 
 // NewGet builds the `ait get` cobra command.
 func NewGet(runWithMgr RunWithMgr) *cobra.Command {
-	return newCmd(runWithMgr, "get", "Download a file from a remote host (OpenSSH-compatible)", args.OpGet)
+	return newCmd(runWithMgr, "get", "Download a file from a remote host (OpenSSH-compatible)", sshparse.OpGet)
 }
 
 // NewPut builds the `ait put` cobra command.
 func NewPut(runWithMgr RunWithMgr) *cobra.Command {
-	return newCmd(runWithMgr, "put", "Upload a file to a remote host (OpenSSH-compatible)", args.OpPut)
+	return newCmd(runWithMgr, "put", "Upload a file to a remote host (OpenSSH-compatible)", sshparse.OpPut)
 }
 
-func newCmd(runWithMgr RunWithMgr, name, short string, op args.TransferOp) *cobra.Command {
+func newCmd(runWithMgr RunWithMgr, name, short string, op sshparse.TransferOp) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   name + " [flags] <paths...>",
 		Short:                 short,
@@ -63,8 +64,8 @@ func newCmd(runWithMgr RunWithMgr, name, short string, op args.TransferOp) *cobr
 }
 
 // runTransferArgv parses argv like ait login and runs get or put per op.
-func runTransferArgv(ctx context.Context, mgr *session.Manager, argv []string, op args.TransferOp) error {
-	spec, err := args.ParseTransfer(argv, op)
+func runTransferArgv(ctx context.Context, mgr *session.Manager, argv []string, op sshparse.TransferOp) error {
+	spec, err := sshparse.ParseTransfer(argv, op)
 	if err != nil {
 		return err
 	}
@@ -74,13 +75,13 @@ func runTransferArgv(ctx context.Context, mgr *session.Manager, argv []string, o
 	}
 	defer client.Close()
 
-	if op == args.OpPut {
+	if op == sshparse.OpPut {
 		return pkgtransfer.Put(ctx, client.Conn(), spec.LocalPath, spec.RemotePath)
 	}
 	return pkgtransfer.Get(ctx, client.Conn(), spec.RemotePath, spec.LocalPath)
 }
 
-func dialForTransfer(ctx context.Context, mgr *session.Manager, spec args.TransferSpec) (*sshclient.Client, error) {
+func dialForTransfer(ctx context.Context, mgr *session.Manager, spec sshparse.TransferSpec) (*sshclient.Client, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -93,7 +94,7 @@ func dialForTransfer(ctx context.Context, mgr *session.Manager, spec args.Transf
 		return mgr.DialSSH(sshOpts, spec.Conn.Password, sshOpts.Host)
 	}
 
-	resolved, err := args.Resolve(spec.Conn)
+	resolved, err := resolve.Resolve(spec.Conn)
 	if err != nil {
 		return nil, err
 	}

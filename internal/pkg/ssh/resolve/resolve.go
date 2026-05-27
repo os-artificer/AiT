@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package args
+package resolve
 
 import (
 	"fmt"
@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
+	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/stricthostkey"
 )
 
@@ -55,7 +57,7 @@ type Resolved struct {
 // Resolve runs ssh -G for spec.Destination and merges the parsed config with CLI flags in spec.
 // Returns effective connection parameters for dial. Errors: platform.OpenSSHPath; ssh -G failure;
 // identity file not found; could not resolve hostname; cannot combine --tmux with remote command.
-func Resolve(spec Spec) (Resolved, error) {
+func Resolve(spec sshparse.Spec) (Resolved, error) {
 	sshPath, err := platform.OpenSSHPath()
 	if err != nil {
 		return Resolved{}, err
@@ -171,7 +173,7 @@ func Resolve(spec Spec) (Resolved, error) {
 	}
 
 	// Parse destination for embedded user@host if hostname still looks like alias
-	if u, h, p, err := ParseDestination(spec.Destination); err == nil && h != "" {
+	if u, h, p, err := sshparse.ParseDestination(spec.Destination); err == nil && h != "" {
 		if r.Host == spec.Destination || r.Host == "" {
 			r.Host = h
 		}
@@ -188,10 +190,30 @@ func Resolve(spec Spec) (Resolved, error) {
 	}
 
 	if len(spec.RemoteCommand) > 0 && spec.Tmux {
-		return Resolved{}, TmuxWithRemoteCommandErr()
+		return Resolved{}, sshparse.TmuxWithRemoteCommandErr()
 	}
 
 	return r, nil
+}
+
+// ClientOptions maps r to client.Options for dialing (UseAgent is always true).
+// Returns a value copy suitable for client.Dial or DialChain.
+func (r Resolved) ClientOptions() client.Options {
+	return client.Options{
+		Host:                  r.Host,
+		Port:                  r.Port,
+		User:                  r.User,
+		IdentityPath:          r.IdentityPath,
+		IdentityExplicit:      r.IdentityExplicit,
+		Password:              r.Password,
+		UseAgent:              true,
+		ProxyJump:             append([]string(nil), r.ProxyJump...),
+		ProxyCommand:          r.ProxyCommand,
+		KnownHostsPath:        r.KnownHostsPath,
+		StrictHostKeyChecking: r.StrictHostKeyChecking,
+		ConnectTimeout:        r.ConnectTimeout,
+		BatchMode:             r.BatchMode,
+	}
 }
 
 // ToSSHOptions returns the Resolved fields as separate return values for legacy call sites.

@@ -14,33 +14,31 @@
  * limitations under the License.
 **/
 
-package args
+package resolve
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
+	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/platform"
+	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
 )
 
-// parseBracketHost extracts host and optional port from [host]:port or [host].
-func parseBracketHost(dest string) (host string, port int, err error) {
-	end := strings.Index(dest, "]")
-	if end < 0 {
-		return "", 0, fmt.Errorf("invalid destination %q", dest)
+func TestResolveGithub(t *testing.T) {
+	if _, err := platform.OpenSSHPath(); err != nil {
+		t.Skip("ssh not installed:", err)
 	}
-	host = dest[1:end]
-	rest := dest[end+1:]
-
-	if !strings.HasPrefix(rest, ":") {
-		if rest != "" {
-			return "", 0, fmt.Errorf("invalid destination %q", dest)
-		}
-		return host, 0, nil
-	}
-
-	port, err = strconv.Atoi(rest[1:])
+	spec, err := sshparse.Parse([]string{"github.com"})
 	if err != nil {
-		return "", 0, fmt.Errorf("invalid port in %q", dest)
+		t.Fatal(err)
 	}
-	return host, port, nil
+	r, err := Resolve(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Host == "" {
+		t.Fatal("empty host")
+	}
+	if r.Port == 0 {
+		t.Fatal("empty port")
+	}
 }

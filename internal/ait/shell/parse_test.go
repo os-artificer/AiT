@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/pkg/ssh/args"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/parse"
 )
 
 func TestParseShellLine(t *testing.T) {
@@ -35,7 +35,7 @@ func TestParseShellLine(t *testing.T) {
 }
 
 func TestParseLoginArgsLegacy(t *testing.T) {
-	spec, err := args.Parse([]string{"--host", "h", "--alias", "a", "--save", "--port", "22", "--tmux"})
+	spec, err := parse.Parse([]string{"--host", "h", "--alias", "a", "--save", "--port", "22", "--tmux"})
 	if err != nil {
 		t.Fatal(err)
 	}

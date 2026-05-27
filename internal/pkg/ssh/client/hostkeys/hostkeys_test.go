@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package client
+package hostkeys
 
 import (
 	"crypto/ed25519"
@@ -26,10 +26,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func TestHostKeyCallbackAcceptNew(t *testing.T) {
+func TestCallbackAcceptNew(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/known_hosts"
-	cb, err := hostKeyCallbackAt(path, "example.com", 22, "accept-new", false)
+	cb, err := callbackAt(path, "example.com", 22, "accept-new", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,19 +47,19 @@ func TestHostKeyCallbackAcceptNew(t *testing.T) {
 	}
 }
 
-func TestHostKeyCallbackAskAccepts(t *testing.T) {
-	oldConfirm := hostKeyConfirm
-	oldTTY := isInteractiveTTY
-	hostKeyConfirm = func(string) bool { return true }
-	isInteractiveTTY = func() bool { return true }
+func TestCallbackAskAccepts(t *testing.T) {
+	oldConfirm := Confirm
+	oldTTY := IsInteractiveTTY
+	Confirm = func(string) bool { return true }
+	IsInteractiveTTY = func() bool { return true }
 	defer func() {
-		hostKeyConfirm = oldConfirm
-		isInteractiveTTY = oldTTY
+		Confirm = oldConfirm
+		IsInteractiveTTY = oldTTY
 	}()
 
 	dir := t.TempDir()
 	path := dir + "/known_hosts"
-	cb, err := hostKeyCallbackAt(path, "example.com", 60528, "ask", false)
+	cb, err := callbackAt(path, "example.com", 60528, "ask", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,19 +77,19 @@ func TestHostKeyCallbackAskAccepts(t *testing.T) {
 	}
 }
 
-func TestHostKeyCallbackAskRejects(t *testing.T) {
-	oldConfirm := hostKeyConfirm
-	oldTTY := isInteractiveTTY
-	hostKeyConfirm = func(string) bool { return false }
-	isInteractiveTTY = func() bool { return true }
+func TestCallbackAskRejects(t *testing.T) {
+	oldConfirm := Confirm
+	oldTTY := IsInteractiveTTY
+	Confirm = func(string) bool { return false }
+	IsInteractiveTTY = func() bool { return true }
 	defer func() {
-		hostKeyConfirm = oldConfirm
-		isInteractiveTTY = oldTTY
+		Confirm = oldConfirm
+		IsInteractiveTTY = oldTTY
 	}()
 
 	dir := t.TempDir()
 	path := dir + "/known_hosts"
-	cb, err := hostKeyCallbackAt(path, "example.com", 22, "ask", false)
+	cb, err := callbackAt(path, "example.com", 22, "ask", false)
 	if err != nil {
 		t.Fatal(err)
 	}
