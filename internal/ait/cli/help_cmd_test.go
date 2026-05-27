@@ -33,6 +33,19 @@ func TestGetCmdHelpRunE(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "OpenSSH-compatible flags:") {
+		t.Fatalf("get --help: %s", buf.String())
+	}
+}
+
+func TestGetCmdHelpRunEPosArg(t *testing.T) {
+	cmd := clitransfer.NewGet(runWithManager)
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	if err := cmd.RunE(cmd, []string{"help"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "OpenSSH-compatible flags:") {
 		t.Fatalf("get help: %s", buf.String())
 	}
 }
@@ -43,6 +56,19 @@ func TestPutCmdHelpRunE(t *testing.T) {
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	if err := cmd.RunE(cmd, []string{"--help"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "help for put") {
+		t.Fatalf("put --help: %s", buf.String())
+	}
+}
+
+func TestPutCmdHelpRunEPosArg(t *testing.T) {
+	cmd := clitransfer.NewPut(runWithManager)
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	if err := cmd.RunE(cmd, []string{"help"}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "help for put") {
@@ -90,6 +116,10 @@ func TestShellCmdHelpExecute(t *testing.T) {
 	helpExecuteMustContain(t, []string{"shell", "--help"}, "Usage:", "Examples:", "help for shell")
 }
 
+func TestShellCmdHelpPosArgExecute(t *testing.T) {
+	helpExecuteMustContain(t, []string{"shell", "help"}, "Usage:", "Examples:", "help for shell")
+}
+
 func TestConfigCmdHelpExecute(t *testing.T) {
 	helpExecuteMustContain(t, []string{"config", "--help"}, "Usage:", "Examples:", "help for config", "init")
 	helpExecuteMustContain(t, []string{"config", "set", "--help"}, "help for set")
@@ -100,4 +130,17 @@ func TestConfigCmdHelpExecute(t *testing.T) {
 func TestSessionCmdHelpExecute(t *testing.T) {
 	helpExecuteMustContain(t, []string{"session", "--help"},
 		"Usage:", "Examples:", "help for session", "--list", "--load", "--switch", "--delete", "--tmux", "--force")
+}
+
+func TestSessionCmdHelpPosArgExecute(t *testing.T) {
+	helpExecuteMustContain(t, []string{"session", "help"},
+		"Usage:", "Examples:", "help for session", "--list", "--load", "--switch", "--delete", "--tmux", "--force")
+}
+
+func TestVersionCmdHelpExecute(t *testing.T) {
+	helpExecuteMustContain(t, []string{"version", "--help"}, "Usage:", "help for version")
+}
+
+func TestVersionCmdHelpPosArgExecute(t *testing.T) {
+	helpExecuteMustContain(t, []string{"version", "help"}, "Usage:", "help for version")
 }

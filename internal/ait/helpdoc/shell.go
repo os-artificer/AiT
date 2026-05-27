@@ -32,18 +32,34 @@ const shellREPLCommands = `  help              show REPL help
   session           — CLI: ait session --list | --load | --switch | --suspend | --delete
 `
 
+const shellREPLCommandsNoLogin = `  help              show REPL help
+  clear             clear terminal screen
+  history           list or manage input history (history -c, -d, -s, -a, -r, -w)
+  exit, quit        leave AiT shell
+  ai                enter local AI mode (same as ait ai)
+  list              list saved sessions
+  config, get, put  — same as: ait <command> ...
+  session           — CLI: ait session --list | --load | --switch | --suspend | --delete
+`
+
 const (
-	shellSectionPrompts     = "Prompts"
-	shellREPLHelpIntro      = "AiT shell — type commands directly, press Enter to run (no !ait prefix):"
-	shellREPLHelpUsage      = "help | clear | history | login [flags] destination | load <id|alias> | list | exit"
-	shellREPLHelpNoteTTY    = "In a TTY, Ctrl+L clears the screen and redraws the prompt (line buffer kept)."
-	shellExampleLoginServer = "login myserver"
+	shellSectionPrompts       = "Prompts"
+	shellREPLHelpIntro        = "AiT shell — type commands directly, press Enter to run (no !ait prefix):"
+	shellREPLHelpUsage        = "help | clear | history | login [flags] destination | load <id|alias> | list | exit"
+	shellREPLHelpUsageNoLogin = "help | clear | history | list | exit"
+	shellREPLHelpNoteTTY      = "In a TTY, Ctrl+L clears the screen and redraws the prompt (line buffer kept)."
+	shellExampleLoginServer   = "login myserver"
 )
 
 const shellREPLPrompts = `  AiT>              not connected (this shell)
   AiT user@host>    remote SSH session
   AiT Local>        local mode inside SSH (!ait local)
 `
+
+const (
+	shellSectionActiveSession = "Active session"
+	shellActiveSessionBlock   = "  login and load are unavailable while a session is active.\n  Use suspend to save the current session, or session --switch to change.\n"
+)
 
 // WriteShellHelp prints ait shell --help to w.
 func WriteShellHelp(w io.Writer) error {
@@ -71,19 +87,34 @@ func WriteShellHelp(w io.Writer) error {
 }
 
 // WriteShellREPLHelp prints in-shell help (Usage/Examples sections; caller applies CRLF).
-func WriteShellREPLHelp(w io.Writer) error {
+// When hasActiveSession is true, login and load are omitted from commands and usage.
+func WriteShellREPLHelp(w io.Writer, hasActiveSession bool) error {
 	b := newHelpBody(w)
 	if err := b.WriteIntro(shellREPLHelpIntro, shellREPLHelpNoteTTY); err != nil {
 		return err
 	}
-	if err := b.WriteUsage(shellREPLHelpUsage); err != nil {
+	usage := shellREPLHelpUsage
+	if hasActiveSession {
+		usage = shellREPLHelpUsageNoLogin
+	}
+	if err := b.WriteUsage(usage); err != nil {
 		return err
 	}
-	if err := b.WriteSection(helpSectionCommands, shellREPLCommands); err != nil {
+	cmds := shellREPLCommands
+	if hasActiveSession {
+		cmds = shellREPLCommandsNoLogin
+	}
+	if err := b.WriteSection(helpSectionCommands, cmds); err != nil {
 		return err
 	}
-	if err := WriteLoginHelpShort(w); err != nil {
-		return err
+	if hasActiveSession {
+		if err := b.WriteSection(shellSectionActiveSession, shellActiveSessionBlock); err != nil {
+			return err
+		}
+	} else {
+		if err := WriteLoginHelpShort(w); err != nil {
+			return err
+		}
 	}
 	if err := b.WriteSection(shellSectionPrompts, shellREPLPrompts); err != nil {
 		return err
@@ -91,12 +122,16 @@ func WriteShellREPLHelp(w io.Writer) error {
 	if err := WriteTTYKeysHelp(w, TTYKeysShell); err != nil {
 		return err
 	}
-	if err := b.WriteExamples(
+	examples := []string{
 		shellExampleLoginServer,
 		"login -p 22 root@192.168.1.1 -i ~/.ssh/id_rsa",
 		"load myserver",
 		"list",
-	); err != nil {
+	}
+	if hasActiveSession {
+		examples = []string{"list"}
+	}
+	if err := b.WriteExamples(examples...); err != nil {
 		return err
 	}
 	return b.Finish("help")
