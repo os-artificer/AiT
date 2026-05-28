@@ -23,7 +23,8 @@ make test-cross  # windows + darwin go build
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
 - **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）
 - **AI**：多 provider 路由 + `tiered`；`ait ai chat` 单轮；`ait ai provider enable|disable`；`ait ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ait ai model list`；SSH `!ait ai chat` / `!! chat`
-- **传输**：`ait get` / `ait put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH
+- **传输**：`ait get` / `ait put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH；链式模式（`!ait chain on`）使用 PTY 管道 base64 传输支持多跳 SSH
+- **代理链支持**：`!ait chain [on|off]` — 经 PTY 管道注入实现文件传输与 tmux，用于 SSH 超越直连主机时（`internal/pkg/ssh/client/inject.go`、`transfer_pty.go`；`internal/pkg/tmux/remote_pty.go`）
 - **OpenSSH 配置**：`login`/`load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
 
 完整设计：[`docs/design.zh-CN.md`](docs/design.zh-CN.md)。配置示例：[`configs/ait.example.yaml`](configs/ait.example.yaml)。Cursor 方案归档至 `docs/<kebab-case>.md`（见 [`.cursor/rules/docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc)）。
@@ -49,7 +50,7 @@ make test-cross  # windows + darwin go build
 | `internal/pkg/ssh/args/` | OpenSSH 参数解析、`ssh -G` 解析、`Resolved` → `client.Options` |
 | `internal/pkg/session/` | login、load、suspend、switch、delete、list（`manager.go`、`manager_login.go`、`manager_load.go`、`manager_suspend_switch.go`、`manager_list_pick.go`、`manager_helpers.go`） |
 | `internal/pkg/store/` | SQLite schema、迁移、CRUD（`store.go`、`store_sessions.go`、`store_state.go`、`store_meta.go`、`store_scan.go`、`session_helpers.go`、`open_helpers.go`） |
-| `internal/pkg/ssh/client/` | `Client`、`Options`、`Dial`、`DialChain`、`RunInteractive` facade（详见下方文件布局） |
+| `internal/pkg/ssh/client/` | `Client`、`Options`、`Dial`、`DialChain`、`RunInteractive` facade、静默 PTY 注入（详见下方文件布局） |
 | `internal/pkg/ssh/client/prompt/` | AiT 显示提示符字符串 + 远程 PS1 安装片段 |
 | `internal/pkg/ssh/client/scrollback/` | 远程 PTY scrollback `Delta` 与捕获时序常量 |
 | `internal/pkg/ssh/client/localmode/` | `!ait local` 本地 PTY `Shell`、环境变量、bash/zsh 启动脚本 |
@@ -57,7 +58,7 @@ make test-cross  # windows + darwin go build
 | `internal/pkg/ssh/client/dial/` | ProxyCommand stdio 连接、ProxyJump 解析、OpenSSH 私钥读取 |
 | `internal/pkg/ssh/client/pty/` | TTY stdin 单读者、REPL 字节通道、跨平台 resize watcher |
 | `internal/pkg/ssh/client/transfer/` | `!ait get|put` meta 参数解析与 usage 提示 |
-| `internal/pkg/tmux/` | 远程 tmux 确保/附着/分离 |
+| `internal/pkg/tmux/` | 远程 tmux（SFTP 方式 + 链式模式下的 PTY 注入方式） |
 | `internal/pkg/terminal/` | terminal facade（`path.go`）；其余通过 type alias 指向子包 |
 | `internal/pkg/terminal/scrollback/` | 环形 scrollback `Buffer`（写入/回放/文件 IO） |
 | `internal/pkg/terminal/screen/` | ANSI 屏幕原语（清屏） |
@@ -105,14 +106,16 @@ make test-cross  # windows + darwin go build
 
 | 文件 | 职责 |
 |------|------|
-| `client.go` | `Client`、`Options`、`RunInteractive`、meta 派发、本地模式钩子 |
+| `client.go` | `Client`、`Options`、`RunInteractive`、meta 派发、本地模式钩子、`chainMode` 切换 |
 | `client_dial.go`、`client_dial_config.go` | `Dial`、`DetectAuthMethod`、`buildAuth`、`buildSSHClientConfig` |
 | `dialchain.go`、`dialchain_helpers.go` | `DialChain`、ProxyJump 调用方、`RunRemoteCommand` |
 | `hostkeys.go` | known_hosts 回调（TTY 确认 / accept-new） |
-| `client_interactive_helpers.go` | meta 派发辅助、刷新远程提示符、AI / transfer 入口 |
+| `client_interactive_helpers.go` | meta 派发辅助、刷新远程提示符、AI / transfer 入口、`handleChainMeta` |
 | `client_init_helpers.go`、`client_setup_filter_helpers.go` | PTY 初始化输出过滤（抑制 PS1 泄漏） |
-| `client_transfer.go`、`client_transfer_helpers.go` | `Client.handleTransfer*` 走 SFTP、transfer hint 包装 |
-| `scrollback_capture.go` | `Client.RunPTYCapture` 驱动 `scrollback.Delta` |
+| `client_transfer.go`、`client_transfer_helpers.go` | `Client.handleTransfer*`（根据 chainMode 走 SFTP 或 PTY）、transfer hint 包装 |
+| `inject.go`、`inject_helpers.go` | `Client.Inject` / `Client.InjectCapture` —— 静默 PTY 命令注入，含历史/回显抑制与捕获定界符 |
+| `transfer_pty.go`、`transfer_pty_helpers.go` | `PTYTransfer` —— 链式模式下经 PTY 管道的 base64 文件传输 |
+| `scrollback_capture.go` | `Client.RunPTYCapture` 驱动 `scrollback.Delta`（使用 `Inject` 进行历史抑制） |
 | `resize.go` | `sessionResize` 适配 `pty.Watch` |
 | `ai_mode.go` | 远程 AI REPL 入口的 `RemoteAIParams` / `RemoteAIRunner` 类型 |
 | `prompt_alias.go`、`meta_alias.go`、`pty_alias.go` | facade alias，将子包符号以旧名暴露给原调用方 |
@@ -150,7 +153,7 @@ ait put [ssh-flags] <paths...>
 ait config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-提示符：`AiT>`（`ait shell`）、`AiT AI>`（`ait ai`）、`AiT AI user@host>`（SSH AI）、`AiT user@host>`（SSH）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。
+提示符：`AiT>`（`ait shell`）、`AiT AI>`（`ait ai`）、`AiT AI user@host>`（SSH AI）、`AiT user@host>`（SSH）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`；`!ait chain [on|off]` 用于多跳 SSH 的 PTY 管道注入。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。
 
 ## 注意事项
 
