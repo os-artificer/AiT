@@ -31,6 +31,7 @@ const metaCommands = `  help              show this help
   !! chat <msg>     one-shot AI reply
   local             local mode (prompt: AiT Local>)
   remote            return to remote shell (prompt: AiT user@host>)
+  chain [on|off]    toggle chain mode (PTY-pipe transfer for SSH hops)
   suspend           suspend session and disconnect
   get <remote> <local>   download file (reuses SSH, no re-auth)
   put <local> <remote>   upload file (reuses SSH, no re-auth)

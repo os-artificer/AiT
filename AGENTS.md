@@ -23,7 +23,8 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
 - **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
 - **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `ait ai chat` (one-shot); `ait ai provider enable|disable`; `ait ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `ait ai model list`; SSH `!ait ai chat` / `!! chat`; cloud keys `ai.<provider>.api_key`
-- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH
+- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH; chain mode (`!ait chain on`) uses PTY-pipe base64 transfer for multi-hop SSH
+- **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe injection for file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_pty.go`; `internal/pkg/tmux/remote_pty.go`)
 - **OpenSSH config**: `login`/`load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 
 Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
@@ -49,7 +50,7 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/ssh/args/` | OpenSSH argv parse, `ssh -G` resolve, `Resolved` → `client.Options` |
 | `internal/pkg/session/` | Login, load, suspend, switch, delete, list (`manager.go`, `manager_login.go`, `manager_load.go`, `manager_suspend_switch.go`, `manager_list_pick.go`, `manager_helpers.go`) |
 | `internal/pkg/store/` | SQLite schema, migrations, CRUD (`store.go`, `store_sessions.go`, `store_state.go`, `store_meta.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go`) |
-| `internal/pkg/ssh/client/` | `Client`, `Options`, `Dial`, `DialChain`, `RunInteractive` facade (see file layout below) |
+| `internal/pkg/ssh/client/` | `Client`, `Options`, `Dial`, `DialChain`, `RunInteractive` facade, silent PTY injection (see file layout below) |
 | `internal/pkg/ssh/client/prompt/` | AiT display prompt strings + remote PS1 setup fragments |
 | `internal/pkg/ssh/client/scrollback/` | Remote PTY scrollback `Delta` + capture timing constants |
 | `internal/pkg/ssh/client/localmode/` | `!ait local` PTY `Shell`, env, bash/zsh init scripts |
@@ -57,7 +58,7 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/ssh/client/dial/` | ProxyCommand stdio conn, jump parser, OpenSSH key signer |
 | `internal/pkg/ssh/client/pty/` | TTY stdin reader, REPL byte channel, cross-platform resize watcher |
 | `internal/pkg/ssh/client/transfer/` | `!ait get|put` meta argv parsing + usage hint |
-| `internal/pkg/tmux/` | Remote tmux ensure/attach/detach |
+| `internal/pkg/tmux/` | Remote tmux (SFTP-based + PTY-injection-based for chain mode) |
 | `internal/pkg/terminal/` | Terminal facade (`path.go`) with type aliases to subpackages |
 | `internal/pkg/terminal/scrollback/` | Ring-buffer scrollback `Buffer` (write/replay, file IO) |
 | `internal/pkg/terminal/screen/` | ANSI screen primitives (clear) |
@@ -108,14 +109,16 @@ listed above.
 
 | Files | Role |
 |-------|------|
-| `client.go` | `Client`, `Options`, `RunInteractive`, meta dispatch, local-mode hooks |
+| `client.go` | `Client`, `Options`, `RunInteractive`, meta dispatch, local-mode hooks, `chainMode` toggle |
 | `client_dial.go`, `client_dial_config.go` | `Dial`, `DetectAuthMethod`, `buildAuth`, `buildSSHClientConfig` |
 | `dialchain.go`, `dialchain_helpers.go` | `DialChain`, proxy jump, `RunRemoteCommand` |
 | `hostkeys.go` | known_hosts callbacks with TTY confirm / accept-new |
-| `client_interactive_helpers.go` | meta dispatch helpers, refresh remote prompt, AI/transfer entry points |
+| `client_interactive_helpers.go` | meta dispatch helpers, refresh remote prompt, AI/transfer entry points, `handleChainMeta` |
 | `client_init_helpers.go`, `client_setup_filter_helpers.go` | PTY setup output filter (suppresses PS1 leakage) |
-| `client_transfer.go`, `client_transfer_helpers.go` | `Client.handleTransfer*` over SFTP, transfer hint wrappers |
-| `scrollback_capture.go` | `Client.RunPTYCapture` driving `scrollback.Delta` |
+| `client_transfer.go`, `client_transfer_helpers.go` | `Client.handleTransfer*` (SFTP or PTY based on chainMode), transfer hint wrappers |
+| `inject.go`, `inject_helpers.go` | `Client.Inject` / `Client.InjectCapture` — silent PTY command injection with history/echo suppression and capture delimiters |
+| `transfer_pty.go`, `transfer_pty_helpers.go` | `PTYTransfer` — base64 file transfer through PTY pipe for chain mode |
+| `scrollback_capture.go` | `Client.RunPTYCapture` driving `scrollback.Delta` (uses `Inject` for history suppression) |
 | `resize.go` | `sessionResize` adapter wired into `pty.Watch` |
 | `ai_mode.go` | `RemoteAIParams` / `RemoteAIRunner` types for remote AI REPL |
 | `prompt_alias.go`, `meta_alias.go`, `pty_alias.go` | Facade aliases re-exporting subpackage symbols under their legacy names |
@@ -156,7 +159,7 @@ ait put [ssh-flags] <paths...>
 ait config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-Prompts: `AiT>` (`ait shell`), `AiT AI(Ask)>` / `AiT AI(Agent)>` (`ait ai`; `mode agent` switches), `AiT AI(Ask) user@host>` (SSH AI), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
+Prompts: `AiT>` (`ait shell`), `AiT AI(Ask)>` / `AiT AI(Agent)>` (`ait ai`; `mode agent` switches), `AiT AI(Ask) user@host>` (SSH AI), `AiT user@host>` (SSH remote), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
 
 ## Pitfalls
 

@@ -54,12 +54,16 @@ func RemotePS1(user, host string) string {
 	return BashPS1(Remote(user, host))
 }
 
-// RemoteSetupLine sets PS1/PROMPT while echo is off, clears the default prompt line,
-// then restores stty echo (single injected line; local filter suppresses any leaked echo).
+// RemoteSetupLine sets PS1/PROMPT and HISTCONTROL/EXTENDED_HISTORY while echo is off,
+// clears the default prompt line, then restores stty echo (single injected line;
+// local filter suppresses any leaked echo).
+// HISTCONTROL=ignorespace ensures AiT-injected commands (space-prefixed) are excluded
+// from bash history; HIST_IGNORE_SPACE does the same for zsh.
 func RemoteSetupLine(user, host string) string {
 	display := Remote(user, host)
 	ps1 := RemotePS1(user, host)
-	return "stty -echo 2>/dev/null; export PS1='" + ps1 + "'; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + display + "'" +
+	return "stty -echo 2>/dev/null; export HISTCONTROL=ignorespace:erasedups; [ -n \"$ZSH_VERSION\" ] && setopt HIST_IGNORE_SPACE" +
+		"; export PS1='" + ps1 + "'; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + display + "'" +
 		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null; stty echo 2>/dev/null"
 }
 
@@ -68,6 +72,8 @@ func RemoteSetupStripFragments(user, host string) []string {
 	return []string{
 		"stty -echo 2>/dev/null",
 		RemoteSetupLine(user, host),
+		"export HISTCONTROL=ignorespace:erasedups",
+		"setopt HIST_IGNORE_SPACE",
 		"export PS1='" + RemotePS1(user, host) + "'",
 		"export PROMPT='" + Remote(user, host) + "'",
 	}

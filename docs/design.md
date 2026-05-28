@@ -35,7 +35,7 @@ ait config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUA
 
 **AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ait ai [--model <cloud-provider>]`** or **`ai` inside `ait shell`** runs a local AI REPL (`AiT AI>`); commands run on this machine only after you confirm (`run`, optional `ait` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait).
 
-Use **`!ait local` / `!ait remote`** to toggle local versus remote input while SSH stays connected; **`!ait suspend`** to suspend.
+Use **`!ait local` / `!ait remote`** to toggle local versus remote input while SSH stays connected; **`!ait suspend`** to suspend; **`!ait chain [on|off]`** to toggle chain mode (PTY-pipe injection for file transfer and tmux over multiple SSH hops).
 
 ### Two recovery modes (default versus `--tmux`)
 
@@ -229,9 +229,9 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv, `ssh -G`, mapped options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | Session lifecycle | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode, silent injection | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_pty.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback.go`, `scrollback_io.go`, `path.go` |
-| [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go` |
+| [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file) | `transfer.go`, `parse.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, editor | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
@@ -278,6 +278,7 @@ Implementation: [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/c
 | `!ait suspend` | Suspend session (same as CLI `suspend`) |
 | `!ait get <remote> <local>` | Download one file via SFTP on the **current** SSH connection (no re-auth) |
 | `!ait put <local> <remote>` | Upload one file via SFTP on the **current** SSH connection (no re-auth) |
+| `!ait chain [on\|off]` | Toggle chain mode: use PTY-pipe injection instead of SFTP for file transfer and tmux; needed when SSH'd beyond the directly connected host |
 
 **Detection rules:**
 
@@ -410,7 +411,9 @@ sequenceDiagram
 
 ### get / put
 
-Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over `golang.org/x/crypto/ssh`). **Single regular files only**; directories return a clear error. **`Put`** calls SFTP `MkdirAll` on the remote parent directory before `Create`. Errors are wrapped with `local file` / `remote file` prefixes; remote `IsNotExist` includes a hint to check the remote path and parent directory (SFTP servers often report `file does not exist` when a parent path is missing).
+Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over `golang.org/x/crypto/ssh`) and [`internal/pkg/ssh/client/transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) (PTY-pipe injection over base64). **Single regular files only**; directories return a clear error. **`Put`** calls SFTP `MkdirAll` on the remote parent directory before `Create`. Errors are wrapped with `local file` / `remote file` prefixes; remote `IsNotExist` includes a hint to check the remote path and parent directory (SFTP servers often report `file does not exist` when a parent path is missing).
+
+When the user has manually SSH'd beyond the directly connected host (e.g. `local → proxy → target`), SFTP and `conn.NewSession()` only reach the first hop. **Chain mode** (`!ait chain on`) switches to PTY-pipe injection: commands are silently injected through the existing PTY stdin/stdout pipe, which traverses all SSH hops to the final target. File transfer uses base64 encoding/decoding with sha256sum integrity verification. Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
 
 | Mode | Command | Authentication |
 |------|---------|----------------|
@@ -426,6 +429,49 @@ Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over
 - **Two paths + `--session`**: local and remote server paths (order-independent; local path detected via `./` prefix or existing local file)
 
 **In-session** (`!ait get` / `!ait put`): two server-relative paths only; no SSH flags.
+
+### Proxy chain mode (!ait chain)
+
+When the connection path is `local → proxy → target` (or any number of intermediate hops), the AiT `Client` only holds a direct SSH session to the first hop. SFTP (`conn.NewSession()`) and `conn.NewSession()`-based tmux operations can only reach that first hop — **not** the final target. Features that already work through the PTY pipe (AI mode `!!`, scrollback capture, remote cwd detection) continue to work regardless of hop count because PTY stdin/stdout traverses all SSH connections.
+
+**Chain mode** (`!ait chain on`) switches file transfer and tmux operations from SFTP/direct-session to PTY-pipe injection. All AiT-injected commands are silent (invisible in history and terminal):
+
+| Layer | Mechanism |
+|-------|-----------|
+| History suppression | Space prefix (`ignorespace`) + `HISTCONTROL=ignorespace:erasedups` / `setopt HIST_IGNORE_SPACE` injected at login |
+| Echo suppression | `stty -echo` / `stty echo` wrapper around injected commands |
+| Output capture | Unique ANSI-escaped delimiters (`\x1b[AIT_CAP_B\x1b` / `\x1b[AIT_CAP_E\x1b`) wrapped around command output, parsed from scrollback delta |
+
+**File transfer** (`PTYTransfer`): base64 encodes/decodes file content through the PTY pipe with sha256sum integrity verification. Chunks of 3072 bytes are appended via `printf | base64 -d >>`. Remote hosts must have `base64` and `sha256sum` available (standard on Linux/macOS).
+
+**Tmux operations** (`tmux/remote_pty.go`): `HasSessionViaPTY`, `NewSessionViaPTY`, `DetachViaPTY`, `PanePathViaPTY`, `EnsureViaPTY` inject tmux commands through the PTY pipe instead of opening a new SSH session. Exit code detection uses `echo "AIT_EXIT_$?"` pattern.
+
+**`RunPTYCapture` improvement**: Previously sent commands via raw `io.WriteString(stdin, cmd+"\n")`, which leaked commands into bash/zsh history. Now uses `Client.Inject(stdin, cmd, InjectOpts{SuppressEcho: false})` — space-prefixed so commands are suppressed from history but visible in the terminal (AI mode expects the user to see its commands).
+
+```mermaid
+flowchart LR
+  subgraph direct [Direct mode: chain off]
+    SFTP[SFTP over conn]
+    Session[conn.NewSession]
+  end
+  subgraph chain [Chain mode: chain on]
+    PTYGet[PTY base64 get]
+    PTYPut[PTY base64 put]
+    PTYTmux[PTY tmux ops]
+  end
+  User[User] -->|!ait chain on| chain
+  User -->|!ait chain off| direct
+```
+
+| Feature | Direct mode (chain off) | Chain mode (chain on) |
+|---------|------------------------|----------------------|
+| `!ait get` / `!ait put` | SFTP over `conn` | Base64 over PTY pipe |
+| Tmux `--tmux` | `conn.NewSession()` | PTY injection (`HasSessionViaPTY`, etc.) |
+| AI `!!` / `!ait ai` | PTY pipe (works either way) | PTY pipe (works either way) |
+| Scrollback / cwd | PTY pipe (works either way) | PTY pipe (works either way) |
+| Remote requirements | Standard | `base64`, `sha256sum` |
+
+**Implementation**: [`inject.go`](../internal/pkg/ssh/client/inject.go) + [`inject_helpers.go`](../internal/pkg/ssh/client/inject_helpers.go) (silent PTY injection); [`transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) + [`transfer_pty_helpers.go`](../internal/pkg/ssh/client/transfer_pty_helpers.go) (base64 file transfer); [`tmux/remote_pty.go`](../internal/pkg/tmux/remote_pty.go) (PTY-based tmux operations).
 
 ### AI mode (dual scope)
 
@@ -505,6 +551,7 @@ Capabilities implemented in the current tree:
 - [x] `suspend` / `list` / `load` / `session --switch` / `session --delete`
 - [x] `--tmux` remote keep-alive
 - [x] `get` / `put` (SFTP, single file) and dual-scope AI mode (`ait ai`, `!ait ai` / `!!`)
+- [x] Proxy chain mode (`!ait chain on/off`) — PTY-pipe injection for file transfer and tmux over multiple SSH hops
 - [x] Cross-platform builds (including Windows OpenSSH probing, split proxy/resize files)
 
 ## Risks and mitigations
@@ -513,6 +560,7 @@ Capabilities implemented in the current tree:
 - **Large scrollback**: beyond threshold (for example 512KB) persist to sidecar file; DB stores path only
 - **Security**: do not log API keys/passwords; redact `!!` context; clear keyring entries on `delete`/`delete all`
 - **TTL edge cases**: document monotonic comparisons for clock skew; `auth_expires_at` configurable (minimum 1h, maximum 30d guardrails)
+- **Chain mode file transfer**: base64 encoding increases data size by ~33%; large files may be slow over high-latency links. Chunk size (3072 bytes) is conservative to avoid PTY buffer overflow. Remote hosts without `base64`/`sha256sum` (rare on Linux/macOS) cannot use chain-mode transfer.
 
 ## Deliverables
 
