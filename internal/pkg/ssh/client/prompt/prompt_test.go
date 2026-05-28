@@ -35,7 +35,7 @@ func TestRemoteInitialCommands(t *testing.T) {
 		t.Fatalf("cmds = %v, want single setup line", cmds)
 	}
 	line := cmds[0]
-	for _, part := range []string{"stty -echo", "export PS1=", "u@h", "PROMPT=", "033[1A", "stty echo"} {
+	for _, part := range []string{"stty -echo", "export PS1=", "u@h", "PROMPT=", "033[1A", "stty echo", "HISTCONTROL=ignorespace", "HIST_IGNORE_SPACE"} {
 		if !strings.Contains(line, part) {
 			t.Errorf("setup line missing %q: %s", part, line)
 		}

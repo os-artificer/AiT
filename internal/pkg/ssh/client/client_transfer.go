@@ -46,16 +46,36 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 	}
 
 	var err error
-	if dir == transfer.DirGet {
-		err = transfer.Get(ctx, c.conn, args[0], args[1])
+	if c.ChainMode() {
+		err = c.handleTransferPTY(ctx, stdin, dir, args)
 	} else {
-		err = transfer.Put(ctx, c.conn, args[0], args[1])
+		err = c.handleTransferSFTP(ctx, dir, args)
 	}
+
 	if err != nil {
 		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
 	}
 	c.finishMetaInteraction(stdin)
 	return nil
+}
+
+// handleTransferSFTP uses the direct SFTP connection for file transfer.
+// This is the original path when ChainMode is false (direct connection to target).
+func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction, args []string) error {
+	if dir == transfer.DirGet {
+		return transfer.Get(ctx, c.conn, args[0], args[1])
+	}
+	return transfer.Put(ctx, c.conn, args[0], args[1])
+}
+
+// handleTransferPTY uses PTY-pipe injection for file transfer when ChainMode
+// is active (user has SSH'd beyond the directly connected host).
+func (c *Client) handleTransferPTY(ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string) error {
+	pt := NewPTYTransfer(c)
+	if dir == transfer.DirGet {
+		return pt.Get(ctx, stdin, args[0], args[1])
+	}
+	return pt.Put(ctx, stdin, args[0], args[1])
 }
 
 func transferArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {

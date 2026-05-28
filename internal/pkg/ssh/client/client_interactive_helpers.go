@@ -215,3 +215,41 @@ func parsePwdMarker(full, before, begin, end string) string {
 	}
 	return strings.TrimSpace(chunk[i+len(begin) : i+len(begin)+j])
 }
+
+// handleChainMeta handles the !ait chain meta command.
+// !ait chain       — show current chain mode status
+// !ait chain on    — enable chain mode (PTY-based transfer)
+// !ait chain off   — disable chain mode (SFTP-based transfer)
+func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
+	arg := strings.TrimPrefix(line, metaLineChain)
+	arg = strings.TrimSpace(arg)
+
+	switch arg {
+	case "on":
+		c.SetChainMode(true)
+		aitModeNotice("chain mode enabled",
+			"File transfer and tmux will use PTY-pipe injection.",
+			"This is needed when you have SSH'd beyond the directly connected host.",
+		)
+	case "off":
+		c.SetChainMode(false)
+		aitModeNotice("chain mode disabled",
+			"File transfer and tmux will use SFTP/direct sessions.",
+		)
+	default:
+		// "status" or bare "!ait chain"
+		status := "off"
+		if c.ChainMode() {
+			status = "on"
+		}
+		aitModeNotice(
+			"chain mode: "+status,
+			"Use !ait chain on to enable, !ait chain off to disable.",
+			"Chain mode uses PTY-pipe injection for file transfer and tmux,",
+			"supporting any number of SSH hops without extra tools.",
+		)
+	}
+
+	c.finishMetaInteraction(stdin)
+	return nil
+}

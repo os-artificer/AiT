@@ -149,6 +149,7 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 | `!ait suspend` | Suspend: save scrollback and remote cwd; disconnect |
 | `!ait get <remote> <local>` | Download one file over current SSH (no re-auth) |
 | `!ait put <local> <remote>` | Upload one file over current SSH (no re-auth) |
+| `!ait chain [on\|off]` | Toggle chain mode: PTY-pipe transfer for SSH hops; `on` = base64 over PTY, `off` = SFTP (default) |
 
 ---
 
@@ -191,6 +192,38 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
 - In SSH, `!ait get` / `!ait put` reuse the live connection (two paths only, no flags).
 - Before `ait session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
+
+---
+
+## Proxy chain mode
+
+When you SSH through multiple hops (e.g. `local → bastion → internal-server`), AiT's direct connection only reaches the first host. SFTP-based file transfer (`!ait get` / `!ait put`) and tmux operations only work against that first hop by default. Features that use the PTY pipe (`!!`, `!ait ai`, scrollback) work at any depth.
+
+**`!ait chain on`** enables chain mode, which switches to PTY-pipe injection:
+
+- **File transfer**: Files are base64-encoded and transferred through the interactive PTY session, with sha256sum integrity verification. Remote hosts must have `base64` and `sha256sum` (standard on Linux/macOS).
+- **Tmux**: Tmux operations are injected through the PTY pipe instead of opening a new SSH session.
+
+**`!ait chain off`** returns to the default SFTP/direct-session mode.
+
+**`!ait chain`** (no argument) shows the current chain mode status.
+
+All AiT-injected commands are silent — they do not appear in shell history or arrow-key navigation.
+
+```text
+AiT user@bastion> ssh internal-server
+…logged into internal-server via bastion…
+AiT user@bastion> !ait chain on
+  chain mode enabled
+  File transfer and tmux will use PTY-pipe injection.
+  This is needed when you have SSH'd beyond the directly connected host.
+AiT user@bastion> !ait get /var/log/app.log ./app.log   # works through the chain
+AiT user@bastion> !ait chain off
+  chain mode disabled
+  File transfer and tmux will use SFTP/direct sessions.
+```
+
+**Chain mode requirements on the remote host**: `base64` and `sha256sum` must be available (pre-installed on virtually all Linux and macOS systems).
 
 ---
 

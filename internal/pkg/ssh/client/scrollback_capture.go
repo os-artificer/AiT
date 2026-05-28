@@ -19,12 +19,13 @@ package client
 import (
 	"io"
 	"strings"
-	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/scrollback"
 )
 
 // RunPTYCapture sends cmd to the remote shell via stdin and returns new scrollback output.
+// The command is space-prefixed for ignorespace history suppression so it does not appear
+// in bash/zsh history or arrow-key navigation.
 // Returns io.ErrClosedPipe when stdin is nil, or empty string when cmd is empty after trimming.
 func (c *Client) RunPTYCapture(stdin io.Writer, cmd string) (string, error) {
 	if stdin == nil {
@@ -36,13 +37,14 @@ func (c *Client) RunPTYCapture(stdin io.Writer, cmd string) (string, error) {
 	}
 
 	snap := c.scroll.String()
-	injectAt := time.Now()
 
-	if _, err := io.WriteString(stdin, cmd+"\n"); err != nil {
+	// Use space prefix for history suppression, but do NOT suppress echo
+	// because the caller (typically AI mode) expects the user to see the
+	// command and its output in the terminal.
+	if err := c.Inject(stdin, cmd, InjectOpts{SuppressEcho: false}); err != nil {
 		return "", err
 	}
 
-	c.waitRemoteOutputQuietAfter(injectAt, scrollback.CaptureQuiet, scrollback.CaptureMaxWait)
 	return scrollback.Delta(snap, c.scroll.String()), nil
 }
 
