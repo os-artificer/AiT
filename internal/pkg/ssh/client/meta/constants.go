@@ -34,6 +34,7 @@ const (
 	LineRemote  = "!ait remote"
 	LineBare    = "!ait"
 	LineHelp    = "!ait help"
+	LineChain   = "!ait chain"
 )
 
 // prefixes is the exhaustive set of strict meta openers. The scanner
@@ -44,6 +45,8 @@ var prefixes = []string{
 	"!ait local ",
 	"!ait local\n",
 	"!ait remote\n",
+	"!ait chain ",
+	"!ait chain\n",
 	PrefixAitSpace,
 	"!! ",
 	"!!\n",

@@ -35,7 +35,7 @@ ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUA
 
 **AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ait ai [--model <云端-provider>]`** 或 **`ait shell` 内 `ai`** 进入本机 AI REPL（`AiT AI>`），`run` / `ait` 经确认后在本机执行。已连接 SSH 时用 **`!ait ai`** / **`!!`** 进入远程 AI（`AiT AI user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ait ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ait ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议](#会话内-meta-协议ait--)。
 
-**`!ait local` / `!ait remote`** 切换本地/远程输入；**`!ait suspend`** 挂起会话。
+**`!ait local` / `!ait remote`** 切换本地/远程输入；**`!ait suspend`** 挂起会话；**`!ait chain [on|off]`** 切换链式模式（经 PTY 管道注入实现多跳 SSH 的文件传输与 tmux 操作）。
 
 ### 两种恢复模式（默认 vs `--tmux`）
 
@@ -229,9 +229,9 @@ CREATE TABLE app_meta (
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_pty.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback.go`, `scrollback_io.go`, `path.go` |
-| [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go` |
+| [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、编辑器 | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
@@ -278,6 +278,7 @@ CREATE TABLE app_meta (
 | `!ait suspend` | 挂起会话（等同 CLI `suspend`） |
 | `!ait get <remote> <local>` | 经 SFTP 从当前 SSH 连接下载单个文件（不重新认证） |
 | `!ait put <local> <remote>` | 经 SFTP 向当前 SSH 连接上传单个文件（不重新认证） |
+| `!ait chain [on\|off]` | 切换链式模式：使用 PTY 管道注入替代 SFTP 进行文件传输和 tmux 操作；当已 SSH 超越直连主机时需要 |
 
 **识别规则：**
 
@@ -410,7 +411,9 @@ sequenceDiagram
 
 ### get / put
 
-实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（基于 `golang.org/x/crypto/ssh` 的 SFTP）。**仅支持单个普通文件**；目录会返回明确错误。**`Put`** 在 `Create` 前对远程父目录执行 SFTP `MkdirAll`。错误带 `local file` / `remote file` 前缀；远端 `IsNotExist` 会提示检查远程路径与父目录（SFTP 在父目录不存在时常报 `file does not exist`）。
+实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（基于 `golang.org/x/crypto/ssh` 的 SFTP）与 [`internal/pkg/ssh/client/transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go)（基于 PTY 管道注入的 base64 传输）。**仅支持单个普通文件**；目录会返回明确错误。**`Put`** 在 `Create` 前对远程父目录执行 SFTP `MkdirAll`。错误带 `local file` / `remote file` 前缀；远端 `IsNotExist` 会提示检查远程路径与父目录（SFTP 在父目录不存在时常报 `file does not exist`）。
+
+当用户手动 SSH 超越直连主机（如 `本地 → 代理 → 目标`）时，SFTP 和 `conn.NewSession()` 只能到达第一跳。**链式模式**（`!ait chain on`）切换为 PTY 管道注入：命令通过现有 PTY stdin/stdout 管道静默注入，该管道穿越所有 SSH 跳板到达最终目标。文件传输使用 base64 编解码加 sha256sum 完整性校验。tmux 操作使用 `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` 替代 `conn.NewSession()`。
 
 | 模式 | 命令 | 认证 |
 |------|------|------|
@@ -426,6 +429,49 @@ sequenceDiagram
 - **两个路径 + `--session`**：本地路径与远程服务器路径（顺序无关；通过 `./` 或本地已存在文件识别本地路径）
 
 **会话内**（`!ait get` / `!ait put`）：仅两个服务器相对路径；不支持 SSH flag。
+
+### 代理链式模式（!ait chain）
+
+当连接路径为 `本地 → 代理 → 目标`（或任意数量的中间跳板）时，AiT `Client` 仅持有到第一跳的直连 SSH 会话。SFTP（`conn.NewSession()`）及基于 `conn.NewSession()` 的 tmux 操作只能到达第一跳——**无法**触及最终目标。已通过 PTY 管道工作的功能（AI 模式 `!!`、scrollback 捕获、远程 cwd 检测）不受跳板数量影响，因为 PTY stdin/stdout 穿越所有 SSH 连接。
+
+**链式模式**（`!ait chain on`）将文件传输和 tmux 操作从 SFTP/直连会话切换为 PTY 管道注入。所有 AiT 注入的命令均为静默（在历史记录和终端中不可见）：
+
+| 层 | 机制 |
+|----|------|
+| 历史抑制 | 空格前缀（`ignorespace`）+ 登录时注入 `HISTCONTROL=ignorespace:erasedups` / `setopt HIST_IGNORE_SPACE` |
+| 回显抑制 | 在注入命令前后使用 `stty -echo` / `stty echo` 包装 |
+| 输出捕获 | 唯一 ANSI 转义定界符（`\x1b[AIT_CAP_B\x1b` / `\x1b[AIT_CAP_E\x1b`）包裹命令输出，从 scrollback delta 中解析 |
+
+**文件传输**（`PTYTransfer`）：通过 PTY 管道以 base64 编解码文件内容，使用 sha256sum 完整性校验。以 3072 字节为一块，通过 `printf | base64 -d >>` 追加写入。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
+
+**tmux 操作**（`tmux/remote_pty.go`）：`HasSessionViaPTY`、`NewSessionViaPTY`、`DetachViaPTY`、`PanePathViaPTY`、`EnsureViaPTY` 通过 PTY 管道注入 tmux 命令，而非新开 SSH 会话。退出码检测使用 `echo "AIT_EXIT_$?"` 模式。
+
+**`RunPTYCapture` 改进**：此前通过原始 `io.WriteString(stdin, cmd+"\n")` 发送命令，会泄露到 bash/zsh 历史记录。现使用 `Client.Inject(stdin, cmd, InjectOpts{SuppressEcho: false})` —— 空格前缀使命令被历史抑制，但终端中仍可见（AI 模式期望用户看到其命令）。
+
+```mermaid
+flowchart LR
+  subgraph direct [直连模式：chain off]
+    SFTP[SFTP over conn]
+    Session[conn.NewSession]
+  end
+  subgraph chain [链式模式：chain on]
+    PTYGet[PTY base64 get]
+    PTYPut[PTY base64 put]
+    PTYTmux[PTY tmux 操作]
+  end
+  User[用户] -->|!ait chain on| chain
+  User -->|!ait chain off| direct
+```
+
+| 功能 | 直连模式（chain off） | 链式模式（chain on） |
+|------|----------------------|---------------------|
+| `!ait get` / `!ait put` | SFTP over `conn` | Base64 over PTY 管道 |
+| tmux `--tmux` | `conn.NewSession()` | PTY 注入（`HasSessionViaPTY` 等） |
+| AI `!!` / `!ait ai` | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
+| Scrollback / cwd | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
+| 远程要求 | 标准 | `base64`、`sha256sum` |
+
+**实现**：[`inject.go`](../internal/pkg/ssh/client/inject.go) + [`inject_helpers.go`](../internal/pkg/ssh/client/inject_helpers.go)（静默 PTY 注入）；[`transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) + [`transfer_pty_helpers.go`](../internal/pkg/ssh/client/transfer_pty_helpers.go)（base64 文件传输）；[`tmux/remote_pty.go`](../internal/pkg/tmux/remote_pty.go)（基于 PTY 的 tmux 操作）。
 
 ### AI 模式（双作用域）
 
@@ -505,6 +551,7 @@ sequenceDiagram
 - [x] `suspend` / `list` / `load` / `session --switch` / `session --delete`
 - [x] `--tmux` 远程保活
 - [x] `get` / `put`（SFTP，单文件）与双作用域 AI 模式（`ait ai`、`!ait ai` / `!!`）
+- [x] 代理链式模式（`!ait chain on/off`）——经 PTY 管道注入实现多跳 SSH 的文件传输与 tmux
 - [x] 跨平台构建（含 Windows OpenSSH 探测、分文件 proxy/resize）
 
 ## 风险与缓解
@@ -513,6 +560,7 @@ sequenceDiagram
 - **scrollback 过大**：超过阈值（如 512KB）写入 sidecar 文件，DB 只存 path
 - **安全**：不在日志打印 API Key/密码；`!!` 上下文脱敏；keyring 条目随 `delete`/`delete all` 清除
 - **TTL 边界**：时钟回拨用单调比较 + 文档说明；`auth_expires_at` 可在 `config` 中覆盖（最小 1h，最大 30d 防误配）
+- **链式模式文件传输**：base64 编码使数据量增加约 33%；大文件在高延迟链路上可能较慢。分块大小（3072 字节）较为保守以避免 PTY 缓冲区溢出。无 `base64`/`sha256sum` 的远程主机（Linux/macOS 上罕见）无法使用链式模式传输。
 
 ## 交付物
 

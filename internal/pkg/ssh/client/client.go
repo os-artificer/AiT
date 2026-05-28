@@ -75,6 +75,7 @@ type Client struct {
 	remotePromptShown   atomic.Bool
 	setupFilter         setupOutputFilter
 	stdinReader         *stdinReader // set for RunInteractive; used during remote AI REPL
+	chainMode           atomic.Bool  // true when user has SSH'd beyond the direct connection
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.
@@ -91,6 +92,20 @@ func (c *Client) Scrollback() *terminal.Buffer {
 // May be empty until the interactive loop updates it.
 func (c *Client) RemoteCwd() string {
 	return c.remoteCwd
+}
+
+// ChainMode reports whether the user has manually SSH'd beyond the directly
+// connected host (e.g. local -> proxy1 via ait login, then ssh target inside PTY).
+// When true, SFTP and conn.NewSession-based operations are replaced with
+// PTY-pipe alternatives that traverse the full SSH chain.
+func (c *Client) ChainMode() bool {
+	return c.chainMode.Load()
+}
+
+// SetChainMode enables or disables chain mode. When enabled, file transfer
+// and tmux operations use PTY-pipe injection instead of direct SFTP/session.
+func (c *Client) SetChainMode(enabled bool) {
+	c.chainMode.Store(enabled)
 }
 
 // RunCommand runs cmd without a PTY and returns combined stdout/stderr as a string.
@@ -343,6 +358,8 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 		return c.enterLocalMode()
 	case line == metaLineRemote:
 		return c.exitLocalMode()
+	case line == metaLineChain || strings.HasPrefix(line, metaLineChain+" "):
+		return c.handleChainMeta(stdin, line)
 
 	default:
 

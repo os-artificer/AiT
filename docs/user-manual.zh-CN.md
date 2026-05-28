@@ -149,6 +149,7 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | `!ait suspend` | 挂起：保存 scrollback 与远程 cwd，断开连接 |
 | `!ait get <remote> <local>` | 经当前 SSH 下载单个文件（不重新认证） |
 | `!ait put <local> <remote>` | 经当前 SSH 上传单个文件（不重新认证） |
+| `!ait chain [on\|off]` | 切换链式模式：PTY 管道传输用于多跳 SSH；`on` = base64 over PTY，`off` = SFTP（默认） |
 
 ---
 
@@ -191,6 +192,38 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 - 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
 - SSH 会话内 `!ait get` / `!ait put` 复用当前连接（仅两个路径，无 flag）。
 - 从本机执行 `ait session --switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
+
+---
+
+## 代理链式模式
+
+当通过多跳 SSH 连接（如 `本机 → 堡垒机 → 内网服务器`）时，AiT 的直连仅到达第一台主机。基于 SFTP 的文件传输（`!ait get` / `!ait put`）和 tmux 操作默认只能对该第一跳生效。使用 PTY 管道的功能（`!!`、`!ait ai`、scrollback）在任何深度均可正常工作。
+
+**`!ait chain on`** 启用链式模式，切换为 PTY 管道注入：
+
+- **文件传输**：文件经 base64 编码后通过交互式 PTY 会话传输，使用 sha256sum 完整性校验。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
+- **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
+
+**`!ait chain off`** 返回默认 SFTP/直连会话模式。
+
+**`!ait chain`**（无参数）显示当前链式模式状态。
+
+所有 AiT 注入的命令均为静默——不会出现在 shell 历史记录或方向键导航中。
+
+```text
+AiT user@bastion> ssh internal-server
+…经堡垒机登录到内网服务器…
+AiT user@bastion> !ait chain on
+  chain mode enabled
+  File transfer and tmux will use PTY-pipe injection.
+  This is needed when you have SSH'd beyond the directly connected host.
+AiT user@bastion> !ait get /var/log/app.log ./app.log   # 在链路中正常工作
+AiT user@bastion> !ait chain off
+  chain mode disabled
+  File transfer and tmux will use SFTP/direct sessions.
+```
+
+**链式模式对远程主机的要求**：须有 `base64` 和 `sha256sum`（几乎所有 Linux 和 macOS 系统均已预装）。
 
 ---
 

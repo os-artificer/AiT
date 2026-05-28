@@ -29,6 +29,7 @@ const (
 	metaLineRemote     = meta.LineRemote
 	metaLineBare       = meta.LineBare
 	metaLineHelp       = meta.LineHelp
+	metaLineChain      = meta.LineChain
 )
 
 // IO — CRLF line endings for remote TTY output.
