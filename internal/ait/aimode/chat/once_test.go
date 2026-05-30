@@ -31,32 +31,32 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 )
 
-// R18d: ParseCommand recognises "chat <msg>" and rejects bare "chat".
+// R18d: ParseCommand recognises "ask <msg>" and rejects bare "ask".
 func TestParseCommand(t *testing.T) {
-	msg, ok := ParseCommand("chat hello world")
+	msg, ok := ParseCommand("ask hello world")
 	if !ok || msg != "hello world" {
 		t.Fatalf("got %q ok=%v", msg, ok)
 	}
 
-	if _, ok := ParseCommand("chat"); ok {
-		t.Fatal("expected chat alone to fail parse")
+	if _, ok := ParseCommand("ask"); ok {
+		t.Fatal("expected ask alone to fail parse")
 	}
 
 	if _, ok := ParseCommand("help"); ok {
-		t.Fatal("expected non-chat to fail")
+		t.Fatal("expected non-ask to fail")
 	}
 
-	if !IsEmptyCommand("chat") {
-		t.Fatal("expected chat without message")
+	if !IsEmptyCommand("ask") {
+		t.Fatal("expected ask without message")
 	}
-	if IsEmptyCommand("chat hi") {
-		t.Fatal("expected chat with message not empty-cmd")
+	if IsEmptyCommand("ask hi") {
+		t.Fatal("expected ask with message not empty-cmd")
 	}
 }
 
 // ParseCommand trims trailing ";" and surrounding whitespace.
 func TestParseCommand_TrailingSemicolon(t *testing.T) {
-	msg, ok := ParseCommand("  chat hello ;  ")
+	msg, ok := ParseCommand("  ask hello ;  ")
 	if !ok || msg != "hello" {
 		t.Fatalf("msg=%q ok=%v", msg, ok)
 	}
@@ -180,5 +180,29 @@ func TestRunOnce_RemoteCRLF(t *testing.T) {
 	}
 	if !strings.HasSuffix(out.String(), "\r\n") || !strings.Contains(out.String(), "line1\r\nline2\r\n") {
 		t.Fatalf("expected CRLF output, got %q", out.String())
+	}
+}
+
+func TestParseAgentCommand(t *testing.T) {
+	msg, ok := ParseAgentCommand("agent list files")
+	if !ok || msg != "list files" {
+		t.Fatalf("got %q ok=%v", msg, ok)
+	}
+
+	if _, ok := ParseAgentCommand("agent"); ok {
+		t.Fatal("expected agent alone to fail parse")
+	}
+
+	if _, ok := ParseAgentCommand("ask hello"); ok {
+		t.Fatal("expected ask verb to fail agent parse")
+	}
+}
+
+func TestIsEmptyAgentCommand(t *testing.T) {
+	if !IsEmptyAgentCommand("agent") {
+		t.Fatal("expected agent without message to be empty")
+	}
+	if IsEmptyAgentCommand("agent do stuff") {
+		t.Fatal("expected agent with message not empty-cmd")
 	}
 }

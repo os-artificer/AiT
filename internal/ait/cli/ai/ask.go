@@ -31,11 +31,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newChatCmd(d Deps) *cobra.Command {
+func newAskCmd(d Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chat [message...]",
+		Use:   "ask [message...]",
 		Short: "Send one message to the AI and print the reply (non-interactive)",
-		Long:  "Run 'ait ai chat --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
+		Long:  "Run 'ait ai ask --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return d.RunWithMgr(func(ctx context.Context, mgr *session.Manager) error {
 				msg, err := resolveChatMessage(cmd, args)
@@ -56,7 +56,7 @@ func newChatCmd(d Deps) *cobra.Command {
 			})
 		},
 	}
-	helpdoc.Bind(cmd, helpdoc.WriteAIChatHelp)
+	helpdoc.Bind(cmd, helpdoc.WriteAIAskHelp)
 	return cmd
 }
 

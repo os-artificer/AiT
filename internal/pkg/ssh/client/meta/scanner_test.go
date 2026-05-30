@@ -291,7 +291,7 @@ func TestAIPromptFromLine(t *testing.T) {
 		{"!! how to grep", "how to grep", true},
 		{"!!", "", true},
 		{"!ait ai how to grep", "how to grep", true},
-		{"!ait ai chat hello", "chat hello", true},
+		{"!ait ai ask hello", "ask hello", true},
 		{"!! chat hello", "chat hello", true},
 		{"!ait ai", "", true},
 		{"!ait suspend", "", false},
