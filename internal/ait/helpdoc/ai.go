@@ -72,7 +72,7 @@ func WriteAIHelp(w io.Writer) error {
 	}
 	if err := b.WriteExamples(
 		"ait ai",
-		"ait ai chat \"summarize this\"",
+		"ait ai ask \"summarize this\"",
 		"ait ai model list",
 		exampleAIOllamaStatus,
 		exampleAIProviderEnableDeepseek,

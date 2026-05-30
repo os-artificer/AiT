@@ -14,8 +14,8 @@
  * limitations under the License.
 **/
 
-// Package chat exposes the one-shot AI chat path that powers
-// `ait ai chat <message>` and the `chat …` meta-REPL command.
+// Package chat exposes the one-shot AI ask path that powers
+// `ait ai ask <message>` and the `ask …` meta-REPL command.
 package chat
 
 import (
@@ -26,8 +26,11 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 )
 
-// Verb is the REPL command word that triggers a one-shot chat.
-const Verb = "chat"
+// Verb is the REPL command word that triggers a one-shot ask.
+const Verb = "ask"
+
+// AgentVerb is the REPL command word that triggers a one-shot agent turn.
+const AgentVerb = "agent"
 
 // Input collects what RunOnce needs without depending on aimode.Options.
 type Input struct {
@@ -78,9 +81,9 @@ func RunOnce(ctx context.Context, in Input) error {
 	return nil
 }
 
-// ParseCommand reports whether line is a one-shot chat command ("chat <message>").
+// ParseCommand reports whether line is a one-shot ask command ("ask <message>").
 // Returns the trimmed message tail when ok is true.
-// Returns (_, false) for bare "chat" with no message.
+// Returns (_, false) for bare "ask" with no message.
 func ParseCommand(line string) (message string, ok bool) {
 	rest, isVerb := splitVerb(line)
 	if !isVerb {
@@ -93,13 +96,34 @@ func ParseCommand(line string) (message string, ok bool) {
 	return rest, true
 }
 
-// IsEmptyCommand reports whether line is exactly "chat" with no message argument.
+// IsEmptyCommand reports whether line is exactly "ask" with no message argument.
 func IsEmptyCommand(line string) bool {
 	rest, isVerb := splitVerb(line)
 	return isVerb && strings.TrimSpace(rest) == ""
 }
 
-func splitVerb(line string) (rest string, isVerb bool) {
+// ParseAgentCommand reports whether line is a one-shot agent command ("agent <message>").
+// Returns the trimmed message tail when ok is true.
+// Returns (_, false) for bare "agent" with no message.
+func ParseAgentCommand(line string) (message string, ok bool) {
+	rest, isVerb := splitVerbGeneric(line, AgentVerb)
+	if !isVerb {
+		return "", false
+	}
+	rest = strings.TrimSpace(rest)
+	if rest == "" {
+		return "", false
+	}
+	return rest, true
+}
+
+// IsEmptyAgentCommand reports whether line is exactly "agent" with no message argument.
+func IsEmptyAgentCommand(line string) bool {
+	rest, isVerb := splitVerbGeneric(line, AgentVerb)
+	return isVerb && strings.TrimSpace(rest) == ""
+}
+
+func splitVerbGeneric(line, verb string) (rest string, isVerb bool) {
 	line = strings.TrimSpace(line)
 	line = strings.TrimSuffix(line, ";")
 	line = strings.TrimSpace(line)
@@ -108,12 +132,16 @@ func splitVerb(line string) (rest string, isVerb bool) {
 	}
 	i := strings.IndexByte(line, ' ')
 	if i < 0 {
-		return "", line == Verb
+		return "", line == verb
 	}
-	if line[:i] != Verb {
+	if line[:i] != verb {
 		return "", false
 	}
 	return strings.TrimSpace(line[i+1:]), true
+}
+
+func splitVerb(line string) (rest string, isVerb bool) {
+	return splitVerbGeneric(line, Verb)
 }
 
 func writeReply(out io.Writer, scope ai.Scope, reply string) {

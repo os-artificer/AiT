@@ -26,9 +26,9 @@ const (
 
 const metaCommands = `  help              show this help
   ai [question]     remote AI mode (!ait ai); optional first question
-  ai chat <msg>     one-shot AI reply (!ait ai chat); does not enter AI mode
+  ai ask <msg>     one-shot AI reply (!ait ai ask); does not enter AI mode
   !! [question]     alias for !ait ai
-  !! chat <msg>     one-shot AI reply
+  !! ask <msg>     one-shot AI reply
   local             local mode (prompt: AiT Local>)
   remote            return to remote shell (prompt: AiT user@host>)
   chain [on|off]    toggle chain mode (PTY-pipe transfer for SSH hops)

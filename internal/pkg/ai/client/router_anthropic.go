@@ -133,8 +133,18 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 	if len(parts) == 0 {
 		return "", "", fmt.Errorf(errEmptyResponseFmt, ep.id)
 	}
+	content := strings.TrimSpace(strings.Join(parts, "\n"))
+	reply, extractedThinking := ExtractReply(content)
+
 	thinking := strings.TrimSpace(strings.Join(thinkingParts, "\n"))
-	return strings.TrimSpace(strings.Join(parts, "\n")), thinking, nil
+	if extractedThinking != "" {
+		if thinking != "" {
+			thinking += "\n"
+		}
+		thinking += extractedThinking
+	}
+
+	return reply, thinking, nil
 }
 
 func splitAnthropicMessages(messages []openai.ChatCompletionMessage) (system string, out []anthropicMessage) {

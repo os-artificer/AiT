@@ -65,6 +65,24 @@ func runAgentTurn(ctx context.Context, opt Options, st *sessionState, question s
 	return nil
 }
 
+// RunAgentOnce runs a single agent interaction for question, executing any
+// tool calls until the model returns an answer or the step limit is reached.
+// Does not enter a REPL. Returns ai.ErrNotConfigured when opt.AI is nil or
+// ai.ErrChatMessageRequired when question is blank.
+func RunAgentOnce(ctx context.Context, opt Options, question string) error {
+	question = strings.TrimSpace(question)
+	if question == "" {
+		return ai.ChatMessageRequiredErr()
+	}
+	if opt.AI == nil {
+		return ai.NotConfiguredErr()
+	}
+
+	opt = fillOptionDefaults(opt)
+	st := newSessionState(opt)
+	return runAgentTurn(ctx, opt, st, question)
+}
+
 func assistEnv(opt Options, st *sessionState) ai.AssistEnv {
 	env := ai.AssistEnv{
 		Scope:       opt.Scope,

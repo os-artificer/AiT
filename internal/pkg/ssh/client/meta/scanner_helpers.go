@@ -65,12 +65,74 @@ func (s *Scanner) applyMetaBackspace() ([]byte, bool) {
 		return nil, true
 	}
 
-	s.buf = s.buf[:len(s.buf)-1]
+	// Delete a complete UTF-8 character rather than a single byte.
+	n := 1
+	for n < len(s.buf) && s.buf[len(s.buf)-n]&0xC0 == 0x80 {
+		n++
+	}
+	s.buf = s.buf[:len(s.buf)-n]
 	if len(s.buf) == 0 {
 		s.state = stateIdle
 	}
 
 	return []byte{0x08, ' ', 0x08}, true
+}
+
+// consumeEscInMeta drops escape/CSI sequences received while in stateMeta so
+// that terminal control sequences (including IME cursor updates) do not pollute
+// the meta command buffer.
+func (s *Scanner) consumeEscInMeta(b byte, fwd, ech []byte) ([]byte, []byte, string, bool) {
+	switch s.escState {
+	case escReceived:
+		if b == csiIntroducerByte {
+			s.escState = escCSI
+			return fwd, ech, "", false
+		}
+		// Simple escape sequence (ESC + one char) — consume and resume.
+		s.escState = escNone
+		return fwd, ech, "", false
+	case escCSI:
+		if b >= csiFinalByteMin && b <= csiFinalByteMax {
+			// CSI sequence complete.
+			s.escState = escNone
+			return fwd, ech, "", false
+		}
+		if (b >= '0' && b <= '9') || b == ';' || b == ':' || b == '<' || b == '=' || b == '>' || b == '?' {
+			// Intermediate/parameter bytes — keep consuming.
+			return fwd, ech, "", false
+		}
+		// Unexpected byte — abort escape parsing.
+		s.escState = escNone
+		return fwd, ech, "", false
+	}
+	s.escState = escNone
+	return fwd, ech, "", false
+}
+
+// isUTF8MultiByteStart reports whether b is the first byte of a multi-byte
+// UTF-8 encoded character (CJK, emoji, etc.).
+func isUTF8MultiByteStart(b byte) bool {
+	return b >= 0xC2 && b <= 0xF4
+}
+
+// stripTrailingPinyin removes consecutive lowercase ASCII letters from the end
+// of s.buf and returns how many were removed. This heuristic clears IME preedit
+// (pinyin) text that precedes a confirmed Chinese character in raw TTY mode.
+func (s *Scanner) stripTrailingPinyin() int {
+	i := len(s.buf)
+	for i > 0 {
+		c := s.buf[i-1]
+		if c >= 'a' && c <= 'z' {
+			i--
+		} else {
+			break
+		}
+	}
+	removed := len(s.buf) - i
+	if removed > 0 {
+		s.buf = s.buf[:i]
+	}
+	return removed
 }
 
 func completeLine(candidate string, b byte) (line string, done bool) {

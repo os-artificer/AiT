@@ -68,7 +68,7 @@ func New(d Deps) *cobra.Command {
 		},
 	}
 	cmd.PersistentFlags().String("model", "", "Override AI provider for this session (deepseek|minimax)")
-	cmd.AddCommand(newChatCmd(d), newProviderCmd(d), d.OllamaCmd)
+	cmd.AddCommand(newAskCmd(d), newProviderCmd(d), d.OllamaCmd)
 	helpdoc.Bind(cmd, helpdoc.WriteAIHelp)
 	return cmd
 }
