@@ -52,7 +52,9 @@ func Dial(opts Options) (*Client, error) {
 		abortSSHSetup(agentConn)
 		return nil, err
 	}
-	return &Client{conn: conn, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}, nil
+	c := &Client{conn: conn, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}
+	c.chainMode.Store(true)
+	return c, nil
 }
 
 // DetectAuthMethod returns a store.AuthMethod* label inferred from opts (password, key, or agent).

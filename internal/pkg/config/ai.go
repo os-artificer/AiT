@@ -41,6 +41,8 @@ const (
 	DefaultOllamaBase            = "http://127.0.0.1:11434/v1"
 	DefaultTieredMaxPromptChars  = 280
 	DefaultTieredMaxHistoryTurns = 0
+	DefaultAgentMaxSteps         = 16
+	AgentMaxStepsLimit           = 64
 )
 
 // ProviderConfig holds per-provider AI endpoint settings.
@@ -61,11 +63,26 @@ type TieredConfig struct {
 	ComplexKeywords []string `yaml:"complex_keywords"`
 }
 
-// AIConfig groups default provider, optional fallback order, tiered routing, and provider map.
+// AgentConfig tunes the AI Agent mode behavior.
+type AgentConfig struct {
+	MaxSteps int `yaml:"max_steps"`
+}
+
+// Normalize fills defaults and clamps values for agent config.
+func (a *AgentConfig) Normalize() {
+	if a.MaxSteps <= 0 {
+		a.MaxSteps = DefaultAgentMaxSteps
+	} else if a.MaxSteps > AgentMaxStepsLimit {
+		a.MaxSteps = AgentMaxStepsLimit
+	}
+}
+
+// AIConfig groups default provider, optional fallback order, tiered routing, provider map, and agent settings.
 type AIConfig struct {
 	Default   string                    `yaml:"default"`
 	Fallback  []string                  `yaml:"fallback"`
 	Tiered    TieredConfig              `yaml:"tiered"`
+	Agent     AgentConfig               `yaml:"agent"`
 	Providers map[string]ProviderConfig `yaml:"providers"`
 }
 
@@ -145,4 +162,12 @@ func (c *Config) DefaultProviderID() string {
 		return ProviderDeepseek
 	}
 	return c.AI.Default
+}
+
+// AgentMaxSteps returns the configured ai.agent.max_steps or DefaultAgentMaxSteps when unset.
+func (c *Config) AgentMaxSteps() int {
+	if c == nil || c.AI.Agent.MaxSteps <= 0 {
+		return DefaultAgentMaxSteps
+	}
+	return c.AI.Agent.MaxSteps
 }

@@ -44,7 +44,7 @@ func TestAIHelpSections(t *testing.T) {
 
 func TestLocalAIModeOptions_HasCaptureAndCLI(t *testing.T) {
 	exec := func(args []string, out, errOut io.Writer) error { return nil }
-	opt := localAIModeOptions(nil, exec)
+	opt := localAIModeOptions(nil, 0, exec)
 	if opt.Capture == nil {
 		t.Fatal("local AI mode missing Capture runner")
 	}
