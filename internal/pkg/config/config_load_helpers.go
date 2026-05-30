@@ -192,6 +192,8 @@ func normalizeAI(cfg *Config) {
 			cfg.AI.Providers[ProviderOllama] = defaultProviderConfig(ProviderOllama)
 		}
 	}
+
+	cfg.AI.Agent.Normalize()
 }
 
 // clearLegacyDeepseekForSave zeroes the root deepseek block so Save does not duplicate ai.providers.deepseek.

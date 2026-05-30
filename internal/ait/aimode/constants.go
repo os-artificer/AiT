@@ -59,5 +59,6 @@ const (
 	msgPolicyDeprecated        = "AiT: policy is deprecated; use approve each or approve session"
 	msgInteractiveSkipCRLF     = "interactive command not run in Agent mode; use shell or run manually\r\n"
 	msgAIProviderSetFmt        = "AI provider set to %s\r\n"
-	agentMaxSteps              = 8
+	agentMaxSteps              = 16
+	msgAgentStepLimitFmt       = "AiT: agent step limit reached (max %d steps). Use 'mode ask' for complex tasks, or set ai.agent.max_steps in config.\r\n"
 )

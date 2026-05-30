@@ -35,8 +35,9 @@ func runAgentTurn(ctx context.Context, opt Options, st *sessionState, question s
 
 	env := assistEnv(opt, st)
 	userMsg := question
+	maxSteps := opt.MaxAgentSteps(agentMaxSteps)
 
-	for step := 0; step < agentMaxSteps; step++ {
+	for step := 0; step < maxSteps; step++ {
 		reply, _, updated, err := opt.AI.ChatAgent(ctx, st.history, userMsg, env)
 		if err != nil {
 			return err
@@ -60,7 +61,7 @@ func runAgentTurn(ctx context.Context, opt Options, st *sessionState, question s
 		userMsg = "tool_result:\n" + result
 	}
 
-	aimWrite(opt.Out, msgPrefixAiT+"agent step limit reached\r\n")
+	aimWrite(opt.Out, fmt.Sprintf(msgAgentStepLimitFmt, maxSteps))
 	return nil
 }
 
