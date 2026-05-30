@@ -47,11 +47,14 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 
 	var historySeed string
 	if q := stringsTrim(initialQuestion); q != "" {
-		if chat.IsEmptyCommand(q) {
+		if chat.IsEmptyCommand(q) || chat.IsEmptyAgentCommand(q) {
 			return ai.ChatMessageRequiredErr()
 		}
 		if msg, ok := chat.ParseCommand(q); ok {
 			return runChatOnceFromOpt(ctx, opt, msg)
+		}
+		if msg, ok := chat.ParseAgentCommand(q); ok {
+			return runAgentOnceFromOpt(ctx, opt, msg)
 		}
 
 		exit, err := ExecuteLine(ctx, opt, st, q, nil)
@@ -176,6 +179,16 @@ func runChatOnceFromOpt(ctx context.Context, opt Options, message string) error 
 		Scrollback: opt.Scrollback,
 		Out:        opt.Out,
 	})
+	if err != nil {
+		reportAIError(opt.ErrOut, err)
+	}
+	return err
+}
+
+// runAgentOnceFromOpt runs a single agent turn for the meta one-shot path.
+// On error, prints via aimPrintErr; returns the underlying error to the caller.
+func runAgentOnceFromOpt(ctx context.Context, opt Options, question string) error {
+	err := RunAgentOnce(ctx, opt, question)
 	if err != nil {
 		reportAIError(opt.ErrOut, err)
 	}

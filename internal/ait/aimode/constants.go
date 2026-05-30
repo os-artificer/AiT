@@ -32,7 +32,7 @@ const (
 	replCmdModel    = "model"
 	replCmdRun      = "run"
 	replCmdAit      = "ait"
-	replCmdChat     = "chat"
+	replCmdAsk      = "ask"
 	replModelList   = "list"
 	replModelStatus = "status"
 )

@@ -152,7 +152,7 @@ func TestRunREPL_InitialChatOnceExits(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(map[string]any{
-		"choices": []map[string]any{{"message": map[string]string{"content": "chat-ok"}}},
+		"choices": []map[string]any{{"message": map[string]string{"content": "ask-ok"}}},
 	})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -183,7 +183,7 @@ func TestRunREPL_InitialChatOnceExits(t *testing.T) {
 			In:     strings.NewReader(""),
 			Out:    &out,
 			ErrOut: io.Discard,
-		}, "chat hi")
+		}, "ask hi")
 	}()
 
 	select {
@@ -192,10 +192,10 @@ func TestRunREPL_InitialChatOnceExits(t *testing.T) {
 			t.Fatal(err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("RunREPL blocked after chat initial line")
+		t.Fatal("RunREPL blocked after ask initial line")
 	}
-	if !strings.Contains(out.String(), "chat-ok") {
-		t.Fatalf("expected chat reply, got %q", out.String())
+	if !strings.Contains(out.String(), "ask-ok") {
+		t.Fatalf("expected ask reply, got %q", out.String())
 	}
 }
 
@@ -230,7 +230,7 @@ func TestRunREPL_InitialChatEmptyMessage(t *testing.T) {
 			In:     strings.NewReader(""),
 			Out:    io.Discard,
 			ErrOut: io.Discard,
-		}, "chat")
+		}, "ask")
 	}()
 
 	select {
@@ -239,7 +239,7 @@ func TestRunREPL_InitialChatEmptyMessage(t *testing.T) {
 			t.Fatalf("got %v, want ai.ErrChatMessageRequired", err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("RunREPL blocked after empty chat initial line")
+		t.Fatal("RunREPL blocked after empty ask initial line")
 	}
 }
 
@@ -290,7 +290,7 @@ func TestRunREPL_InitialNonChatShowsPrompt(t *testing.T) {
 		t.Fatalf("expected first-turn reply, got %q", out.String())
 	}
 	if !strings.Contains(out.String(), "AiT AI(Agent)>") {
-		t.Fatalf("expected REPL prompt after non-chat initial, got %q", out.String())
+		t.Fatalf("expected REPL prompt after non-ask initial, got %q", out.String())
 	}
 }
 
@@ -336,7 +336,7 @@ func TestRunREPL_InitialChatOnceRemoteCRLF(t *testing.T) {
 			In:        strings.NewReader(""),
 			Out:       &out,
 			ErrOut:    io.Discard,
-		}, "chat hi")
+		}, "ask hi")
 	}()
 
 	select {
@@ -345,17 +345,17 @@ func TestRunREPL_InitialChatOnceRemoteCRLF(t *testing.T) {
 			t.Fatal(err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("RunREPL blocked after remote chat initial line")
+		t.Fatal("RunREPL blocked after remote ask initial line")
 	}
 	got := out.String()
 	if !strings.Contains(got, "remote-chat") {
-		t.Fatalf("expected chat reply, got %q", got)
+		t.Fatalf("expected ask reply, got %q", got)
 	}
 	if !strings.Contains(got, "\r\n") {
 		t.Fatalf("expected CRLF remote output, got %q", got)
 	}
 	if strings.Contains(got, "AiT AI(Ask)>") {
-		t.Fatalf("chat-once should not print local REPL prompt, got %q", got)
+		t.Fatalf("ask-once should not print local REPL prompt, got %q", got)
 	}
 }
 
@@ -366,7 +366,7 @@ func TestIsMetaREPLCommand(t *testing.T) {
 			t.Errorf("%q should be meta", line)
 		}
 	}
-	nonMeta := []string{"how do I grep logs", "what is docker", "chat hello world", ""}
+	nonMeta := []string{"how do I grep logs", "what is docker", "ask hello world", ""}
 	for _, line := range nonMeta {
 		if isMetaREPLCommand(line) {
 			t.Errorf("%q should not be meta", line)

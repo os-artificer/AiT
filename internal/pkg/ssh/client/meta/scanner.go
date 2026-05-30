@@ -33,6 +33,21 @@ const (
 	stateMeta
 )
 
+type escParseState int
+
+const (
+	escNone escParseState = iota
+	escReceived
+	escCSI
+)
+
+const (
+	keyESC            = 27
+	csiIntroducerByte = '['
+	csiFinalByteMin   = 0x40
+	csiFinalByteMax   = 0x7e
+)
+
 // Scanner is the byte-level state machine that detects !ait / !! meta
 // lines. It is intentionally free of side effects so it can be unit-tested
 // in isolation from the SSH session.
@@ -41,6 +56,7 @@ type Scanner struct {
 	buf         []byte
 	atLineStart bool
 	aiAvailable bool
+	escState    escParseState
 }
 
 // New returns a Scanner. aiAvailable controls whether !! and !ait prefixes
@@ -65,6 +81,19 @@ func (s *Scanner) feedOne(b byte, fwd, ech []byte) ([]byte, []byte, string, bool
 	switch s.state {
 
 	case stateMeta:
+		if s.escState != escNone {
+			return s.consumeEscInMeta(b, fwd, ech)
+		}
+		if b == keyESC {
+			s.escState = escReceived
+			return fwd, ech, "", false
+		}
+		if isUTF8MultiByteStart(b) {
+			n := s.stripTrailingPinyin()
+			for i := 0; i < n; i++ {
+				ech = append(ech, 0x08, ' ', 0x08)
+			}
+		}
 		if len(s.buf) >= maxLine {
 			fwd = append(fwd, s.buf...)
 			s.buf = s.buf[:0]

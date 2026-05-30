@@ -39,12 +39,12 @@ func TestWriteProviderDisableHelpSections(t *testing.T) {
 	helpMustContain(t, buf.String(), "Usage:", "Examples:", "help for disable", "minimax")
 }
 
-func TestWriteAIChatHelpSections(t *testing.T) {
+func TestWriteAIAskHelpSections(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteAIChatHelp(&buf); err != nil {
+	if err := WriteAIAskHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
-	helpMustContain(t, buf.String(), "Usage:", "ait ai chat", "stdin", "help for chat")
+	helpMustContain(t, buf.String(), "Usage:", "ait ai ask", "stdin", "help for ask")
 }
 
 func TestWriteOllamaSetupHelpSections(t *testing.T) {

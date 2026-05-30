@@ -409,6 +409,70 @@ func TestSetModel_ErrNoAI(t *testing.T) {
 	}
 }
 
+func TestRunAgentOnce_Answer(t *testing.T) {
+	client := testAIClientHandler(t, func(call int) string {
+		return `{"action":"answer","text":"the system is Linux"}`
+	})
+	var out bytes.Buffer
+	opt := Options{
+		Scope: ai.ScopeLocal,
+		AI:    client,
+		Out:   &out,
+	}
+	if err := RunAgentOnce(context.Background(), opt, "what is the system?"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "the system is Linux") {
+		t.Fatalf("out=%q", out.String())
+	}
+}
+
+func TestRunAgentOnce_RunAndAnswer(t *testing.T) {
+	var capBuf strings.Builder
+	client := testAIClientHandler(t, func(call int) string {
+		if call == 1 {
+			return `{"action":"run_shell","command":"uname"}`
+		}
+		return `{"action":"answer","text":"Linux"}`
+	})
+	var out bytes.Buffer
+	opt := Options{
+		Scope: ai.ScopeLocal,
+		AI:    client,
+		Capture: agent.NewCaptureRunner(func(_ context.Context, cmd string) (string, error) {
+			capBuf.WriteString(cmd)
+			return "Linux\n", nil
+		}),
+		Out: &out,
+		ConfirmRead: func(string) (approve.Result, error) {
+			return approve.Result{Run: true}, nil
+		},
+	}
+	if err := RunAgentOnce(context.Background(), opt, "check OS"); err != nil {
+		t.Fatal(err)
+	}
+	if capBuf.String() != "uname" {
+		t.Fatalf("capture cmd=%q", capBuf.String())
+	}
+	if !strings.Contains(out.String(), "Linux") {
+		t.Fatalf("out=%q", out.String())
+	}
+}
+
+func TestRunAgentOnce_EmptyMessage(t *testing.T) {
+	err := RunAgentOnce(context.Background(), Options{AI: testAIClient(t, "x"), Out: io.Discard}, "  ")
+	if !errors.Is(err, ai.ErrChatMessageRequired) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRunAgentOnce_NilAI(t *testing.T) {
+	err := RunAgentOnce(context.Background(), Options{Out: io.Discard}, "hello")
+	if !errors.Is(err, ai.ErrNotConfigured) {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestMain(m *testing.M) {
 	_ = os.Setenv("AIT_KEYRING_BACKEND", "file")
 	os.Exit(m.Run())

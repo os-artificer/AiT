@@ -33,7 +33,7 @@ func TestAIHelpSections(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"Usage:", "Examples:", "help for ai", "ait ai", "ait ai model list", "ait ai ollama status", "ait ai ollama setup",
-		"ait ai --model minimax", "Subcommands:", "chat", "provider enable", "ollama status", "start", "stop", "disable",
+		"ait ai --model minimax", "Subcommands:", "ask", "provider enable", "ollama status", "start", "stop", "disable",
 		"--model", "deepseek|minimax", "run <command>", "mode ask|agent", "approve each|session", "trust", "model list", "!ait ai",
 	} {
 		if !strings.Contains(out, want) {
