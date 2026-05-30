@@ -20,19 +20,19 @@ import "io"
 
 const (
 	aiChatIntroMain = "Send a single message to the configured AI provider and print the reply."
-	aiChatIntroSSH  = "Does not enter interactive AI mode. Inside SSH use !ait ai chat <message> or !! chat <message>."
-	aiChatUsage     = "ait ai chat [message...]"
+	aiChatIntroSSH  = "Does not enter interactive AI mode. Inside SSH use !ait ai ask <message> or !! ask <message>."
+	aiChatUsage     = "ait ai ask [message...]"
 	aiChatInputBody = `  message...   Prompt text (joined with spaces)
-  (no args)    Read prompt from stdin until EOF (e.g. echo "question" | ait ai chat)
+  (no args)    Read prompt from stdin until EOF (e.g. echo "question" | ait ai ask)
 `
-	aiChatExampleQuote = `ait ai chat "explain this error"`
-	aiChatExampleModel = "ait ai chat --model minimax summarize logs"
-	aiChatExampleStdin = `echo "hello" | ait ai chat`
-	aiChatExampleSSH   = "!ait ai chat how do I find large files"
+	aiChatExampleQuote = `ait ai ask "explain this error"`
+	aiChatExampleModel = "ait ai ask --model minimax summarize logs"
+	aiChatExampleStdin = `echo "hello" | ait ai ask`
+	aiChatExampleSSH   = "!ait ai ask how do I find large files"
 )
 
-// WriteAIChatHelp prints ait ai chat --help to w.
-func WriteAIChatHelp(w io.Writer) error {
+// WriteAIAskHelp prints ait ai ask --help to w.
+func WriteAIAskHelp(w io.Writer) error {
 	b := newHelpBody(w)
 	if err := b.WriteIntro(aiChatIntroMain, aiChatIntroSSH); err != nil {
 		return err
@@ -54,5 +54,5 @@ func WriteAIChatHelp(w io.Writer) error {
 	); err != nil {
 		return err
 	}
-	return b.Finish("chat")
+	return b.Finish("ask")
 }

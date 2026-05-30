@@ -103,7 +103,7 @@ func isAllowedChatCLIErr(err error) bool {
 		strings.Contains(s, "providers failed") ||
 		strings.Contains(s, "Forbidden") ||
 		strings.Contains(s, "connection refused") ||
-		strings.Contains(s, "chat requires a message")
+		strings.Contains(s, "ask requires a message")
 }
 
 func withStdin(t *testing.T, data string, fn func()) {
@@ -129,7 +129,7 @@ func TestAICmd_ChatNoTTY(t *testing.T) {
 	setupAITestKeyring(t)
 	done := make(chan error, 1)
 	go func() {
-		done <- ExecuteWriters([]string{"ai", "chat", "ping"}, &bytes.Buffer{}, &bytes.Buffer{})
+		done <- ExecuteWriters([]string{"ai", "ask", "ping"}, &bytes.Buffer{}, &bytes.Buffer{})
 	}()
 
 	select {
@@ -147,7 +147,7 @@ func TestAICmd_ChatStdinNoTTY(t *testing.T) {
 	withStdin(t, "ping\n", func() {
 		done := make(chan error, 1)
 		go func() {
-			done <- ExecuteWriters([]string{"ai", "chat"}, &bytes.Buffer{}, &bytes.Buffer{})
+			done <- ExecuteWriters([]string{"ai", "ask"}, &bytes.Buffer{}, &bytes.Buffer{})
 		}()
 
 		select {
@@ -156,7 +156,7 @@ func TestAICmd_ChatStdinNoTTY(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		case <-time.After(5 * time.Second):
-			t.Fatal("ait ai chat (stdin) blocked (expected non-interactive exit)")
+			t.Fatal("ait ai ask (stdin) blocked (expected non-interactive exit)")
 		}
 	})
 }
@@ -166,7 +166,7 @@ func TestAICmd_ChatEmptyNoTTY(t *testing.T) {
 	withStdin(t, "", func() {
 		done := make(chan error, 1)
 		go func() {
-			done <- ExecuteWriters([]string{"ai", "chat"}, &bytes.Buffer{}, &bytes.Buffer{})
+			done <- ExecuteWriters([]string{"ai", "ask"}, &bytes.Buffer{}, &bytes.Buffer{})
 		}()
 
 		select {
@@ -174,7 +174,7 @@ func TestAICmd_ChatEmptyNoTTY(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error for empty chat message")
 			}
-			if !strings.Contains(err.Error(), "chat requires a message") &&
+			if !strings.Contains(err.Error(), "ask requires a message") &&
 				!isAllowedChatCLIErr(err) {
 				t.Fatalf("unexpected error: %v", err)
 			}

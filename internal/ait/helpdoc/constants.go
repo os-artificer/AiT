@@ -67,9 +67,9 @@ const (
 	exampleAIOllamaSetupYes          = "ait ai ollama setup --yes"
 	exampleAIOllamaStartWait         = "ait ai ollama start --wait"
 	exampleAIOllamaDisableStop       = "ait ai ollama disable --stop"
-	aiHelpSubcommandsBody            = "  chat [message...]   one-shot question (non-interactive)\n  provider enable|disable <id>\n  ollama status|setup|start|stop|disable\n"
+	aiHelpSubcommandsBody            = "  ask [message...]   one-shot question (non-interactive)\n  provider enable|disable <id>\n  ollama status|setup|start|stop|disable\n"
 	aiHelpFlagsBody                  = "  --model   Override AI provider for this session (uses provider model/base_url from config)\n"
 	aiHelpTieredRoutingBody          = "When ai.tiered.enabled in config.yaml, short first-turn prompts use local Ollama; longer or complex prompts use cloud providers. Setup: ait ai ollama setup. List: ait ai model list\n"
-	aiHelpInSSHBody                  = "Use !ait ai or !! for interactive AI; !ait ai chat <msg> or !! chat <msg> for one-shot. !ait ai as a meta subcommand is blocked."
+	aiHelpInSSHBody                  = "Use !ait ai or !! for interactive AI; !ait ai ask <msg> or !! ask <msg> for one-shot. !ait ai as a meta subcommand is blocked."
 	aiChatHelpFlagsBody              = "  --model   Override cloud provider (deepseek|minimax); inherited from ait ai\n"
 )

@@ -42,6 +42,7 @@ const (
 	escapeRight
 	escapeHome
 	escapeEnd
+	escapeDelete
 )
 
 type editState struct {
@@ -63,6 +64,26 @@ func (s *editState) setLine(line string) {
 
 func (s *editState) insertRune(out io.Writer, prompt string, r rune) {
 	s.histIdx = -1
+
+	// Pinyin filter: when a CJK character is inserted, remove preceding
+	// lowercase ASCII letters that were likely IME preedit (pinyin) text.
+	if isCJKRune(r) {
+		asciiLen := 0
+		for i := s.cursor - 1; i >= 0; i-- {
+			c := s.runes[i]
+			if c >= 'a' && c <= 'z' {
+				asciiLen++
+			} else {
+				break
+			}
+		}
+		if asciiLen >= 2 {
+			s.runes = append(s.runes[:s.cursor-asciiLen], s.runes[s.cursor:]...)
+			s.cursor -= asciiLen
+			redrawLine(out, prompt, s.runes, s.cursor)
+		}
+	}
+
 	atMidLine := s.cursor < len(s.runes)
 	s.runes = append(s.runes[:s.cursor], append([]rune{r}, s.runes[s.cursor:]...)...)
 	s.cursor++
@@ -174,6 +195,8 @@ func parseEscapeSeq(br *bufio.Reader) (escapeKey, error) {
 			switch string(digits) {
 			case "1":
 				return escapeHome, nil
+			case "3":
+				return escapeDelete, nil
 			case "4":
 				return escapeEnd, nil
 			}
@@ -193,6 +216,8 @@ func parseEscapeSeq(br *bufio.Reader) (escapeKey, error) {
 				return escapeHome, nil
 			case 'F':
 				return escapeEnd, nil
+			case 'P':
+				return escapeDelete, nil
 			}
 			return escapeNone, nil
 		}
@@ -213,5 +238,13 @@ func handleEscapeKey(out io.Writer, prompt string, st *editState, hist *history.
 		st.moveCursor(out, prompt, 0)
 	case escapeEnd:
 		st.moveCursor(out, prompt, len(st.runes))
+	case escapeDelete:
+		st.deleteBeforeCursor(out, prompt)
 	}
+}
+
+// isCJKRune reports whether r is a CJK Unified Ideograph or a common CJK
+// punctuation/symbol likely produced by a Chinese/Japanese/Korean IME.
+func isCJKRune(r rune) bool {
+	return r > 127 && unicode.Is(unicode.Han, r)
 }
