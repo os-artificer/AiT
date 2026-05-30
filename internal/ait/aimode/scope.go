@@ -53,4 +53,14 @@ type Options struct {
 	ConfirmRead func(prompt string) (approve.Result, error)
 	// UseTTYLineEdit enables runAITTY when In is not os.Stdin (SSH remote AI ReplIn).
 	UseTTYLineEdit bool
+	// MaxSteps overrides the agent turn limit; 0 means use default.
+	MaxSteps int
+}
+
+// MaxAgentSteps returns opt.MaxSteps if set, otherwise the provided defaultSteps.
+func (opt Options) MaxAgentSteps(defaultSteps int) int {
+	if opt.MaxSteps > 0 {
+		return opt.MaxSteps
+	}
+	return defaultSteps
 }

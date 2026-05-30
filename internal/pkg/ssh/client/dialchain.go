@@ -82,7 +82,9 @@ func DialChain(opts Options) (*Client, error) {
 	}
 	client := ssh.NewClient(ncc, chans, reqs)
 
-	return &Client{conn: client, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}, nil
+	c := &Client{conn: client, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}
+	c.chainMode.Store(true)
+	return c, nil
 }
 
 // RunRemoteCommand runs cmdline on the remote host without a PTY, streaming to os.Stdout/Stderr.

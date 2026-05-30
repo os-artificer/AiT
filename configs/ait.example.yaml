@@ -14,6 +14,9 @@ ai:
     max_prompt_chars: 280
     max_history_turns: 0
     complex_keywords: ["implement", "refactor", "架构", "debug"]
+  agent:
+    # Maximum Agent mode turns (steps) per user request. 0 uses default (16). Max 64.
+    max_steps: 16
   providers:
     ollama:
       enabled: true   # ait ai provider disable ollama to stop local routing

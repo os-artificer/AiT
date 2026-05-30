@@ -161,6 +161,7 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 		AI:              m.AI,
 		OnRemoteAI:      m.OnRemoteAI,
 		OnMetaCLI:       m.MetaCLI,
+		AgentMaxSteps:   m.Config.AgentMaxSteps(),
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
 			if !persisted {
 				return ephemeralSuspendErr()

@@ -173,6 +173,7 @@ func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQ
 		RunCapture: func(cmd string) (string, error) {
 			return c.RunPTYCapture(stdin, cmd)
 		},
+		MaxSteps: opts.AgentMaxSteps,
 	})
 
 	c.finishMetaInteraction(stdin)
@@ -229,12 +230,12 @@ func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 		c.SetChainMode(true)
 		aitModeNotice("chain mode enabled",
 			"File transfer and tmux will use PTY-pipe injection.",
-			"This is needed when you have SSH'd beyond the directly connected host.",
 		)
 	case "off":
 		c.SetChainMode(false)
 		aitModeNotice("chain mode disabled",
 			"File transfer and tmux will use SFTP/direct sessions.",
+			"Use !ait chain on to re-enable.",
 		)
 	default:
 		// "status" or bare "!ait chain"
