@@ -75,7 +75,7 @@ type Client struct {
 	remotePromptShown   atomic.Bool
 	setupFilter         setupOutputFilter
 	stdinReader         *stdinReader // set for RunInteractive; used during remote AI REPL
-	chainMode           atomic.Bool  // true when user has SSH'd beyond the direct connection
+	chainMode           atomic.Bool  // true by default; uses PTY-pipe injection for transfer and tmux
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.
@@ -94,15 +94,14 @@ func (c *Client) RemoteCwd() string {
 	return c.remoteCwd
 }
 
-// ChainMode reports whether the user has manually SSH'd beyond the directly
-// connected host (e.g. local -> proxy1 via ait login, then ssh target inside PTY).
-// When true, SFTP and conn.NewSession-based operations are replaced with
+// ChainMode reports whether chain mode is active.
+// When true (default), SFTP and conn.NewSession-based operations are replaced with
 // PTY-pipe alternatives that traverse the full SSH chain.
 func (c *Client) ChainMode() bool {
 	return c.chainMode.Load()
 }
 
-// SetChainMode enables or disables chain mode. When enabled, file transfer
+// SetChainMode enables or disables chain mode. When enabled (default), file transfer
 // and tmux operations use PTY-pipe injection instead of direct SFTP/session.
 func (c *Client) SetChainMode(enabled bool) {
 	c.chainMode.Store(enabled)
@@ -135,6 +134,8 @@ type InteractiveOpts struct {
 	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
 	// OnMetaCLI runs ait CLI subcommands from !ait <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
+	// AgentMaxSteps overrides the agent turn limit; 0 means use default from config.
+	AgentMaxSteps int
 }
 
 // RunInteractive runs a PTY shell with !ait / !! meta handling, optional tmux, and AI/local modes.

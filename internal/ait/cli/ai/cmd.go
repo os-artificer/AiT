@@ -81,7 +81,7 @@ func RunLocal(ctx context.Context, mgr *session.Manager, modelOverride, initialL
 	if err != nil {
 		return err
 	}
-	return aimode.RunREPL(ctx, localAIModeOptions(aiClient, exec), initialLine)
+	return aimode.RunREPL(ctx, localAIModeOptions(aiClient, mgr.Config.AgentMaxSteps(), exec), initialLine)
 }
 
 // RunLocalFromShell is the shell.SetAIModeRunner callback (no model override, empty initial line).
@@ -110,16 +110,17 @@ func localAIClient(mgr *session.Manager, modelOverride string) (*ai.Client, erro
 	return ai.NewClient(mgr.Config, opts...)
 }
 
-func localAIModeOptions(aiClient *ai.Client, exec CLIExecutor) aimode.Options {
+func localAIModeOptions(aiClient *ai.Client, maxSteps int, exec CLIExecutor) aimode.Options {
 	return aimode.Options{
-		Scope:   ai.ScopeLocal,
-		AI:      aiClient,
-		Local:   aimode.DefaultLocalRunner(),
-		Capture: agent.DefaultLocalCaptureRunner(),
-		CLI:     func(argv []string, out, errOut io.Writer) error { return exec(argv, out, errOut) },
-		In:      os.Stdin,
-		Out:     os.Stdout,
-		ErrOut:  os.Stderr,
+		Scope:    ai.ScopeLocal,
+		AI:       aiClient,
+		Local:    aimode.DefaultLocalRunner(),
+		Capture:  agent.DefaultLocalCaptureRunner(),
+		CLI:      func(argv []string, out, errOut io.Writer) error { return exec(argv, out, errOut) },
+		In:       os.Stdin,
+		Out:      os.Stdout,
+		ErrOut:   os.Stderr,
+		MaxSteps: maxSteps,
 	}
 }
 
@@ -159,10 +160,10 @@ func runRemoteAIMode(p sshclient.RemoteAIParams, exec CLIExecutor) error {
 		Out:            os.Stdout,
 		ErrOut:         os.Stderr,
 		UseTTYLineEdit: useTTY,
+		MaxSteps:       p.MaxSteps,
 	}
 	if p.RunCapture != nil {
-		opts.Capture = agent.NewCaptureRunner(func(ctx context.Context, cmd string) (string, error) {
-			_ = ctx
+		opts.Capture = agent.NewCaptureRunner(func(_ context.Context, cmd string) (string, error) {
 			return p.RunCapture(cmd)
 		})
 	}
