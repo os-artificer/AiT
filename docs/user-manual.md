@@ -207,7 +207,7 @@ When chain mode is off and you have manually SSH'd to a deeper host, **`!ait get
 
 **`!ait chain on`** enables chain mode manually, which switches to PTY-pipe injection:
 
-- **File transfer**: Files are base64-encoded and transferred through the interactive PTY session, with sha256sum integrity verification after upload (`verifying…` phase). **Put** stages data in a remote temp file (`/tmp/ait-put.*`) and atomically `mv`s to the destination so inject command lines cannot be appended into the target file. Chain mode uses longer inject/capture timing for multi-hop PTY latency. If a put fails with inject-leak detection, inspect the remote file (`cat`/`head`) and remove corrupted content before retrying. Remote hosts must have `base64`, `sha256sum`, and `mktemp` (standard on Linux/macOS).
+- **File transfer**: Chain mode uses **ZMODEM** over the PTY (lrzsz-compatible, same model as `rz`/`sz`). **Get** runs remote `sz`; AiT receives with embedded Go ZMODEM. **Put** runs remote `rz`; AiT sends with embedded Go ZMODEM. Progress shows `handshake…` and `transferring… NN%`. Active shell host must have **lrzsz** (`apt install lrzsz` / `brew install lrzsz`). AiT client (Linux/macOS/Windows Terminal) needs no local lrzsz. Standalone `ait get/put` still uses SFTP.
 - **Tmux**: Tmux operations are injected through the PTY pipe instead of opening a new SSH session.
 
 **`!ait chain off`** returns to the default SFTP/direct-session mode.
@@ -229,7 +229,7 @@ AiT user@bastion> !ait chain off
   File transfer and tmux will use SFTP/direct sessions.
 ```
 
-**Chain mode requirements on the remote host**: `base64`, `sha256sum`, and `mktemp` must be available (pre-installed on virtually all Linux and macOS systems).
+**Chain mode requirements on the active shell host**: **lrzsz** (`sz` and `rz`) on a Unix-like host (`apt install lrzsz`, `brew install lrzsz`). Windows OpenSSH servers are not supported for chain transfer in v1.
 
 ---
 

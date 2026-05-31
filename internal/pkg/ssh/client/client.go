@@ -32,6 +32,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/localmode"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
+	"github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
@@ -79,6 +80,8 @@ type Client struct {
 	setupFilter         setupOutputFilter
 	stdinReader         *stdinReader // set for RunInteractive; used during remote AI REPL
 	chainMode           atomic.Bool  // false by default; PTY-pipe injection when chain mode is on
+	zmodemActive        atomic.Bool
+	zmodemSession       *zmodem.Session
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.
@@ -233,6 +236,13 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 			n, err := r.Read(buf)
 			if n > 0 {
 				c.touchRemoteOut()
+				if c.zmodemActive.Load() {
+					c.feedZModemOutput(buf[:n])
+					if err != nil {
+						return
+					}
+					continue
+				}
 				chunk := c.filterRemoteOutputChunk(buf[:n], user, host, promptMarker)
 				if chunk == nil {
 					if err != nil {
