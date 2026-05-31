@@ -27,6 +27,7 @@ func OptsFromResolved(r resolve.Resolved) session.LoginOpts {
 		Alias:                 r.Alias,
 		Save:                  r.Save,
 		Host:                  r.Host,
+		LoginDestination:      r.Destination,
 		Port:                  r.Port,
 		User:                  r.User,
 		IdentityPath:          r.IdentityPath,

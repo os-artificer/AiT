@@ -27,8 +27,11 @@ import (
 )
 
 const (
-	injectCaptureRetryAttempts = 3
-	injectCaptureRetryDelay    = 200 * time.Millisecond
+	injectCaptureRetryAttempts      = 3
+	injectCaptureRetryAttemptsChain = 5
+	injectCaptureRetryDelay         = 200 * time.Millisecond
+	injectCaptureRetryDelayChain    = 300 * time.Millisecond
+	transferChainCaptureQuiet       = 500 * time.Millisecond
 )
 
 // injectCaptureForRetry is the capture backend used by injectCaptureRetry (overridable in tests).
@@ -73,7 +76,11 @@ func (c *Client) Inject(stdin io.Writer, cmd string, opts InjectOpts) error {
 
 	if opts.CaptureOutput || opts.SuppressEcho {
 		injectAt := time.Now()
-		c.waitRemoteOutputQuietAfter(injectAt, scrollback.CaptureQuiet, scrollback.CaptureMaxWait)
+		quiet := scrollback.CaptureQuiet
+		if opts.CaptureOutput {
+			quiet = captureQuietForClient(c)
+		}
+		c.waitRemoteOutputQuietAfter(injectAt, quiet, scrollback.CaptureMaxWait)
 	}
 
 	return nil
@@ -109,6 +116,12 @@ func (c *Client) InjectCapture(stdin io.Writer, cmd string) (string, error) {
 	}
 
 	delta := scrollback.Delta(snap, c.scroll.String())
+	if !captureMarkersPresent(delta) {
+		full := c.scroll.String()
+		if captureMarkersPresent(full) {
+			delta = full
+		}
+	}
 	c.scroll.StripSubstrings(injectStripFragments()...)
 	if !captureMarkersPresent(delta) {
 		return "", fmt.Errorf("%w", ErrInjectCaptureNoMarkers)
@@ -116,15 +129,31 @@ func (c *Client) InjectCapture(stdin io.Writer, cmd string) (string, error) {
 	return parseCapturedOutput(delta), nil
 }
 
+// captureQuietForClient returns the post-inject idle wait for capture commands.
+// Chain mode uses a longer quiet period to tolerate multi-hop PTY latency.
+func captureQuietForClient(c *Client) time.Duration {
+	if c != nil && c.ChainMode() {
+		return transferChainCaptureQuiet
+	}
+	return scrollback.CaptureQuiet
+}
+
 // injectCaptureRetry runs InjectCapture up to injectCaptureRetryAttempts times when markers are missing.
 func (c *Client) injectCaptureRetry(stdin io.Writer, cmd string) (string, error) {
+	attempts := injectCaptureRetryAttempts
+	delay := injectCaptureRetryDelay
+	if c.ChainMode() {
+		attempts = injectCaptureRetryAttemptsChain
+		delay = injectCaptureRetryDelayChain
+	}
+
 	var lastErr error
-	for attempt := 0; attempt < injectCaptureRetryAttempts; attempt++ {
+	for attempt := 0; attempt < attempts; attempt++ {
 		if attempt > 0 {
 			if c.scroll != nil {
 				c.scroll.StripSubstrings(injectStripFragments()...)
 			}
-			time.Sleep(injectCaptureRetryDelay)
+			time.Sleep(delay)
 		}
 
 		out, err := injectCaptureForRetry(c, stdin, cmd)
