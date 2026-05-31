@@ -25,12 +25,27 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/lrzsz"
 	xfer "github.com/os-artificer/AiT/internal/pkg/ssh/client/transfer"
 	"github.com/os-artificer/AiT/internal/pkg/transfer"
+	"github.com/os-artificer/AiT/internal/pkg/transfer/route"
 )
 
 const transferUsageGet = xfer.UsageGet
 const transferUsagePut = xfer.UsagePut
+
+// planTransferForTest overrides planTransfer when non-nil (tests only).
+var planTransferForTest func(c *Client, stdin io.Writer) (route.Plan, string, lrzsz.Target, error)
+
+// transferRunPTY runs PTY transfer (overridable in tests).
+var transferRunPTY = func(c *Client, ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string, prog *TransferProgress) error {
+	return c.handleTransferPTY(ctx, stdin, dir, args, prog)
+}
+
+// transferRunSFTP runs SFTP transfer (overridable in tests).
+var transferRunSFTP = func(c *Client, ctx context.Context, dir transfer.Direction, args []string, prog *TransferProgress) error {
+	return c.handleTransferSFTP(ctx, dir, args, prog)
+}
 
 func (c *Client) handleTransferGet(ctx context.Context, stdin io.Writer, args []string) error {
 	return c.handleTransfer(ctx, stdin, transfer.DirGet, transferUsageGet, args)
@@ -48,24 +63,47 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 		return nil
 	}
 
-	usePTY, autoEnabled, _ := c.resolveTransferMode(stdin)
-	prog := NewTransferProgress(os.Stderr)
+	plan, activeHost, target, planErr := c.planTransfer(stdin)
+	if planErr != nil {
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, planErr)
+		c.finishMetaInteraction(stdin)
+		return nil
+	}
 
-	if usePTY && !autoEnabled {
+	prog := NewTransferProgress(os.Stderr)
+	if plan.ChainOnly && !plan.AutoChain {
 		prog.ChainModeOn()
 	}
 
 	var err error
-	if usePTY {
-		err = c.handleTransferPTY(ctx, stdin, dir, args, prog)
-		if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
+	if plan.Backend == route.BackendZModem && !plan.LrzszOK && plan.ChainOnly {
+		err = c.ensureLrzszForChain(ctx, stdin, activeHost, target)
+		if err != nil {
+			errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
+			c.finishMetaInteraction(stdin)
+			return nil
+		}
+	}
+
+	switch plan.Backend {
+	case route.BackendZModem:
+		err = transferRunPTY(c, ctx, stdin, dir, args, prog)
+		if err != nil && !plan.ChainOnly && zmodemFallbackEligible(err) {
+			zmodemSftpFallbackNotice(activeHost, c.opts.Host)
+			err = transferRunSFTP(c, ctx, dir, args, prog)
+		} else if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
 			err = wrapPTYCaptureErr(err)
-		} else if err != nil && errors.Is(err, ErrMissingLrzsz) {
-			err = wrapPTYZModemErr(err)
-		} else if err != nil && strings.Contains(err.Error(), "zmodem") {
+		} else if err != nil && (errors.Is(err, ErrMissingLrzsz) || strings.Contains(err.Error(), "zmodem")) {
 			err = wrapPTYZModemErr(err)
 		}
-	} else {
+	default:
+		if !plan.LrzszOK {
+			if activeHost != "" {
+				sftpFallbackNotice(activeHost)
+			} else {
+				sftpFallbackNotice(c.opts.Host)
+			}
+		}
 		err = c.handleTransferSFTP(ctx, dir, args, prog)
 		if err != nil && isSFTPNotFoundErr(err) {
 			err = wrapTransferWrongHop(c.opts.Host, err)

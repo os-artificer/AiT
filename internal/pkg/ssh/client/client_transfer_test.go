@@ -26,8 +26,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/pkg/lrzsz"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/transfer"
+	"github.com/os-artificer/AiT/internal/pkg/transfer/route"
+	zmodem "github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
 )
 
 func TestDial_DefaultChainModeOff(t *testing.T) {
@@ -218,6 +221,84 @@ func TestHostsMatchIdentities_AliasHostname(t *testing.T) {
 func TestActiveShellNeedsChain_ManualNest(t *testing.T) {
 	if !activeShellNeedsChain("bastion", "", "internal-server") {
 		t.Fatal("manual ssh to internal should need chain")
+	}
+}
+
+func TestZmodemFallbackEligible(t *testing.T) {
+	if !zmodemFallbackEligible(fmt.Errorf("wrap: %w", zmodem.ErrHandshakeTimeout)) {
+		t.Fatal("expected handshake eligible")
+	}
+	if zmodemFallbackEligible(fmt.Errorf("other")) {
+		t.Fatal("unexpected eligible")
+	}
+}
+
+func TestHandleTransfer_ZModemFallbackSFTP(t *testing.T) {
+	origPlan := planTransferForTest
+	origPTY := transferRunPTY
+	origSFTP := transferRunSFTP
+	defer func() {
+		planTransferForTest = origPlan
+		transferRunPTY = origPTY
+		transferRunSFTP = origSFTP
+	}()
+
+	ptyCalled := false
+	sftpCalled := false
+	planTransferForTest = func(c *Client, stdin io.Writer) (route.Plan, string, lrzsz.Target, error) {
+		return route.Plan{Backend: route.BackendZModem, ChainOnly: false, LrzszOK: true}, "bastion", lrzsz.TargetUnknown, nil
+	}
+	transferRunPTY = func(c *Client, ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string, prog *TransferProgress) error {
+		ptyCalled = true
+		return fmt.Errorf("zmodem get: %w", zmodem.ErrHandshakeTimeout)
+	}
+	transferRunSFTP = func(c *Client, ctx context.Context, dir transfer.Direction, args []string, prog *TransferProgress) error {
+		sftpCalled = true
+		return nil
+	}
+
+	c := &Client{scroll: &terminal.Buffer{}, opts: Options{Host: "bastion"}}
+	if err := c.handleTransfer(t.Context(), &bytes.Buffer{}, transfer.DirGet, transferUsageGet, []string{"/remote", "/local"}); err != nil {
+		t.Fatalf("handleTransfer: %v", err)
+	}
+	if !ptyCalled || !sftpCalled {
+		t.Fatalf("pty=%v sftp=%v", ptyCalled, sftpCalled)
+	}
+}
+
+func TestHandleTransfer_ChainNoSFTpfFallback(t *testing.T) {
+	origPlan := planTransferForTest
+	origPTY := transferRunPTY
+	origSFTP := transferRunSFTP
+	defer func() {
+		planTransferForTest = origPlan
+		transferRunPTY = origPTY
+		transferRunSFTP = origSFTP
+	}()
+
+	ptyCalled := false
+	sftpCalled := false
+	planTransferForTest = func(c *Client, stdin io.Writer) (route.Plan, string, lrzsz.Target, error) {
+		return route.Plan{Backend: route.BackendZModem, ChainOnly: true, LrzszOK: true}, "internal", lrzsz.TargetUnknown, nil
+	}
+	transferRunPTY = func(c *Client, ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string, prog *TransferProgress) error {
+		ptyCalled = true
+		return fmt.Errorf("zmodem get: %w", zmodem.ErrHandshakeTimeout)
+	}
+	transferRunSFTP = func(c *Client, ctx context.Context, dir transfer.Direction, args []string, prog *TransferProgress) error {
+		sftpCalled = true
+		return nil
+	}
+
+	c := &Client{scroll: &terminal.Buffer{}, opts: Options{Host: "bastion"}}
+	if err := c.handleTransfer(t.Context(), &bytes.Buffer{}, transfer.DirGet, transferUsageGet, []string{"/remote", "/local"}); err != nil {
+		t.Fatalf("handleTransfer: %v", err)
+	}
+	if !ptyCalled {
+		t.Fatal("expected PTY attempt")
+	}
+	if sftpCalled {
+		t.Fatal("chain mode must not fall back to SFTP")
 	}
 }
 

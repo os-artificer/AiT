@@ -90,6 +90,82 @@ func TestTransferProgress_SFTPProgressPercent(t *testing.T) {
 	if !strings.Contains(got, "100%") {
 		t.Fatalf("missing 100%%: %q", got)
 	}
+	if strings.Contains(got, "transferring") {
+		t.Fatalf("expected copying label only: %q", got)
+	}
+}
+
+func enableTransferProgressInlineTTY(t *testing.T) {
+	t.Helper()
+	orig := transferProgressInlineTTY
+	transferProgressInlineTTY = func(*TransferProgress) bool { return true }
+	t.Cleanup(func() { transferProgressInlineTTY = orig })
+}
+
+func TestTransferProgress_SFTPInlineTTY_Get(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	p.StartGet("/remote", "./local", -1)
+	for i := int64(1); i <= 10; i++ {
+		p.SFTPProgress(i*10, 100)
+	}
+	p.Done("done: get /remote → ./local (100 bytes)")
+
+	got := buf.String()
+	if strings.Count(got, "copying…") != 10 {
+		t.Fatalf("expected 10 inline copying updates, got %q", got)
+	}
+	if strings.Contains(got, "transferring") {
+		t.Fatalf("expected copying label: %q", got)
+	}
+	if strings.Count(got, termEOL) != 2 {
+		t.Fatalf("expected start+done CRLF lines only, got %d in %q", strings.Count(got, termEOL), got)
+	}
+	if !strings.HasPrefix(got, "AiT:") {
+		t.Fatalf("missing prefix: %q", got)
+	}
+}
+
+func TestTransferProgress_SFTPInlineTTY_Put(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	p.StartPut("./local", "/remote", 100)
+	for i := int64(1); i <= 5; i++ {
+		p.SFTPProgress(i*20, 100)
+	}
+	p.Done("done: put ./local → /remote (100 bytes)")
+
+	got := buf.String()
+	if strings.Count(got, "copying…") != 5 {
+		t.Fatalf("expected 5 inline copying updates, got %q", got)
+	}
+	if strings.Count(got, termEOL) != 2 {
+		t.Fatalf("expected start+done CRLF lines only, got %d in %q", strings.Count(got, termEOL), got)
+	}
+}
+
+func TestTransferProgress_InlineDoneCRLF(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	p.reportPercent(50)
+	p.Done("done: put a → b (10 bytes)")
+
+	got := buf.String()
+	if !strings.Contains(got, "done: put a → b") {
+		t.Fatalf("missing done line: %q", got)
+	}
+	if !strings.Contains(got, termEOL) {
+		t.Fatalf("missing CRLF on done: %q", got)
+	}
+	if !strings.Contains(got, "\rAiT: copying") {
+		t.Fatalf("expected inline progress with \\r: %q", got)
+	}
 }
 
 func TestTransferProgress_LocalPathFromFilepath(t *testing.T) {

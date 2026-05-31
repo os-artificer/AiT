@@ -23,7 +23,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
 - **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
 - **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `ait ai chat` (one-shot); `ait ai provider enable|disable`; `ait ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `ait ai model list`; SSH `!ait ai chat` / `!! chat`; cloud keys `ai.<provider>.api_key`
-- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (SFTP by default; auto chain on nested SSH or `!ait chain on` for PTY-pipe base64 transfer)
+- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (unified router: lrzsz/ZMODEM first, SFTP fallback on direct hop, chain auto-install when missing lrzsz)
 - **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe ZMODEM file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_zmodem.go`; `internal/pkg/tmux/remote_pty.go`)
 - **OpenSSH config**: `login`/`load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 
@@ -117,7 +117,8 @@ listed above.
 | `client_init_helpers.go`, `client_setup_filter_helpers.go` | PTY setup output filter (suppresses PS1 leakage) |
 | `client_transfer.go`, `client_transfer_helpers.go` | `Client.handleTransfer*` (SFTP or PTY based on chainMode), transfer hint wrappers |
 | `inject.go`, `inject_helpers.go` | `Client.Inject` / `Client.InjectCapture` — silent PTY command injection with history/echo suppression and capture delimiters |
-| `transfer_zmodem.go`, `zmodem_session.go`, `internal/pkg/transfer/zmodem/` | `ZModemTransfer` — lrzsz-compatible ZMODEM over PTY for chain mode |
+| `transfer_route.go`, `internal/pkg/lrzsz/`, `internal/pkg/transfer/route/` | Unified in-session get/put routing (lrzsz probe, SFTP fallback, chain install) |
+| `transfer_zmodem.go`, `zmodem_session.go`, `internal/pkg/transfer/zmodem/` | `ZModemTransfer` — lrzsz-compatible ZMODEM over PTY |
 | `scrollback_capture.go` | `Client.RunPTYCapture` driving `scrollback.Delta` (uses `Inject` for history suppression) |
 | `resize.go` | `sessionResize` adapter wired into `pty.Watch` |
 | `ai_mode.go` | `RemoteAIParams` / `RemoteAIRunner` types for remote AI REPL |
