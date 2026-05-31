@@ -20,9 +20,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/scrollback"
 )
 
 const (
@@ -30,6 +34,21 @@ const (
 	// PTY injection. 3KB of raw data produces ~4KB of base64, which stays
 	// safely within PTY line buffer limits.
 	ptyTransferChunkSize = 3072
+
+	// transferPostBurstQuiet is the idle period after a burst of PTY injects before capture.
+	transferPostBurstQuiet = 400 * time.Millisecond
+
+	// transferShellSettleCmd is a POSIX no-op run after chunk uploads before verify capture.
+	transferShellSettleCmd = "true"
+)
+
+var (
+	ptyTransferInjectHook = func(c *Client, stdin io.Writer, cmd string, opts InjectOpts) error {
+		return c.Inject(stdin, cmd, opts)
+	}
+	ptyTransferSettleHook = func(c *Client, stdin io.Writer) error {
+		return c.settleShellAfterBurst(stdin)
+	}
 )
 
 // chunkString splits s into chunks of at most chunkSize bytes.
@@ -92,5 +111,19 @@ func verifyLocalHash(path, expected string) error {
 		return fmt.Errorf("expected %s, got %s", expected, actual)
 	}
 
+	return nil
+}
+
+// settleShellAfterBurst runs a POSIX no-op and waits for the remote shell to become idle.
+func (c *Client) settleShellAfterBurst(stdin io.Writer) error {
+	if err := c.Inject(stdin, transferShellSettleCmd, InjectOpts{SuppressEcho: true}); err != nil {
+		return err
+	}
+
+	injectAt := time.Now()
+	c.waitRemoteOutputQuietAfter(injectAt, transferPostBurstQuiet, scrollback.CaptureMaxWait)
+	if c.scroll != nil {
+		c.scroll.StripSubstrings(injectStripFragments()...)
+	}
 	return nil
 }

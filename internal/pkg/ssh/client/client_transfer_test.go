@@ -99,7 +99,7 @@ func TestHandleTransferPTY_PausesRemoteOut(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if err := c.handleTransferPTY(ctx, &bytes.Buffer{}, transfer.DirGet, []string{"/remote", "/local"}); err == nil {
+	if err := c.handleTransferPTY(ctx, &bytes.Buffer{}, transfer.DirGet, []string{"/remote", "/local"}, nil); err == nil {
 		t.Fatal("expected context error")
 	}
 	if c.pauseRemoteOut.Load() {
@@ -167,6 +167,9 @@ func TestPTYCaptureErrHint_Format(t *testing.T) {
 	}
 	if !strings.Contains(s, "!ait chain off") {
 		t.Fatalf("missing chain off hint: %q", s)
+	}
+	if !strings.Contains(s, "!ait put") {
+		t.Fatalf("missing put hint: %q", s)
 	}
 }
 

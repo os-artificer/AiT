@@ -19,6 +19,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -46,16 +47,21 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 		return nil
 	}
 
-	usePTY, _, _ := c.resolveTransferMode(stdin)
+	usePTY, autoEnabled, _ := c.resolveTransferMode(stdin)
+	prog := NewTransferProgress(os.Stderr)
+
+	if usePTY && !autoEnabled {
+		prog.ChainModeOn()
+	}
 
 	var err error
 	if usePTY {
-		err = c.handleTransferPTY(ctx, stdin, dir, args)
+		err = c.handleTransferPTY(ctx, stdin, dir, args, prog)
 		if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
 			err = wrapPTYCaptureErr(err)
 		}
 	} else {
-		err = c.handleTransferSFTP(ctx, dir, args)
+		err = c.handleTransferSFTP(ctx, dir, args, prog)
 		if err != nil && isSFTPNotFoundErr(err) {
 			err = wrapTransferWrongHop(c.opts.Host, err)
 		}
@@ -94,21 +100,45 @@ func (c *Client) resolveTransferMode(stdin io.Writer) (usePTY bool, autoEnabled 
 }
 
 // handleTransferSFTP uses the direct SFTP connection for file transfer.
-// This is the original path when ChainMode is false (direct connection to target).
-func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction, args []string) error {
-	if dir == transfer.DirGet {
-		return transfer.Get(ctx, c.conn, args[0], args[1])
+func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction, args []string, prog *TransferProgress) error {
+	var copyProgress transfer.CopyProgress
+	if prog != nil {
+		copyProgress = prog.SFTPProgress
 	}
-	return transfer.Put(ctx, c.conn, args[0], args[1])
+
+	if dir == transfer.DirGet {
+		if prog != nil {
+			prog.StartGet(args[0], args[1], -1)
+		}
+		err := transfer.GetWithProgress(ctx, c.conn, args[0], args[1], copyProgress)
+		if err != nil {
+			return err
+		}
+		if prog != nil {
+			prog.Done(fmt.Sprintf("done: get %s → %s (%d bytes)", args[0], args[1], prog.Bytes()))
+		}
+		return nil
+	}
+
+	if prog != nil {
+		prog.StartPut(args[0], args[1], -1)
+	}
+	err := transfer.PutWithProgress(ctx, c.conn, args[0], args[1], copyProgress)
+	if err != nil {
+		return err
+	}
+	if prog != nil {
+		prog.Done(fmt.Sprintf("done: put %s → %s (%d bytes)", args[0], args[1], prog.Bytes()))
+	}
+	return nil
 }
 
-// handleTransferPTY uses PTY-pipe injection for file transfer when ChainMode
-// is active (user has SSH'd beyond the directly connected host).
-func (c *Client) handleTransferPTY(ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string) error {
+// handleTransferPTY uses PTY-pipe injection for file transfer when ChainMode is active.
+func (c *Client) handleTransferPTY(ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string, prog *TransferProgress) error {
 	c.pauseRemoteOut.Store(true)
 	defer c.pauseRemoteOut.Store(false)
 
-	pt := NewPTYTransfer(c)
+	pt := NewPTYTransfer(c, prog)
 	if dir == transfer.DirGet {
 		return pt.Get(ctx, stdin, args[0], args[1])
 	}
