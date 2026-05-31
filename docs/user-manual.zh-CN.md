@@ -191,6 +191,8 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 - 传输失败时错误会带 `local file` 或 `remote file` 前缀，便于区分本机与远端。**put** 若出现 `file does not exist` / `no such file or directory`，常见原因是远程路径或父目录不存在，而非本机文件缺失。
 - 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
 - SSH 会话内 `!ait get` / `!ait put` 复用当前连接（仅两个路径，无 flag）。
+- **`!ait put` 的本机路径**指运行 AiT 的机器（笔记本/桌面），不是远程 shell 当前目录。**`!ait get` 的本机路径**同样在 AiT 客户端。远程路径相对于**当前 active shell**（链式模式下可能是嵌套跳板）。
+- SSH 会话内 **`!ait get` / `!ait put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `hashing…`、`uploading chunk 2/5…`、`copying… 50%`、`done: get …`）。进度行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
 - 从本机执行 `ait session --switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
 
 ---
