@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -33,7 +34,10 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/pty"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
+
+	"golang.org/x/term"
 )
 
 func TestRunREPL_NoAI(t *testing.T) {
@@ -390,5 +394,136 @@ func TestAIMode_ConfirmNoHistory(t *testing.T) {
 	}
 	if line != "run ls" {
 		t.Fatalf("line = %q, want run ls (confirm y must not pollute history)", line)
+	}
+}
+
+// RC2: meta initial question on TTY path confirms via withTTYConfirm before agent runs.
+func TestRunREPL_InitialAgentConfirm_UseTTYLineEdit(t *testing.T) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		t.Skip("requires stdin tty")
+	}
+
+	t.Setenv("AIT_KEYRING_BACKEND", "file")
+	t.Setenv("AIT_KEYRING_DIR", t.TempDir())
+	t.Setenv("AIT_ALLOW_CUSTOM_AI_URL", "1")
+	if err := creds.SetProviderAPIKey(config.ProviderDeepseek, "k"); err != nil {
+		t.Fatal(err)
+	}
+
+	call := 0
+	bodyRun, _ := json.Marshal(map[string]any{
+		"choices": []map[string]any{{"message": map[string]string{"content": `{"action":"ait_cli","args":"list"}`}}},
+	})
+	bodyAns, _ := json.Marshal(map[string]any{
+		"choices": []map[string]any{{"message": map[string]string{"content": `{"action":"answer","text":"ok"}`}}},
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		call++
+		w.Header().Set("Content-Type", "application/json")
+		if call == 1 {
+			_, _ = w.Write(bodyRun)
+			return
+		}
+		_, _ = w.Write(bodyAns)
+	}))
+	defer srv.Close()
+
+	cfg := &config.Config{}
+	cfg.AI.Default = config.ProviderDeepseek
+	cfg.AI.Providers = map[string]config.ProviderConfig{
+		config.ProviderDeepseek: {
+			APIStyle: config.APIStyleOpenAI,
+			BaseURL:  srv.URL + "/v1",
+			Model:    "deepseek-chat",
+		},
+	}
+	client, err := ai.NewClient(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cliOut strings.Builder
+	sr := pty.StartFrom(bytes.NewReader([]byte("y\r\x04")))
+	replIn := sr.BeginREPL()
+	defer sr.EndREPL()
+
+	err = RunREPL(context.Background(), Options{
+		Scope:          ai.ScopeLocal,
+		AI:             client,
+		In:             replIn,
+		Out:            io.Discard,
+		ErrOut:         io.Discard,
+		UseTTYLineEdit: true,
+		CLI: func(argv []string, out, errOut io.Writer) error {
+			cliOut.WriteString(strings.Join(argv, " "))
+			return nil
+		},
+	}, "list sessions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cliOut.String() != "list" {
+		t.Fatalf("cli=%q", cliOut.String())
+	}
+}
+
+// RC3: non-TTY initial agent confirm still works with newline-delimited stdin.
+func TestRunREPL_InitialAgentConfirm_PlainPath(t *testing.T) {
+	t.Setenv("AIT_KEYRING_BACKEND", "file")
+	t.Setenv("AIT_KEYRING_DIR", t.TempDir())
+	t.Setenv("AIT_ALLOW_CUSTOM_AI_URL", "1")
+	if err := creds.SetProviderAPIKey(config.ProviderDeepseek, "k"); err != nil {
+		t.Fatal(err)
+	}
+
+	call := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		call++
+		w.Header().Set("Content-Type", "application/json")
+		var body []byte
+		if call == 1 {
+			body, _ = json.Marshal(map[string]any{
+				"choices": []map[string]any{{"message": map[string]string{"content": `{"action":"ait_cli","args":"list"}`}}},
+			})
+		} else {
+			body, _ = json.Marshal(map[string]any{
+				"choices": []map[string]any{{"message": map[string]string{"content": `{"action":"answer","text":"ok"}`}}},
+			})
+		}
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	cfg := &config.Config{}
+	cfg.AI.Default = config.ProviderDeepseek
+	cfg.AI.Providers = map[string]config.ProviderConfig{
+		config.ProviderDeepseek: {
+			APIStyle: config.APIStyleOpenAI,
+			BaseURL:  srv.URL + "/v1",
+			Model:    "deepseek-chat",
+		},
+	}
+	client, err := ai.NewClient(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cliOut strings.Builder
+	err = RunREPL(context.Background(), Options{
+		Scope:  ai.ScopeLocal,
+		AI:     client,
+		In:     strings.NewReader("y\n"),
+		Out:    io.Discard,
+		ErrOut: io.Discard,
+		CLI: func(argv []string, out, errOut io.Writer) error {
+			cliOut.WriteString(strings.Join(argv, " "))
+			return nil
+		},
+	}, "list sessions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cliOut.String() != "list" {
+		t.Fatalf("cli=%q", cliOut.String())
 	}
 }

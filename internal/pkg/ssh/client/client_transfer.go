@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 
@@ -45,11 +46,19 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 		return nil
 	}
 
+	usePTY, _, _ := c.resolveTransferMode(stdin)
+
 	var err error
-	if c.ChainMode() {
+	if usePTY {
 		err = c.handleTransferPTY(ctx, stdin, dir, args)
+		if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
+			err = wrapPTYCaptureErr(err)
+		}
 	} else {
 		err = c.handleTransferSFTP(ctx, dir, args)
+		if err != nil && isSFTPNotFoundErr(err) {
+			err = wrapTransferWrongHop(c.opts.Host, err)
+		}
 	}
 
 	if err != nil {
@@ -57,6 +66,31 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 	}
 	c.finishMetaInteraction(stdin)
 	return nil
+}
+
+// resolveTransferMode decides SFTP vs PTY for this transfer.
+// When chain is off but the active PTY shell is on a different host than c.opts.Host,
+// enables chain mode for the session and returns usePTY=true.
+func (c *Client) resolveTransferMode(stdin io.Writer) (usePTY bool, autoEnabled bool, err error) {
+	if c.ChainMode() {
+		return true, false, nil
+	}
+	if c.scroll == nil {
+		return false, false, nil
+	}
+
+	activeHost, probeErr := c.probeActiveShellHost(stdin)
+	if probeErr != nil {
+		return false, false, nil
+	}
+
+	if activeShellNeedsChain(c.opts.Host, activeHost) {
+		c.SetChainMode(true)
+		autoChainNotice(activeHost, c.opts.Host)
+		return true, true, nil
+	}
+
+	return false, false, nil
 }
 
 // handleTransferSFTP uses the direct SFTP connection for file transfer.
@@ -71,6 +105,9 @@ func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction,
 // handleTransferPTY uses PTY-pipe injection for file transfer when ChainMode
 // is active (user has SSH'd beyond the directly connected host).
 func (c *Client) handleTransferPTY(ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string) error {
+	c.pauseRemoteOut.Store(true)
+	defer c.pauseRemoteOut.Store(false)
+
 	pt := NewPTYTransfer(c)
 	if dir == transfer.DirGet {
 		return pt.Get(ctx, stdin, args[0], args[1])

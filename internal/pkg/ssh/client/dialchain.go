@@ -83,7 +83,6 @@ func DialChain(opts Options) (*Client, error) {
 	client := ssh.NewClient(ncc, chans, reqs)
 
 	c := &Client{conn: client, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}
-	c.chainMode.Store(true)
 	return c, nil
 }
 

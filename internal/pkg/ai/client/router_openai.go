@@ -59,6 +59,11 @@ func (ep *endpoint) chatOpenAIRequest(ctx context.Context, messages []openai.Cha
 	}
 
 	content := strings.TrimSpace(msg.Content)
+	if len(tools) > 0 {
+		if toolJSON, ok := agent.XMLToolCallToJSON(content); ok {
+			return toolJSON, "", nil
+		}
+	}
 	reply, thinking := ExtractReply(content)
 
 	// DeepSeek reasoner puts reasoning in a separate field; prefer it over

@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/agent"
+
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -55,7 +57,7 @@ type anthropicResponse struct {
 	} `json:"error"`
 }
 
-func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCompletionMessage) (string, string, error) {
+func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCompletionMessage, forAgent bool) (string, string, error) {
 	system, msgs := splitAnthropicMessages(messages)
 	body := anthropicRequest{
 		Model:     ep.model,
@@ -134,9 +136,15 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 		return "", "", fmt.Errorf(errEmptyResponseFmt, ep.id)
 	}
 	content := strings.TrimSpace(strings.Join(parts, "\n"))
-	reply, extractedThinking := ExtractReply(content)
-
 	thinking := strings.TrimSpace(strings.Join(thinkingParts, "\n"))
+
+	if forAgent {
+		if toolJSON, ok := agent.XMLToolCallToJSON(content); ok {
+			return toolJSON, thinking, nil
+		}
+	}
+
+	reply, extractedThinking := ExtractReply(content)
 	if extractedThinking != "" {
 		if thinking != "" {
 			thinking += "\n"

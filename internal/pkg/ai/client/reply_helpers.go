@@ -28,6 +28,9 @@ var (
 	xmlToolCallRe  = regexp.MustCompile(`(?s)<minimax:tool_call>.*?</minimax:tool_call>`)
 	xmlInvokeRe    = regexp.MustCompile(`(?s)<invoke\b[^>]*>.*?</invoke>`)
 	xmlParameterRe = regexp.MustCompile(`(?s)<parameter\b[^>]*>.*?</parameter>`)
+	orphanCloseRe  = regexp.MustCompile(`(?s)</(?:minimax:tool_call|invoke|parameter)>`)
+	hybridParamRe  = regexp.MustCompile(`(?s)"(?:command|args|text)"\s*>\s*[^<]*</parameter>`)
+	partialJSONRe  = regexp.MustCompile(`(?s)\{"action":"(?:run_shell|ait_cli|answer)"[^}]*\z`)
 )
 
 const (
@@ -73,6 +76,9 @@ func ExtractReply(raw string) (reply, thinking string) {
 	cleaned = xmlToolCallRe.ReplaceAllString(cleaned, "")
 	cleaned = xmlInvokeRe.ReplaceAllString(cleaned, "")
 	cleaned = xmlParameterRe.ReplaceAllString(cleaned, "")
+	cleaned = orphanCloseRe.ReplaceAllString(cleaned, "")
+	cleaned = hybridParamRe.ReplaceAllString(cleaned, "")
+	cleaned = partialJSONRe.ReplaceAllString(cleaned, "")
 	reply = strings.TrimSpace(cleaned)
 
 	return reply, thinking

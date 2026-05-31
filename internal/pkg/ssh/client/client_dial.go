@@ -53,7 +53,6 @@ func Dial(opts Options) (*Client, error) {
 		return nil, err
 	}
 	c := &Client{conn: conn, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}
-	c.chainMode.Store(true)
 	return c, nil
 }
 
