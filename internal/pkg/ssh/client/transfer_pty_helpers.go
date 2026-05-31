@@ -18,6 +18,7 @@ package client
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -40,11 +41,26 @@ const (
 
 	// transferShellSettleCmd is a POSIX no-op run after chunk uploads before verify capture.
 	transferShellSettleCmd = "true"
+
+	// ptyPutChunkHeredocDelim is the heredoc delimiter for PTY put chunk scripts.
+	ptyPutChunkHeredocDelim = "AIT_CHUNK_EOF"
+
+	// ptyPutMktempPattern is the mktemp template for chain-mode put staging files.
+	ptyPutMktempPattern = "/tmp/ait-put.XXXXXX"
+
+	// ptyPutLeakHeadBytes is how many bytes of the remote file are sampled for leak detection.
+	ptyPutLeakHeadBytes = 256
 )
 
 var (
-	ptyTransferInjectHook = func(c *Client, stdin io.Writer, cmd string, opts InjectOpts) error {
-		return c.Inject(stdin, cmd, opts)
+	ptyTransferScriptHook = func(c *Client, stdin io.Writer, script string) error {
+		return c.injectPutScript(stdin, script)
+	}
+	ptyTransferSettleHook = func(c *Client, stdin io.Writer) error {
+		return c.settleShellAfterBurst(stdin)
+	}
+	ptyTransferMktempHook = func(c *Client, stdin io.Writer) (string, error) {
+		return c.capturePutTempPath(stdin)
 	}
 	ptyTransferVerifyHook = func(c *Client, stdin io.Writer, remotePath string) (string, error) {
 		return c.settleAndCaptureHash(stdin, remotePath)
@@ -69,11 +85,21 @@ func chunkString(s string, chunkSize int) []string {
 	return chunks
 }
 
-// buildPutChunkCmd constructs a shell command that decodes a base64 chunk and
-// appends it to remotePath. The command uses printf to avoid heredoc edge cases
-// and pipe to base64 -d for decoding.
-func buildPutChunkCmd(remotePath string, base64Chunk string) string {
-	return fmt.Sprintf("printf '%%s' %s | base64 -d >> %s", shellQuoteArg(base64Chunk), shellQuoteArg(remotePath))
+// buildPutChunkScript returns a multiline shell script that decodes a base64 chunk
+// into tmpPath via heredoc (never redirects inject bytes into the final remote path).
+func buildPutChunkScript(tmpPath, base64Chunk string) string {
+	return fmt.Sprintf(
+		"base64 -d >> %s <<'%s'\n%s\n%s",
+		shellQuoteArg(tmpPath),
+		ptyPutChunkHeredocDelim,
+		base64Chunk,
+		ptyPutChunkHeredocDelim,
+	)
+}
+
+// buildPutMvScript returns a shell command that atomically moves tmpPath to remotePath.
+func buildPutMvScript(tmpPath, remotePath string) string {
+	return fmt.Sprintf("mv %s %s", shellQuoteArg(tmpPath), shellQuoteArg(remotePath))
 }
 
 // shellQuoteArg wraps s in single quotes with embedded single-quote escaping.
@@ -109,6 +135,103 @@ func verifyLocalHash(path, expected string) error {
 	actual := localFileHash(data)
 	if actual != expected {
 		return fmt.Errorf("expected %s, got %s", expected, actual)
+	}
+
+	return nil
+}
+
+// injectPutScript sends a multiline POSIX script through the PTY with history/echo suppression.
+func (c *Client) injectPutScript(stdin io.Writer, body string) error {
+	if stdin == nil {
+		return io.ErrClosedPipe
+	}
+
+	body = strings.TrimRight(body, "\r\n")
+	if body == "" {
+		return nil
+	}
+
+	script := injectSpacePrefix + injectEchoOff + "\n" + body + "\n" + injectSpacePrefix + injectEchoOn + "\n"
+	if _, err := io.WriteString(stdin, script); err != nil {
+		return err
+	}
+
+	injectAt := time.Now()
+	c.waitRemoteOutputQuietAfter(injectAt, injectQuietForClient(c, InjectOpts{SuppressEcho: true}), scrollback.CaptureMaxWait)
+	return nil
+}
+
+// capturePutTempPath creates a remote temp file via mktemp and returns its path.
+func (c *Client) capturePutTempPath(stdin io.Writer) (string, error) {
+	out, err := c.injectCaptureRetry(stdin, "mktemp "+shellQuoteArg(ptyPutMktempPattern))
+	if err != nil {
+		return "", fmt.Errorf("mktemp: %w", err)
+	}
+
+	path := strings.TrimSpace(out)
+	if path == "" {
+		return "", fmt.Errorf("mktemp: empty path")
+	}
+	return path, nil
+}
+
+// removeRemoteFile best-effort deletes a remote path via inject.
+func (c *Client) removeRemoteFile(stdin io.Writer, remotePath string) {
+	if remotePath == "" {
+		return
+	}
+	_ = c.Inject(stdin, "rm -f "+shellQuoteArg(remotePath), InjectOpts{SuppressEcho: true})
+}
+
+// remotePutContentHasInjectLeak reports whether sampled remote file bytes look like inject leakage.
+func remotePutContentHasInjectLeak(sample []byte) bool {
+	if len(sample) == 0 {
+		return false
+	}
+
+	s := string(sample)
+	if strings.Contains(s, "stty -echo") || strings.Contains(s, injectCaptureBegin) {
+		return true
+	}
+	if strings.Contains(s, ptyPutChunkHeredocDelim) {
+		return true
+	}
+	if strings.Contains(s, "base64 -d >>") && strings.Contains(s, "stty echo") {
+		return true
+	}
+	return false
+}
+
+// checkRemotePutLeak samples the remote file head and rejects obvious inject command leakage.
+func (t *PTYTransfer) checkRemotePutLeak(stdin io.Writer, remotePath string, expectedBytes int64) error {
+	headBytes := ptyPutLeakHeadBytes
+	if expectedBytes > 0 && expectedBytes+64 < int64(headBytes) {
+		headBytes = int(expectedBytes) + 64
+	}
+
+	cmd := fmt.Sprintf("head -c %d %s | base64", headBytes, shellQuoteArg(remotePath))
+	out, err := t.client.injectCaptureRetry(stdin, cmd)
+	if err != nil {
+		return err
+	}
+
+	out = strings.ReplaceAll(out, "\r", "")
+	out = strings.ReplaceAll(out, "\n", "")
+	if out == "" {
+		return nil
+	}
+
+	sample, err := base64.StdEncoding.DecodeString(out)
+	if err != nil {
+		return nil
+	}
+
+	if remotePutContentHasInjectLeak(sample) {
+		return fmt.Errorf("%w", ErrInjectLeakSignature)
+	}
+
+	if expectedBytes > 0 && int64(len(sample)) > expectedBytes*2 {
+		return fmt.Errorf("%w: remote head larger than expected payload", ErrInjectLeakSignature)
 	}
 
 	return nil

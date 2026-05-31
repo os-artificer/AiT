@@ -59,6 +59,8 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 		err = c.handleTransferPTY(ctx, stdin, dir, args, prog)
 		if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
 			err = wrapPTYCaptureErr(err)
+		} else if err != nil && errors.Is(err, ErrInjectLeakSignature) {
+			err = wrapPTYLeakErr(err)
 		}
 	} else {
 		err = c.handleTransferSFTP(ctx, dir, args, prog)

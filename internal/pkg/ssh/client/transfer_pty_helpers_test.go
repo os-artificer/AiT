@@ -51,16 +51,48 @@ func TestChunkString_ExactMultiple(t *testing.T) {
 	}
 }
 
-func TestBuildPutChunkCmd(t *testing.T) {
-	cmd := buildPutChunkCmd("/tmp/file.txt", "aGVsbG8=")
-	if !strings.Contains(cmd, "base64 -d") {
-		t.Errorf("buildPutChunkCmd missing base64 -d: %q", cmd)
+func TestBuildPutChunkCmd_Heredoc(t *testing.T) {
+	tmp := "/tmp/ait-put.abc123"
+	script := buildPutChunkScript(tmp, "aGVsbG8=")
+	if !strings.Contains(script, "base64 -d >>") {
+		t.Errorf("buildPutChunkScript missing base64 append: %q", script)
 	}
-	if !strings.Contains(cmd, ">> ") {
-		t.Errorf("buildPutChunkCmd missing append: %q", cmd)
+	if !strings.Contains(script, ptyPutChunkHeredocDelim) {
+		t.Errorf("buildPutChunkScript missing heredoc delimiter: %q", script)
 	}
-	if !strings.Contains(cmd, "printf") {
-		t.Errorf("buildPutChunkCmd missing printf: %q", cmd)
+	if strings.Contains(script, "printf") {
+		t.Errorf("buildPutChunkScript should not use printf: %q", script)
+	}
+	if strings.Contains(script, "./test") {
+		t.Errorf("buildPutChunkScript must not reference final remote path in chunk: %q", script)
+	}
+	if !strings.Contains(script, shellQuoteArg(tmp)) {
+		t.Errorf("buildPutChunkScript missing tmp path: %q", script)
+	}
+}
+
+func TestBuildPutMvScript(t *testing.T) {
+	cmd := buildPutMvScript("/tmp/staging", "/remote/target")
+	if !strings.Contains(cmd, "mv ") {
+		t.Fatalf("buildPutMvScript missing mv: %q", cmd)
+	}
+	if !strings.Contains(cmd, shellQuoteArg("/tmp/staging")) {
+		t.Fatalf("buildPutMvScript missing tmp: %q", cmd)
+	}
+	if !strings.Contains(cmd, shellQuoteArg("/remote/target")) {
+		t.Fatalf("buildPutMvScript missing target: %q", cmd)
+	}
+}
+
+func TestRemotePutContentHasInjectLeak(t *testing.T) {
+	if !remotePutContentHasInjectLeak([]byte("noise stty -echo more")) {
+		t.Fatal("expected stty -echo leak")
+	}
+	if !remotePutContentHasInjectLeak([]byte("AIT_CAPTURE_B_f3e7a1c9")) {
+		t.Fatal("expected capture marker leak")
+	}
+	if remotePutContentHasInjectLeak([]byte("hello world")) {
+		t.Fatal("expected clean payload")
 	}
 }
 

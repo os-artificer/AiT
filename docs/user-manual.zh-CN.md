@@ -207,7 +207,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 
 **`!ait chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
 
-- **文件传输**：文件经 base64 编码后通过交互式 PTY 会话传输；上传后在 `verifying…` 阶段经 settle+capture 做 sha256sum 校验。链式模式下 capture 等待时间更长以适配多跳 PTY 延迟。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
+- **文件传输**：文件经 base64 编码后通过交互式 PTY 会话传输；上传后在 `verifying…` 阶段经 settle+capture 做 sha256sum 校验。**Put** 先将数据写入远程临时文件（`/tmp/ait-put.*`），再 `mv` 至目标路径，避免 inject 命令行被追加进目标文件。链式模式下 inject/capture 等待时间更长以适配多跳 PTY 延迟。若 put 因 inject 泄漏检测失败，请用 `cat`/`head` 检查远程文件并清除污染内容后再重试。远程主机须有 `base64`、`sha256sum` 和 `mktemp`（Linux/macOS 标准）。
 - **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
 
 **`!ait chain off`** 返回默认 SFTP/直连会话模式。
@@ -229,7 +229,7 @@ AiT user@bastion> !ait chain off
   File transfer and tmux will use SFTP/direct sessions.
 ```
 
-**链式模式对远程主机的要求**：须有 `base64` 和 `sha256sum`（几乎所有 Linux 和 macOS 系统均已预装）。
+**链式模式对远程主机的要求**：须有 `base64`、`sha256sum` 和 `mktemp`（几乎所有 Linux 和 macOS 系统均已预装）。
 
 ---
 
