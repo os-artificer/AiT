@@ -411,9 +411,11 @@ sequenceDiagram
 
 ### get / put
 
-实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（基于 `golang.org/x/crypto/ssh` 的 SFTP）与 [`internal/pkg/ssh/client/transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/)（链式模式 ZMODEM over PTY，兼容 lrzsz）。**仅支持单个普通文件**；目录会返回明确错误。**`Put`** 在 `Create` 前对远程父目录执行 SFTP `MkdirAll`。错误带 `local file` / `remote file` 前缀；远端 `IsNotExist` 会提示检查远程路径与父目录（SFTP 在父目录不存在时常报 `file does not exist`）。
+实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（SFTP）、[`transfer_route.go`](../internal/pkg/ssh/client/transfer_route.go) + [`internal/pkg/transfer/route/`](../internal/pkg/transfer/route/)（会话内后端选择）、[`transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/)（PTY ZMODEM）、[`internal/pkg/lrzsz/`](../internal/pkg/lrzsz/)（远端探测与可选自动安装）。**仅支持单个普通文件**；目录会返回明确错误。
 
-当用户在会话内手动 SSH 超越拨号目标（如 login 到堡垒机后在 shell 里 `ssh internal`）时，SFTP 与 `conn.NewSession()` 只能到达**拨号连接的目标**。**链式模式**（`!ait chain on`，或 `!ait get`/`put` 探测到 active shell 主机名与解析后的拨号主机 **且** 原始登录 destination 别名均不匹配时自动启用）切换为 PTY 管道 **ZMODEM** 传输（与 `rz`/`sz` 同款）。**login 时使用 ProxyJump 不等于链式模式**：`DialChain` 已隧道到最终主机，会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 策略一致。主机名匹配同时比较 `Options.Host`（ssh `-G` 的 `HostName`）与 `Options.LoginDestination`（CLI/配置别名，如 `devhost` 与 `dev.ylgeeker.com`）。链式 **get** 注入远端 `sz`、AiT 内嵌 ZMODEM 接收；链式 **put** 注入远端 `rz`、AiT 内嵌 ZMODEM 发送——经 PTY 字节流分块 CRC 传输（不向目标路径做 shell 重定向）。active shell 主机须安装 **lrzsz**（`sz`/`rz`）。AiT 客户端（Linux/macOS/Windows Terminal）本地为纯 Go 协议栈，无需安装 lrzsz。tmux 使用 `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` 替代 `conn.NewSession()`。
+会话内 `!ait get`/`put` 使用**统一路由**：**直连**（chain 关闭、与拨号目标同 host）始终 **SFTP**；**链式**（active shell 比拨号目标更深）探测 `sz`/`rz`，有则 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**；链式且无 lrzsz 时给出安装指引，交互 TTY 下 `[y/N]` 授权后可自动安装（Linux/macOS/Windows 包管理器，可能需要远端 `sudo`）。ZMODEM 使用专用 PTY 注入（无 `stty` 包装）；握手失败约 30s 超时；直连 ZMODEM 失败时可回退 SFTP。
+
+当用户在会话内手动 SSH 超越拨号目标时，SFTP 只能到达拨号目标。**链式模式**（`!ait chain on` 或主机名不匹配时自动启用）必须经 PTY **ZMODEM**。**login ProxyJump** 不等于链式：`DialChain` 到最终主机后，无 lrzsz 时回退 SFTP，与独立 `ait get`/`put` 一致。AiT 客户端本地为纯 Go 协议栈，无需安装 lrzsz。
 
 | 模式 | 命令 | 认证 |
 |------|------|------|
@@ -444,7 +446,7 @@ sequenceDiagram
 | 回显抑制 | 在注入命令前后使用 `stty -echo` / `stty echo` 包装 |
 | 输出捕获 | 纯文本定界符（`AIT_CAPTURE_B_f3e7a1c9` / `AIT_CAPTURE_E_f3e7a1c9`）包裹命令输出，从 scrollback delta 解析（snap 前缀被截断时回退全文搜索） |
 
-**文件传输**（`ZModemTransfer`）：经 PTY 字节流跑 lrzsz 兼容 ZMODEM（与 `rz`/`sz` 相同模型）。**get** 注入远端 `sz`，AiT 内嵌 Go ZMODEM 接收；**put** 注入远端 `rz`，AiT 内嵌 Go ZMODEM 发送。分块 CRC，不向目标文件做 shell 重定向。active shell 须 **lrzsz**（`apt install lrzsz` / `brew install lrzsz`）。AiT 客户端无需本地 lrzsz。
+**文件传输**（统一路由 + `ZModemTransfer`）：有 lrzsz 时 PTY ZMODEM；直连无 lrzsz 回退 SFTP；链式无 lrzsz 时可 `[y/N]` 授权自动安装。AiT 客户端无需本地 lrzsz。
 
 **tmux 操作**（`tmux/remote_pty.go`）：`HasSessionViaPTY`、`NewSessionViaPTY`、`DetachViaPTY`、`PanePathViaPTY`、`EnsureViaPTY` 通过 PTY 管道注入 tmux 命令，而非新开 SSH 会话。退出码检测使用 `echo "AIT_EXIT_$?"` 模式。
 
@@ -467,7 +469,7 @@ flowchart LR
 
 | 功能 | 直连模式（chain off） | 链式模式（chain on） |
 |------|----------------------|---------------------|
-| `!ait get` / `!ait put` | SFTP over `conn` | PTY 管道 ZMODEM（active shell 须 lrzsz） |
+| `!ait get` / `!ait put` | SFTP（直连） | ZMODEM；否则安装 lrzsz（提示） |
 | tmux `--tmux` | `conn.NewSession()` | PTY 注入（`HasSessionViaPTY` 等） |
 | AI `!!` / `!ait ai` | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
 | Scrollback / cwd | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |

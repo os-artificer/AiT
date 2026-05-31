@@ -33,8 +33,18 @@ import (
 
 const (
 	waitPollInterval = 50 * time.Millisecond
+	handshakeTimeout = 30 * time.Second
 	waitMaxDuration  = 30 * time.Minute
 )
+
+// handshakeTimeoutDuration is the wait for the remote sz/rz peer to start (overridable in tests).
+var handshakeTimeoutDuration = handshakeTimeout
+
+// ErrHandshakeTimeout is returned when the remote sz/rz peer does not start ZMODEM in time.
+var ErrHandshakeTimeout = errors.New("zmodem: handshake timed out waiting for remote sz/rz")
+
+// ErrNoProtocolResponse is returned when no ZMODEM frames arrive before handshake timeout.
+var ErrNoProtocolResponse = errors.New("zmodem: no protocol response from remote peer")
 
 // ProgressFunc reports bytes transferred during a ZMODEM session.
 type ProgressFunc func(written, total int64)
@@ -144,9 +154,11 @@ func (s *Session) Close() {
 	s.Abort()
 }
 
-// Wait blocks until the transfer completes, ctx is cancelled, or waitMaxDuration elapses.
+// Wait blocks until the transfer completes, ctx is cancelled, or the session times out.
 func (s *Session) Wait(ctx context.Context) error {
-	deadline := time.Now().Add(waitMaxDuration)
+	start := time.Now()
+	handshakeDeadline := start.Add(handshakeTimeoutDuration)
+	deadline := start.Add(waitMaxDuration)
 	ticker := time.NewTicker(waitPollInterval)
 	defer ticker.Stop()
 
@@ -179,10 +191,15 @@ func (s *Session) Wait(ctx context.Context) error {
 				return nil
 			}
 		case <-ticker.C:
-			if time.Now().After(deadline) {
+			now := time.Now()
+			if !s.started.Load() && now.After(handshakeDeadline) {
+				s.Abort()
+				return fmt.Errorf("%w", ErrHandshakeTimeout)
+			}
+			if now.After(deadline) {
 				s.Abort()
 				if !s.started.Load() {
-					return fmt.Errorf("zmodem: no protocol response from remote peer")
+					return fmt.Errorf("%w", ErrNoProtocolResponse)
 				}
 				return fmt.Errorf("zmodem: transfer timed out")
 			}

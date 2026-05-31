@@ -58,6 +58,13 @@ func termPrintln(w io.Writer, s string) {
 	_, _ = io.WriteString(w, s)
 }
 
+const termEraseEOL = "\x1b[K"
+
+// termPrintInline overwrites the current terminal line without advancing (TTY progress).
+func termPrintInline(w io.Writer, s string) {
+	_, _ = io.WriteString(w, "\r"+s+termEraseEOL)
+}
+
 func termPrintf(w io.Writer, format string, args ...any) {
 	termPrintln(w, fmt.Sprintf(format, args...))
 }

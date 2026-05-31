@@ -484,3 +484,27 @@ func TestInjectCapture_FallbackFullScrollback(t *testing.T) {
 		t.Fatalf("out = %q, want payload", out)
 	}
 }
+
+func TestInjectZModem_NoSttyNoQuietWait(t *testing.T) {
+	var buf bytes.Buffer
+	c := &Client{}
+	cmd := "sz -y '/path/to/file'"
+	if err := c.InjectZModemCommand(&buf, cmd); err != nil {
+		t.Fatal(err)
+	}
+	written := buf.String()
+	if strings.Contains(written, "stty") {
+		t.Fatalf("zmodem inject must not wrap stty: %q", written)
+	}
+	if !strings.Contains(written, cmd) {
+		t.Fatalf("missing cmd in inject line: %q", written)
+	}
+
+	var injectBuf bytes.Buffer
+	if err := c.Inject(&injectBuf, cmd, InjectOpts{SuppressEcho: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(injectBuf.String(), "stty") {
+		t.Fatal("control: Inject with SuppressEcho should use stty")
+	}
+}
