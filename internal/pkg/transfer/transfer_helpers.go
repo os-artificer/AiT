@@ -29,8 +29,12 @@ import (
 
 const copyBufSize = 32 * 1024
 
-func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) error {
+// CopyProgress reports bytes copied during SFTP transfer. total is 0 when unknown.
+type CopyProgress func(written, total int64)
+
+func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader, total int64, progress CopyProgress) error {
 	buf := make([]byte, copyBufSize)
+	var written int64
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -40,6 +44,10 @@ func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) error {
 		if n > 0 {
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				return werr
+			}
+			written += int64(n)
+			if progress != nil {
+				progress(written, total)
 			}
 		}
 		if err == io.EOF {
