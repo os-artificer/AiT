@@ -364,6 +364,14 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | U28 | inline 后 `Done` 以 CRLF 定稿 | `TestTransferProgress_InlineDoneCRLF` | done 行起于列 0 |
 | U29 | ZMODEM get/put 统一 `copying…`（非 `transferring…`） | `TestZModemTransfer_ProgressUnifiedCopying` | 链式 get/put 与 SFTP 文案一致 |
 
+### U30–U32 明细（链式 ZMODEM 增量进度）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| U30 | ZMODEM receive 分块 copy 多次 progress | `TestCopyWithProgress_Incremental` | 链式 `!ait get` 大文件：`copying… N%` 持续变化 |
+| U31 | ZMODEM send 分包 OnUploadProgress | `TestOnUploadProgress_ChunkLoop` | 链式 `!ait put` 大文件：`copying… N%` 持续变化 |
+| U32 | handshake inline 后 copying 覆盖同一行 | `TestZModemTransfer_HandshakeInlineOverwritten` | handshake 不冻结；单行刷新至 done |
+
 ### M* 明细（`go install` / 第三方内嵌）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
@@ -434,6 +442,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] Z1–Z10：链式 ZMODEM `!ait get/put`（见 **Z\*** 明细）
 - [ ] T1–T12：统一 get/put 路由 + lrzsz 安装 + ZMODEM 握手修复（见 **T\*** 明细）
 - [ ] U26–U29：传输进度行内更新（见 **U26–U29** 明细）
+- [ ] U30–U32：链式 ZMODEM 增量进度（见 **U30–U32** 明细）
 - [ ] M1：`go install` 无外部 xiwh/zmodem（见 **M\*** 明细）
 - [ ] 相关自动化测试未删除或弱化
 
@@ -524,7 +533,8 @@ run hostname -I         # A20c：Ask 下手动 run 仍可用
 ait login devhost
 ssh root@internal-host
 echo remote > test
-!ait get ./test ./test.local    # Z6/Z7/U26：handshake… copying…（单行刷新）done:
+!ait get ./test ./test.local    # Z6/Z7/U26/U30：handshake inline → copying… N%（单行刷新）→ done
+!ait put ./large ./large        # U27/U31/U32：大文件 put 同 SFTP 行内进度
 !ait put ./test.local ./test
 cat test                        # 仅含 remote，无 sz/rz 命令行
 # 无 lrzsz 时：!ait get … → errhint 含 install lrzsz  # Z3
