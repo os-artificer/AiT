@@ -36,6 +36,9 @@ var ErrTransferWrongHop = errhint.NewSentinel("remote file not found on directly
 // ErrInjectCaptureNoMarkers is returned when PTY inject capture output lacks delimiters.
 var ErrInjectCaptureNoMarkers = errors.New("inject capture: markers not found")
 
+// ErrInjectLeakSignature is returned when remote file content looks like leaked inject commands.
+var ErrInjectLeakSignature = errors.New("remote file contains PTY inject command leakage")
+
 // normalizeHost lowercases host, strips user@ and port, and returns the first DNS label
 // so short names and FQDNs compare equal (e.g. bastion and bastion.example.com).
 func normalizeHost(host string) string {
@@ -153,6 +156,15 @@ func wrapPTYCaptureErr(cause error) error {
 		"!ait put <local-on-this-machine> <remote-on-active-shell>",
 		"which base64 sha256sum",
 		"!ait chain off   # if file is on directly connected host",
+	)
+}
+
+func wrapPTYLeakErr(cause error) error {
+	return errhint.WithTry(
+		cause,
+		"The remote target file contains leaked PTY inject command text; retry would append more.",
+		"Inspect the remote file (cat/head) and remove corrupted content before retrying.",
+		"!ait put <local-on-this-machine> <remote-on-active-shell>",
 	)
 }
 
