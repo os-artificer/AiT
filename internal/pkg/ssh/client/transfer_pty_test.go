@@ -20,9 +20,11 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/scrollback"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -142,22 +144,26 @@ func TestPTYTransfer_WriteRemoteBase64_ReportsChunks(t *testing.T) {
 
 	c := &Client{scroll: &terminal.Buffer{}}
 	origInject := ptyTransferInjectHook
-	origSettle := ptyTransferSettleHook
+	origVerify := ptyTransferVerifyHook
 	defer func() {
 		ptyTransferInjectHook = origInject
-		ptyTransferSettleHook = origSettle
+		ptyTransferVerifyHook = origVerify
 	}()
 	ptyTransferInjectHook = func(client *Client, stdin io.Writer, cmd string, opts InjectOpts) error {
 		return nil
 	}
-	ptyTransferSettleHook = func(client *Client, stdin io.Writer) error {
-		return nil
+	ptyTransferVerifyHook = func(client *Client, stdin io.Writer, remotePath string) (string, error) {
+		return "abc123  /remote\n", nil
 	}
 
 	pt := &PTYTransfer{client: c, progress: p}
 	encoded := strings.Repeat("A", ptyTransferChunkSize+10)
-	if err := pt.writeRemoteBase64(&bytes.Buffer{}, "/remote", encoded); err != nil {
+	hash, err := pt.writeRemoteBase64(&bytes.Buffer{}, "/remote", encoded)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if hash != "abc123" {
+		t.Fatalf("hash = %q, want abc123", hash)
 	}
 
 	chunkLines := 0
@@ -168,5 +174,86 @@ func TestPTYTransfer_WriteRemoteBase64_ReportsChunks(t *testing.T) {
 	}
 	if chunkLines != 2 {
 		t.Fatalf("chunk lines = %d, want 2, phases=%v", chunkLines, phases)
+	}
+}
+
+func TestPTYPut_VerifyViaSettleCapture(t *testing.T) {
+	var phases []string
+	origPhase := transferProgressPhaseHook
+	defer func() { transferProgressPhaseHook = origPhase }()
+	transferProgressPhaseHook = func(p *TransferProgress, msg string) {
+		phases = append(phases, msg)
+	}
+
+	c := &Client{scroll: &terminal.Buffer{}}
+	origInject := ptyTransferInjectHook
+	origVerify := ptyTransferVerifyHook
+	defer func() {
+		ptyTransferInjectHook = origInject
+		ptyTransferVerifyHook = origVerify
+	}()
+	ptyTransferInjectHook = func(client *Client, stdin io.Writer, cmd string, opts InjectOpts) error {
+		return nil
+	}
+	verifyCalled := false
+	ptyTransferVerifyHook = func(client *Client, stdin io.Writer, remotePath string) (string, error) {
+		verifyCalled = true
+		return localFileHash([]byte("hello")) + "  ./remote\n", nil
+	}
+
+	dir := t.TempDir()
+	localPath := dir + "/local"
+	if err := os.WriteFile(localPath, []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	pt := &PTYTransfer{client: c, progress: NewTransferProgress(io.Discard)}
+	if err := pt.Put(t.Context(), &bytes.Buffer{}, localPath, "./remote"); err != nil {
+		t.Fatal(err)
+	}
+	if !verifyCalled {
+		t.Fatal("expected settle+capture verify hook")
+	}
+	foundVerify := false
+	for _, p := range phases {
+		if strings.Contains(p, "verifying") {
+			foundVerify = true
+		}
+	}
+	if !foundVerify {
+		t.Fatalf("missing verifying phase: %v", phases)
+	}
+}
+
+func TestCaptureQuiet_ChainMode(t *testing.T) {
+	c := &Client{}
+	if got := captureQuietForClient(c); got != scrollback.CaptureQuiet {
+		t.Fatalf("default quiet = %v, want %v", got, scrollback.CaptureQuiet)
+	}
+	c.SetChainMode(true)
+	if got := captureQuietForClient(c); got != transferChainCaptureQuiet {
+		t.Fatalf("chain quiet = %v, want %v", got, transferChainCaptureQuiet)
+	}
+}
+
+func TestInjectCaptureRetry_ChainAttempts(t *testing.T) {
+	c := &Client{scroll: &terminal.Buffer{}}
+	c.SetChainMode(true)
+	var stdin bytes.Buffer
+	attempts := 0
+
+	orig := injectCaptureForRetry
+	defer func() { injectCaptureForRetry = orig }()
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		attempts++
+		return "", ErrInjectCaptureNoMarkers
+	}
+
+	_, err := c.injectCaptureRetry(&stdin, "sha256sum '/tmp/x'")
+	if !errors.Is(err, ErrInjectCaptureNoMarkers) {
+		t.Fatalf("expected marker error, got %v", err)
+	}
+	if attempts != injectCaptureRetryAttemptsChain {
+		t.Fatalf("attempts = %d, want %d", attempts, injectCaptureRetryAttemptsChain)
 	}
 }

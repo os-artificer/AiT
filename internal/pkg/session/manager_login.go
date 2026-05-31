@@ -42,7 +42,8 @@ func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 
 	sshOpts := sshclient.Options{
 		Host: opts.Host, Port: opts.Port, User: opts.User,
-		IdentityPath: opts.IdentityPath, IdentityExplicit: opts.IdentityExplicit,
+		LoginDestination: opts.LoginDestination,
+		IdentityPath:     opts.IdentityPath, IdentityExplicit: opts.IdentityExplicit,
 		Password: opts.Password, UseAgent: true,
 		ProxyJump: opts.ProxyJump, ProxyCommand: opts.ProxyCommand,
 		KnownHostsPath: opts.KnownHostsPath, StrictHostKeyChecking: opts.StrictHostKeyChecking,

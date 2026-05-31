@@ -413,7 +413,7 @@ sequenceDiagram
 
 Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over `golang.org/x/crypto/ssh`) and [`internal/pkg/ssh/client/transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) (PTY-pipe injection over base64). **Single regular files only**; directories return a clear error. **`Put`** calls SFTP `MkdirAll` on the remote parent directory before `Create`. Errors are wrapped with `local file` / `remote file` prefixes; remote `IsNotExist` includes a hint to check the remote path and parent directory (SFTP servers often report `file does not exist` when a parent path is missing).
 
-When the user has manually SSH'd beyond the directly connected host (e.g. `local → proxy → target`), SFTP and `conn.NewSession()` only reach the first hop. **Chain mode** (`!ait chain on`, or **auto-enabled** when `!ait get`/`put` detects the active shell hostname differs from the dial host) switches to PTY-pipe injection: commands are silently injected through the existing PTY stdin/stdout pipe, which traverses all SSH hops to the final target. File transfer uses base64 encoding/decoding with sha256sum integrity verification. Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
+When the user has manually SSH'd beyond the directly connected host (e.g. login to a bastion, then `ssh internal` inside the session), SFTP and `conn.NewSession()` only reach the **dial target** of the live connection. **Chain mode** (`!ait chain on`, or **auto-enabled** when `!ait get`/`put` detects the active shell hostname differs from both the resolved dial host and the original login destination alias) switches to PTY-pipe injection. **ProxyJump at login is not chain mode**: `DialChain` tunnels to the final host, so in-session `!ait get`/`put` default to **SFTP** on that same connection—the same strategy as standalone `ait get`/`put`. Hostname matching compares the active shell to `Options.Host` (ssh `-G` `HostName`) and `Options.LoginDestination` (CLI/config alias, e.g. `devhost` vs `dev.ylgeeker.com`). File transfer uses base64 encoding/decoding with sha256sum integrity verification; PTY **put** runs verify as settle+capture immediately after chunk upload, with longer capture quiet time in chain mode. Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
 
 | Mode | Command | Authentication |
 |------|---------|----------------|
@@ -432,7 +432,9 @@ When the user has manually SSH'd beyond the directly connected host (e.g. `local
 
 ### Proxy chain mode (!ait chain)
 
-When the connection path is `local → proxy → target` (or any number of intermediate hops), the AiT `Client` only holds a direct SSH session to the first hop. SFTP (`conn.NewSession()`) and `conn.NewSession()`-based tmux operations can only reach that first hop — **not** the final target. Features that already work through the PTY pipe (AI mode `!!`, scrollback capture, remote cwd detection) continue to work regardless of hop count because PTY stdin/stdout traverses all SSH connections.
+**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session transfer on that login uses **SFTP** by default (same as `ait get`/`put`). **Chain mode** applies when the **interactive shell** is on a host **deeper** than the dial connection—typically after you manually `ssh` from the login host to another machine inside the session.
+
+When the interactive path is `local → bastion` (login) then manual `ssh internal`, the AiT `Client` holds a direct SSH session to the bastion only. SFTP (`conn.NewSession()`) and `conn.NewSession()`-based tmux operations can only reach that first hop — **not** the internal host. Features that already work through the PTY pipe (AI mode `!!`, scrollback capture, remote cwd detection) continue to work regardless of hop count because PTY stdin/stdout traverses all SSH connections.
 
 **Chain mode** (`!ait chain on`, or auto-enabled on nested SSH when in-session transfer detects a hostname mismatch) switches file transfer and tmux operations from SFTP/direct-session to PTY-pipe injection. All AiT-injected commands are silent (invisible in history and terminal):
 
@@ -440,7 +442,7 @@ When the connection path is `local → proxy → target` (or any number of inter
 |-------|-----------|
 | History suppression | Space prefix (`ignorespace`) + `HISTCONTROL=ignorespace:erasedups` / `setopt HIST_IGNORE_SPACE` injected at login |
 | Echo suppression | `stty -echo` / `stty echo` wrapper around injected commands |
-| Output capture | Unique ANSI-escaped delimiters (`\x1b[AIT_CAP_B\x1b` / `\x1b[AIT_CAP_E\x1b`) wrapped around command output, parsed from scrollback delta |
+| Output capture | Plain-text delimiters (`AIT_CAPTURE_B_f3e7a1c9` / `AIT_CAPTURE_E_f3e7a1c9`) wrapped around command output, parsed from scrollback delta (with full-buffer fallback when the snap prefix was trimmed) |
 
 **File transfer** (`PTYTransfer`): base64 encodes/decodes file content through the PTY pipe with sha256sum integrity verification. Chunks of 3072 bytes are appended via `printf | base64 -d >>`. Remote hosts must have `base64` and `sha256sum` available (standard on Linux/macOS).
 
