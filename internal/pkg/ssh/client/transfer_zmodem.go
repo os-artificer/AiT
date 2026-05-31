@@ -54,7 +54,7 @@ func (t *ZModemTransfer) Get(ctx context.Context, stdin io.Writer, remotePath, l
 
 	if t.progress != nil {
 		t.progress.StartGet(remotePath, localPath, -1)
-		t.progress.Phase("handshake…")
+		t.progress.PhaseInline("handshake…")
 	}
 
 	progressFn := t.zmodemProgressFn()
@@ -102,7 +102,7 @@ func (t *ZModemTransfer) Put(ctx context.Context, stdin io.Writer, localPath, re
 
 	if t.progress != nil {
 		t.progress.StartPut(localPath, remotePath, info.Size())
-		t.progress.Phase("handshake…")
+		t.progress.PhaseInline("handshake…")
 	}
 
 	remoteName := remoteBaseName(remotePath)
@@ -135,10 +135,7 @@ func (t *ZModemTransfer) zmodemProgressFn() zmodem.ProgressFunc {
 		return nil
 	}
 	return func(written, total int64) {
-		t.progress.SetBytes(written)
-		if total > 0 {
-			t.progress.reportPercent(written * 100 / total)
-		}
+		t.progress.SFTPProgress(written, total)
 	}
 }
 
