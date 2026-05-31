@@ -53,7 +53,7 @@ make build
 ./bin/ait --help
 ```
 
-**`go install`** (when the module resolves via `go install`):
+**`go install`** (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
 
 ```bash
 go install github.com/os-artificer/AiT/cmd/ait@latest
