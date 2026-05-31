@@ -44,10 +44,13 @@ const (
 
 // Options for SSH dial.
 type Options struct {
-	Host         string
-	Port         int
-	User         string
-	IdentityPath string
+	Host string
+	Port int
+	User string
+	// LoginDestination is the ssh config Host alias or CLI destination (e.g. devhost)
+	// before hostname resolution; used to match the active PTY shell for transfer routing.
+	LoginDestination string
+	IdentityPath     string
 	// IdentityExplicit is true when the user passed -i on the CLI.
 	IdentityExplicit bool
 	Password         string

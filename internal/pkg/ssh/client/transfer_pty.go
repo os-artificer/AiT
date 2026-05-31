@@ -19,6 +19,7 @@ package client
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -119,18 +120,14 @@ func (t *PTYTransfer) Put(ctx context.Context, stdin io.Writer, localPath, remot
 
 	encoded := base64.StdEncoding.EncodeToString(data)
 
-	if err := t.writeRemoteBase64(stdin, remotePath, encoded); err != nil {
-		return fmt.Errorf("pty put: remote write: %w", err)
-	}
-
 	localHash := localFileHash(data)
 
-	if t.progress != nil {
-		t.progress.Phase("verifying…")
-	}
-	remoteHash, err := t.captureRemoteHash(stdin, remotePath)
+	remoteHash, err := t.writeRemoteBase64(stdin, remotePath, encoded)
 	if err != nil {
-		return fmt.Errorf("pty put: remote verify: %w", err)
+		if errors.Is(err, ErrInjectCaptureNoMarkers) {
+			return fmt.Errorf("pty put: remote verify: %w", err)
+		}
+		return fmt.Errorf("pty put: remote write: %w", err)
 	}
 
 	if remoteHash != "" && remoteHash != localHash {
@@ -168,9 +165,10 @@ func (t *PTYTransfer) captureRemoteBase64(stdin io.Writer, remotePath string) (s
 
 // writeRemoteBase64 uploads base64-encoded data to remotePath in chunks.
 // Each chunk is decoded on the remote side via printf | base64 -d >>.
-func (t *PTYTransfer) writeRemoteBase64(stdin io.Writer, remotePath, encoded string) error {
+// Returns the remote sha256 hash from settle+capture verify.
+func (t *PTYTransfer) writeRemoteBase64(stdin io.Writer, remotePath, encoded string) (string, error) {
 	if err := ptyTransferInjectHook(t.client, stdin, "> "+shellQuoteArg(remotePath), InjectOpts{SuppressEcho: true}); err != nil {
-		return err
+		return "", err
 	}
 
 	chunks := chunkString(encoded, ptyTransferChunkSize)
@@ -180,7 +178,7 @@ func (t *PTYTransfer) writeRemoteBase64(stdin io.Writer, remotePath, encoded str
 		}
 		cmd := buildPutChunkCmd(remotePath, chunk)
 		if err := ptyTransferInjectHook(t.client, stdin, cmd, InjectOpts{SuppressEcho: true}); err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -188,5 +186,12 @@ func (t *PTYTransfer) writeRemoteBase64(stdin io.Writer, remotePath, encoded str
 		t.client.scroll.StripSubstrings(injectStripFragments()...)
 	}
 
-	return ptyTransferSettleHook(t.client, stdin)
+	if t.progress != nil {
+		t.progress.Phase("verifying…")
+	}
+	hash, err := ptyTransferVerifyHook(t.client, stdin, remotePath)
+	if err != nil {
+		return "", err
+	}
+	return parseHashFromOutput(hash), nil
 }

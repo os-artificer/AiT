@@ -93,13 +93,21 @@ func quotePath(p string) string {
 
 func sshOptionsFromSession(sess *store.Session, password string) sshclient.Options {
 	return sshclient.Options{
-		Host:         sess.Host,
-		Port:         normalizePort(sess.Port),
-		User:         sess.Username,
-		IdentityPath: sess.IdentityPath,
-		Password:     password,
-		UseAgent:     true,
+		Host:             sess.Host,
+		LoginDestination: sessionLoginDestination(sess),
+		Port:             normalizePort(sess.Port),
+		User:             sess.Username,
+		IdentityPath:     sess.IdentityPath,
+		Password:         password,
+		UseAgent:         true,
 	}
+}
+
+func sessionLoginDestination(sess *store.Session) string {
+	if sess.Alias != "" {
+		return sess.Alias
+	}
+	return sess.Host
 }
 
 func sessionHostLabel(sess *store.Session) string {

@@ -42,3 +42,19 @@ func TestResolveGithub(t *testing.T) {
 		t.Fatal("empty port")
 	}
 }
+
+func TestClientOptions_LoginDestination(t *testing.T) {
+	r := Resolved{
+		Host:        "dev.ylgeeker.com",
+		Destination: "devhost",
+		Port:        22,
+		User:        "root",
+	}
+	opts := r.ClientOptions()
+	if opts.LoginDestination != "devhost" {
+		t.Fatalf("LoginDestination = %q, want devhost", opts.LoginDestination)
+	}
+	if opts.Host != "dev.ylgeeker.com" {
+		t.Fatalf("Host = %q", opts.Host)
+	}
+}
