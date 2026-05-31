@@ -23,7 +23,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
 - **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
 - **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `ait ai chat` (one-shot); `ait ai provider enable|disable`; `ait ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `ait ai model list`; SSH `!ait ai chat` / `!! chat`; cloud keys `ai.<provider>.api_key`
-- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH; chain mode (`!ait chain on`) uses PTY-pipe base64 transfer for multi-hop SSH
+- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (SFTP by default; auto chain on nested SSH or `!ait chain on` for PTY-pipe base64 transfer)
 - **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe injection for file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_pty.go`; `internal/pkg/tmux/remote_pty.go`)
 - **OpenSSH config**: `login`/`load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 

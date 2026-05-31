@@ -199,7 +199,9 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 
 当通过多跳 SSH 连接（如 `本机 → 堡垒机 → 内网服务器`）时，AiT 的直连仅到达第一台主机。基于 SFTP 的文件传输（`!ait get` / `!ait put`）和 tmux 操作默认只能对该第一跳生效。使用 PTY 管道的功能（`!!`、`!ait ai`、scrollback）在任何深度均可正常工作。
 
-**`!ait chain on`** 启用链式模式，切换为 PTY 管道注入：
+链式模式关闭时，若你已手动 SSH 到更深层主机，**`!ait get` / `!ait put` 会自动探测**当前 shell 所在主机名并启用链式模式（单行提示）。仍可用 **`!ait chain off`** 恢复为对直连主机的 SFTP。
+
+**`!ait chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
 
 - **文件传输**：文件经 base64 编码后通过交互式 PTY 会话传输，使用 sha256sum 完整性校验。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
 - **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
@@ -213,11 +215,11 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 ```text
 AiT user@bastion> ssh internal-server
 …经堡垒机登录到内网服务器…
-AiT user@bastion> !ait chain on
-  chain mode enabled
-  File transfer and tmux will use PTY-pipe injection.
-  This is needed when you have SSH'd beyond the directly connected host.
-AiT user@bastion> !ait get /var/log/app.log ./app.log   # 在链路中正常工作
+AiT user@bastion> !ait get /var/log/app.log ./app.log
+  chain mode auto-enabled: active shell is on internal-server (connected to bastion).
+  File transfer will use PTY-pipe injection.
+  Use !ait chain off to disable.
+AiT user@bastion> !ait chain   # 显示 on
 AiT user@bastion> !ait chain off
   chain mode disabled
   File transfer and tmux will use SFTP/direct sessions.

@@ -413,7 +413,7 @@ sequenceDiagram
 
 Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over `golang.org/x/crypto/ssh`) and [`internal/pkg/ssh/client/transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) (PTY-pipe injection over base64). **Single regular files only**; directories return a clear error. **`Put`** calls SFTP `MkdirAll` on the remote parent directory before `Create`. Errors are wrapped with `local file` / `remote file` prefixes; remote `IsNotExist` includes a hint to check the remote path and parent directory (SFTP servers often report `file does not exist` when a parent path is missing).
 
-When the user has manually SSH'd beyond the directly connected host (e.g. `local → proxy → target`), SFTP and `conn.NewSession()` only reach the first hop. **Chain mode** (`!ait chain on`) switches to PTY-pipe injection: commands are silently injected through the existing PTY stdin/stdout pipe, which traverses all SSH hops to the final target. File transfer uses base64 encoding/decoding with sha256sum integrity verification. Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
+When the user has manually SSH'd beyond the directly connected host (e.g. `local → proxy → target`), SFTP and `conn.NewSession()` only reach the first hop. **Chain mode** (`!ait chain on`, or **auto-enabled** when `!ait get`/`put` detects the active shell hostname differs from the dial host) switches to PTY-pipe injection: commands are silently injected through the existing PTY stdin/stdout pipe, which traverses all SSH hops to the final target. File transfer uses base64 encoding/decoding with sha256sum integrity verification. Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
 
 | Mode | Command | Authentication |
 |------|---------|----------------|
@@ -434,7 +434,7 @@ When the user has manually SSH'd beyond the directly connected host (e.g. `local
 
 When the connection path is `local → proxy → target` (or any number of intermediate hops), the AiT `Client` only holds a direct SSH session to the first hop. SFTP (`conn.NewSession()`) and `conn.NewSession()`-based tmux operations can only reach that first hop — **not** the final target. Features that already work through the PTY pipe (AI mode `!!`, scrollback capture, remote cwd detection) continue to work regardless of hop count because PTY stdin/stdout traverses all SSH connections.
 
-**Chain mode** (`!ait chain on`) switches file transfer and tmux operations from SFTP/direct-session to PTY-pipe injection. All AiT-injected commands are silent (invisible in history and terminal):
+**Chain mode** (`!ait chain on`, or auto-enabled on nested SSH when in-session transfer detects a hostname mismatch) switches file transfer and tmux operations from SFTP/direct-session to PTY-pipe injection. All AiT-injected commands are silent (invisible in history and terminal):
 
 | Layer | Mechanism |
 |-------|-----------|

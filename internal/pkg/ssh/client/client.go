@@ -75,7 +75,7 @@ type Client struct {
 	remotePromptShown   atomic.Bool
 	setupFilter         setupOutputFilter
 	stdinReader         *stdinReader // set for RunInteractive; used during remote AI REPL
-	chainMode           atomic.Bool  // true by default; uses PTY-pipe injection for transfer and tmux
+	chainMode           atomic.Bool  // false by default; PTY-pipe injection when chain mode is on
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.
@@ -95,14 +95,14 @@ func (c *Client) RemoteCwd() string {
 }
 
 // ChainMode reports whether chain mode is active.
-// When true (default), SFTP and conn.NewSession-based operations are replaced with
-// PTY-pipe alternatives that traverse the full SSH chain.
+// When true, SFTP and conn.NewSession-based operations are replaced with PTY-pipe
+// alternatives that traverse nested SSH hops in the interactive shell.
 func (c *Client) ChainMode() bool {
 	return c.chainMode.Load()
 }
 
-// SetChainMode enables or disables chain mode. When enabled (default), file transfer
-// and tmux operations use PTY-pipe injection instead of direct SFTP/session.
+// SetChainMode enables or disables chain mode. When enabled, file transfer and tmux
+// operations use PTY-pipe injection instead of direct SFTP/session.
 func (c *Client) SetChainMode(enabled bool) {
 	c.chainMode.Store(enabled)
 }

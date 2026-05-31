@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -419,4 +420,60 @@ func TestNewClient_NoKeys(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error without keys")
 	}
+}
+
+// M4: OpenAI Agent path converts XML-in-content to run_shell JSON when ToolCalls is empty.
+func TestChatOpenAIAgent_XMLContentFallback(t *testing.T) {
+	xmlReply := `<minimax:tool_call><invoke name="run"><parameter name="command">whoami</parameter></invoke></minimax:tool_call>`
+	deep := newMockOpenAIServer(t, 200, xmlReply)
+	mini := newMockOpenAIServer(t, 200, "x")
+	client := setupTwoProviderClient(t, testCfgDefaultDeepseek(), deep, mini)
+
+	reply, _, _, err := client.ChatAgent(context.Background(), nil, "系统配置信息", AssistEnv{Scope: ScopeLocal})
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if !strings.Contains(reply, `"action":"run_shell"`) || !strings.Contains(reply, "whoami") {
+		t.Fatalf("reply=%q", reply)
+	}
+}
+
+// M6: Anthropic Agent path converts XML-in-content before ExtractReply strips it.
+func TestChatAgent_AnthropicXMLFallback(t *testing.T) {
+	testAIEnv(t)
+	xmlReply := `<minimax:tool_call><invoke name="run"><parameter name="command">whoami</parameter></invoke></minimax:tool_call>`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"content":[{"type":"text","text":`+jsonStringLiteral(xmlReply)+`}]}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	if err := creds.SetProviderAPIKey(config.ProviderMinimax, "mk"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := testCfgDefaultDeepseek()
+	cfg.AI.Default = config.ProviderMinimax
+	cfg.AI.Providers[config.ProviderMinimax] = config.ProviderConfig{
+		APIStyle: config.APIStyleAnthropic,
+		BaseURL:  srv.URL,
+		Model:    "MiniMax-M2.5",
+	}
+
+	client, err := NewClient(cfg, WithProviderOverride(config.ProviderMinimax))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, _, _, err := client.ChatAgent(context.Background(), nil, "系统配置信息", AssistEnv{Scope: ScopeLocal})
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if !strings.Contains(reply, `"action":"run_shell"`) || !strings.Contains(reply, "whoami") {
+		t.Fatalf("reply=%q", reply)
+	}
+}
+
+func jsonStringLiteral(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
