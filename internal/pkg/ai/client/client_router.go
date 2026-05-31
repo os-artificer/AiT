@@ -283,14 +283,14 @@ func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []
 
 func (c *Client) complete(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, string, error) {
 	if ep.apiStyle == config.APIStyleAnthropic {
-		return ep.chatAnthropic(ctx, messages)
+		return ep.chatAnthropic(ctx, messages, false)
 	}
 	return ep.chatOpenAI(ctx, messages)
 }
 
 func (c *Client) completeAgent(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, string, error) {
 	if ep.apiStyle == config.APIStyleAnthropic {
-		return ep.chatAnthropic(ctx, messages)
+		return ep.chatAnthropic(ctx, messages, true)
 	}
 	return ep.chatOpenAIAgent(ctx, messages)
 }

@@ -199,3 +199,25 @@ func TestExtractReply_MultipleToolCallsWithReply(t *testing.T) {
 		t.Fatalf("reply still contains XML tags: %q", reply)
 	}
 }
+
+// M5: ExtractReply strips hybrid JSON+XML fragments so Ask mode does not leak provider format.
+func TestExtractReply_HybridFragmentStripped(t *testing.T) {
+	raw := `{"action":"run_shell","command">whoami</parameter>` + "\n" +
+		`</invoke>` + "\n" +
+		`</minimax:tool_call>`
+	reply, thinking := ExtractReply(raw)
+	if reply != "" {
+		t.Fatalf("reply=%q want empty", reply)
+	}
+	if thinking != "" {
+		t.Fatalf("thinking=%q want empty", thinking)
+	}
+}
+
+func TestExtractReply_PreservesCompleteAgentJSON(t *testing.T) {
+	raw := `{"action":"run_shell","command":"echo hi"}`
+	reply, _ := ExtractReply(raw)
+	if reply != raw {
+		t.Fatalf("reply=%q want unchanged JSON", reply)
+	}
+}

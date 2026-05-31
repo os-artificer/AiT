@@ -17,6 +17,7 @@
 package aimode
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -34,6 +35,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/pty"
 )
 
 func testAIClient(t *testing.T, messageContent string) *ai.Client {
@@ -470,6 +472,43 @@ func TestRunAgentOnce_NilAI(t *testing.T) {
 	err := RunAgentOnce(context.Background(), Options{Out: io.Discard}, "hello")
 	if !errors.Is(err, ai.ErrNotConfigured) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// RC1: withTTYConfirm on ReplIn accepts CR-terminated confirm (SSH raw TTY path).
+func TestRunAgentOnce_TTYConfirmAcceptsCR(t *testing.T) {
+	client := testAIClientHandler(t, func(call int) string {
+		if call == 1 {
+			return `{"action":"ait_cli","args":"list"}`
+		}
+		return `{"action":"answer","text":"ok"}`
+	})
+
+	var cliOut strings.Builder
+	sr := pty.StartFrom(bytes.NewReader([]byte("y\r")))
+	replIn := sr.BeginREPL()
+	defer sr.EndREPL()
+
+	br := bufio.NewReader(replIn)
+	opt := Options{
+		Scope:          ai.ScopeLocal,
+		AI:             client,
+		In:             replIn,
+		Out:            io.Discard,
+		ErrOut:         io.Discard,
+		UseTTYLineEdit: true,
+		CLI: func(argv []string, out, errOut io.Writer) error {
+			cliOut.WriteString(strings.Join(argv, " "))
+			return nil
+		},
+	}
+	opt = opt.withTTYConfirm(br)
+
+	if err := RunAgentOnce(context.Background(), opt, "list sessions"); err != nil {
+		t.Fatal(err)
+	}
+	if cliOut.String() != "list" {
+		t.Fatalf("cli=%q", cliOut.String())
 	}
 }
 

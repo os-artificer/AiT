@@ -17,6 +17,7 @@
 package client
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -83,12 +84,23 @@ func (c *Client) InjectCapture(stdin io.Writer, cmd string) (string, error) {
 		return "", nil
 	}
 
-	snap := c.scroll.String()
+	var snap string
+	if c.scroll != nil {
+		snap = c.scroll.String()
+	}
 
 	if err := c.Inject(stdin, cmd, InjectOpts{CaptureOutput: true, SuppressEcho: true}); err != nil {
 		return "", err
 	}
 
+	if c.scroll == nil {
+		return "", fmt.Errorf("%w", ErrInjectCaptureNoMarkers)
+	}
+
 	delta := scrollback.Delta(snap, c.scroll.String())
+	c.scroll.StripSubstrings(injectStripFragments()...)
+	if !captureMarkersPresent(delta) {
+		return "", fmt.Errorf("%w", ErrInjectCaptureNoMarkers)
+	}
 	return parseCapturedOutput(delta), nil
 }
