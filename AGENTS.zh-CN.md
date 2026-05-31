@@ -80,7 +80,7 @@ make test-cross  # windows + darwin go build
 | `internal/pkg/config/` | YAML 配置（`Load`/`Save`/`EnsureFile`/`Validate`；`ait config init/view/edit/validate`） |
 | `internal/pkg/creds/` | 操作系统密钥环 |
 | `internal/pkg/pathsafe/` | 会话 ID 与路径校验 |
-| `pkg/` | 对外可导入库（当前为空） |
+| `pkg/` | 对外可导入库；[`pkg/third-party/`](pkg/third-party/) 内嵌第三方 Go 源码（如 xiwh ZMODEM） |
 | `configs/` | `ait.example.yaml` |
 | `docs/` | [`design.zh-CN.md`](docs/design.zh-CN.md)、[`user-manual.zh-CN.md`](docs/user-manual.zh-CN.md) |
 | `.cursor/rules/` | Cursor 规则；Go 结构：[`go-structure.mdc`](.cursor/rules/go-structure.mdc) |

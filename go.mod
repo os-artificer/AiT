@@ -9,9 +9,10 @@ require (
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/pkg/sftp v1.13.10
 	github.com/sashabaranov/go-openai v1.41.2
+	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3
 	github.com/spf13/cobra v1.10.2
-	github.com/xiwh/zmodem v1.0.4
 	golang.org/x/crypto v0.51.0
+	golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0
 	golang.org/x/term v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.50.1
@@ -31,9 +32,7 @@ require (
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
-	golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
