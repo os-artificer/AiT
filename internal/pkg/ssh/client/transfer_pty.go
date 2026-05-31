@@ -119,13 +119,15 @@ func (t *PTYTransfer) Put(ctx context.Context, stdin io.Writer, localPath, remot
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(data)
-
 	localHash := localFileHash(data)
 
-	remoteHash, err := t.writeRemoteBase64(stdin, remotePath, encoded)
+	remoteHash, err := t.writeRemoteBase64(stdin, remotePath, encoded, int64(len(data)))
 	if err != nil {
 		if errors.Is(err, ErrInjectCaptureNoMarkers) {
 			return fmt.Errorf("pty put: remote verify: %w", err)
+		}
+		if errors.Is(err, ErrInjectLeakSignature) {
+			return fmt.Errorf("pty put: remote file corrupted by inject leakage: %w", err)
 		}
 		return fmt.Errorf("pty put: remote write: %w", err)
 	}
@@ -163,27 +165,44 @@ func (t *PTYTransfer) captureRemoteBase64(stdin io.Writer, remotePath string) (s
 	return cleaned, nil
 }
 
-// writeRemoteBase64 uploads base64-encoded data to remotePath in chunks.
-// Each chunk is decoded on the remote side via printf | base64 -d >>.
+// writeRemoteBase64 uploads base64-encoded data via a remote temp file, then mv to remotePath.
 // Returns the remote sha256 hash from settle+capture verify.
-func (t *PTYTransfer) writeRemoteBase64(stdin io.Writer, remotePath, encoded string) (string, error) {
-	if err := ptyTransferInjectHook(t.client, stdin, "> "+shellQuoteArg(remotePath), InjectOpts{SuppressEcho: true}); err != nil {
+func (t *PTYTransfer) writeRemoteBase64(stdin io.Writer, remotePath, encoded string, expectedBytes int64) (string, error) {
+	tmpPath, err := ptyTransferMktempHook(t.client, stdin)
+	if err != nil {
 		return "", err
 	}
+	defer t.client.removeRemoteFile(stdin, tmpPath)
 
 	chunks := chunkString(encoded, ptyTransferChunkSize)
 	for i, chunk := range chunks {
 		if t.progress != nil {
 			t.progress.Phase(fmt.Sprintf("uploading chunk %d/%d…", i+1, len(chunks)))
 		}
-		cmd := buildPutChunkCmd(remotePath, chunk)
-		if err := ptyTransferInjectHook(t.client, stdin, cmd, InjectOpts{SuppressEcho: true}); err != nil {
+
+		script := buildPutChunkScript(tmpPath, chunk)
+		if err := ptyTransferScriptHook(t.client, stdin, script); err != nil {
+			return "", err
+		}
+		if err := ptyTransferSettleHook(t.client, stdin); err != nil {
 			return "", err
 		}
 	}
 
+	mvScript := buildPutMvScript(tmpPath, remotePath)
+	if err := ptyTransferScriptHook(t.client, stdin, mvScript); err != nil {
+		return "", err
+	}
+	if err := ptyTransferSettleHook(t.client, stdin); err != nil {
+		return "", err
+	}
+
 	if t.client.scroll != nil {
 		t.client.scroll.StripSubstrings(injectStripFragments()...)
+	}
+
+	if err := t.checkRemotePutLeak(stdin, remotePath, expectedBytes); err != nil {
+		return "", err
 	}
 
 	if t.progress != nil {

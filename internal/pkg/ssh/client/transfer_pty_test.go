@@ -18,6 +18,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"io"
 	"os"
@@ -132,6 +133,28 @@ func TestPTYCaptureErrHint_IncludesPutUsage(t *testing.T) {
 	}
 }
 
+func TestPTYLeakErrHint_IncludesInspectAdvice(t *testing.T) {
+	err := wrapPTYLeakErr(ErrInjectLeakSignature)
+	s := err.Error()
+	if !strings.Contains(s, "leaked PTY inject") {
+		t.Fatalf("missing leak explanation: %q", s)
+	}
+	if !strings.Contains(s, "cat/head") {
+		t.Fatalf("missing inspect hint: %q", s)
+	}
+}
+
+func TestInject_SuppressEchoChainQuiet(t *testing.T) {
+	c := &Client{}
+	if got := injectQuietForClient(c, InjectOpts{SuppressEcho: true}); got != scrollback.CaptureQuiet {
+		t.Fatalf("default suppress quiet = %v, want %v", got, scrollback.CaptureQuiet)
+	}
+	c.SetChainMode(true)
+	if got := injectQuietForClient(c, InjectOpts{SuppressEcho: true}); got != transferChainCaptureQuiet {
+		t.Fatalf("chain suppress quiet = %v, want %v", got, transferChainCaptureQuiet)
+	}
+}
+
 func TestPTYTransfer_WriteRemoteBase64_ReportsChunks(t *testing.T) {
 	var phases []string
 	var buf bytes.Buffer
@@ -143,14 +166,32 @@ func TestPTYTransfer_WriteRemoteBase64_ReportsChunks(t *testing.T) {
 	}
 
 	c := &Client{scroll: &terminal.Buffer{}}
-	origInject := ptyTransferInjectHook
+	origScript := ptyTransferScriptHook
+	origSettle := ptyTransferSettleHook
+	origMktemp := ptyTransferMktempHook
 	origVerify := ptyTransferVerifyHook
+	origCapture := injectCaptureForRetry
 	defer func() {
-		ptyTransferInjectHook = origInject
+		ptyTransferScriptHook = origScript
+		ptyTransferSettleHook = origSettle
+		ptyTransferMktempHook = origMktemp
 		ptyTransferVerifyHook = origVerify
+		injectCaptureForRetry = origCapture
 	}()
-	ptyTransferInjectHook = func(client *Client, stdin io.Writer, cmd string, opts InjectOpts) error {
+	ptyTransferMktempHook = func(client *Client, stdin io.Writer) (string, error) {
+		return "/tmp/ait-put.test", nil
+	}
+	ptyTransferScriptHook = func(client *Client, stdin io.Writer, script string) error {
 		return nil
+	}
+	ptyTransferSettleHook = func(client *Client, stdin io.Writer) error {
+		return nil
+	}
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		if strings.HasPrefix(cmd, "head -c ") {
+			return base64.StdEncoding.EncodeToString([]byte("payload")), nil
+		}
+		return "", ErrInjectCaptureNoMarkers
 	}
 	ptyTransferVerifyHook = func(client *Client, stdin io.Writer, remotePath string) (string, error) {
 		return "abc123  /remote\n", nil
@@ -158,7 +199,7 @@ func TestPTYTransfer_WriteRemoteBase64_ReportsChunks(t *testing.T) {
 
 	pt := &PTYTransfer{client: c, progress: p}
 	encoded := strings.Repeat("A", ptyTransferChunkSize+10)
-	hash, err := pt.writeRemoteBase64(&bytes.Buffer{}, "/remote", encoded)
+	hash, err := pt.writeRemoteBase64(&bytes.Buffer{}, "/remote", encoded, int64(len(encoded)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,6 +218,174 @@ func TestPTYTransfer_WriteRemoteBase64_ReportsChunks(t *testing.T) {
 	}
 }
 
+func TestPTYPut_WritesViaTempFile(t *testing.T) {
+	c := &Client{scroll: &terminal.Buffer{}}
+	var scripts []string
+	var mvSeen bool
+
+	origScript := ptyTransferScriptHook
+	origSettle := ptyTransferSettleHook
+	origMktemp := ptyTransferMktempHook
+	origVerify := ptyTransferVerifyHook
+	origCapture := injectCaptureForRetry
+	defer func() {
+		ptyTransferScriptHook = origScript
+		ptyTransferSettleHook = origSettle
+		ptyTransferMktempHook = origMktemp
+		ptyTransferVerifyHook = origVerify
+		injectCaptureForRetry = origCapture
+	}()
+
+	tmpPath := "/tmp/ait-put.mock"
+	ptyTransferMktempHook = func(client *Client, stdin io.Writer) (string, error) {
+		return tmpPath, nil
+	}
+	ptyTransferScriptHook = func(client *Client, stdin io.Writer, script string) error {
+		scripts = append(scripts, script)
+		if strings.HasPrefix(strings.TrimSpace(script), "mv ") {
+			mvSeen = true
+		}
+		return nil
+	}
+	ptyTransferSettleHook = func(client *Client, stdin io.Writer) error {
+		return nil
+	}
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		if strings.HasPrefix(cmd, "head -c ") {
+			return base64.StdEncoding.EncodeToString([]byte("hello")), nil
+		}
+		return "", ErrInjectCaptureNoMarkers
+	}
+	ptyTransferVerifyHook = func(client *Client, stdin io.Writer, remotePath string) (string, error) {
+		return localFileHash([]byte("hello")) + "  ./remote\n", nil
+	}
+
+	dir := t.TempDir()
+	localPath := dir + "/local"
+	if err := os.WriteFile(localPath, []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	pt := &PTYTransfer{client: c, progress: NewTransferProgress(io.Discard)}
+	if err := pt.Put(t.Context(), &bytes.Buffer{}, localPath, "./remote"); err != nil {
+		t.Fatal(err)
+	}
+	if !mvSeen {
+		t.Fatal("expected mv script to remote path")
+	}
+	for _, script := range scripts {
+		if strings.Contains(script, ">> './remote'") || strings.Contains(script, "> './remote'") {
+			t.Fatalf("chunk must not redirect to final remote path: %q", script)
+		}
+		if strings.Contains(script, ptyPutChunkHeredocDelim) && !strings.Contains(script, shellQuoteArg(tmpPath)) {
+			t.Fatalf("heredoc chunk must append to tmp only: %q", script)
+		}
+	}
+}
+
+func TestWriteRemoteBase64_SettlesBetweenSteps(t *testing.T) {
+	c := &Client{scroll: &terminal.Buffer{}}
+	settleCount := 0
+
+	origScript := ptyTransferScriptHook
+	origSettle := ptyTransferSettleHook
+	origMktemp := ptyTransferMktempHook
+	origVerify := ptyTransferVerifyHook
+	origCapture := injectCaptureForRetry
+	defer func() {
+		ptyTransferScriptHook = origScript
+		ptyTransferSettleHook = origSettle
+		ptyTransferMktempHook = origMktemp
+		ptyTransferVerifyHook = origVerify
+		injectCaptureForRetry = origCapture
+	}()
+
+	ptyTransferMktempHook = func(client *Client, stdin io.Writer) (string, error) {
+		return "/tmp/ait-put.test", nil
+	}
+	ptyTransferScriptHook = func(client *Client, stdin io.Writer, script string) error {
+		return nil
+	}
+	ptyTransferSettleHook = func(client *Client, stdin io.Writer) error {
+		settleCount++
+		return nil
+	}
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		if strings.HasPrefix(cmd, "head -c ") {
+			return base64.StdEncoding.EncodeToString([]byte("x")), nil
+		}
+		return "", ErrInjectCaptureNoMarkers
+	}
+	ptyTransferVerifyHook = func(client *Client, stdin io.Writer, remotePath string) (string, error) {
+		return "deadbeef  /remote\n", nil
+	}
+
+	pt := &PTYTransfer{client: c}
+	encoded := strings.Repeat("A", ptyTransferChunkSize+10)
+	if _, err := pt.writeRemoteBase64(&bytes.Buffer{}, "/remote", encoded, int64(1)); err != nil {
+		t.Fatal(err)
+	}
+
+	// 2 chunks + mv => 3 settle calls between script steps.
+	if settleCount != 3 {
+		t.Fatalf("settleCount = %d, want 3", settleCount)
+	}
+}
+
+func TestPTYPut_AbortsOnInjectLeakSignature(t *testing.T) {
+	c := &Client{scroll: &terminal.Buffer{}}
+	verifyCalled := false
+
+	origScript := ptyTransferScriptHook
+	origSettle := ptyTransferSettleHook
+	origMktemp := ptyTransferMktempHook
+	origVerify := ptyTransferVerifyHook
+	origCapture := injectCaptureForRetry
+	defer func() {
+		ptyTransferScriptHook = origScript
+		ptyTransferSettleHook = origSettle
+		ptyTransferMktempHook = origMktemp
+		ptyTransferVerifyHook = origVerify
+		injectCaptureForRetry = origCapture
+	}()
+
+	ptyTransferMktempHook = func(client *Client, stdin io.Writer) (string, error) {
+		return "/tmp/ait-put.test", nil
+	}
+	ptyTransferScriptHook = func(client *Client, stdin io.Writer, script string) error {
+		return nil
+	}
+	ptyTransferSettleHook = func(client *Client, stdin io.Writer) error {
+		return nil
+	}
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		if strings.HasPrefix(cmd, "head -c ") {
+			leaked := injectEchoOff + " printf junk"
+			return base64.StdEncoding.EncodeToString([]byte(leaked)), nil
+		}
+		return "", ErrInjectCaptureNoMarkers
+	}
+	ptyTransferVerifyHook = func(client *Client, stdin io.Writer, remotePath string) (string, error) {
+		verifyCalled = true
+		return "abc  /remote\n", nil
+	}
+
+	dir := t.TempDir()
+	localPath := dir + "/local"
+	if err := os.WriteFile(localPath, []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	pt := &PTYTransfer{client: c, progress: NewTransferProgress(io.Discard)}
+	err := pt.Put(t.Context(), &bytes.Buffer{}, localPath, "./remote")
+	if !errors.Is(err, ErrInjectLeakSignature) {
+		t.Fatalf("expected ErrInjectLeakSignature, got %v", err)
+	}
+	if verifyCalled {
+		t.Fatal("verify must not run when leak guard fails")
+	}
+}
+
 func TestPTYPut_VerifyViaSettleCapture(t *testing.T) {
 	var phases []string
 	origPhase := transferProgressPhaseHook
@@ -186,14 +395,32 @@ func TestPTYPut_VerifyViaSettleCapture(t *testing.T) {
 	}
 
 	c := &Client{scroll: &terminal.Buffer{}}
-	origInject := ptyTransferInjectHook
+	origScript := ptyTransferScriptHook
+	origSettle := ptyTransferSettleHook
+	origMktemp := ptyTransferMktempHook
 	origVerify := ptyTransferVerifyHook
+	origCapture := injectCaptureForRetry
 	defer func() {
-		ptyTransferInjectHook = origInject
+		ptyTransferScriptHook = origScript
+		ptyTransferSettleHook = origSettle
+		ptyTransferMktempHook = origMktemp
 		ptyTransferVerifyHook = origVerify
+		injectCaptureForRetry = origCapture
 	}()
-	ptyTransferInjectHook = func(client *Client, stdin io.Writer, cmd string, opts InjectOpts) error {
+	ptyTransferMktempHook = func(client *Client, stdin io.Writer) (string, error) {
+		return "/tmp/ait-put.test", nil
+	}
+	ptyTransferScriptHook = func(client *Client, stdin io.Writer, script string) error {
 		return nil
+	}
+	ptyTransferSettleHook = func(client *Client, stdin io.Writer) error {
+		return nil
+	}
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		if strings.HasPrefix(cmd, "head -c ") {
+			return base64.StdEncoding.EncodeToString([]byte("hello")), nil
+		}
+		return "", ErrInjectCaptureNoMarkers
 	}
 	verifyCalled := false
 	ptyTransferVerifyHook = func(client *Client, stdin io.Writer, remotePath string) (string, error) {

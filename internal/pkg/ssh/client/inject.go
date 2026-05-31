@@ -76,11 +76,7 @@ func (c *Client) Inject(stdin io.Writer, cmd string, opts InjectOpts) error {
 
 	if opts.CaptureOutput || opts.SuppressEcho {
 		injectAt := time.Now()
-		quiet := scrollback.CaptureQuiet
-		if opts.CaptureOutput {
-			quiet = captureQuietForClient(c)
-		}
-		c.waitRemoteOutputQuietAfter(injectAt, quiet, scrollback.CaptureMaxWait)
+		c.waitRemoteOutputQuietAfter(injectAt, injectQuietForClient(c, opts), scrollback.CaptureMaxWait)
 	}
 
 	return nil
@@ -133,6 +129,17 @@ func (c *Client) InjectCapture(stdin io.Writer, cmd string) (string, error) {
 // Chain mode uses a longer quiet period to tolerate multi-hop PTY latency.
 func captureQuietForClient(c *Client) time.Duration {
 	if c != nil && c.ChainMode() {
+		return transferChainCaptureQuiet
+	}
+	return scrollback.CaptureQuiet
+}
+
+// injectQuietForClient returns the post-inject idle wait for Inject calls.
+func injectQuietForClient(c *Client, opts InjectOpts) time.Duration {
+	if opts.CaptureOutput {
+		return captureQuietForClient(c)
+	}
+	if opts.SuppressEcho && c != nil && c.ChainMode() {
 		return transferChainCaptureQuiet
 	}
 	return scrollback.CaptureQuiet
