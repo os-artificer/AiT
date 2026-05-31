@@ -122,22 +122,42 @@ func TestMetaScanner_AitAIQuery(t *testing.T) {
 	}
 }
 
-func TestMetaScanner_AitAIChat(t *testing.T) {
-	fwd, _, meta := drive("!ait ai chat ping\n", true)
+func TestMetaScanner_AitAIAsk(t *testing.T) {
+	fwd, _, meta := drive("!ait ai ask ping\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait ai chat ping" {
+	if len(meta) != 1 || meta[0] != "!ait ai ask ping" {
 		t.Errorf("meta=%v", meta)
 	}
 }
 
-func TestMetaScanner_BangBangChat(t *testing.T) {
-	fwd, _, meta := drive("!! chat ping\n", true)
+func TestMetaScanner_BangBangAsk(t *testing.T) {
+	fwd, _, meta := drive("!! ask ping\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!! chat ping" {
+	if len(meta) != 1 || meta[0] != "!! ask ping" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
+func TestMetaScanner_AitAIAgent(t *testing.T) {
+	fwd, _, meta := drive("!ait ai agent find large files\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait ai agent find large files" {
+		t.Errorf("meta=%v", meta)
+	}
+}
+
+func TestMetaScanner_BangBangAgent(t *testing.T) {
+	fwd, _, meta := drive("!! agent find large files\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!! agent find large files" {
 		t.Errorf("meta=%v", meta)
 	}
 }
@@ -292,7 +312,9 @@ func TestAIPromptFromLine(t *testing.T) {
 		{"!!", "", true},
 		{"!ait ai how to grep", "how to grep", true},
 		{"!ait ai ask hello", "ask hello", true},
-		{"!! chat hello", "chat hello", true},
+		{"!! ask hello", "ask hello", true},
+		{"!ait ai agent find large files", "agent find large files", true},
+		{"!! agent find large files", "agent find large files", true},
 		{"!ait ai", "", true},
 		{"!ait suspend", "", false},
 		{"!ait local", "", false},

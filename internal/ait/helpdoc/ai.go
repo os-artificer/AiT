@@ -73,6 +73,7 @@ func WriteAIHelp(w io.Writer) error {
 	if err := b.WriteExamples(
 		"ait ai",
 		"ait ai ask \"summarize this\"",
+		"ait ai agent \"find large files in /var/log\"",
 		"ait ai model list",
 		exampleAIOllamaStatus,
 		exampleAIProviderEnableDeepseek,
