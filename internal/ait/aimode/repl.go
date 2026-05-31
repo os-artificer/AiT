@@ -45,11 +45,18 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 	opt = fillOptionDefaults(opt)
 	st := newSessionState(opt)
 
-	var historySeed string
 	if q := stringsTrim(initialQuestion); q != "" {
 		if chat.IsEmptyCommand(q) || chat.IsEmptyAgentCommand(q) {
 			return ai.ChatMessageRequiredErr()
 		}
+	}
+
+	fd := int(os.Stdin.Fd())
+	if term.IsTerminal(fd) && (opt.In == os.Stdin || opt.UseTTYLineEdit) {
+		return runAITTY(ctx, opt, st, fd, initialQuestion)
+	}
+
+	if q := stringsTrim(initialQuestion); q != "" {
 		if msg, ok := chat.ParseCommand(q); ok {
 			return runChatOnceFromOpt(ctx, opt, msg)
 		}
@@ -64,13 +71,8 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 		if exit || isMetaREPLCommand(q) {
 			return nil
 		}
-		historySeed = q
 	}
 
-	fd := int(os.Stdin.Fd())
-	if term.IsTerminal(fd) && (opt.In == os.Stdin || opt.UseTTYLineEdit) {
-		return runAITTY(ctx, opt, st, fd, historySeed)
-	}
 	return runAIPlain(ctx, opt, st)
 }
 
@@ -116,7 +118,7 @@ func runAIPlain(ctx context.Context, opt Options, st *sessionState) error {
 	}
 }
 
-func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int, historySeed string) error {
+func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int, initialQuestion string) error {
 	old, err := term.MakeRaw(fd)
 	if err != nil {
 		return fmt.Errorf("terminal: %w", err)
@@ -128,8 +130,23 @@ func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int, histor
 	br := bufio.NewReader(opt.In)
 	opt = opt.withTTYConfirm(br)
 	hist := terminal.NewReplLineHistory(opt.ErrOut)
-	if historySeed != "" {
-		hist.Add(historySeed)
+
+	if q := stringsTrim(initialQuestion); q != "" {
+		if msg, ok := chat.ParseCommand(q); ok {
+			return runChatOnceFromOpt(ctx, opt, msg)
+		}
+		if msg, ok := chat.ParseAgentCommand(q); ok {
+			return runAgentOnceFromOpt(ctx, opt, msg)
+		}
+
+		exit, err := ExecuteLine(ctx, opt, st, q, hist)
+		if err != nil {
+			return err
+		}
+		if exit || isMetaREPLCommand(q) {
+			return nil
+		}
+		hist.Add(q)
 	}
 
 	for {

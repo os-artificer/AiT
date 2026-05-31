@@ -83,6 +83,16 @@ func injectStripFragments() []string {
 	}
 }
 
+// captureMarkersPresent reports whether delta contains both capture begin and end markers.
+func captureMarkersPresent(delta string) bool {
+	begin := strings.LastIndex(delta, injectCaptureBegin)
+	if begin < 0 {
+		return false
+	}
+	afterBegin := delta[begin+len(injectCaptureBegin):]
+	return strings.Contains(afterBegin, injectCaptureEnd)
+}
+
 // parseCapturedOutput extracts content between the capture-begin and capture-end
 // markers from the delta output. Uses LastIndex for the begin marker because the
 // injected command line echo (which also contains the marker text) appears before
