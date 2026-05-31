@@ -147,6 +147,36 @@ func TestZModemTransfer_ProgressUnifiedCopying(t *testing.T) {
 	}
 }
 
+func TestZModemTransfer_HandshakeInlineOverwritten(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	p.StartPut("./local", "./remote", 100)
+	p.PhaseInline("handshake…")
+
+	zt := &ZModemTransfer{progress: p}
+	fn := zt.zmodemProgressFn()
+	for i := int64(1); i <= 5; i++ {
+		fn(i*20, 100)
+	}
+	p.Done("done: put ./local → ./remote (100 bytes)")
+
+	got := buf.String()
+	if strings.Contains(got, "handshake…"+termEOL) {
+		t.Fatalf("handshake should not be a finalized line: %q", got)
+	}
+	if !strings.Contains(got, "\rAiT: copying") {
+		t.Fatalf("expected inline copying with \\r: %q", got)
+	}
+	if strings.Count(got, "copying…") != 5 {
+		t.Fatalf("expected 5 copying updates, got %q", got)
+	}
+	if strings.Count(got, termEOL) != 2 {
+		t.Fatalf("expected start+done CRLF only, got %d in %q", strings.Count(got, termEOL), got)
+	}
+}
+
 func TestPTYZModemErrHint_IncludesLrzsz(t *testing.T) {
 	err := wrapPTYZModemErr(ErrMissingLrzsz)
 	s := err.Error()
