@@ -60,5 +60,3 @@ func buildRzCmd(remotePath string) string {
 	}
 	return injectSpacePrefix + "cd " + shellQuoteArg(dir) + " && rz -y"
 }
-
-const lrzszProbeCmd = "command -v sz >/dev/null 2>&1 && command -v rz >/dev/null 2>&1 && echo ok"

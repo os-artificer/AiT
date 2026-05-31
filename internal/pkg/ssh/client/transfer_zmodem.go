@@ -52,26 +52,12 @@ func (t *ZModemTransfer) Get(ctx context.Context, stdin io.Writer, remotePath, l
 		return err
 	}
 
-	if err := t.ensureLrzsz(stdin); err != nil {
-		return err
-	}
-
 	if t.progress != nil {
 		t.progress.StartGet(remotePath, localPath, -1)
 		t.progress.Phase("handshake…")
 	}
 
-	var progressFn zmodem.ProgressFunc
-	if t.progress != nil {
-		progressFn = func(written, total int64) {
-			if total > 0 {
-				t.progress.SetBytes(written)
-				t.progress.Phase(fmt.Sprintf("transferring… %d%%", written*100/total))
-			} else {
-				t.progress.SetBytes(written)
-			}
-		}
-	}
+	progressFn := t.zmodemProgressFn()
 
 	_, cleanup, err := t.client.BeginZModemSession(true, stdin, localAbs, "", progressFn)
 	if err != nil {
@@ -80,7 +66,7 @@ func (t *ZModemTransfer) Get(ctx context.Context, stdin io.Writer, remotePath, l
 	defer cleanup()
 
 	cmd := strings.TrimPrefix(buildSzCmd(remotePath), injectSpacePrefix)
-	if err := t.client.Inject(stdin, cmd, InjectOpts{SuppressEcho: true}); err != nil {
+	if err := t.client.InjectZModemCommand(stdin, cmd); err != nil {
 		return fmt.Errorf("zmodem get: inject sz: %w", err)
 	}
 
@@ -114,27 +100,13 @@ func (t *ZModemTransfer) Put(ctx context.Context, stdin io.Writer, localPath, re
 		return fmt.Errorf("zmodem put: local read %q: %w", localPath, err)
 	}
 
-	if err := t.ensureLrzsz(stdin); err != nil {
-		return err
-	}
-
 	if t.progress != nil {
 		t.progress.StartPut(localPath, remotePath, info.Size())
 		t.progress.Phase("handshake…")
 	}
 
 	remoteName := remoteBaseName(remotePath)
-	var progressFn zmodem.ProgressFunc
-	if t.progress != nil {
-		progressFn = func(written, total int64) {
-			if total > 0 {
-				t.progress.SetBytes(written)
-				t.progress.Phase(fmt.Sprintf("transferring… %d%%", written*100/total))
-			} else {
-				t.progress.SetBytes(written)
-			}
-		}
-	}
+	progressFn := t.zmodemProgressFn()
 
 	_, cleanup, err := t.client.BeginZModemSession(false, stdin, localAbs, remoteName, progressFn)
 	if err != nil {
@@ -143,7 +115,7 @@ func (t *ZModemTransfer) Put(ctx context.Context, stdin io.Writer, localPath, re
 	defer cleanup()
 
 	cmd := strings.TrimPrefix(buildRzCmd(remotePath), injectSpacePrefix)
-	if err := t.client.Inject(stdin, cmd, InjectOpts{SuppressEcho: true}); err != nil {
+	if err := t.client.InjectZModemCommand(stdin, cmd); err != nil {
 		return fmt.Errorf("zmodem put: inject rz: %w", err)
 	}
 
@@ -158,15 +130,16 @@ func (t *ZModemTransfer) Put(ctx context.Context, stdin io.Writer, localPath, re
 	return nil
 }
 
-func (t *ZModemTransfer) ensureLrzsz(stdin io.Writer) error {
-	out, err := t.client.injectCaptureRetry(stdin, lrzszProbeCmd)
-	if err != nil {
-		return err
+func (t *ZModemTransfer) zmodemProgressFn() zmodem.ProgressFunc {
+	if t.progress == nil {
+		return nil
 	}
-	if !strings.Contains(strings.TrimSpace(out), "ok") {
-		return fmt.Errorf("%w", ErrMissingLrzsz)
+	return func(written, total int64) {
+		t.progress.SetBytes(written)
+		if total > 0 {
+			t.progress.reportPercent(written * 100 / total)
+		}
 	}
-	return nil
 }
 
 func (t *ZModemTransfer) waitTransfer(ctx context.Context) error {

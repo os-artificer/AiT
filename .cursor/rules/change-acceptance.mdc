@@ -329,14 +329,40 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 |----|----------|------------|----------|
 | Z1 | 本地 ZMODEM 接收会话可 Feed 远端输出 | `TestNewReceiveSession_FeedIdle` | — |
 | Z2 | 本地 ZMODEM 发送会话可打开本地文件 | `TestNewSendSession_OpensLocalFile`、`TestSession_AbortWritesCancelSeq` | — |
-| Z3 | 远端无 `sz`/`rz` 时 errhint，不挂起 | `TestZModemTransfer_MissingLrzsz`、`TestPTYZModemErrHint_IncludesLrzsz` | `!ait get`（无 lrzsz 主机）→ Try 含 install lrzsz |
+| Z3 | 链式远端无 `sz`/`rz` 时 errhint / 安装流 | `TestRoute_ChainDeclinedInstall`、`TestPTYZModemErrHint_IncludesLrzsz` | 链式 `!ait get`（无 lrzsz）→ Try 或 `[y/N]` |
 | Z4 | 传输期间 remote 输出进 ZMODEM tap、不进 scrollback | `TestZModemSession_ExclusiveIO` | — |
 | Z5 | 传输后 scrollback strip ZMODEM 协议残留 | `TestZModemSession_StripProtocolNoise` | — |
 | Z6 | `handleTransferPTY` 走 `ZModemTransfer` | `TestHandleTransferPTY_UsesZModem` | — |
-| Z7 | 进度 phase / done 行 CRLF 安全 | `TestZModemTransfer_ProgressCRLF` | SSH 内 `!ait get/put` stderr 每行起于列 0 |
+| Z7 | 进度定稿行 CRLF 安全；TTY 上 `copying…` 行内 `\r` 刷新 | `TestZModemTransfer_ProgressCRLF`、`TestTransferProgress_InlineDoneCRLF` | SSH 内 `!ait get/put`：单行百分比更新，done 起于列 0 |
 | Z8 | `sz`/`rz` 命令无 shell 重定向至目标路径；chain resolve 不回退 U12–U20 | `TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestResolveTransferMode_*` | — |
 | Z9 | ZMODEM 包与 `transfer_zmodem` 无 Unix-only 编译标签 | `make test-cross` | — |
 | Z10 | Windows 客户端链式 get/put（可选） | — | Windows Terminal：`ait login` → 嵌套 ssh → `!ait get/put` |
+
+### T* 明细（统一 get/put 路由 + lrzsz 安装）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| T1 | 直连 + 有 lrzsz → **SFTP**（ZMODEM 仅链式） | `TestRoute_DirectUsesSFTPWhenLrzszPresent` | `!ait get`（直连）→ SFTP，不卡 handshake |
+| T2 | 直连 + 无 lrzsz → SFTP 回退 | `TestRoute_FallsBackSFTPDirect` | 无 lrzsz → notice + SFTP |
+| T3 | 链式 + 拒绝安装 → errhint | `TestRoute_ChainDeclinedInstall` | 链式无 lrzsz → n → Try |
+| T4 | 链式 + 授权安装 → 重 probe ZMODEM | `TestRoute_ChainInstallThenZModem` | y → install → transfer |
+| T5 | 非 TTY 链式缺 lrzsz → 仅手动指引 | `TestLrzszResolveInstall_NonTTY` | — |
+| T6 | 各平台 InstallCommand golden | `TestInstallCommand_*`、`TestParseTarget` | — |
+| T7 | Z* 回归不回退 | 保留 Z1–Z10 | — |
+| T8 | `InjectZModemCommand` 不含 stty、不 quiet-wait | `TestInjectZModem_NoSttyNoQuietWait` | — |
+| T9 | 握手超时 ≤30s 且 `started==false` 报错 | `TestSession_WaitHandshakeTimeout` | — |
+| T10 | 直连 ZMODEM 失败 → SFTP 回退 | `TestHandleTransfer_ZModemFallbackSFTP` | — |
+| T11 | 链式 ZMODEM 失败 → 不回退 SFTP | `TestHandleTransfer_ChainNoSFTpfFallback` | — |
+| T12 | 链式 + 有 lrzsz → ZMODEM | `TestRoute_ChainPrefersZModemWhenLrzszPresent` | 链式 `!ait get` → handshake/transfer |
+
+### U26–U29 明细（传输进度行内更新）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| U26 | TTY 下 SFTP **get** 百分比 `\r` 行内刷新、不刷屏 | `TestTransferProgress_SFTPInlineTTY_Get` | `!ait get` 大文件：单行 `copying… N%` |
+| U27 | TTY 下 SFTP **put** 与 get 相同 inline 行为 | `TestTransferProgress_SFTPInlineTTY_Put` | `!ait put` 大文件：单行 `copying… N%` |
+| U28 | inline 后 `Done` 以 CRLF 定稿 | `TestTransferProgress_InlineDoneCRLF` | done 行起于列 0 |
+| U29 | ZMODEM get/put 统一 `copying…`（非 `transferring…`） | `TestZModemTransfer_ProgressUnifiedCopying` | 链式 get/put 与 SFTP 文案一致 |
 
 ## 验收勾选（PR / Agent 交付）
 
@@ -400,6 +426,8 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] P1–P6：AppRoot / AIT_HOME 单目录（见 **P\***）
 - [ ] G1–G16：`ait config init` / `view` / `edit` / `validate`（见 **G\***）
 - [ ] Z1–Z10：链式 ZMODEM `!ait get/put`（见 **Z\*** 明细）
+- [ ] T1–T12：统一 get/put 路由 + lrzsz 安装 + ZMODEM 握手修复（见 **T\*** 明细）
+- [ ] U26–U29：传输进度行内更新（见 **U26–U29** 明细）
 - [ ] 相关自动化测试未删除或弱化
 
 手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai chat --help`、`timeout 5 ./bin/ait ai chat ping`、`echo ping | timeout 5 ./bin/ait ai chat`、`./bin/ait config view`、`./bin/ait config validate && echo OK`、`./bin/ait config --help | grep -E 'view|edit|validate'`。
@@ -489,13 +517,13 @@ run hostname -I         # A20c：Ask 下手动 run 仍可用
 ait login devhost
 ssh root@internal-host
 echo remote > test
-!ait get ./test ./test.local    # Z6/Z7：handshake… transferring… done:
+!ait get ./test ./test.local    # Z6/Z7/U26：handshake… copying…（单行刷新）done:
 !ait put ./test.local ./test
 cat test                        # 仅含 remote，无 sz/rz 命令行
 # 无 lrzsz 时：!ait get … → errhint 含 install lrzsz  # Z3
 ```
 
-自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`；R19 → `TestStdinReader_PauseExclusive`、`TestStdinReader_DrainWhilePaused`、`TestStdinReader_ResumeAfterPause`、`TestReplStdinReader_UTF8`、`TestMetaScanner_BangBangUTF8Query`；A20–A22 → `TestSessionState_Defaults`、`TestSetMode_*`、`TestAskAI_NoRunCapture`、`TestSetApprove_*`、`TestTrustAliasSession`、`TestPolicyDeprecatedAlias_*`、`TestConfirm_HighRiskIgnoresSession`、`TestApproveSession_LowRiskSkipsSecond`、`TestClassifyRisk_*`、`TestAgentTurn_RunActionMock`、`TestScrollDelta_*`、`TestIsMetaREPLCommand_ModeApprove`、`TestModeStatusLine_IncludesApprove`、`TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent`、`TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI`、`TestClassifyRisk_Interactive`、`TestAgent_SkipsVim`、`TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low`；A21 → `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt`、`TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix`、`TestConfirm_HighRiskNoSessionOption`、`TestAIMode_ConfirmNoHistory`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`、`TestHistoryCommand_List`、`TestHistoryCommand_LastN`、`TestHistoryCommand_Clear`、`TestHistoryCommand_Delete`、`TestHistoryCommand_SetLine`、`TestLineHistory_FileSync`、`TestReadLine_CtrlRSearch`、`TestReadLine_CtrlRCycle`、`TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight`、`TestExecuteLineHistory_Shell`、`TestExecuteLineHistory_AIMode`、`TestReadLine_NoHistoryOnPick`、`TestHistoryPath_UnderDataDir`、`TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode`、`TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites`；P* → `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig`、`TestAppRoot_EmptyIgnores`、`TestConfigSave_AfterMigration`；G* → `TestConfigEnsureFile_Creates`、`TestConfigEnsureFile_MergesPartial`、`TestConfigEnsureFile_NoOp`、`TestConfigEnsureFile_NoRootDeepseek`、`TestConfigInitCmd`、`TestConfigInitCmd_DryRun`、`TestConfigViewCmd`、`TestConfigViewCmd_Existing`、`TestConfigEditCmd`、`TestConfigEditCmd_InvalidYAML`、`TestConfigValidateCmd_OK`、`TestConfigValidateCmd_MissingFile`、`TestConfigValidateCmd_BadYAML`、`TestConfigValidateCmd_BadTTL`、`TestConfigValidateCmd_BadURL`、`TestValidate_OK`、`TestValidate_MissingFile`、`TestValidate_BadYAML`、`TestValidate_BadTTL`、`TestValidate_BadMinimaxURL`、`TestOpenEditor_Unix`、`TestShellQuote`；Z* → `TestNewReceiveSession_FeedIdle`、`TestNewSendSession_OpensLocalFile`、`TestSession_AbortWritesCancelSeq`、`TestZModemTransfer_MissingLrzsz`、`TestPTYZModemErrHint_IncludesLrzsz`、`TestZModemSession_ExclusiveIO`、`TestZModemSession_StripProtocolNoise`、`TestHandleTransferPTY_UsesZModem`、`TestZModemTransfer_ProgressCRLF`、`TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestResolveTransferMode_*`。
+自动化映射：R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`；R19 → `TestStdinReader_PauseExclusive`、`TestStdinReader_DrainWhilePaused`、`TestStdinReader_ResumeAfterPause`、`TestReplStdinReader_UTF8`、`TestMetaScanner_BangBangUTF8Query`；A20–A22 → `TestSessionState_Defaults`、`TestSetMode_*`、`TestAskAI_NoRunCapture`、`TestSetApprove_*`、`TestTrustAliasSession`、`TestPolicyDeprecatedAlias_*`、`TestConfirm_HighRiskIgnoresSession`、`TestApproveSession_LowRiskSkipsSecond`、`TestClassifyRisk_*`、`TestAgentTurn_RunActionMock`、`TestScrollDelta_*`、`TestIsMetaREPLCommand_ModeApprove`、`TestModeStatusLine_IncludesApprove`、`TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent`、`TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI`、`TestClassifyRisk_Interactive`、`TestAgent_SkipsVim`、`TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low`；A21 → `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt`、`TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix`、`TestConfirm_HighRiskNoSessionOption`、`TestAIMode_ConfirmNoHistory`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`、`TestHistoryCommand_List`、`TestHistoryCommand_LastN`、`TestHistoryCommand_Clear`、`TestHistoryCommand_Delete`、`TestHistoryCommand_SetLine`、`TestLineHistory_FileSync`、`TestReadLine_CtrlRSearch`、`TestReadLine_CtrlRCycle`、`TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight`、`TestExecuteLineHistory_Shell`、`TestExecuteLineHistory_AIMode`、`TestReadLine_NoHistoryOnPick`、`TestHistoryPath_UnderDataDir`、`TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode`、`TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites`；P* → `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig`、`TestAppRoot_EmptyIgnores`、`TestConfigSave_AfterMigration`；G* → `TestConfigEnsureFile_Creates`、`TestConfigEnsureFile_MergesPartial`、`TestConfigEnsureFile_NoOp`、`TestConfigEnsureFile_NoRootDeepseek`、`TestConfigInitCmd`、`TestConfigInitCmd_DryRun`、`TestConfigViewCmd`、`TestConfigViewCmd_Existing`、`TestConfigEditCmd`、`TestConfigEditCmd_InvalidYAML`、`TestConfigValidateCmd_OK`、`TestConfigValidateCmd_MissingFile`、`TestConfigValidateCmd_BadYAML`、`TestConfigValidateCmd_BadTTL`、`TestConfigValidateCmd_BadURL`、`TestValidate_OK`、`TestValidate_MissingFile`、`TestValidate_BadYAML`、`TestValidate_BadTTL`、`TestValidate_BadMinimaxURL`、`TestOpenEditor_Unix`、`TestShellQuote`；Z* → `TestNewReceiveSession_FeedIdle`、`TestNewSendSession_OpensLocalFile`、`TestSession_AbortWritesCancelSeq`、`TestPTYZModemErrHint_IncludesLrzsz`、`TestZModemSession_ExclusiveIO`、`TestZModemSession_StripProtocolNoise`、`TestHandleTransferPTY_UsesZModem`、`TestZModemTransfer_ProgressCRLF`、`TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestResolveTransferMode_*`；T* → `TestRoute_PrefersZModemWhenLrzszPresent`、`TestRoute_FallsBackSFTPDirect`、`TestRoute_ChainDeclinedInstall`、`TestRoute_ChainInstallThenZModem`、`TestLrzszResolveInstall_NonTTY`、`TestInstallCommand_*`、`TestParseTarget`。
 
 ## 新功能
 
@@ -534,7 +562,8 @@ cat test                        # 仅含 remote，无 sz/rz 命令行
 | A20* | AI REPL Ask/Agent + approve | `TestSessionState_Defaults`、`TestSetMode_*`、`TestAgentTurn_RunActionMock`、`TestAgent_SkipsVim` |
 | A21* | AI REPL 提示符 / 确认 / y·c·s·n | `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestConfirm_PatternTrustSkipsSamePrefix` |
 | A22* | Read 风险级别 / 只读自动放行 / 默认 Agent | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |
-| Z* | 链式 ZMODEM `!ait get/put`（lrzsz over PTY） | `TestZModemSession_ExclusiveIO`、`TestZModemTransfer_MissingLrzsz`、`TestHandleTransferPTY_UsesZModem`、`TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestNewReceiveSession_FeedIdle`、`TestNewSendSession_OpensLocalFile` |
+| Z* | 链式 ZMODEM `!ait get/put`（lrzsz over PTY） | `TestZModemSession_ExclusiveIO`、`TestHandleTransferPTY_UsesZModem`、`TestBuildSzCmd_Heredoc` |
+| T* | 统一 get/put 路由（直连 SFTP / 链式 ZMODEM / 握手修复） | `TestRoute_DirectUsesSFTPWhenLrzszPresent`、`TestRoute_ChainPrefersZModemWhenLrzszPresent`、`TestInjectZModem_NoSttyNoQuietWait`、`TestSession_WaitHandshakeTimeout`、`TestHandleTransfer_ZModemFallbackSFTP` |
 
 ## 索引
 

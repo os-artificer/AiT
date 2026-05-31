@@ -19,7 +19,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -67,21 +66,6 @@ func TestZModemSession_StripProtocolNoise(t *testing.T) {
 	}
 }
 
-func TestZModemTransfer_MissingLrzsz(t *testing.T) {
-	c := &Client{scroll: &terminal.Buffer{}}
-	orig := injectCaptureForRetry
-	defer func() { injectCaptureForRetry = orig }()
-	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
-		return "missing", nil
-	}
-
-	zt := &ZModemTransfer{client: c, progress: NewTransferProgress(io.Discard)}
-	err := zt.Get(t.Context(), &bytes.Buffer{}, "/remote", "./local")
-	if !errors.Is(err, ErrMissingLrzsz) {
-		t.Fatalf("expected ErrMissingLrzsz, got %v", err)
-	}
-}
-
 func TestHandleTransferPTY_UsesZModem(t *testing.T) {
 	c := &Client{scroll: &terminal.Buffer{}}
 	c.SetChainMode(true)
@@ -120,9 +104,46 @@ func TestZModemTransfer_ProgressCRLF(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewTransferProgress(&buf)
 	p.Phase("handshake…")
-	p.Phase("transferring… 50%")
-	if !strings.Contains(buf.String(), "\r\n") {
-		t.Fatalf("missing CRLF progress: %q", buf.String())
+	p.reportPercent(50)
+	p.Done("done: get a → b (1 bytes)")
+
+	got := buf.String()
+	if !strings.Contains(got, termEOL) {
+		t.Fatalf("missing CRLF progress: %q", got)
+	}
+	if strings.Contains(got, "transferring") {
+		t.Fatalf("expected copying label: %q", got)
+	}
+	if !strings.Contains(got, "copying") {
+		t.Fatalf("missing copying progress: %q", got)
+	}
+}
+
+func TestZModemTransfer_ProgressUnifiedCopying(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	zt := &ZModemTransfer{progress: p}
+
+	getFn := zt.zmodemProgressFn()
+	putFn := zt.zmodemProgressFn()
+	if getFn == nil || putFn == nil {
+		t.Fatal("expected progress callbacks")
+	}
+
+	getFn(25, 100)
+	putFn(50, 100)
+
+	got := buf.String()
+	if strings.Contains(got, "transferring") {
+		t.Fatalf("expected copying label: %q", got)
+	}
+	if strings.Count(got, "copying… 25%") != 1 {
+		t.Fatalf("missing get progress: %q", got)
+	}
+	if strings.Count(got, "copying… 50%") != 1 {
+		t.Fatalf("missing put progress: %q", got)
 	}
 }
 
