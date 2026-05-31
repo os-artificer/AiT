@@ -149,7 +149,7 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | `!ait suspend` | 挂起：保存 scrollback 与远程 cwd，断开连接 |
 | `!ait get <remote> <local>` | 经当前 SSH 下载单个文件（不重新认证） |
 | `!ait put <local> <remote>` | 经当前 SSH 上传单个文件（不重新认证） |
-| `!ait chain [on\|off]` | 切换链式模式：PTY 管道传输用于多跳 SSH；`on` = base64 over PTY，`off` = SFTP（默认） |
+| `!ait chain [on\|off]` | 切换链式模式：PTY 管道 ZMODEM 用于多跳 SSH；`on` = lrzsz 兼容 ZMODEM，`off` = SFTP（默认） |
 
 ---
 
@@ -207,7 +207,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 
 **`!ait chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
 
-- **文件传输**：文件经 base64 编码后通过交互式 PTY 会话传输；上传后在 `verifying…` 阶段经 settle+capture 做 sha256sum 校验。**Put** 先将数据写入远程临时文件（`/tmp/ait-put.*`），再 `mv` 至目标路径，避免 inject 命令行被追加进目标文件。链式模式下 inject/capture 等待时间更长以适配多跳 PTY 延迟。若 put 因 inject 泄漏检测失败，请用 `cat`/`head` 检查远程文件并清除污染内容后再重试。远程主机须有 `base64`、`sha256sum` 和 `mktemp`（Linux/macOS 标准）。
+- **文件传输**：链式模式经 PTY 跑 **ZMODEM**（与 `rz`/`sz` 同款，兼容 lrzsz）。**get** 在远端执行 `sz`，AiT 内嵌 Go 协议栈接收；**put** 在远端执行 `rz`，AiT 发送。进度含 `handshake…`、`transferring… NN%`。active shell 主机须 **lrzsz**（`apt install lrzsz` / `brew install lrzsz`）。AiT 客户端（Linux/macOS/Windows Terminal）无需本地 lrzsz。独立 `ait get/put` 仍走 SFTP。
 - **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
 
 **`!ait chain off`** 返回默认 SFTP/直连会话模式。
@@ -229,7 +229,7 @@ AiT user@bastion> !ait chain off
   File transfer and tmux will use SFTP/direct sessions.
 ```
 
-**链式模式对远程主机的要求**：须有 `base64`、`sha256sum` 和 `mktemp`（几乎所有 Linux 和 macOS 系统均已预装）。
+**链式模式对 active shell 主机的要求**：须安装 **lrzsz**（`sz`/`rz`，Unix-like：`apt install lrzsz`、`brew install lrzsz`）。v1 不支持 Windows OpenSSH 远端。
 
 ---
 

@@ -24,7 +24,7 @@ make test-cross  # windows + darwin go build
 - **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）
 - **AI**：多 provider 路由 + `tiered`；`ait ai chat` 单轮；`ait ai provider enable|disable`；`ait ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ait ai model list`；SSH `!ait ai chat` / `!! chat`
 - **传输**：`ait get` / `ait put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH；链式模式（`!ait chain on`）使用 PTY 管道 base64 传输支持多跳 SSH
-- **代理链支持**：`!ait chain [on|off]` — 经 PTY 管道注入实现文件传输与 tmux，用于 SSH 超越直连主机时（`internal/pkg/ssh/client/inject.go`、`transfer_pty.go`；`internal/pkg/tmux/remote_pty.go`）
+- **代理链支持**：`!ait chain [on|off]` — 链式模式下经 PTY 管道 ZMODEM 文件传输与 tmux（`internal/pkg/ssh/client/inject.go`、`transfer_zmodem.go`；`internal/pkg/tmux/remote_pty.go`）
 - **OpenSSH 配置**：`login`/`load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
 
 完整设计：[`docs/design.zh-CN.md`](docs/design.zh-CN.md)。配置示例：[`configs/ait.example.yaml`](configs/ait.example.yaml)。Cursor 方案归档至 `docs/<kebab-case>.md`（见 [`.cursor/rules/docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc)）。
@@ -114,7 +114,7 @@ make test-cross  # windows + darwin go build
 | `client_init_helpers.go`、`client_setup_filter_helpers.go` | PTY 初始化输出过滤（抑制 PS1 泄漏） |
 | `client_transfer.go`、`client_transfer_helpers.go` | `Client.handleTransfer*`（根据 chainMode 走 SFTP 或 PTY）、transfer hint 包装 |
 | `inject.go`、`inject_helpers.go` | `Client.Inject` / `Client.InjectCapture` —— 静默 PTY 命令注入，含历史/回显抑制与捕获定界符 |
-| `transfer_pty.go`、`transfer_pty_helpers.go` | `PTYTransfer` —— 链式模式下经 PTY 管道的 base64 文件传输 |
+| `transfer_zmodem.go`、`zmodem_session.go`、`internal/pkg/transfer/zmodem/` | `ZModemTransfer` —— 链式模式下 lrzsz 兼容 ZMODEM PTY 文件传输 |
 | `scrollback_capture.go` | `Client.RunPTYCapture` 驱动 `scrollback.Delta`（使用 `Inject` 进行历史抑制） |
 | `resize.go` | `sessionResize` 适配 `pty.Watch` |
 | `ai_mode.go` | 远程 AI REPL 入口的 `RemoteAIParams` / `RemoteAIRunner` 类型 |

@@ -229,7 +229,7 @@ CREATE TABLE app_meta (
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_pty.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_zmodem.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback.go`, `scrollback_io.go`, `path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
@@ -411,9 +411,9 @@ sequenceDiagram
 
 ### get / put
 
-实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（基于 `golang.org/x/crypto/ssh` 的 SFTP）与 [`internal/pkg/ssh/client/transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go)（基于 PTY 管道注入的 base64 传输）。**仅支持单个普通文件**；目录会返回明确错误。**`Put`** 在 `Create` 前对远程父目录执行 SFTP `MkdirAll`。错误带 `local file` / `remote file` 前缀；远端 `IsNotExist` 会提示检查远程路径与父目录（SFTP 在父目录不存在时常报 `file does not exist`）。
+实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（基于 `golang.org/x/crypto/ssh` 的 SFTP）与 [`internal/pkg/ssh/client/transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/)（链式模式 ZMODEM over PTY，兼容 lrzsz）。**仅支持单个普通文件**；目录会返回明确错误。**`Put`** 在 `Create` 前对远程父目录执行 SFTP `MkdirAll`。错误带 `local file` / `remote file` 前缀；远端 `IsNotExist` 会提示检查远程路径与父目录（SFTP 在父目录不存在时常报 `file does not exist`）。
 
-当用户在会话内手动 SSH 超越拨号目标（如 login 到堡垒机后在 shell 里 `ssh internal`）时，SFTP 与 `conn.NewSession()` 只能到达**拨号连接的目标**。**链式模式**（`!ait chain on`，或 `!ait get`/`put` 探测到 active shell 主机名与解析后的拨号主机 **且** 原始登录 destination 别名均不匹配时自动启用）切换为 PTY 管道注入。**login 时使用 ProxyJump 不等于链式模式**：`DialChain` 已隧道到最终主机，会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 策略一致。主机名匹配同时比较 `Options.Host`（ssh `-G` 的 `HostName`）与 `Options.LoginDestination`（CLI/配置别名，如 `devhost` 与 `dev.ylgeeker.com`）。文件传输使用 base64 与 sha256sum 校验。PTY **put** 将各 chunk 经 heredoc 写入远程临时文件（`mktemp` 于 `/tmp/ait-put.*`），完成后 `mv` 至目标路径——**从不**向目标路径做 shell 重定向，避免 inject 命令行被追加进文件。每步 chunk 与 `mv` 后均有 shell settle 等待；链式模式下 inject 静默等待更长。verify 前会采样远程文件头部做泄漏检测，若含 inject 命令文本则立即失败（不进入 verify 重试）。tmux 使用 `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` 替代 `conn.NewSession()`。
+当用户在会话内手动 SSH 超越拨号目标（如 login 到堡垒机后在 shell 里 `ssh internal`）时，SFTP 与 `conn.NewSession()` 只能到达**拨号连接的目标**。**链式模式**（`!ait chain on`，或 `!ait get`/`put` 探测到 active shell 主机名与解析后的拨号主机 **且** 原始登录 destination 别名均不匹配时自动启用）切换为 PTY 管道 **ZMODEM** 传输（与 `rz`/`sz` 同款）。**login 时使用 ProxyJump 不等于链式模式**：`DialChain` 已隧道到最终主机，会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 策略一致。主机名匹配同时比较 `Options.Host`（ssh `-G` 的 `HostName`）与 `Options.LoginDestination`（CLI/配置别名，如 `devhost` 与 `dev.ylgeeker.com`）。链式 **get** 注入远端 `sz`、AiT 内嵌 ZMODEM 接收；链式 **put** 注入远端 `rz`、AiT 内嵌 ZMODEM 发送——经 PTY 字节流分块 CRC 传输（不向目标路径做 shell 重定向）。active shell 主机须安装 **lrzsz**（`sz`/`rz`）。AiT 客户端（Linux/macOS/Windows Terminal）本地为纯 Go 协议栈，无需安装 lrzsz。tmux 使用 `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` 替代 `conn.NewSession()`。
 
 | 模式 | 命令 | 认证 |
 |------|------|------|
@@ -444,7 +444,7 @@ sequenceDiagram
 | 回显抑制 | 在注入命令前后使用 `stty -echo` / `stty echo` 包装 |
 | 输出捕获 | 纯文本定界符（`AIT_CAPTURE_B_f3e7a1c9` / `AIT_CAPTURE_E_f3e7a1c9`）包裹命令输出，从 scrollback delta 解析（snap 前缀被截断时回退全文搜索） |
 
-**文件传输**（`PTYTransfer`）：通过 PTY 管道以 base64 编解码文件内容，使用 sha256sum 完整性校验。以 3072 字节为一块，通过 `printf | base64 -d >>` 追加写入。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
+**文件传输**（`ZModemTransfer`）：经 PTY 字节流跑 lrzsz 兼容 ZMODEM（与 `rz`/`sz` 相同模型）。**get** 注入远端 `sz`，AiT 内嵌 Go ZMODEM 接收；**put** 注入远端 `rz`，AiT 内嵌 Go ZMODEM 发送。分块 CRC，不向目标文件做 shell 重定向。active shell 须 **lrzsz**（`apt install lrzsz` / `brew install lrzsz`）。AiT 客户端无需本地 lrzsz。
 
 **tmux 操作**（`tmux/remote_pty.go`）：`HasSessionViaPTY`、`NewSessionViaPTY`、`DetachViaPTY`、`PanePathViaPTY`、`EnsureViaPTY` 通过 PTY 管道注入 tmux 命令，而非新开 SSH 会话。退出码检测使用 `echo "AIT_EXIT_$?"` 模式。
 
@@ -457,8 +457,8 @@ flowchart LR
     Session[conn.NewSession]
   end
   subgraph chain [链式模式：chain on]
-    PTYGet[PTY base64 get]
-    PTYPut[PTY base64 put]
+    PTYGet[PTY ZMODEM get]
+    PTYPut[PTY ZMODEM put]
     PTYTmux[PTY tmux 操作]
   end
   User[用户] -->|!ait chain on| chain
@@ -467,13 +467,13 @@ flowchart LR
 
 | 功能 | 直连模式（chain off） | 链式模式（chain on） |
 |------|----------------------|---------------------|
-| `!ait get` / `!ait put` | SFTP over `conn` | Base64 over PTY 管道 |
+| `!ait get` / `!ait put` | SFTP over `conn` | PTY 管道 ZMODEM（active shell 须 lrzsz） |
 | tmux `--tmux` | `conn.NewSession()` | PTY 注入（`HasSessionViaPTY` 等） |
 | AI `!!` / `!ait ai` | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
 | Scrollback / cwd | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
-| 远程要求 | 标准 | `base64`、`sha256sum` |
+| 远程要求 | 标准 | active shell 上 **lrzsz**（`sz`/`rz`，Unix-like） |
 
-**实现**：[`inject.go`](../internal/pkg/ssh/client/inject.go) + [`inject_helpers.go`](../internal/pkg/ssh/client/inject_helpers.go)（静默 PTY 注入）；[`transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) + [`transfer_pty_helpers.go`](../internal/pkg/ssh/client/transfer_pty_helpers.go)（base64 文件传输）；[`tmux/remote_pty.go`](../internal/pkg/tmux/remote_pty.go)（基于 PTY 的 tmux 操作）。
+**实现**：[`inject.go`](../internal/pkg/ssh/client/inject.go) + [`inject_helpers.go`](../internal/pkg/ssh/client/inject_helpers.go)（静默 PTY 注入）；[`transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/)（ZMODEM 文件传输）；[`zmodem_session.go`](../internal/pkg/ssh/client/zmodem_session.go)（PTY 独占 tap）；[`tmux/remote_pty.go`](../internal/pkg/tmux/remote_pty.go)（基于 PTY 的 tmux 操作）。
 
 ### AI 模式（双作用域）
 
@@ -562,7 +562,7 @@ flowchart LR
 - **scrollback 过大**：超过阈值（如 512KB）写入 sidecar 文件，DB 只存 path
 - **安全**：不在日志打印 API Key/密码；`!!` 上下文脱敏；keyring 条目随 `delete`/`delete all` 清除
 - **TTL 边界**：时钟回拨用单调比较 + 文档说明；`auth_expires_at` 可在 `config` 中覆盖（最小 1h，最大 30d 防误配）
-- **链式模式文件传输**：base64 编码使数据量增加约 33%；大文件在高延迟链路上可能较慢。分块大小（3072 字节）较为保守以避免 PTY 缓冲区溢出。无 `base64`/`sha256sum` 的远程主机（Linux/macOS 上罕见）无法使用链式模式传输。
+- **链式模式文件传输**：经 PTY 跑 lrzsz 兼容 ZMODEM，分块 CRC。active shell 须 **lrzsz**；v1 不支持 Windows OpenSSH 远端。多跳高延迟链路上大文件可能慢于直连 SFTP。
 
 ## 交付物
 
