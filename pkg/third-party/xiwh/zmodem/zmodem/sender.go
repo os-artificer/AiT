@@ -67,6 +67,9 @@ func (t *ZModem) handleSend() {
 				n = len(p)
 				isEnd := writeCount+n >= size
 				writeCount += n
+				if t.consumer.OnUploadProgress != nil && size > 0 {
+					t.consumer.OnUploadProgress(int64(writeCount), int64(size))
+				}
 				if isEnd {
 					if err == nil || err == io.EOF {
 						//正常读取完毕

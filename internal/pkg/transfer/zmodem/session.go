@@ -85,10 +85,11 @@ func NewReceiveSession(ptyOut io.Writer, localPath string, progress ProgressFunc
 			}
 			defer out.Close()
 
-			n, err := io.Copy(out, reader)
-			if progress != nil && file != nil && file.Size > 0 {
-				progress(n, int64(file.Size))
+			total := int64(0)
+			if file != nil && file.Size > 0 {
+				total = int64(file.Size)
 			}
+			_, err = copyWithProgress(out, reader, total, progress)
 			s.finish(err)
 			return err
 		},
@@ -111,8 +112,9 @@ func NewSendSession(ptyOut io.Writer, localPath, remoteName string, progress Pro
 
 	s := &Session{done: make(chan error, 1), ptyOut: ptyOut}
 	s.engine = xzmodem.New(xzmodem.ZModemConsumer{
-		Writer:     ptyOut,
-		EchoWriter: io.Discard,
+		Writer:           ptyOut,
+		EchoWriter:       io.Discard,
+		OnUploadProgress: progress,
 		OnUpload: func() *xzmodem.ZModemFile {
 			if uploaded {
 				return nil

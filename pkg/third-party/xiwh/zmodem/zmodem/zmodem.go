@@ -19,10 +19,11 @@ const (
 )
 
 type ZModemConsumer struct {
-	OnUpload        func() *ZModemFile
-	OnUploadSkip    func(file *ZModemFile)
-	OnCheckDownload func(file *ZModemFile)
-	OnDownload      func(file *ZModemFile, reader io.ReadCloser) error
+	OnUpload         func() *ZModemFile
+	OnUploadSkip     func(file *ZModemFile)
+	OnCheckDownload  func(file *ZModemFile)
+	OnDownload       func(file *ZModemFile, reader io.ReadCloser) error
+	OnUploadProgress func(written, total int64)
 	//数据写入
 	Writer io.Writer
 	//终端回显写入

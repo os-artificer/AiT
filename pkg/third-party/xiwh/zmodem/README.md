@@ -14,3 +14,7 @@ Packages included:
 - `myioutil/` — I/O helpers
 
 Example CLI (`main.go`) from upstream is not included.
+
+## AiT patches (relative to upstream v1.0.4)
+
+- **`ZModemConsumer.OnUploadProgress`**: optional callback invoked during send (`sender.go` ZRPOS) after each 8KB chunk so chain-mode `!ait put` can report inline `copying… N%` progress.
