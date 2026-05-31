@@ -30,18 +30,19 @@ const (
 	// injectEchoOn is the stty command to re-enable PTY echo after an injection.
 	injectEchoOn = "stty echo 2>/dev/null"
 
-	// injectCaptureBegin is the ANSI-escape marker injected before a captured command.
-	// These markers are filtered from scrollback via StripSubstrings.
-	injectCaptureBegin = "\x1b[AIT_CAP_B\x1b"
+	// injectCaptureBegin is the plain-text marker injected before a captured command.
+	// Uses plain text (not ANSI escape) so intermediate PTY drivers in chain mode
+	// cannot strip or reinterpret the marker.
+	injectCaptureBegin = "AIT_CAPTURE_B_f3e7a1c9"
 
-	// injectCaptureEnd is the ANSI-escape marker injected after a captured command.
-	injectCaptureEnd = "\x1b[AIT_CAP_E\x1b"
+	// injectCaptureEnd is the plain-text marker injected after a captured command.
+	injectCaptureEnd = "AIT_CAPTURE_E_f3e7a1c9"
 
 	// injectCaptureBeginPrint is the printf command to emit the capture-begin marker.
-	injectCaptureBeginPrint = "printf '\\033[AIT_CAP_B\\033'"
+	injectCaptureBeginPrint = "printf 'AIT_CAPTURE_B_f3e7a1c9'"
 
 	// injectCaptureEndPrint is the printf command to emit the capture-end marker.
-	injectCaptureEndPrint = "printf '\\033[AIT_CAP_E\\033'"
+	injectCaptureEndPrint = "printf 'AIT_CAPTURE_E_f3e7a1c9'"
 )
 
 // buildInjectParts constructs the shell command parts for a silent injection.
@@ -83,12 +84,17 @@ func injectStripFragments() []string {
 }
 
 // parseCapturedOutput extracts content between the capture-begin and capture-end
-// markers from the delta output. Returns empty string if markers are not found.
+// markers from the delta output. Uses LastIndex for the begin marker because the
+// injected command line echo (which also contains the marker text) appears before
+// the actual printf output in the PTY scrollback delta.
 func parseCapturedOutput(delta string) string {
 	begin := injectCaptureBegin
 	end := injectCaptureEnd
 
-	startIdx := strings.Index(delta, begin)
+	// The injected command line (e.g. "printf 'AIT_CAPTURE_B_f3e7a1c9'")
+	// contains the marker text and is echoed to the PTY before the actual
+	// printf output. Use LastIndex to find the real marker output.
+	startIdx := strings.LastIndex(delta, begin)
 	if startIdx < 0 {
 		return delta
 	}
