@@ -149,7 +149,7 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 | `!ait suspend` | Suspend: save scrollback and remote cwd; disconnect |
 | `!ait get <remote> <local>` | Download one file over current SSH (no re-auth) |
 | `!ait put <local> <remote>` | Upload one file over current SSH (no re-auth) |
-| `!ait chain [on\|off]` | Toggle chain mode: PTY-pipe transfer for SSH hops; `on` = base64 over PTY, `off` = SFTP (default) |
+| `!ait chain [on\|off]` | Toggle chain mode: PTY-pipe transfer for SSH hops; `on` = ZMODEM over PTY, `off` = prefer lrzsz then SFTP (default) |
 
 ---
 
@@ -192,22 +192,22 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
 - In SSH, `!ait get` / `!ait put` reuse the live connection (two paths only, no flags).
 - **`!ait put` local path** is on the machine running AiT (your laptop/desktop), not the remote shell’s current directory. **`!ait get` local path** is also on the AiT client. Remote paths are relative to the **active shell** (which may be a nested hop when chain mode is on).
-- In SSH, **`!ait get` / `!ait put` print phase progress and a `done:` line on stderr** (e.g. `hashing…`, `uploading chunk 2/5…`, `copying… 50%`, `done: get …`). Progress uses CRLF-safe lines on raw TTY (Linux, macOS, Windows clients).
+- In SSH, **`!ait get` / `!ait put` print phase progress and a `done:` line on stderr** (e.g. `get … → …`, `handshake…`, `copying… 50%`, `done: get …`). On a TTY, **`copying… N%` updates in place** on one line (get and put use the same format, including SFTP and chain ZMODEM). Phase and done lines use CRLF-safe output on raw TTY (Linux, macOS, Windows clients).
 - Before `ait session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
 
 ---
 
 ## Proxy chain mode
 
-**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session `!ait get`/`put` on that login uses **SFTP** by default—the same strategy as standalone `ait get`/`put`. **Chain mode** applies when the **interactive shell** is deeper than the dial connection (usually after you manually `ssh` inside the session).
+**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session `!ait get`/`put` on that login **probe lrzsz first**, then **fall back to SFTP** when lrzsz is missing—the same strategy as standalone `ait get`/`put` (SFTP only). **Chain mode** applies when the **interactive shell** is deeper than the dial connection (usually after you manually `ssh` inside the session).
 
-When you login to a bastion and then manually `ssh` to an internal host, AiT's direct connection only reaches the bastion. SFTP-based file transfer (`!ait get` / `!ait put`) and tmux operations only work against that dial target by default. Features that use the PTY pipe (`!!`, `!ait ai`, scrollback) work at any depth.
+When you login to a bastion and then manually `ssh` to an internal host, AiT's direct connection only reaches the bastion. SFTP-based file transfer can only reach the dial target by default. Features that use the PTY pipe (`!!`, `!ait ai`, scrollback) work at any depth.
 
-When chain mode is off and you have manually SSH'd to a deeper host, **`!ait get` / `!ait put` automatically detect** the active shell hostname (compared to both the resolved dial host and your original login destination alias, e.g. `devhost` vs `dev.ylgeeker.com`) and enable chain mode with a one-line notice. You can still use **`!ait chain off`** to return to SFTP against the directly connected host.
+When chain mode is off and you are on the **same host as the dial target**, **`!ait get` / `!ait put` use SFTP** on the direct SSH connection (even when lrzsz is installed on the remote). **ZMODEM over PTY is used only in chain mode** when `sz`/`rz` are available. When lrzsz is missing on a direct hop, AiT **falls back to SFTP** with a notice. When you have manually SSH'd to a **deeper host**, **`!ait get` / `!ait put` automatically detect** the hostname mismatch (compared to both the resolved dial host and your original login destination alias) and enable chain mode with a one-line notice.
 
 **`!ait chain on`** enables chain mode manually, which switches to PTY-pipe injection:
 
-- **File transfer**: Chain mode uses **ZMODEM** over the PTY (lrzsz-compatible, same model as `rz`/`sz`). **Get** runs remote `sz`; AiT receives with embedded Go ZMODEM. **Put** runs remote `rz`; AiT sends with embedded Go ZMODEM. Progress shows `handshake…` and `transferring… NN%`. Active shell host must have **lrzsz** (`apt install lrzsz` / `brew install lrzsz`). AiT client (Linux/macOS/Windows Terminal) needs no local lrzsz. Standalone `ait get/put` still uses SFTP.
+- **File transfer**: **lrzsz first** — ZMODEM over the PTY when `sz`/`rz` are available. In chain mode without lrzsz, AiT shows install instructions and, on an interactive terminal, asks **`Install lrzsz on <host>? [y/N]`** before running an OS-specific install command on the active shell (Linux package managers, Homebrew, choco/winget; may need remote `sudo`). Progress shows `handshake…` and **`copying… NN%`** (same label as SFTP; in-place on TTY). AiT client (Linux/macOS/Windows Terminal) needs no local lrzsz. Standalone `ait get/put` still uses SFTP.
 - **Tmux**: Tmux operations are injected through the PTY pipe instead of opening a new SSH session.
 
 **`!ait chain off`** returns to the default SFTP/direct-session mode.
@@ -229,7 +229,7 @@ AiT user@bastion> !ait chain off
   File transfer and tmux will use SFTP/direct sessions.
 ```
 
-**Chain mode requirements on the active shell host**: **lrzsz** (`sz` and `rz`) on a Unix-like host (`apt install lrzsz`, `brew install lrzsz`). Windows OpenSSH servers are not supported for chain transfer in v1.
+**Chain mode requirements on the active shell host**: **lrzsz** (`sz` and `rz`) for ZMODEM transfer. If missing in chain mode, install manually or approve the `[y/N]` auto-install prompt. Windows OpenSSH servers have limited auto-install support in v1.
 
 ---
 

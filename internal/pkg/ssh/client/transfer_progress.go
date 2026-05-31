@@ -20,18 +20,27 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	xterm "golang.org/x/term"
 )
 
-const transferProgressPrefix = "AiT: "
+const (
+	transferProgressPrefix = "AiT: "
+	transferProgressPctFmt = "copying… %d%%"
+)
 
 // transferProgressPhaseHook, when set, replaces Phase output (tests only).
 var transferProgressPhaseHook func(p *TransferProgress, msg string)
 
+// transferProgressInlineTTY, when non-nil, overrides inline TTY detection (tests only).
+var transferProgressInlineTTY func(p *TransferProgress) bool
+
 // TransferProgress writes phase and completion lines to stderr using CRLF-safe termPrintln.
 type TransferProgress struct {
-	w       io.Writer
-	bytes   int64
-	lastPct int64
+	w            io.Writer
+	bytes        int64
+	lastPct      int64
+	inlineActive bool
 }
 
 // NewTransferProgress returns a progress reporter writing to w, or os.Stderr when w is nil.
@@ -54,8 +63,38 @@ func (p *TransferProgress) Phase(msg string) {
 	termPrintln(p.w, transferProgressPrefix+msg)
 }
 
+// PhaseInline updates the current progress line in place on a TTY; otherwise prints a new line.
+func (p *TransferProgress) PhaseInline(msg string) {
+	if p == nil {
+		return
+	}
+	if transferProgressPhaseHook != nil {
+		transferProgressPhaseHook(p, msg)
+		return
+	}
+	if p.inlineTTYEnabled() {
+		termPrintInline(p.w, transferProgressPrefix+msg)
+		p.inlineActive = true
+		return
+	}
+	termPrintln(p.w, transferProgressPrefix+msg)
+}
+
 // Done prints the transfer completion line.
 func (p *TransferProgress) Done(msg string) {
+	if p == nil {
+		return
+	}
+	if transferProgressPhaseHook != nil {
+		transferProgressPhaseHook(p, msg)
+		p.inlineActive = false
+		return
+	}
+	if p.inlineActive {
+		termPrintln(p.w, "\r"+transferProgressPrefix+msg)
+		p.inlineActive = false
+		return
+	}
 	p.Phase(msg)
 }
 
@@ -77,6 +116,18 @@ func (p *TransferProgress) StartPut(localPath, remotePath string, size int64) {
 	}
 }
 
+// reportPercent is the shared inline percent reporter for get/put, SFTP, and ZMODEM.
+func (p *TransferProgress) reportPercent(pct int64) {
+	if p == nil {
+		return
+	}
+	if pct == p.lastPct {
+		return
+	}
+	p.lastPct = pct
+	p.PhaseInline(fmt.Sprintf(transferProgressPctFmt, pct))
+}
+
 // SFTPProgress reports copy percentage during SFTP transfer.
 func (p *TransferProgress) SFTPProgress(written, total int64) {
 	if p == nil {
@@ -90,8 +141,7 @@ func (p *TransferProgress) SFTPProgress(written, total int64) {
 	if pct == p.lastPct && written != total {
 		return
 	}
-	p.lastPct = pct
-	p.Phase(fmt.Sprintf("copying… %d%%", pct))
+	p.reportPercent(pct)
 }
 
 // Bytes returns the last known transferred byte count.
@@ -107,6 +157,16 @@ func (p *TransferProgress) SetBytes(n int64) {
 	if p != nil {
 		p.bytes = n
 	}
+}
+
+func (p *TransferProgress) inlineTTYEnabled() bool {
+	if transferProgressInlineTTY != nil {
+		return transferProgressInlineTTY(p)
+	}
+	if p.w != os.Stderr {
+		return false
+	}
+	return xterm.IsTerminal(int(os.Stderr.Fd()))
 }
 
 func formatTransferStart(verb, src, dst string, size int64) string {

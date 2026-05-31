@@ -149,7 +149,7 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | `!ait suspend` | 挂起：保存 scrollback 与远程 cwd，断开连接 |
 | `!ait get <remote> <local>` | 经当前 SSH 下载单个文件（不重新认证） |
 | `!ait put <local> <remote>` | 经当前 SSH 上传单个文件（不重新认证） |
-| `!ait chain [on\|off]` | 切换链式模式：PTY 管道 ZMODEM 用于多跳 SSH；`on` = lrzsz 兼容 ZMODEM，`off` = SFTP（默认） |
+| `!ait chain [on\|off]` | 切换链式模式：PTY 管道 ZMODEM 用于多跳 SSH；`on` = lrzsz ZMODEM，`off` = 优先 lrzsz 再 SFTP（默认） |
 
 ---
 
@@ -192,22 +192,22 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 - 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
 - SSH 会话内 `!ait get` / `!ait put` 复用当前连接（仅两个路径，无 flag）。
 - **`!ait put` 的本机路径**指运行 AiT 的机器（笔记本/桌面），不是远程 shell 当前目录。**`!ait get` 的本机路径**同样在 AiT 客户端。远程路径相对于**当前 active shell**（链式模式下可能是嵌套跳板）。
-- SSH 会话内 **`!ait get` / `!ait put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `hashing…`、`uploading chunk 2/5…`、`copying… 50%`、`done: get …`）。进度行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
+- SSH 会话内 **`!ait get` / `!ait put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `get … → …`、`handshake…`、`copying… 50%`、`done: get …`）。TTY 上 **`copying… N%` 在同一行内刷新**（get/put、SFTP 与链式 ZMODEM 文案一致）。阶段行与 done 行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
 - 从本机执行 `ait session --switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
 
 ---
 
 ## 代理链式模式
 
-**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
+**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ait get`/`put` **优先探测 lrzsz**，缺失时**回退 SFTP**，与独立 `ait get`/`put`（仅 SFTP）一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
 
-当你 login 到堡垒机再手动 `ssh` 到内网主机时，AiT 的直连仅到达拨号目标。基于 SFTP 的文件传输（`!ait get` / `!ait put`）和 tmux 操作默认只能对该目标生效。使用 PTY 管道的功能（`!!`、`!ait ai`、scrollback）在任何深度均可正常工作。
+当你 login 到堡垒机再手动 `ssh` 到内网主机时，AiT 的直连仅到达拨号目标。SFTP 默认只能对该目标生效。使用 PTY 管道的功能（`!!`、`!ait ai`、scrollback）在任何深度均可正常工作。
 
-链式模式关闭时，若你已手动 SSH 到更深层主机，**`!ait get` / `!ait put` 会自动探测**当前 shell 主机名（同时与解析后的拨号主机和原始登录 destination 别名比较，如 `devhost` 与 `dev.ylgeeker.com`）并启用链式模式（单行提示）。仍可用 **`!ait chain off`** 恢复为对直连主机的 SFTP。
+当 chain 关闭且位于**拨号目标同 host** 时，`!ait get`/`put` **使用 SFTP**（即使远端已安装 lrzsz）。**仅链式模式**在检测到 `sz`/`rz` 时使用 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**（带提示）。**手动 SSH 到更深层** 时，**自动启用链式模式**（主机名与拨号主机及登录别名均不匹配时）。
 
 **`!ait chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
 
-- **文件传输**：链式模式经 PTY 跑 **ZMODEM**（与 `rz`/`sz` 同款，兼容 lrzsz）。**get** 在远端执行 `sz`，AiT 内嵌 Go 协议栈接收；**put** 在远端执行 `rz`，AiT 发送。进度含 `handshake…`、`transferring… NN%`。active shell 主机须 **lrzsz**（`apt install lrzsz` / `brew install lrzsz`）。AiT 客户端（Linux/macOS/Windows Terminal）无需本地 lrzsz。独立 `ait get/put` 仍走 SFTP。
+- **文件传输**：**优先 lrzsz** — 有 `sz`/`rz` 时经 PTY 跑 ZMODEM。链式且无 lrzsz 时，AiT 给出安装指引；交互 TTY 下询问 **`Install lrzsz on <host>? [y/N]`**，授权后在 active shell 执行 OS 对应安装命令（Linux 包管理器、Homebrew、choco/winget；可能需要远端 `sudo`）。进度含 `handshake…`、**`copying… NN%`**（与 SFTP 相同；TTY 上行内更新）。AiT 客户端无需本地 lrzsz。独立 `ait get/put` 仍走 SFTP。
 - **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
 
 **`!ait chain off`** 返回默认 SFTP/直连会话模式。
@@ -229,7 +229,7 @@ AiT user@bastion> !ait chain off
   File transfer and tmux will use SFTP/direct sessions.
 ```
 
-**链式模式对 active shell 主机的要求**：须安装 **lrzsz**（`sz`/`rz`，Unix-like：`apt install lrzsz`、`brew install lrzsz`）。v1 不支持 Windows OpenSSH 远端。
+**链式模式对 active shell 主机的要求**：ZMODEM 传输需要 **lrzsz**（`sz`/`rz`）。链式缺失时可手动安装或批准 `[y/N]` 自动安装。v1 对 Windows OpenSSH 远端自动安装支持有限。
 
 ---
 

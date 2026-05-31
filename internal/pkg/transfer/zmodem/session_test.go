@@ -18,9 +18,11 @@ package zmodem
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestNewReceiveSession_FeedIdle(t *testing.T) {
@@ -65,5 +67,24 @@ func TestSession_AbortWritesCancelSeq(t *testing.T) {
 	sess.Abort()
 	if ptyOut.Len() == 0 {
 		t.Fatal("expected abort sequence on pty out")
+	}
+}
+
+func TestSession_WaitHandshakeTimeout(t *testing.T) {
+	orig := handshakeTimeoutDuration
+	handshakeTimeoutDuration = 50 * time.Millisecond
+	defer func() { handshakeTimeoutDuration = orig }()
+
+	sess, err := NewReceiveSession(io.Discard, t.TempDir()+"/out.bin", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = sess.Wait(t.Context())
+	if err == nil {
+		t.Fatal("expected handshake timeout")
+	}
+	if !errors.Is(err, ErrHandshakeTimeout) {
+		t.Fatalf("expected ErrHandshakeTimeout, got %v", err)
 	}
 }

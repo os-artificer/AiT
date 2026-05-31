@@ -82,6 +82,23 @@ func (c *Client) Inject(stdin io.Writer, cmd string, opts InjectOpts) error {
 	return nil
 }
 
+// InjectZModemCommand starts sz/rz on the remote shell without stty wrap or post-inject quiet wait.
+// ZMODEM peers manage the TTY themselves; caller must have BeginZModemSession active.
+func (c *Client) InjectZModemCommand(stdin io.Writer, cmd string) error {
+	if stdin == nil {
+		return io.ErrClosedPipe
+	}
+
+	cmd = strings.TrimRight(cmd, "\r\n")
+	if cmd == "" {
+		return nil
+	}
+
+	line := injectSpacePrefix + cmd + "\n"
+	_, err := io.WriteString(stdin, line)
+	return err
+}
+
 // InjectCapture sends cmd through the PTY stdin pipe with full suppression and
 // output capture, then returns the captured output from scrollback.
 // This is a convenience wrapper around Inject with CaptureOutput=true and
