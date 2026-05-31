@@ -191,6 +191,8 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 - Transfer errors are prefixed with `local file` or `remote file` so you can tell which side failed. A message like `file does not exist` or `no such file or directory` on **put** often means the remote path or parent directory is wrong (not that the local file is missing).
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
 - In SSH, `!ait get` / `!ait put` reuse the live connection (two paths only, no flags).
+- **`!ait put` local path** is on the machine running AiT (your laptop/desktop), not the remote shell’s current directory. **`!ait get` local path** is also on the AiT client. Remote paths are relative to the **active shell** (which may be a nested hop when chain mode is on).
+- In SSH, **`!ait get` / `!ait put` print phase progress and a `done:` line on stderr** (e.g. `hashing…`, `uploading chunk 2/5…`, `copying… 50%`, `done: get …`). Progress uses CRLF-safe lines on raw TTY (Linux, macOS, Windows clients).
 - Before `ait session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
 
 ---

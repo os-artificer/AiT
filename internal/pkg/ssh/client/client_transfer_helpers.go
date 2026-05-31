@@ -99,6 +99,7 @@ func wrapPTYCaptureErr(cause error) error {
 	return errhint.WithTry(
 		cause,
 		"PTY file transfer capture failed.",
+		"!ait put <local-on-this-machine> <remote-on-active-shell>",
 		"which base64 sha256sum",
 		"!ait chain off   # if file is on directly connected host",
 	)
@@ -120,7 +121,7 @@ func (c *Client) probeActiveShellHost(stdin io.Writer) (string, error) {
 	c.pauseRemoteOut.Store(true)
 	defer c.pauseRemoteOut.Store(false)
 
-	out, err := c.InjectCapture(stdin, activeShellHostCmd)
+	out, err := c.injectCaptureRetry(stdin, activeShellHostCmd)
 	if err != nil {
 		return "", err
 	}

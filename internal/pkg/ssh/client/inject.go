@@ -17,6 +17,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -24,6 +25,16 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/scrollback"
 )
+
+const (
+	injectCaptureRetryAttempts = 3
+	injectCaptureRetryDelay    = 200 * time.Millisecond
+)
+
+// injectCaptureForRetry is the capture backend used by injectCaptureRetry (overridable in tests).
+var injectCaptureForRetry = func(c *Client, stdin io.Writer, cmd string) (string, error) {
+	return c.InjectCapture(stdin, cmd)
+}
 
 // InjectOpts configures silent PTY command injection behavior.
 type InjectOpts struct {
@@ -103,4 +114,27 @@ func (c *Client) InjectCapture(stdin io.Writer, cmd string) (string, error) {
 		return "", fmt.Errorf("%w", ErrInjectCaptureNoMarkers)
 	}
 	return parseCapturedOutput(delta), nil
+}
+
+// injectCaptureRetry runs InjectCapture up to injectCaptureRetryAttempts times when markers are missing.
+func (c *Client) injectCaptureRetry(stdin io.Writer, cmd string) (string, error) {
+	var lastErr error
+	for attempt := 0; attempt < injectCaptureRetryAttempts; attempt++ {
+		if attempt > 0 {
+			if c.scroll != nil {
+				c.scroll.StripSubstrings(injectStripFragments()...)
+			}
+			time.Sleep(injectCaptureRetryDelay)
+		}
+
+		out, err := injectCaptureForRetry(c, stdin, cmd)
+		if err == nil {
+			return out, nil
+		}
+		lastErr = err
+		if !errors.Is(err, ErrInjectCaptureNoMarkers) {
+			return "", err
+		}
+	}
+	return "", lastErr
 }

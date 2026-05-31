@@ -30,14 +30,14 @@ import (
 // space-prefixed for ignorespace history suppression and wrapped with
 // stty -echo/echo so they are invisible to the user.
 type PTYTransfer struct {
-	client *Client
+	client   *Client
+	progress *TransferProgress
 }
 
 // NewPTYTransfer returns a PTYTransfer that injects commands through c's PTY pipe.
-// c must have an active interactive session (non-nil stdin writer available via
-// RunInteractive).
-func NewPTYTransfer(c *Client) *PTYTransfer {
-	return &PTYTransfer{client: c}
+// progress may be nil. c must have an active interactive session.
+func NewPTYTransfer(c *Client, progress *TransferProgress) *PTYTransfer {
+	return &PTYTransfer{client: c, progress: progress}
 }
 
 // Get downloads remotePath to localPath through the PTY pipe using base64.
@@ -53,11 +53,21 @@ func (t *PTYTransfer) Get(ctx context.Context, stdin io.Writer, remotePath, loca
 		return err
 	}
 
+	if t.progress != nil {
+		t.progress.StartGet(remotePath, localPath, -1)
+	}
+
+	if t.progress != nil {
+		t.progress.Phase("hashing…")
+	}
 	remoteHash, err := t.captureRemoteHash(stdin, remotePath)
 	if err != nil {
 		return fmt.Errorf("pty get: remote hash: %w", err)
 	}
 
+	if t.progress != nil {
+		t.progress.Phase("downloading…")
+	}
 	remoteBase64, err := t.captureRemoteBase64(stdin, remotePath)
 	if err != nil {
 		return fmt.Errorf("pty get: remote base64: %w", err)
@@ -73,10 +83,18 @@ func (t *PTYTransfer) Get(ctx context.Context, stdin io.Writer, remotePath, loca
 	}
 
 	if remoteHash != "" {
+		if t.progress != nil {
+			t.progress.Phase("verifying…")
+		}
 		if err := verifyLocalHash(localAbs, remoteHash); err != nil {
 			_ = os.Remove(localAbs)
 			return fmt.Errorf("pty get: hash mismatch: %w", err)
 		}
+	}
+
+	if t.progress != nil {
+		t.progress.SetBytes(int64(len(data)))
+		t.progress.Done(fmt.Sprintf("done: get %s → %s (%d bytes)", remotePath, localPath, len(data)))
 	}
 
 	return nil
@@ -95,6 +113,10 @@ func (t *PTYTransfer) Put(ctx context.Context, stdin io.Writer, localPath, remot
 		return fmt.Errorf("pty put: local read %q: %w", localPath, err)
 	}
 
+	if t.progress != nil {
+		t.progress.StartPut(localPath, remotePath, int64(len(data)))
+	}
+
 	encoded := base64.StdEncoding.EncodeToString(data)
 
 	if err := t.writeRemoteBase64(stdin, remotePath, encoded); err != nil {
@@ -103,6 +125,9 @@ func (t *PTYTransfer) Put(ctx context.Context, stdin io.Writer, localPath, remot
 
 	localHash := localFileHash(data)
 
+	if t.progress != nil {
+		t.progress.Phase("verifying…")
+	}
 	remoteHash, err := t.captureRemoteHash(stdin, remotePath)
 	if err != nil {
 		return fmt.Errorf("pty put: remote verify: %w", err)
@@ -112,12 +137,16 @@ func (t *PTYTransfer) Put(ctx context.Context, stdin io.Writer, localPath, remot
 		return fmt.Errorf("pty put: hash mismatch: local=%s remote=%s", localHash, remoteHash)
 	}
 
+	if t.progress != nil {
+		t.progress.Done(fmt.Sprintf("done: put %s → %s (%d bytes)", localPath, remotePath, len(data)))
+	}
+
 	return nil
 }
 
 // captureRemoteHash runs sha256sum on remotePath via the PTY pipe and returns the hash.
 func (t *PTYTransfer) captureRemoteHash(stdin io.Writer, remotePath string) (string, error) {
-	output, err := t.client.InjectCapture(stdin, "sha256sum "+shellQuoteArg(remotePath))
+	output, err := t.client.injectCaptureRetry(stdin, "sha256sum "+shellQuoteArg(remotePath))
 	if err != nil {
 		return "", err
 	}
@@ -127,12 +156,11 @@ func (t *PTYTransfer) captureRemoteHash(stdin io.Writer, remotePath string) (str
 
 // captureRemoteBase64 runs base64 on remotePath via the PTY pipe and returns the encoded output.
 func (t *PTYTransfer) captureRemoteBase64(stdin io.Writer, remotePath string) (string, error) {
-	output, err := t.client.InjectCapture(stdin, "base64 "+shellQuoteArg(remotePath))
+	output, err := t.client.injectCaptureRetry(stdin, "base64 "+shellQuoteArg(remotePath))
 	if err != nil {
 		return "", err
 	}
 
-	// Strip any whitespace/carriage returns that may appear in PTY output.
 	cleaned := strings.ReplaceAll(output, "\r", "")
 	cleaned = strings.ReplaceAll(cleaned, "\n", "")
 	return cleaned, nil
@@ -141,18 +169,24 @@ func (t *PTYTransfer) captureRemoteBase64(stdin io.Writer, remotePath string) (s
 // writeRemoteBase64 uploads base64-encoded data to remotePath in chunks.
 // Each chunk is decoded on the remote side via printf | base64 -d >>.
 func (t *PTYTransfer) writeRemoteBase64(stdin io.Writer, remotePath, encoded string) error {
-	// Truncate/create the remote file first.
-	if err := t.client.Inject(stdin, "> "+shellQuoteArg(remotePath), InjectOpts{SuppressEcho: true}); err != nil {
+	if err := ptyTransferInjectHook(t.client, stdin, "> "+shellQuoteArg(remotePath), InjectOpts{SuppressEcho: true}); err != nil {
 		return err
 	}
 
 	chunks := chunkString(encoded, ptyTransferChunkSize)
-	for _, chunk := range chunks {
+	for i, chunk := range chunks {
+		if t.progress != nil {
+			t.progress.Phase(fmt.Sprintf("uploading chunk %d/%d…", i+1, len(chunks)))
+		}
 		cmd := buildPutChunkCmd(remotePath, chunk)
-		if err := t.client.Inject(stdin, cmd, InjectOpts{SuppressEcho: true}); err != nil {
+		if err := ptyTransferInjectHook(t.client, stdin, cmd, InjectOpts{SuppressEcho: true}); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	if t.client.scroll != nil {
+		t.client.scroll.StripSubstrings(injectStripFragments()...)
+	}
+
+	return ptyTransferSettleHook(t.client, stdin)
 }

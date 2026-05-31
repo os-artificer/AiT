@@ -36,7 +36,7 @@ const (
 	DirPut
 )
 
-func transferFile(ctx context.Context, conn *ssh.Client, dir Direction, localPath, remotePath string) error {
+func transferFile(ctx context.Context, conn *ssh.Client, dir Direction, localPath, remotePath string, progress CopyProgress) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -49,9 +49,13 @@ func transferFile(ctx context.Context, conn *ssh.Client, dir Direction, localPat
 		return wrapLocalErr(localPath, err)
 	}
 
+	var totalSize int64
 	if dir == DirPut {
 		if err := validateLocalRegularFile(localAbs); err != nil {
 			return err
+		}
+		if info, statErr := os.Stat(localAbs); statErr == nil {
+			totalSize = info.Size()
 		}
 	}
 
@@ -61,13 +65,18 @@ func transferFile(ctx context.Context, conn *ssh.Client, dir Direction, localPat
 	}
 	defer sftpClient.Close()
 
-	src, dst, cleanup, err := openTransferEnds(ctx, sftpClient, dir, localAbs, remotePath)
+	src, dst, cleanup, remoteSize, err := openTransferEnds(ctx, sftpClient, dir, localAbs, remotePath)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
-	if err := copyWithContext(ctx, dst, src); err != nil {
+	copyTotal := totalSize
+	if dir == DirGet && remoteSize > 0 {
+		copyTotal = remoteSize
+	}
+
+	if err := copyWithContext(ctx, dst, src, copyTotal, progress); err != nil {
 		if dir == DirGet {
 			_ = os.Remove(localAbs)
 			return wrapLocalErr(localAbs, err)
@@ -97,49 +106,56 @@ func openTransferEnds(
 	sftpClient *sftp.Client,
 	dir Direction,
 	localAbs, remotePath string,
-) (src io.Reader, dst io.Writer, cleanup func(), err error) {
+) (src io.Reader, dst io.Writer, cleanup func(), fileSize int64, err error) {
 	_ = ctx
 	if dir == DirGet {
-		if _, err := statRegularFile(sftpClient, remotePath); err != nil {
-			return nil, nil, nil, wrapRemoteErr(remotePath, err)
+		info, statErr := statRegularFile(sftpClient, remotePath)
+		if statErr != nil {
+			return nil, nil, nil, 0, wrapRemoteErr(remotePath, statErr)
 		}
 
 		remote, err := sftpClient.Open(remotePath)
 		if err != nil {
-			return nil, nil, nil, wrapRemoteErr(remotePath, err)
+			return nil, nil, nil, 0, wrapRemoteErr(remotePath, err)
 		}
 
 		local, err := os.Create(localAbs)
 		if err != nil {
 			_ = remote.Close()
-			return nil, nil, nil, wrapLocalErr(localAbs, err)
+			return nil, nil, nil, 0, wrapLocalErr(localAbs, err)
 		}
 
 		return remote, local, func() {
 			_ = remote.Close()
 			_ = local.Close()
-		}, nil
+		}, info.Size(), nil
 	}
 
 	if err := ensureRemoteParentDir(sftpClient, remotePath); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 
 	local, err := os.Open(localAbs)
 	if err != nil {
-		return nil, nil, nil, wrapLocalErr(localAbs, err)
+		return nil, nil, nil, 0, wrapLocalErr(localAbs, err)
 	}
 
 	remote, err := sftpClient.Create(remotePath)
 	if err != nil {
 		_ = local.Close()
-		return nil, nil, nil, wrapRemoteErr(remotePath, err)
+		return nil, nil, nil, 0, wrapRemoteErr(remotePath, err)
+	}
+
+	info, statErr := local.Stat()
+	var size int64
+	if statErr == nil {
+		size = info.Size()
 	}
 
 	return local, remote, func() {
 		_ = local.Close()
 		_ = remote.Close()
-	}, nil
+	}, size, nil
 }
 
 func finishTransfer(dir Direction, localAbs, remotePath string, dst io.Writer) error {
