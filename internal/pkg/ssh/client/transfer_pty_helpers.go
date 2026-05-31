@@ -46,8 +46,8 @@ var (
 	ptyTransferInjectHook = func(c *Client, stdin io.Writer, cmd string, opts InjectOpts) error {
 		return c.Inject(stdin, cmd, opts)
 	}
-	ptyTransferSettleHook = func(c *Client, stdin io.Writer) error {
-		return c.settleShellAfterBurst(stdin)
+	ptyTransferVerifyHook = func(c *Client, stdin io.Writer, remotePath string) (string, error) {
+		return c.settleAndCaptureHash(stdin, remotePath)
 	}
 )
 
@@ -121,9 +121,23 @@ func (c *Client) settleShellAfterBurst(stdin io.Writer) error {
 	}
 
 	injectAt := time.Now()
-	c.waitRemoteOutputQuietAfter(injectAt, transferPostBurstQuiet, scrollback.CaptureMaxWait)
+	quiet := transferPostBurstQuiet
+	if c.ChainMode() {
+		quiet = transferChainCaptureQuiet
+	}
+	c.waitRemoteOutputQuietAfter(injectAt, quiet, scrollback.CaptureMaxWait)
 	if c.scroll != nil {
 		c.scroll.StripSubstrings(injectStripFragments()...)
 	}
 	return nil
+}
+
+// settleAndCaptureHash waits for the shell to settle after a burst inject, then captures sha256sum output.
+func (c *Client) settleAndCaptureHash(stdin io.Writer, remotePath string) (string, error) {
+	if err := c.settleShellAfterBurst(stdin); err != nil {
+		return "", err
+	}
+
+	cmd := "sha256sum " + shellQuoteArg(remotePath)
+	return c.injectCaptureRetry(stdin, cmd)
 }

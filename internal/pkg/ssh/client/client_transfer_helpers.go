@@ -59,6 +59,34 @@ func normalizeHost(host string) string {
 	return host
 }
 
+// normalizeHostFull lowercases host, strips user@ and port, keeping the full hostname.
+func normalizeHostFull(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return ""
+	}
+
+	if i := strings.LastIndex(host, "@"); i >= 0 {
+		host = host[i+1:]
+	}
+
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+
+	return host
+}
+
+// hostsMatchFullName reports whether a and b are the same host by full hostname (not first DNS label only).
+func hostsMatchFullName(a, b string) bool {
+	na := normalizeHostFull(a)
+	nb := normalizeHostFull(b)
+	if na == "" || nb == "" {
+		return na == nb
+	}
+	return na == nb
+}
+
 // hostsMatch reports whether dialHost and activeHost refer to the same machine.
 func hostsMatch(dialHost, activeHost string) bool {
 	a := normalizeHost(dialHost)
@@ -66,16 +94,39 @@ func hostsMatch(dialHost, activeHost string) bool {
 	if a == "" || b == "" {
 		return a == b
 	}
-	return a == b
+	if a == b {
+		return true
+	}
+	return hostsMatchFullName(dialHost, activeHost)
 }
 
-// activeShellNeedsChain reports whether the active PTY shell host differs from the dial host.
-func activeShellNeedsChain(dialHost, activeHost string) bool {
+// hostsMatchIdentities reports whether activeHost refers to the dial target, comparing
+// opts.Host, LoginDestination (ssh alias), and full hostname forms.
+func hostsMatchIdentities(dialHost, loginDest, activeHost string) bool {
 	activeHost = strings.TrimSpace(activeHost)
 	if activeHost == "" {
 		return false
 	}
-	return !hostsMatch(dialHost, activeHost)
+
+	if hostsMatch(dialHost, activeHost) {
+		return true
+	}
+
+	loginDest = strings.TrimSpace(loginDest)
+	if loginDest != "" && hostsMatch(loginDest, activeHost) {
+		return true
+	}
+
+	return false
+}
+
+// activeShellNeedsChain reports whether the active PTY shell is on a host deeper than c.conn.
+func activeShellNeedsChain(dialHost, loginDest, activeHost string) bool {
+	activeHost = strings.TrimSpace(activeHost)
+	if activeHost == "" {
+		return false
+	}
+	return !hostsMatchIdentities(dialHost, loginDest, activeHost)
 }
 
 func wrapTransferWrongHop(dialHost string, cause error) error {

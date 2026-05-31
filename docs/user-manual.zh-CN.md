@@ -199,13 +199,15 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 
 ## 代理链式模式
 
-当通过多跳 SSH 连接（如 `本机 → 堡垒机 → 内网服务器`）时，AiT 的直连仅到达第一台主机。基于 SFTP 的文件传输（`!ait get` / `!ait put`）和 tmux 操作默认只能对该第一跳生效。使用 PTY 管道的功能（`!!`、`!ait ai`、scrollback）在任何深度均可正常工作。
+**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
 
-链式模式关闭时，若你已手动 SSH 到更深层主机，**`!ait get` / `!ait put` 会自动探测**当前 shell 所在主机名并启用链式模式（单行提示）。仍可用 **`!ait chain off`** 恢复为对直连主机的 SFTP。
+当你 login 到堡垒机再手动 `ssh` 到内网主机时，AiT 的直连仅到达拨号目标。基于 SFTP 的文件传输（`!ait get` / `!ait put`）和 tmux 操作默认只能对该目标生效。使用 PTY 管道的功能（`!!`、`!ait ai`、scrollback）在任何深度均可正常工作。
+
+链式模式关闭时，若你已手动 SSH 到更深层主机，**`!ait get` / `!ait put` 会自动探测**当前 shell 主机名（同时与解析后的拨号主机和原始登录 destination 别名比较，如 `devhost` 与 `dev.ylgeeker.com`）并启用链式模式（单行提示）。仍可用 **`!ait chain off`** 恢复为对直连主机的 SFTP。
 
 **`!ait chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
 
-- **文件传输**：文件经 base64 编码后通过交互式 PTY 会话传输，使用 sha256sum 完整性校验。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
+- **文件传输**：文件经 base64 编码后通过交互式 PTY 会话传输；上传后在 `verifying…` 阶段经 settle+capture 做 sha256sum 校验。链式模式下 capture 等待时间更长以适配多跳 PTY 延迟。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
 - **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
 
 **`!ait chain off`** 返回默认 SFTP/直连会话模式。

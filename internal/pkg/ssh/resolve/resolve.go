@@ -50,8 +50,10 @@ type Resolved struct {
 
 	RemoteCommand []string
 	Alias         string
-	Save          bool
-	Tmux          bool
+	// Destination is the CLI/OpenSSH destination before hostname resolution (e.g. devhost).
+	Destination string
+	Save        bool
+	Tmux        bool
 }
 
 // Resolve runs ssh -G for spec.Destination and merges the parsed config with CLI flags in spec.
@@ -105,6 +107,7 @@ func Resolve(spec sshparse.Spec) (Resolved, error) {
 		BatchMode:             strings.EqualFold(cfg.single["batchmode"], "yes"),
 		RemoteCommand:         spec.RemoteCommand,
 		Alias:                 spec.Alias,
+		Destination:           spec.Destination,
 		Save:                  spec.Save,
 		Tmux:                  spec.Tmux,
 		Password:              spec.Password,
@@ -203,6 +206,7 @@ func (r Resolved) ClientOptions() client.Options {
 		Host:                  r.Host,
 		Port:                  r.Port,
 		User:                  r.User,
+		LoginDestination:      r.Destination,
 		IdentityPath:          r.IdentityPath,
 		IdentityExplicit:      r.IdentityExplicit,
 		Password:              r.Password,

@@ -28,12 +28,14 @@ import (
 
 // LoginOpts for new connection.
 type LoginOpts struct {
-	Alias        string
-	Save         bool
-	Host         string
-	Port         int
-	User         string
-	IdentityPath string
+	Alias string
+	Save  bool
+	Host  string
+	// LoginDestination is the ssh config Host alias or CLI destination before hostname resolution.
+	LoginDestination string
+	Port             int
+	User             string
+	IdentityPath     string
 	// IdentityExplicit is true when the user passed -i on the CLI.
 	IdentityExplicit bool
 	Password         string

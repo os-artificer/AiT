@@ -199,13 +199,15 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 
 ## Proxy chain mode
 
-When you SSH through multiple hops (e.g. `local → bastion → internal-server`), AiT's direct connection only reaches the first host. SFTP-based file transfer (`!ait get` / `!ait put`) and tmux operations only work against that first hop by default. Features that use the PTY pipe (`!!`, `!ait ai`, scrollback) work at any depth.
+**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session `!ait get`/`put` on that login uses **SFTP** by default—the same strategy as standalone `ait get`/`put`. **Chain mode** applies when the **interactive shell** is deeper than the dial connection (usually after you manually `ssh` inside the session).
 
-When chain mode is off and you have manually SSH'd to a deeper host, **`!ait get` / `!ait put` automatically detect** the active shell hostname and enable chain mode with a one-line notice. You can still use **`!ait chain off`** to return to SFTP against the directly connected host.
+When you login to a bastion and then manually `ssh` to an internal host, AiT's direct connection only reaches the bastion. SFTP-based file transfer (`!ait get` / `!ait put`) and tmux operations only work against that dial target by default. Features that use the PTY pipe (`!!`, `!ait ai`, scrollback) work at any depth.
+
+When chain mode is off and you have manually SSH'd to a deeper host, **`!ait get` / `!ait put` automatically detect** the active shell hostname (compared to both the resolved dial host and your original login destination alias, e.g. `devhost` vs `dev.ylgeeker.com`) and enable chain mode with a one-line notice. You can still use **`!ait chain off`** to return to SFTP against the directly connected host.
 
 **`!ait chain on`** enables chain mode manually, which switches to PTY-pipe injection:
 
-- **File transfer**: Files are base64-encoded and transferred through the interactive PTY session, with sha256sum integrity verification. Remote hosts must have `base64` and `sha256sum` (standard on Linux/macOS).
+- **File transfer**: Files are base64-encoded and transferred through the interactive PTY session, with sha256sum integrity verification after upload (`verifying…` phase). Chain mode uses longer capture timing for multi-hop PTY latency. Remote hosts must have `base64` and `sha256sum` (standard on Linux/macOS).
 - **Tmux**: Tmux operations are injected through the PTY pipe instead of opening a new SSH session.
 
 **`!ait chain off`** returns to the default SFTP/direct-session mode.

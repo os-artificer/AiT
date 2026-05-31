@@ -90,7 +90,7 @@ func (c *Client) resolveTransferMode(stdin io.Writer) (usePTY bool, autoEnabled 
 		return false, false, nil
 	}
 
-	if activeShellNeedsChain(c.opts.Host, activeHost) {
+	if activeShellNeedsChain(c.opts.Host, c.opts.LoginDestination, activeHost) {
 		c.SetChainMode(true)
 		autoChainNotice(activeHost, c.opts.Host)
 		return true, true, nil

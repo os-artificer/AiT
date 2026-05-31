@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -127,13 +128,19 @@ func TestNormalizeHost_ShortNameAndFQDN(t *testing.T) {
 }
 
 func TestResolveTransferMode_AutoEnablesChain(t *testing.T) {
-	if !activeShellNeedsChain("bastion", "internal-server") {
+	if !activeShellNeedsChain("bastion", "", "internal-server") {
 		t.Fatal("expected chain needed for different hosts")
 	}
-	if activeShellNeedsChain("bastion.example.com", "bastion") {
+	if activeShellNeedsChain("bastion.example.com", "", "bastion") {
 		t.Fatal("same host short/FQDN should not need chain")
 	}
-	if activeShellNeedsChain("bastion", "") {
+	if !activeShellNeedsChain("dev.ylgeeker.com", "devhost", "internal") {
+		t.Fatal("expected chain when active host differs from all identities")
+	}
+	if activeShellNeedsChain("dev.ylgeeker.com", "devhost", "devhost") {
+		t.Fatal("alias destination matching active host should not need chain")
+	}
+	if activeShellNeedsChain("bastion", "", "") {
 		t.Fatal("empty active host should not need chain")
 	}
 }
@@ -196,5 +203,44 @@ func TestIsSFTPNotFoundErr(t *testing.T) {
 	}
 	if isSFTPNotFoundErr(fmt.Errorf("permission denied")) {
 		t.Fatal("unexpected match")
+	}
+}
+
+func TestHostsMatchIdentities_AliasHostname(t *testing.T) {
+	if !hostsMatchIdentities("dev.ylgeeker.com", "devhost", "devhost") {
+		t.Fatal("devhost active shell should match login destination alias")
+	}
+	if hostsMatchIdentities("dev.ylgeeker.com", "devhost", "internal") {
+		t.Fatal("unrelated active host should not match")
+	}
+}
+
+func TestActiveShellNeedsChain_ManualNest(t *testing.T) {
+	if !activeShellNeedsChain("bastion", "", "internal-server") {
+		t.Fatal("manual ssh to internal should need chain")
+	}
+}
+
+func TestResolveTransferMode_SFTPWhenIdentitiesMatch(t *testing.T) {
+	c := &Client{
+		opts:   Options{Host: "dev.ylgeeker.com", LoginDestination: "devhost"},
+		scroll: &terminal.Buffer{},
+	}
+	orig := injectCaptureForRetry
+	defer func() { injectCaptureForRetry = orig }()
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		if strings.Contains(cmd, "hostname") {
+			return "devhost", nil
+		}
+		return "", ErrInjectCaptureNoMarkers
+	}
+
+	var stdin bytes.Buffer
+	usePTY, auto, err := c.resolveTransferMode(&stdin)
+	if err != nil {
+		t.Fatalf("resolveTransferMode: %v", err)
+	}
+	if usePTY || auto {
+		t.Fatalf("expected SFTP path, got usePTY=%v auto=%v", usePTY, auto)
 	}
 }

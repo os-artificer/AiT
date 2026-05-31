@@ -413,7 +413,7 @@ sequenceDiagram
 
 实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（基于 `golang.org/x/crypto/ssh` 的 SFTP）与 [`internal/pkg/ssh/client/transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go)（基于 PTY 管道注入的 base64 传输）。**仅支持单个普通文件**；目录会返回明确错误。**`Put`** 在 `Create` 前对远程父目录执行 SFTP `MkdirAll`。错误带 `local file` / `remote file` 前缀；远端 `IsNotExist` 会提示检查远程路径与父目录（SFTP 在父目录不存在时常报 `file does not exist`）。
 
-当用户手动 SSH 超越直连主机（如 `本地 → 代理 → 目标`）时，SFTP 和 `conn.NewSession()` 只能到达第一跳。**链式模式**（`!ait chain on`，或会话内 `!ait get`/`put` **自动探测**到 active shell 主机名与拨号主机不一致时自动启用）切换为 PTY 管道注入：命令通过现有 PTY stdin/stdout 管道静默注入，该管道穿越所有 SSH 跳板到达最终目标。文件传输使用 base64 编解码加 sha256sum 完整性校验。tmux 操作使用 `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` 替代 `conn.NewSession()`。
+当用户在会话内手动 SSH 超越拨号目标（如 login 到堡垒机后在 shell 里 `ssh internal`）时，SFTP 与 `conn.NewSession()` 只能到达**拨号连接的目标**。**链式模式**（`!ait chain on`，或 `!ait get`/`put` 探测到 active shell 主机名与解析后的拨号主机 **且** 原始登录 destination 别名均不匹配时自动启用）切换为 PTY 管道注入。**login 时使用 ProxyJump 不等于链式模式**：`DialChain` 已隧道到最终主机，会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 策略一致。主机名匹配同时比较 `Options.Host`（ssh `-G` 的 `HostName`）与 `Options.LoginDestination`（CLI/配置别名，如 `devhost` 与 `dev.ylgeeker.com`）。文件传输使用 base64 与 sha256sum 校验；PTY **put** 在 chunk 上传后立即 settle+capture 校验，链式模式下 capture 等待时间更长。tmux 使用 `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` 替代 `conn.NewSession()`。
 
 | 模式 | 命令 | 认证 |
 |------|------|------|
@@ -432,7 +432,9 @@ sequenceDiagram
 
 ### 代理链式模式（!ait chain）
 
-当连接路径为 `本地 → 代理 → 目标`（或任意数量的中间跳板）时，AiT `Client` 仅持有到第一跳的直连 SSH 会话。SFTP（`conn.NewSession()`）及基于 `conn.NewSession()` 的 tmux 操作只能到达第一跳——**无法**触及最终目标。已通过 PTY 管道工作的功能（AI 模式 `!!`、scrollback 捕获、远程 cwd 检测）不受跳板数量影响，因为 PTY stdin/stdout 穿越所有 SSH 连接。
+**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
+
+当连接路径为 `本地 → 堡垒机`（login）再手动 `ssh internal` 时，AiT `Client` 仅持有到堡垒机的直连 SSH 会话。SFTP（`conn.NewSession()`）及基于 `conn.NewSession()` 的 tmux 操作只能到达该拨号目标——**无法**直接到达 internal。已通过 PTY 管道工作的功能（AI 模式 `!!`、scrollback 捕获、远程 cwd 检测）不受跳板数量影响，因为 PTY stdin/stdout 穿越所有 SSH 连接。
 
 **链式模式**（`!ait chain on`，或嵌套 SSH 时会话内传输检测到主机名不一致时自动启用）将文件传输和 tmux 操作从 SFTP/直连会话切换为 PTY 管道注入。所有 AiT 注入的命令均为静默（在历史记录和终端中不可见）：
 
@@ -440,7 +442,7 @@ sequenceDiagram
 |----|------|
 | 历史抑制 | 空格前缀（`ignorespace`）+ 登录时注入 `HISTCONTROL=ignorespace:erasedups` / `setopt HIST_IGNORE_SPACE` |
 | 回显抑制 | 在注入命令前后使用 `stty -echo` / `stty echo` 包装 |
-| 输出捕获 | 唯一 ANSI 转义定界符（`\x1b[AIT_CAP_B\x1b` / `\x1b[AIT_CAP_E\x1b`）包裹命令输出，从 scrollback delta 中解析 |
+| 输出捕获 | 纯文本定界符（`AIT_CAPTURE_B_f3e7a1c9` / `AIT_CAPTURE_E_f3e7a1c9`）包裹命令输出，从 scrollback delta 解析（snap 前缀被截断时回退全文搜索） |
 
 **文件传输**（`PTYTransfer`）：通过 PTY 管道以 base64 编解码文件内容，使用 sha256sum 完整性校验。以 3072 字节为一块，通过 `printf | base64 -d >>` 追加写入。远程主机须有 `base64` 和 `sha256sum`（Linux/macOS 标准）。
 

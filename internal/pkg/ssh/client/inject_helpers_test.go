@@ -17,8 +17,13 @@
 package client
 
 import (
+	"bytes"
+	"io"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/scrollback"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 func TestBuildInjectParts_PlainCommand(t *testing.T) {
@@ -436,5 +441,46 @@ func TestCaptureMarkersArePrintableASCII(t *testing.T) {
 				t.Errorf("%s contains non-printable byte at index %d: %02x", m.name, i, ch)
 			}
 		}
+	}
+}
+
+func TestInjectCapture_FallbackFullScrollback(t *testing.T) {
+	snap := "noise" + injectCaptureBegin
+	after := snap + "payload" + injectCaptureEnd
+
+	delta := scrollback.Delta(snap, after)
+	if captureMarkersPresent(delta) {
+		t.Fatal("delta should lack both markers for split snap scenario")
+	}
+	if !captureMarkersPresent(after) {
+		t.Fatal("full scrollback should contain markers")
+	}
+
+	var stdin bytes.Buffer
+	c := &Client{scroll: &terminal.Buffer{}}
+	_, _ = c.scroll.Write([]byte(snap))
+	orig := injectCaptureForRetry
+	defer func() { injectCaptureForRetry = orig }()
+	injectCaptureForRetry = func(client *Client, stdin io.Writer, cmd string) (string, error) {
+		_, _ = client.scroll.Write([]byte("payload" + injectCaptureEnd))
+		full := client.scroll.String()
+		delta := scrollback.Delta(snap, full)
+		if !captureMarkersPresent(delta) {
+			if captureMarkersPresent(full) {
+				delta = full
+			}
+		}
+		if !captureMarkersPresent(delta) {
+			return "", ErrInjectCaptureNoMarkers
+		}
+		return parseCapturedOutput(delta), nil
+	}
+
+	out, err := c.injectCaptureRetry(&stdin, "sha256sum '/tmp/x'")
+	if err != nil {
+		t.Fatalf("fallback capture: %v", err)
+	}
+	if out != "payload" {
+		t.Fatalf("out = %q, want payload", out)
 	}
 }
