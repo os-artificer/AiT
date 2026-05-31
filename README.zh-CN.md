@@ -53,7 +53,7 @@ make build
 ./bin/ait --help
 ```
 
-**`go install`**（模块可通过 `go install` 解析时）：
+**`go install`**（需 Go **1.25+**；ZMODEM 实现内嵌于 `pkg/third-party/`，不再拉取外部 `github.com/xiwh/zmodem`）：
 
 ```bash
 go install github.com/os-artificer/AiT/cmd/ait@latest

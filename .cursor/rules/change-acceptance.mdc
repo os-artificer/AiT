@@ -364,6 +364,12 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | U28 | inline 后 `Done` 以 CRLF 定稿 | `TestTransferProgress_InlineDoneCRLF` | done 行起于列 0 |
 | U29 | ZMODEM get/put 统一 `copying…`（非 `transferring…`） | `TestZModemTransfer_ProgressUnifiedCopying` | 链式 get/put 与 SFTP 文案一致 |
 
+### M* 明细（`go install` / 第三方内嵌）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| M1 | `go.mod`/`go.sum` 无外部 `github.com/xiwh/zmodem`；空 cache 可 build | `TestGoMod_NoExternalXiwhZmodem`、`TestBuild_FreshModCache` | macOS：`go install github.com/os-artificer/AiT/cmd/ait@latest` |
+
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
@@ -428,6 +434,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] Z1–Z10：链式 ZMODEM `!ait get/put`（见 **Z\*** 明细）
 - [ ] T1–T12：统一 get/put 路由 + lrzsz 安装 + ZMODEM 握手修复（见 **T\*** 明细）
 - [ ] U26–U29：传输进度行内更新（见 **U26–U29** 明细）
+- [ ] M1：`go install` 无外部 xiwh/zmodem（见 **M\*** 明细）
 - [ ] 相关自动化测试未删除或弱化
 
 手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai chat --help`、`timeout 5 ./bin/ait ai chat ping`、`echo ping | timeout 5 ./bin/ait ai chat`、`./bin/ait config view`、`./bin/ait config validate && echo OK`、`./bin/ait config --help | grep -E 'view|edit|validate'`。

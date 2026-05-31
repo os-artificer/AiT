@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package zmodem wraps github.com/xiwh/zmodem for lrzsz-compatible PTY file transfer.
+// Package zmodem wraps the vendored xiwh ZMODEM stack for lrzsz-compatible PTY file transfer.
 package zmodem
 
 import (
@@ -28,7 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	xzmodem "github.com/xiwh/zmodem/zmodem"
+	xzmodem "github.com/os-artificer/AiT/pkg/third-party/xiwh/zmodem/zmodem"
 )
 
 const (

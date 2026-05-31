@@ -80,7 +80,7 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/config/` | YAML config (`Load`/`Save`/`EnsureFile`/`Validate`; `ait config init/view/edit/validate`) |
 | `internal/pkg/creds/` | OS keyring (API key, session unlock) |
 | `internal/pkg/pathsafe/` | Session ID and path validation (scrollback sidecars) |
-| `pkg/` | Reserved for public importable libs (empty today) |
+| `pkg/` | Public importable libs; [`pkg/third-party/`](pkg/third-party/) vendored upstream Go sources (e.g. xiwh ZMODEM) |
 | `configs/` | `ait.example.yaml` |
 | `docs/` | [`design.md`](docs/design.md), [`user-manual.md`](docs/user-manual.md) |
 | `.cursor/rules/` | Cursor rules; Go structure: [`go-structure.mdc`](.cursor/rules/go-structure.mdc) |
