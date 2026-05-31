@@ -229,7 +229,7 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv, `ssh -G`, mapped options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | Session lifecycle | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode, silent injection | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_pty.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode, silent injection | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_zmodem.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback.go`, `scrollback_io.go`, `path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
@@ -411,9 +411,9 @@ sequenceDiagram
 
 ### get / put
 
-Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over `golang.org/x/crypto/ssh`) and [`internal/pkg/ssh/client/transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) (PTY-pipe injection over base64). **Single regular files only**; directories return a clear error. **`Put`** calls SFTP `MkdirAll` on the remote parent directory before `Create`. Errors are wrapped with `local file` / `remote file` prefixes; remote `IsNotExist` includes a hint to check the remote path and parent directory (SFTP servers often report `file does not exist` when a parent path is missing).
+Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over `golang.org/x/crypto/ssh`) and [`internal/pkg/ssh/client/transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/) (chain-mode ZMODEM over PTY, lrzsz-compatible). **Single regular files only**; directories return a clear error. **`Put`** calls SFTP `MkdirAll` on the remote parent directory before `Create`. Errors are wrapped with `local file` / `remote file` prefixes; remote `IsNotExist` includes a hint to check the remote path and parent directory (SFTP servers often report `file does not exist` when a parent path is missing).
 
-When the user has manually SSH'd beyond the directly connected host (e.g. login to a bastion, then `ssh internal` inside the session), SFTP and `conn.NewSession()` only reach the **dial target** of the live connection. **Chain mode** (`!ait chain on`, or **auto-enabled** when `!ait get`/`put` detects the active shell hostname differs from both the resolved dial host and the original login destination alias) switches to PTY-pipe injection. **ProxyJump at login is not chain mode**: `DialChain` tunnels to the final host, so in-session `!ait get`/`put` default to **SFTP** on that same connection—the same strategy as standalone `ait get`/`put`. Hostname matching compares the active shell to `Options.Host` (ssh `-G` `HostName`) and `Options.LoginDestination` (CLI/config alias, e.g. `devhost` vs `dev.ylgeeker.com`). File transfer uses base64 encoding/decoding with sha256sum integrity verification. PTY **put** writes each chunk to a remote temp file via heredoc (`mktemp` under `/tmp/ait-put.*`), then `mv` to the destination—never shell-redirecting inject bytes into the target path. Each chunk and the final `mv` are followed by shell settle waits; chain mode uses longer inject quiet time. Before verify, a leak guard samples the remote file head and aborts (without verify retries) if inject command text is present. Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
+When the user has manually SSH'd beyond the directly connected host (e.g. login to a bastion, then `ssh internal` inside the session), SFTP and `conn.NewSession()` only reach the **dial target** of the live connection. **Chain mode** (`!ait chain on`, or **auto-enabled** when `!ait get`/`put` detects the active shell hostname differs from both the resolved dial host and the original login destination alias) switches to PTY-pipe **ZMODEM** transfer (same approach as `rz`/`sz`). **ProxyJump at login is not chain mode**: `DialChain` tunnels to the final host, so in-session `!ait get`/`put` default to **SFTP** on that same connection—the same strategy as standalone `ait get`/`put`. Hostname matching compares the active shell to `Options.Host` (ssh `-G` `HostName`) and `Options.LoginDestination` (CLI/config alias, e.g. `devhost` vs `dev.ylgeeker.com`). Chain **get** injects remote `sz` and receives via embedded ZMODEM; chain **put** injects remote `rz` and sends via embedded ZMODEM—streaming over the PTY byte pipe with per-block CRC (no shell redirects into the target file). The active shell host must have **lrzsz** (`sz`/`rz`). AiT clients on Linux/macOS/Windows Terminal run the local protocol stack in Go (no local lrzsz required). Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
 
 | Mode | Command | Authentication |
 |------|---------|----------------|
@@ -444,7 +444,7 @@ When the interactive path is `local → bastion` (login) then manual `ssh intern
 | Echo suppression | `stty -echo` / `stty echo` wrapper around injected commands |
 | Output capture | Plain-text delimiters (`AIT_CAPTURE_B_f3e7a1c9` / `AIT_CAPTURE_E_f3e7a1c9`) wrapped around command output, parsed from scrollback delta (with full-buffer fallback when the snap prefix was trimmed) |
 
-**File transfer** (`PTYTransfer`): base64 encodes/decodes file content through the PTY pipe with sha256sum integrity verification. Chunks of 3072 bytes are appended via `printf | base64 -d >>`. Remote hosts must have `base64` and `sha256sum` available (standard on Linux/macOS).
+**File transfer** (`ZModemTransfer`): lrzsz-compatible ZMODEM over the PTY byte stream (same model as `rz`/`sz`). **Get** injects remote `sz`; AiT receives with embedded Go ZMODEM. **Put** injects remote `rz`; AiT sends with embedded Go ZMODEM. Per-block CRC; no shell redirects into the target file. Active shell host must have **lrzsz** (`apt install lrzsz` / `brew install lrzsz`). AiT client needs no local lrzsz (Linux/macOS/Windows Terminal).
 
 **Tmux operations** (`tmux/remote_pty.go`): `HasSessionViaPTY`, `NewSessionViaPTY`, `DetachViaPTY`, `PanePathViaPTY`, `EnsureViaPTY` inject tmux commands through the PTY pipe instead of opening a new SSH session. Exit code detection uses `echo "AIT_EXIT_$?"` pattern.
 
@@ -457,8 +457,8 @@ flowchart LR
     Session[conn.NewSession]
   end
   subgraph chain [Chain mode: chain on]
-    PTYGet[PTY base64 get]
-    PTYPut[PTY base64 put]
+    PTYGet[PTY ZMODEM get]
+    PTYPut[PTY ZMODEM put]
     PTYTmux[PTY tmux ops]
   end
   User[User] -->|!ait chain on| chain
@@ -467,13 +467,13 @@ flowchart LR
 
 | Feature | Direct mode (chain off) | Chain mode (chain on) |
 |---------|------------------------|----------------------|
-| `!ait get` / `!ait put` | SFTP over `conn` | Base64 over PTY pipe |
+| `!ait get` / `!ait put` | SFTP over `conn` | ZMODEM over PTY pipe (lrzsz on active shell) |
 | Tmux `--tmux` | `conn.NewSession()` | PTY injection (`HasSessionViaPTY`, etc.) |
 | AI `!!` / `!ait ai` | PTY pipe (works either way) | PTY pipe (works either way) |
 | Scrollback / cwd | PTY pipe (works either way) | PTY pipe (works either way) |
-| Remote requirements | Standard | `base64`, `sha256sum` |
+| Remote requirements | Standard | **lrzsz** (`sz`/`rz`) on active shell (Unix-like) |
 
-**Implementation**: [`inject.go`](../internal/pkg/ssh/client/inject.go) + [`inject_helpers.go`](../internal/pkg/ssh/client/inject_helpers.go) (silent PTY injection); [`transfer_pty.go`](../internal/pkg/ssh/client/transfer_pty.go) + [`transfer_pty_helpers.go`](../internal/pkg/ssh/client/transfer_pty_helpers.go) (base64 file transfer); [`tmux/remote_pty.go`](../internal/pkg/tmux/remote_pty.go) (PTY-based tmux operations).
+**Implementation**: [`inject.go`](../internal/pkg/ssh/client/inject.go) + [`inject_helpers.go`](../internal/pkg/ssh/client/inject_helpers.go) (silent PTY injection); [`transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/) (ZMODEM file transfer); [`zmodem_session.go`](../internal/pkg/ssh/client/zmodem_session.go) (exclusive PTY tap); [`tmux/remote_pty.go`](../internal/pkg/tmux/remote_pty.go) (PTY-based tmux operations).
 
 ### AI mode (dual scope)
 
@@ -562,7 +562,7 @@ Capabilities implemented in the current tree:
 - **Large scrollback**: beyond threshold (for example 512KB) persist to sidecar file; DB stores path only
 - **Security**: do not log API keys/passwords; redact `!!` context; clear keyring entries on `delete`/`delete all`
 - **TTL edge cases**: document monotonic comparisons for clock skew; `auth_expires_at` configurable (minimum 1h, maximum 30d guardrails)
-- **Chain mode file transfer**: base64 encoding increases data size by ~33%; large files may be slow over high-latency links. Chunk size (3072 bytes) is conservative to avoid PTY buffer overflow. Remote hosts without `base64`/`sha256sum` (rare on Linux/macOS) cannot use chain-mode transfer.
+- **Chain mode file transfer**: ZMODEM streams over the PTY with per-block CRC (lrzsz-compatible). Active shell host must have **lrzsz**; Windows OpenSSH servers are not supported in v1. Large files over high-latency multi-hop links may be slower than SFTP on a direct connection.
 
 ## Deliverables
 

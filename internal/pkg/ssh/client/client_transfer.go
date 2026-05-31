@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	xfer "github.com/os-artificer/AiT/internal/pkg/ssh/client/transfer"
@@ -59,8 +60,10 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 		err = c.handleTransferPTY(ctx, stdin, dir, args, prog)
 		if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
 			err = wrapPTYCaptureErr(err)
-		} else if err != nil && errors.Is(err, ErrInjectLeakSignature) {
-			err = wrapPTYLeakErr(err)
+		} else if err != nil && errors.Is(err, ErrMissingLrzsz) {
+			err = wrapPTYZModemErr(err)
+		} else if err != nil && strings.Contains(err.Error(), "zmodem") {
+			err = wrapPTYZModemErr(err)
 		}
 	} else {
 		err = c.handleTransferSFTP(ctx, dir, args, prog)
@@ -140,7 +143,7 @@ func (c *Client) handleTransferPTY(ctx context.Context, stdin io.Writer, dir tra
 	c.pauseRemoteOut.Store(true)
 	defer c.pauseRemoteOut.Store(false)
 
-	pt := NewPTYTransfer(c, prog)
+	pt := NewZModemTransfer(c, prog)
 	if dir == transfer.DirGet {
 		return pt.Get(ctx, stdin, args[0], args[1])
 	}

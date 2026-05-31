@@ -36,8 +36,8 @@ var ErrTransferWrongHop = errhint.NewSentinel("remote file not found on directly
 // ErrInjectCaptureNoMarkers is returned when PTY inject capture output lacks delimiters.
 var ErrInjectCaptureNoMarkers = errors.New("inject capture: markers not found")
 
-// ErrInjectLeakSignature is returned when remote file content looks like leaked inject commands.
-var ErrInjectLeakSignature = errors.New("remote file contains PTY inject command leakage")
+// ErrMissingLrzsz is returned when the remote active shell lacks lrzsz (sz/rz).
+var ErrMissingLrzsz = errors.New("remote shell missing lrzsz (sz/rz)")
 
 // normalizeHost lowercases host, strips user@ and port, and returns the first DNS label
 // so short names and FQDNs compare equal (e.g. bastion and bastion.example.com).
@@ -159,11 +159,11 @@ func wrapPTYCaptureErr(cause error) error {
 	)
 }
 
-func wrapPTYLeakErr(cause error) error {
+func wrapPTYZModemErr(cause error) error {
 	return errhint.WithTry(
 		cause,
-		"The remote target file contains leaked PTY inject command text; retry would append more.",
-		"Inspect the remote file (cat/head) and remove corrupted content before retrying.",
+		"Chain-mode file transfer uses ZMODEM (lrzsz) over the PTY.",
+		"Install lrzsz on the active shell host: apt install lrzsz / brew install lrzsz",
 		"!ait put <local-on-this-machine> <remote-on-active-shell>",
 	)
 }

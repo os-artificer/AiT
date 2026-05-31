@@ -71,6 +71,11 @@ func (sr *Reader) BeginREPL() io.Reader {
 	return NewReplReader(sr.replCh)
 }
 
+// DrainForward discards bytes queued for SSH forwarding (tests and ZMODEM prep).
+func (sr *Reader) DrainForward() {
+	sr.drainForward()
+}
+
 // EndREPL stops routing stdin to the AI REPL and discards unread repl bytes.
 func (sr *Reader) EndREPL() {
 	sr.replActive.Store(false)
