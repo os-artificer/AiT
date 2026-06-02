@@ -43,19 +43,19 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | AI 模式 | R15 `ait ai model list` 非交互；`ait ai` 仍交互；首行元命令不挂起 |
 | 配置 | R16 Save 无根级 `deepseek`；旧 YAML 可读；`deepseek.model` 别名仍有效 |
 | AI CLI | R17 无顶层 `ait models`；`ait ai provider enable|disable`；`ait ai ollama setup` 可配置 `models_dir`/`OLLAMA_MODELS` |
-| AI chat | R18 见下 **R18 明细**（`ait ai chat` 单轮、stdin、SSH meta、空 `chat`、非 chat 仍进 REPL） |
+| AI ask | R18 见下 **R18 明细**（`ait ai ask` 单轮、stdin、SSH meta、空 `ask`、非 ask 仍进 REPL） |
 | SSH AI 输入 | R19 见下 **R19 明细**（远程 AI REPL UTF-8；stdin 单读者路由至 ReplIn） |
 | AI REPL 模式 | A20–A22 见 **A20/A21/A22 明细**（Ask/Agent、`approve`、Agent；提示符、确认排版、y/c/s/n、首词 pattern；Read 自动放行） |
 
-### R18 明细（`ait ai chat` 单轮）
+### R18 明细（`ait ai ask` 单轮）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾（无 mock 时） |
 |----|----------|------------|------------------------|
-| R18a | `ait ai chat "msg"` 或 `echo q \| ait ai chat` 非 TTY 单轮，5s 内结束 | `TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY` | `timeout 5 ./bin/ait ai chat ping`；`echo ping \| timeout 5 ./bin/ait ai chat` |
-| R18b | `ait ai chat` 无参且无 stdin → 需消息错误，不挂起 | `TestAICmd_ChatEmptyNoTTY`、`TestRunChatOnce_EmptyMessage` | `timeout 5 ./bin/ait ai chat </dev/null` |
-| R18c | `!ait ai chat msg` / `!! chat msg` → meta → `InitialQuestion` 为 `chat …`，单轮不进 REPL | `TestAIPromptFromMetaLine`（chat 行）、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat` | SSH 内 `!ait ai chat hi`（可选） |
-| R18d | REPL 首行仅 `chat`（无正文）→ `ErrChatMessageRequired` | `TestParseChatCommand`、`TestRunREPL_InitialChatEmptyMessage` | — |
-| R18e | `!ait ai` / `!!` 或自由文本首行仍进 REPL（非 chat 单轮快速路径） | `TestIsMetaREPLCommand`、`TestRunREPL_InitialNonChatShowsPrompt` | — |
+| R18a | `ait ai ask "msg"` 或 `echo q \| ait ai ask` 非 TTY 单轮，5s 内结束 | `TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY` | `timeout 5 ./bin/ait ai ask ping`；`echo ping \| timeout 5 ./bin/ait ai ask` |
+| R18b | `ait ai ask` 无参且无 stdin → 需消息错误，不挂起 | `TestAICmd_ChatEmptyNoTTY`、`TestRunChatOnce_EmptyMessage` | `timeout 5 ./bin/ait ai ask </dev/null` |
+| R18c | `!ait ai ask msg` / `!! ask msg` → meta → `InitialQuestion` 为 `ask …`，单轮不进 REPL | `TestAIPromptFromMetaLine`（ask 行）、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat` | SSH 内 `!ait ai ask hi`（可选） |
+| R18d | REPL 首行仅 `ask`（无正文）→ `ErrChatMessageRequired`（文案 `ask requires a message`） | `TestParseChatCommand`、`TestRunREPL_InitialChatEmptyMessage` | — |
+| R18e | `!ait ai` / `!!` 或自由文本首行仍进 REPL（非 ask 单轮快速路径） | `TestIsMetaREPLCommand`、`TestRunREPL_InitialNonChatShowsPrompt` | — |
 | R18f | 远程 scope 单轮输出 CRLF | `TestRunREPL_InitialChatOnceRemoteCRLF` | — |
 
 ### R19 明细（SSH 远程 AI REPL UTF-8）
@@ -221,19 +221,19 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
-| H3a | 空 `ait ai chat` → `ErrChatMessageRequired` + `Try:` | `TestAICmd_ChatEmptyNoTTY` |
+| H3a | 空 `ait ai ask` → `ErrChatMessageRequired` + `Try:` | `TestAICmd_ChatEmptyNoTTY` |
 | H3b | unknown config key + `Try:` | `TestUnknownConfigKeyErr_Format` |
 | H3c | AI not configured 统一文案 + `Try:` | `TestSetModel_ErrNoAI` |
 | H3d | ollama 非交互 install hint | `ollama` 包测试通过（`setup_confirm` 路径） |
 
-#### H4（REPL / meta / aimode）
+#### H4（REPL / meta / ai/mode）
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
 | H4a | meta blocked login 多行 + `Try:` | `TestExecuteBlockedLogin` |
 | H4b | meta blocked ai 多行 + `Try:` | `TestExecuteBlockedAI` |
 | H4c | REPL 单行 err 仍单 `AiT:` | `TestShellPrintErr` |
-| H4d | aimode chat 空消息 | `TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage` |
+| H4d | `ai/mode` ask 空消息 | `TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage` |
 
 ### K* 明细（REPL 行编辑与历史）
 
@@ -384,11 +384,11 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] R15 未回退（`ait ai model list` / `ait ai help` 不挂起；`ait ai` 仍进 REPL）
 - [ ] R16 未回退（Save 无根级 `deepseek`；`TestSaveYAML_NoRootDeepseek` 等通过）
 - [ ] R17 未回退（`ait models` unknown；`TestTopLevelModelsRemoved`；`models_dir`/`OLLAMA_MODELS` 测试通过）
-- [ ] R18a：`ait ai chat` 带参或 stdin 单轮，5s 内不挂起（`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`）
-- [ ] R18b：空 `ait ai chat` 快速失败（`TestAICmd_ChatEmptyNoTTY`、`TestRunChatOnce_EmptyMessage`）
-- [ ] R18c：SSH meta `chat` 行解析（`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`）
-- [ ] R18d：首行裸 `chat` 返回需消息错误（`TestRunREPL_InitialChatEmptyMessage`、`TestParseChatCommand`）
-- [ ] R18e：非 chat 首行进 REPL（`TestRunREPL_InitialNonChatShowsPrompt`、`TestIsMetaREPLCommand`）
+- [ ] R18a：`ait ai ask` 带参或 stdin 单轮，5s 内不挂起（`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`）
+- [ ] R18b：空 `ait ai ask` 快速失败（`TestAICmd_ChatEmptyNoTTY`、`TestRunChatOnce_EmptyMessage`）
+- [ ] R18c：SSH meta `ask` 行解析（`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIChat`、`TestMetaScanner_BangBangChat`）
+- [ ] R18d：首行裸 `ask` 返回需消息错误（`TestRunREPL_InitialChatEmptyMessage`、`TestParseChatCommand`）
+- [ ] R18e：非 ask 首行进 REPL（`TestRunREPL_InitialNonChatShowsPrompt`、`TestIsMetaREPLCommand`）
 - [ ] R18f：远程单轮 CRLF（`TestRunREPL_InitialChatOnceRemoteCRLF`）
 - [ ] R19a：远程 AI stdin 路由至 ReplIn（`TestStdinReader_PauseExclusive`）
 - [ ] R19b：REPL 前后 forward 缓冲与恢复（`TestStdinReader_DrainWhilePaused`、`TestStdinReader_ResumeAfterPause`）
@@ -433,7 +433,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] H1a–H1e：session hint + `#`/`-v`（见 **H1**、**B\***）
 - [ ] H2a–H2d：login/get/put argv hint（见 **H2**）
 - [ ] H3a–H3d：AI/config/ollama hint（见 **H3**）
-- [ ] H4a–H4d：REPL/meta/aimode hint（见 **H4**）
+- [ ] H4a–H4d：REPL/meta/ai/mode hint（见 **H4**）
 - [ ] K1–K9：REPL 行编辑与历史（见 **K\***）
 - [ ] K10–K22：history 命令、Ctrl+R、持久化（见 **K\*** 明细 K10–K22）
 - [ ] K23–K24：raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker；见 **K\*** 明细 K23–K24）
@@ -446,7 +446,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] M1：`go install` 无外部 xiwh/zmodem（见 **M\*** 明细）
 - [ ] 相关自动化测试未删除或弱化
 
-手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai chat --help`、`timeout 5 ./bin/ait ai chat ping`、`echo ping | timeout 5 ./bin/ait ai chat`、`./bin/ait config view`、`./bin/ait config validate && echo OK`、`./bin/ait config --help | grep -E 'view|edit|validate'`。
+手动烟雾（涉及 AI/config 时）：`timeout 5 ./bin/ait ai model list`、`timeout 5 ./bin/ait ai help`、`timeout 5 ./bin/ait ai ask --help`、`timeout 5 ./bin/ait ai ask ping`、`echo ping | timeout 5 ./bin/ait ai ask`、`./bin/ait config view`、`./bin/ait config validate && echo OK`、`./bin/ait config --help | grep -E 'view|edit|validate'`。
 
 手动烟雾（多行 Hint，H*）：
 
@@ -455,7 +455,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 ./bin/ait session                    # H1c：无 flag → Try
 ./bin/ait login                      # H2a：destination required → Try
 ./bin/ait config get bad.key         # H3b：unknown config key → Try
-./bin/ait ai chat </dev/null         # H3a：chat 需消息 → Try
+./bin/ait ai ask </dev/null          # H3a：ask 需消息 → Try
 ```
 
 手动烟雾（REPL 快捷键，K*）：
@@ -558,7 +558,7 @@ cat test                        # 仅含 remote，无 sz/rz 命令行
 | 2. 实现测试 | 每个 ID **至少一条** `*_test.go` 用例；测试名与 ID 在 PR 中可对照；禁止仅手测、零自动化的用户可见行为。 |
 | 3. 纳入交付勾选 | PR / Agent 交付清单须列出本功能全部 ID；`make test` 须覆盖这些测试。 |
 | 4. 纳入后续回归 | 合入后 ID 与测试并入**永久回归集**：此后每次 `make test`、合并前门禁及交付勾选均须仍通过；与 **R1–R19**、**A20–A22** 同等。 |
-| 5. 文档与 help | 用户可见行为同步 design / user-manual（中英）；CLI 同步 helpdoc。 |
+| 5. 文档与 help | 用户可见行为同步 design / user-manual（中英）；CLI 同步 `internal/pkg/helpdoc` 与各命令 `help.go`。 |
 
 **示例（已登记专项，后续 PR 须继续验证）**
 

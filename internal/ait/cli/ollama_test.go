@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/ait/helpdoc"
+	"github.com/os-artificer/AiT/internal/ait/ai/ollama"
 )
 
 func TestOllamaSetupHelpSections(t *testing.T) {
 	var buf bytes.Buffer
-	if err := helpdoc.WriteOllamaSetupHelp(&buf); err != nil {
+	if err := ollama.WriteOllamaSetupHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -43,7 +43,7 @@ func TestOllamaSetupHelpSections(t *testing.T) {
 
 func TestAIOllamaHelpSections(t *testing.T) {
 	var buf bytes.Buffer
-	if err := helpdoc.WriteAIOllamaHelp(&buf); err != nil {
+	if err := ollama.WriteAIOllamaHelp(&buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()

@@ -18,8 +18,8 @@ alwaysApply: true
 加功能前在仓库内搜索已有实现：
 
 - 同包 `*_helpers.go`、已有导出函数
-- 共享包：`internal/ait/helpdoc`、`internal/pkg/ssh/stricthostkey`、`internal/pkg/terminal` 等
-- 已有 Cobra 接线：`internal/ait/cli/help_bind.go`
+- 共享包：`internal/pkg/helpdoc`、`internal/pkg/ssh/stricthostkey`、`internal/pkg/terminal` 等
+- Cobra 接线：`pkghelpdoc.Bind`（[`internal/pkg/helpdoc/bind.go`](internal/pkg/helpdoc/bind.go)）；顶层 `registry.AttachRoot`、嵌套 `subregistry`
 
 能委托或提取共享则**不得**复制粘贴第二份 10+ 行逻辑。
 

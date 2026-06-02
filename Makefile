@@ -3,9 +3,9 @@
 BINARY_NAME := ait
 BUILD_DIR   := bin
 MAIN_PKG    := ./cmd/ait
-LDFLAGS_PKG := github.com/os-artificer/AiT/internal/ait/cli
+LDFLAGS_PKG := github.com/os-artificer/AiT/internal/ait/version
 
-VERSION    ?= $(shell cat internal/ait/cli/VERSION 2>/dev/null | tr -d ' \n')
+VERSION    ?= $(shell cat internal/ait/version/VERSION 2>/dev/null | tr -d ' \n')
 GIT_COMMIT := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 BUILD_DATE  := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 

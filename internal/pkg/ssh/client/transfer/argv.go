@@ -35,6 +35,12 @@ const UsagePut = "usage: !ait put <local-path> <remote-path>"
 
 const metaPrefixAitSpace = "!ait "
 
+// CmdGet is the meta subcommand name for !ait get (must match ait get.Name).
+const CmdGet = "get"
+
+// CmdPut is the meta subcommand name for !ait put (must match ait put.Name).
+const CmdPut = "put"
+
 // ArgsFromMetaLine extracts the subcommand and trailing args from a `!ait <cmd> ...`
 // meta line when cmd is one of get/put. Returns ok=false for other lines.
 func ArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {
@@ -46,7 +52,7 @@ func ArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {
 		return "", nil, false
 	}
 	switch parts[0] {
-	case "get", "put":
+	case CmdGet, CmdPut:
 		return parts[0], parts[1:], true
 	default:
 		return "", nil, false

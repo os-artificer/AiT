@@ -24,11 +24,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/os-artificer/AiT/internal/ait/helpdoc"
-	"github.com/os-artificer/AiT/internal/ait/login"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
-	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
@@ -42,7 +40,7 @@ var aiModeRunner func(context.Context, *session.Manager) error
 // w must be non-nil. Does not return an error.
 func PrintHelp(w io.Writer, hasActiveSession bool) {
 	var buf bytes.Buffer
-	_ = helpdoc.WriteShellREPLHelp(&buf, hasActiveSession)
+	_ = WriteShellREPLHelp(&buf, hasActiveSession)
 	shellWriteTTY(w, buf.String())
 }
 
@@ -99,7 +97,7 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 }
 
 func shellLogin(ctx context.Context, mgr *session.Manager, argv []string) error {
-	spec, err := sshparse.Parse(argv)
+	spec, err := openssh.ParseLogin(argv)
 	if err != nil {
 		return err
 	}
@@ -109,7 +107,7 @@ func shellLogin(ctx context.Context, mgr *session.Manager, argv []string) error 
 		return err
 	}
 
-	return mgr.Login(ctx, login.OptsFromResolved(resolved))
+	return mgr.Login(ctx, session.LoginOptsFromResolved(resolved))
 }
 
 func shellLoad(ctx context.Context, mgr *session.Manager, argv []string) error {

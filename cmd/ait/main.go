@@ -23,10 +23,15 @@ import (
 )
 
 func main() {
-	if err := ait.Run(os.Args[1:]); err != nil {
-		if code, ok := ait.ExitCode(err); ok {
-			os.Exit(code)
-		}
-		os.Exit(1)
+	err := ait.Run(os.Args[1:])
+	if err == nil {
+		return
 	}
+
+	code, ok := ait.ExitCode(err)
+	if !ok {
+		code = 1
+	}
+
+	os.Exit(code)
 }
