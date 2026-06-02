@@ -68,15 +68,6 @@ type AgentConfig struct {
 	MaxSteps int `yaml:"max_steps"`
 }
 
-// Normalize fills defaults and clamps values for agent config.
-func (a *AgentConfig) Normalize() {
-	if a.MaxSteps <= 0 {
-		a.MaxSteps = DefaultAgentMaxSteps
-	} else if a.MaxSteps > AgentMaxStepsLimit {
-		a.MaxSteps = AgentMaxStepsLimit
-	}
-}
-
 // AIConfig groups default provider, optional fallback order, tiered routing, provider map, and agent settings.
 type AIConfig struct {
 	Default   string                    `yaml:"default"`
@@ -84,6 +75,15 @@ type AIConfig struct {
 	Tiered    TieredConfig              `yaml:"tiered"`
 	Agent     AgentConfig               `yaml:"agent"`
 	Providers map[string]ProviderConfig `yaml:"providers"`
+}
+
+// Normalize fills defaults and clamps values for agent config.
+func (a *AgentConfig) Normalize() {
+	if a.MaxSteps <= 0 {
+		a.MaxSteps = DefaultAgentMaxSteps
+	} else if a.MaxSteps > AgentMaxStepsLimit {
+		a.MaxSteps = AgentMaxStepsLimit
+	}
 }
 
 // CloudProviderIDs returns cloud providers used for ai.default, fallback, and --model.

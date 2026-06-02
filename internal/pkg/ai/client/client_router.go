@@ -96,8 +96,8 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 	if cfg.TieredEnabled() {
 		localID := cfg.LocalProviderID()
 		if cfg.ProviderEnabled(localID) {
-			if pc, ok := cfg.Provider(localID); ok {
-				eps[localID] = newEndpoint(localID, pc, ollamaPlaceholderKey, o.httpClient)
+			if ep := initTieredEndpoint(cfg, localID, o.httpClient); ep != nil {
+				eps[localID] = ep
 			}
 		}
 	}
@@ -193,7 +193,10 @@ func (c *Client) TieredEnabled() bool {
 	return ok
 }
 
-func (c *Client) completion(ctx context.Context, user string, historyLen int, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
+func (c *Client) completion(
+	ctx context.Context, user string, historyLen int,
+	build func(PromptMeta) []openai.ChatCompletionMessage,
+) (string, string, error) {
 	useLocal := router.ClassifyPrompt(c.cfg, user, historyLen, c.sessionProvider, c.skipTiered)
 	localID := c.cfg.LocalProviderID()
 
@@ -213,7 +216,10 @@ func (c *Client) completion(ctx context.Context, user string, historyLen int, bu
 	return c.chatWithFailover(ctx, build)
 }
 
-func (c *Client) completionAgent(ctx context.Context, user string, historyLen int, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
+func (c *Client) completionAgent(
+	ctx context.Context, user string, historyLen int,
+	build func(PromptMeta) []openai.ChatCompletionMessage,
+) (string, string, error) {
 	useLocal := router.ClassifyPrompt(c.cfg, user, historyLen, c.sessionProvider, c.skipTiered)
 	localID := c.cfg.LocalProviderID()
 
@@ -342,23 +348,4 @@ func (c *Client) promptMetaForStatus() PromptMeta {
 	id := c.cfg.DefaultProviderID()
 	ep := c.endpoints[id]
 	return PromptMeta{Provider: id, Model: ep.model, Mode: aiModeCloudOnly}
-}
-
-func cloudKeyedSet(endpoints map[ProviderID]*endpoint) map[ProviderID]struct{} {
-	out := make(map[ProviderID]struct{})
-	for _, id := range config.CloudProviderIDs() {
-		if _, ok := endpoints[id]; ok {
-			out[id] = struct{}{}
-		}
-	}
-	return out
-}
-
-func hasCloudEndpoint(endpoints map[ProviderID]*endpoint) bool {
-	for _, id := range config.CloudProviderIDs() {
-		if _, ok := endpoints[id]; ok {
-			return true
-		}
-	}
-	return false
 }

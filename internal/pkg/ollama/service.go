@@ -46,7 +46,7 @@ func StartServeDetached(modelsDir string) error {
 // modelsDir is passed to OLLAMA_MODELS when starting serve (empty uses process default).
 func StartServe(ctx context.Context, client *http.Client, baseURL string, wait bool, modelsDir string) error {
 	if client == nil {
-		client = &http.Client{Timeout: 3 * time.Second}
+		client = &http.Client{Timeout: httpClientTimeout}
 	}
 	avail := CheckAvailable(ctx, client, baseURL)
 	if avail.APIOK {

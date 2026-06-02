@@ -30,9 +30,11 @@ import (
 
 func newAgentCmd(d Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "agent [message...]",
-		Short: "Send one message to the AI in agent mode and execute tool calls (non-interactive)",
-		Long:  "Run 'ait ai agent --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
+		Use:           "agent [message...]",
+		Short:         "Send one message to the AI in agent mode and execute tool calls (non-interactive)",
+		Long:          "Run 'ait ai agent --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return d.RunWithMgr(func(ctx context.Context, mgr *session.Manager) error {
 				msg, err := resolveChatMessage(cmd, args)

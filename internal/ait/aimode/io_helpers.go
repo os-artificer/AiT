@@ -66,7 +66,8 @@ func firstWord(line string) (word, rest string) {
 func isMetaREPLCommand(line string) bool {
 	word, _ := firstWord(normalizeLine(line))
 	switch word {
-	case replCmdHelp, replArgH, replArgHelp, replCmdClear, replCmdHistory, replCmdMode, replCmdApprove, replCmdTrust, replCmdPolicy, replCmdModel, replCmdRun, replCmdAit:
+	case replCmdHelp, replArgH, replArgHelp, replCmdClear, replCmdHistory,
+		replCmdMode, replCmdApprove, replCmdTrust, replCmdPolicy, replCmdModel, replCmdRun, replCmdAit:
 		return true
 	default:
 		return false

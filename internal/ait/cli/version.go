@@ -136,8 +136,10 @@ func Version() string {
 
 func newVersionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "version",
-		Short: "Print build version information",
+		Use:           "version",
+		Short:         "Print build version information",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if helpdoc.HasHelpArg(args) {
 				return helpdoc.WriteVersionHelp(cmd.OutOrStdout())

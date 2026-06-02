@@ -30,6 +30,11 @@ import (
 
 const zmodemSettleDelay = 400 * time.Millisecond
 
+// zmodemTransferWaitHook waits for ZMODEM completion (overridable in tests).
+var zmodemTransferWaitHook = func(ctx context.Context, sess *zmodem.Session) error {
+	return sess.Wait(ctx)
+}
+
 // ZModemTransfer moves files through the interactive PTY using lrzsz-compatible ZMODEM.
 type ZModemTransfer struct {
 	client   *Client
@@ -147,9 +152,4 @@ func (t *ZModemTransfer) waitTransfer(ctx context.Context) error {
 
 	time.Sleep(zmodemSettleDelay)
 	return zmodemTransferWaitHook(ctx, sess)
-}
-
-// zmodemTransferWaitHook waits for ZMODEM completion (overridable in tests).
-var zmodemTransferWaitHook = func(ctx context.Context, sess *zmodem.Session) error {
-	return sess.Wait(ctx)
 }

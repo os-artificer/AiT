@@ -84,14 +84,8 @@ func (m *Manager) Delete(idOrAlias string, force bool) error {
 		return err
 	}
 
-	if !force {
-		fmt.Printf("Delete session %s (%s@%s)? [y/N] ", sess.AliasOrID(), sess.Username, sess.Host)
-		reader := bufio.NewReader(os.Stdin)
-		line, _ := reader.ReadString('\n')
-		if strings.TrimSpace(strings.ToLower(line)) != "y" {
-			fmt.Println(msgCancelled)
-			return nil
-		}
+	if !force && !confirmDelete(sess) {
+		return nil
 	}
 
 	m.purgeSessionArtifacts(sess.ID)
@@ -165,4 +159,16 @@ func (m *Manager) List(w io.Writer, verbose bool) error {
 		}
 	}
 	return tw.Flush()
+}
+
+// confirmDelete prompts for y/N confirmation and reports whether the user confirmed.
+func confirmDelete(sess *store.Session) bool {
+	fmt.Printf("Delete session %s (%s@%s)? [y/N] ", sess.AliasOrID(), sess.Username, sess.Host)
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	if strings.TrimSpace(strings.ToLower(line)) != "y" {
+		fmt.Println(msgCancelled)
+		return false
+	}
+	return true
 }

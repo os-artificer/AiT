@@ -31,7 +31,9 @@ var zmodemStripFragments = []string{
 }
 
 // BeginZModemSession prepares exclusive PTY tap for ZMODEM. Caller must invoke cleanup when done.
-func (c *Client) BeginZModemSession(receive bool, ptyOut io.Writer, localPath, remoteName string, progress zmodem.ProgressFunc) (*zmodem.Session, func(), error) {
+func (c *Client) BeginZModemSession(
+	receive bool, ptyOut io.Writer, localPath, remoteName string, progress zmodem.ProgressFunc,
+) (*zmodem.Session, func(), error) {
 	c.pauseRemoteOut.Store(true)
 	c.zmodemActive.Store(true)
 

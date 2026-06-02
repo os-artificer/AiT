@@ -83,19 +83,7 @@ func (c *Client) ListModels(ctx context.Context) (*ModelsReport, error) {
 			enabledLabel = "no"
 		}
 
-		reachable := "no"
-		if enabled {
-			if ep, ok := c.endpoints[id]; ok {
-				if id == ProviderOllama {
-					_, note, err := ollama.FetchTags(ctx, httpClient, ep.baseURL, ep.model)
-					if err == nil && note == "" {
-						reachable = "yes"
-					}
-				} else {
-					reachable = "yes"
-				}
-			}
-		}
+		reachable := c.providerReachable(ctx, httpClient, id, enabled)
 
 		style := pc.APIStyle
 		if style == "" {

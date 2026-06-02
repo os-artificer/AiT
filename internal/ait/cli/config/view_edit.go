@@ -37,8 +37,10 @@ var OpenEditorFn = platform.OpenEditor
 
 func newViewCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "view",
-		Short: "Print config.yaml contents",
+		Use:           "view",
+		Short:         "Print config.yaml contents",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := ensureConfigFileIfMissing(); err != nil {
 				return err
@@ -59,8 +61,10 @@ func newViewCmd() *cobra.Command {
 
 func newEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "edit",
-		Short: "Edit config.yaml in $VISUAL or $EDITOR",
+		Use:           "edit",
+		Short:         "Edit config.yaml in $VISUAL or $EDITOR",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := ensureConfigFileIfMissing(); err != nil {
 				return err
@@ -84,8 +88,10 @@ func newEditCmd() *cobra.Command {
 
 func newValidateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "validate",
-		Short: "Validate config.yaml syntax and values",
+		Use:           "validate",
+		Short:         "Validate config.yaml syntax and values",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			report, err := pkgconfig.Validate("")
 			if err != nil {
