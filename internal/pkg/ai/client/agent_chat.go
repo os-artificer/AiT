@@ -27,7 +27,9 @@ import (
 // ChatAgent sends a turn in Agent mode (tool-style JSON actions). Uses native tools when supported.
 // Returns the clean reply text, optional thinking/reasoning content, updated
 // conversation history, and any error. Thinking is not stored in updated history.
-func (c *Client) ChatAgent(ctx context.Context, history []ChatMessage, user string, env AssistEnv) (reply, thinking string, updated []ChatMessage, err error) {
+func (c *Client) ChatAgent(
+	ctx context.Context, history []ChatMessage, user string, env AssistEnv,
+) (reply, thinking string, updated []ChatMessage, err error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
 		return "", "", history, fmt.Errorf("empty prompt")

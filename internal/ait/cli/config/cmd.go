@@ -30,8 +30,10 @@ import (
 // New builds the `ait config` cobra command tree.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Manage AiT configuration",
+		Use:           "config",
+		Short:         "Manage AiT configuration",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	cmd.AddCommand(newSetCmd(), newGetCmd(), newInitCmd(), newViewCmd(), newEditCmd(), newValidateCmd())
 	helpdoc.Bind(cmd, helpdoc.WriteConfigHelp)
@@ -40,9 +42,11 @@ func New() *cobra.Command {
 
 func newSetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "set <key> <value>",
-		Short: "Set config value",
-		Args:  cobra.ExactArgs(2),
+		Use:           "set <key> <value>",
+		Short:         "Set config value",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key, value := args[0], args[1]
 			if provider, ok := parseAPIKeyConfigKey(key); ok {
@@ -69,9 +73,11 @@ func newSetCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <key>",
-		Short: "Get config value",
-		Args:  cobra.ExactArgs(1),
+		Use:           "get <key>",
+		Short:         "Get config value",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := args[0]
 			if provider, ok := parseAPIKeyConfigKey(key); ok {
@@ -102,8 +108,10 @@ func newGetCmd() *cobra.Command {
 func newInitCmd() *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Create or update config.yaml with defaults for missing keys",
+		Use:           "init",
+		Short:         "Create or update config.yaml with defaults for missing keys",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			res, err := pkgconfig.EnsureFile(dryRun)
 			if err != nil {

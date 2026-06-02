@@ -95,12 +95,13 @@ func Parse(argv []string) (Spec, error) {
 			i = next
 			continue
 		}
-		if s.Destination == "" {
-			s.Destination = arg
+
+		if s.Destination != "" {
+			remoteCommandStarted = true
+			s.RemoteCommand = append(s.RemoteCommand, arg)
 			continue
 		}
-		remoteCommandStarted = true
-		s.RemoteCommand = append(s.RemoteCommand, arg)
+		s.Destination = arg
 	}
 
 	if err := applyLegacy(&s); err != nil {

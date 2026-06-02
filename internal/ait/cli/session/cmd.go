@@ -19,7 +19,6 @@ package session
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	pkgsession "github.com/os-artificer/AiT/internal/pkg/session"
@@ -49,9 +48,11 @@ func New(runWithMgr RunWithMgr) *cobra.Command {
 	var loadTarget, switchTarget, deleteTarget, password string
 
 	cmd := &cobra.Command{
-		Use:   "session",
-		Short: "Manage saved sessions",
-		Args:  cobra.ArbitraryArgs,
+		Use:           "session",
+		Short:         "Manage saved sessions",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if helpdoc.HasHelpArg(args) {
 				return helpdoc.WriteSessionHelp(cmd.OutOrStdout())
@@ -62,49 +63,7 @@ func New(runWithMgr RunWithMgr) *cobra.Command {
 			}
 
 			return runWithMgr(func(ctx context.Context, mgr *pkgsession.Manager) error {
-				switch act.kind {
-				case sessionActionList:
-					return mgr.List(cmd.OutOrStdout(), verbose)
-				case sessionActionLoad:
-					target, err := resolveLoadTarget(act.target, args)
-					if err != nil {
-						return err
-					}
-					if target == "" {
-						if err := pkgsession.CheckInteractiveStdin(); err != nil {
-							return err
-						}
-						target, err = mgr.PickSession()
-						if err != nil {
-							return err
-						}
-					}
-					return mgr.Load(ctx, target, tmux, password)
-				case sessionActionSuspend:
-					return mgr.SuspendCurrent()
-				case sessionActionDelete:
-					if act.target == "all" {
-						return mgr.DeleteAll(force)
-					}
-					return mgr.Delete(act.target, force)
-				case sessionActionSwitch:
-					target, err := resolveSwitchTarget(cmd, act.target, args)
-					if err != nil {
-						return err
-					}
-					if target == "" {
-						if err := pkgsession.CheckInteractiveStdin(); err != nil {
-							return err
-						}
-						target, err = mgr.PickSession()
-						if err != nil {
-							return err
-						}
-					}
-					return mgr.Switch(ctx, target, tmux, password, force)
-				default:
-					return fmt.Errorf("internal: unknown session action")
-				}
+				return execSessionAction(ctx, mgr, cmd, act, args, verbose, tmux, password, force)
 			})
 		},
 	}

@@ -41,6 +41,9 @@ func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader, total in
 		}
 
 		n, err := src.Read(buf)
+		if err != nil && err != io.EOF {
+			return err
+		}
 		if n > 0 {
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				return werr
@@ -52,9 +55,6 @@ func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader, total in
 		}
 		if err == io.EOF {
 			return nil
-		}
-		if err != nil {
-			return err
 		}
 	}
 }

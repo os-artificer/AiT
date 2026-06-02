@@ -24,7 +24,9 @@ import (
 
 const aiIntroLocal = "Interactive AI mode on this machine (outside SSH). Commands run locally only after you confirm."
 const aiIntroRemote = "Interactive AI mode for the active SSH session. Shell commands run on the remote host via run after you confirm."
-const aiNote = "Requires ai.<provider>.api_key for cloud providers. With ai.tiered.enabled, simple prompts use local Ollama. Use --model to override cloud provider for this session."
+const aiNote = "Requires ai.<provider>.api_key for cloud providers. " +
+	"With ai.tiered.enabled, simple prompts use local Ollama. " +
+	"Use --model to override cloud provider for this session."
 
 const aiREPLCommands = `  help              show AI mode help
   exit, quit        leave AI mode

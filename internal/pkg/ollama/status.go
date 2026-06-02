@@ -22,7 +22,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 )
@@ -43,7 +42,7 @@ type StatusReport struct {
 // BuildStatus probes config and the Ollama API without mutating config or starting serve.
 func BuildStatus(ctx context.Context, cfg *config.Config, client *http.Client) StatusReport {
 	if client == nil {
-		client = &http.Client{Timeout: 3 * time.Second}
+		client = &http.Client{Timeout: httpClientTimeout}
 	}
 	baseURL := BaseURLFromConfig(cfg)
 	model := ModelFromConfig(cfg)

@@ -28,6 +28,9 @@ func copyWithProgress(dst io.Writer, src io.Reader, total int64, progress Progre
 
 	for {
 		n, err := src.Read(buf)
+		if err != nil && err != io.EOF {
+			return written, err
+		}
 		if n > 0 {
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				return written, werr
@@ -39,9 +42,6 @@ func copyWithProgress(dst io.Writer, src io.Reader, total int64, progress Progre
 		}
 		if err == io.EOF {
 			return written, nil
-		}
-		if err != nil {
-			return written, err
 		}
 	}
 }

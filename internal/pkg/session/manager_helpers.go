@@ -199,3 +199,11 @@ func (m *Manager) warnOrBlockActiveSwitch(cur *store.Session, force bool) error 
 	_ = m.Store.UpdateStatus(cur.ID, store.StatusSuspended)
 	return nil
 }
+
+// cleanupOnTmuxFailure clears persisted session state when tmux setup fails.
+func (m *Manager) cleanupOnTmuxFailure(persist bool, sessID string) {
+	if !persist {
+		return
+	}
+	m.clearSessionOnFailure(sessID, true)
+}

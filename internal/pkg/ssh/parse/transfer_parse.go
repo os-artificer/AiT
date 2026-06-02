@@ -59,23 +59,23 @@ func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
 		if arg == "--" {
 			return TransferSpec{}, fmt.Errorf("-- is not supported for ait %s", cmdLabel)
 		}
-		if strings.HasPrefix(arg, "-") {
-			if arg == "--session" {
-				i++
-				if i >= len(argv) {
-					return TransferSpec{}, sessionFlagRequiresValueErr()
-				}
-				session = argv[i]
-				continue
-			}
-			next, err := applyFlag(&s, argv, i, cmdLabel)
-			if err != nil {
-				return TransferSpec{}, err
-			}
-			i = next
+		if !strings.HasPrefix(arg, "-") {
+			positionals = append(positionals, arg)
 			continue
 		}
-		positionals = append(positionals, arg)
+		if arg == "--session" {
+			i++
+			if i >= len(argv) {
+				return TransferSpec{}, sessionFlagRequiresValueErr()
+			}
+			session = argv[i]
+			continue
+		}
+		next, err := applyFlag(&s, argv, i, cmdLabel)
+		if err != nil {
+			return TransferSpec{}, err
+		}
+		i = next
 	}
 
 	if err := applyLegacy(&s); err != nil {
@@ -143,33 +143,46 @@ func classifyTwoPaths(positionals []string, session string) (local, remote, dest
 }
 
 func classifyThreePaths(positionals []string) (local, remote, dest string, err error) {
-	destIdx := -1
-	for i, p := range positionals {
-		if !isDestinationToken(p) {
-			continue
-		}
-		if destIdx >= 0 {
-			return "", "", "", fmt.Errorf("ambiguous destination in arguments")
-		}
-		destIdx = i
+	destIdx, ambiguous := findDestinationIndex(positionals)
+	if ambiguous {
+		return "", "", "", fmt.Errorf("ambiguous destination in arguments")
 	}
 	if destIdx < 0 {
 		return "", "", "", fmt.Errorf("three arguments require a destination (e.g. user@host or Host alias)")
 	}
 
 	dest = positionals[destIdx]
-	var paths []string
-	for i, p := range positionals {
-		if i != destIdx {
-			paths = append(paths, p)
-		}
-	}
+	paths := pathsExcluding(positionals, destIdx)
 	if len(paths) != 2 {
 		return "", "", "", fmt.Errorf("expected local and remote file paths")
 	}
 
 	local, remote, err = pairLocalRemote(paths[0], paths[1])
 	return local, remote, dest, err
+}
+
+func findDestinationIndex(positionals []string) (idx int, ambiguous bool) {
+	idx = -1
+	for i, p := range positionals {
+		if !isDestinationToken(p) {
+			continue
+		}
+		if idx >= 0 {
+			return -1, true
+		}
+		idx = i
+	}
+	return idx, false
+}
+
+func pathsExcluding(positionals []string, excludeIdx int) []string {
+	var paths []string
+	for i, p := range positionals {
+		if i != excludeIdx {
+			paths = append(paths, p)
+		}
+	}
+	return paths
 }
 
 func pairLocalRemote(a, b string) (local, remote string, err error) {

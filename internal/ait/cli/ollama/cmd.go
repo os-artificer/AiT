@@ -41,9 +41,11 @@ const (
 // New builds the `ait ai ollama` cobra command tree.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ollama",
-		Short: "Local Ollama setup, status, and service control",
-		Long:  "Run 'ait ai ollama --help' for subcommands.",
+		Use:           "ollama",
+		Short:         "Local Ollama setup, status, and service control",
+		Long:          "Run 'ait ai ollama --help' for subcommands.",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	cmd.AddCommand(
 		newStatusCmd(),
@@ -58,9 +60,11 @@ func New() *cobra.Command {
 
 func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Show Ollama config and service status",
-		Long:  helpdoc.LongHint("ai ollama status"),
+		Use:           "status",
+		Short:         "Show Ollama config and service status",
+		Long:          helpdoc.LongHint("ai ollama status"),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -84,9 +88,11 @@ func newSetupCmd() *cobra.Command {
 		dryRun    bool
 	)
 	cmd := &cobra.Command{
-		Use:   "setup",
-		Short: "Enable tiered routing and set up local Ollama",
-		Long:  helpdoc.LongHint("ai ollama setup"),
+		Use:           "setup",
+		Short:         "Enable tiered routing and set up local Ollama",
+		Long:          helpdoc.LongHint("ai ollama setup"),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -129,9 +135,11 @@ func newStartCmd() *cobra.Command {
 	var wait bool
 	var baseURL string
 	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Start ollama serve in the background",
-		Long:  helpdoc.LongHint("ai ollama start"),
+		Use:           "start",
+		Short:         "Start ollama serve in the background",
+		Long:          helpdoc.LongHint("ai ollama start"),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -161,9 +169,11 @@ func newStartCmd() *cobra.Command {
 
 func newStopCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stop",
-		Short: "Stop local ollama serve",
-		Long:  helpdoc.LongHint("ai ollama stop"),
+		Use:           "stop",
+		Short:         "Stop local ollama serve",
+		Long:          helpdoc.LongHint("ai ollama stop"),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := pkgollama.StopServe(context.Background()); err != nil {
 				return err
@@ -179,9 +189,11 @@ func newStopCmd() *cobra.Command {
 func newDisableCmd() *cobra.Command {
 	var withStop bool
 	cmd := &cobra.Command{
-		Use:   "disable",
-		Short: "Disable Ollama provider in config",
-		Long:  helpdoc.LongHint("ai ollama disable"),
+		Use:           "disable",
+		Short:         "Disable Ollama provider in config",
+		Long:          helpdoc.LongHint("ai ollama disable"),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
