@@ -22,7 +22,7 @@ make test-cross  # windows + darwin go build
 - **SSH 会话**：`shell`、`login`、`session`（`--list`、`--load`、`--suspend`、`--switch`、`--delete`）
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
 - **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）
-- **AI**：多 provider 路由 + `tiered`；`ait ai chat` 单轮；`ait ai provider enable|disable`；`ait ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ait ai model list`；SSH `!ait ai chat` / `!! chat`
+- **AI**：多 provider 路由 + `tiered`；`ait ai ask` / `ait ai agent` 单轮；`ait ai provider enable|disable`；`ait ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ait ai model list`；SSH `!ait ai ask` / `!! ask`
 - **传输**：`ait get` / `ait put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH（统一路由：优先 lrzsz/ZMODEM，直连无 lrzsz 回退 SFTP，链式缺失时可授权自动安装）
 - **代理链支持**：`!ait chain [on|off]` — 链式模式下经 PTY 管道 ZMODEM 文件传输与 tmux（`internal/pkg/ssh/client/inject.go`、`transfer_zmodem.go`；`internal/pkg/tmux/remote_pty.go`）
 - **OpenSSH 配置**：`login`/`load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
@@ -35,17 +35,18 @@ make test-cross  # windows + darwin go build
 |------|------|
 | `cmd/ait/main.go` | 极简 `main` — 委托至 `internal/ait.Run` |
 | `internal/ait/` | CLI 入口（`Run`、`ExitCode`）；子包见下表 |
-| `internal/ait/cli/` | Cobra 命令树 facade：`Execute` / `ExecuteWriters`、`newRootCmd`、manager 接线（子命令在下表的子包中实现） |
-| `internal/ait/cli/ai/` | `ait ai` 命令（`chat`、`provider enable|disable`、本地 AI REPL Runner） |
-| `internal/ait/cli/config/` | `ait config` 命令（`set`、`get`、`init`、`view`、`edit`、`validate`） |
-| `internal/ait/cli/session/` | `ait session` 命令（`--list`、`--load`、`--suspend`、`--switch`、`--delete`） |
-| `internal/ait/cli/transfer/` | `ait get` / `ait put` SFTP 命令 |
-| `internal/ait/cli/ollama/` | `ait ai ollama` 子命令（`status`、`setup`、`start`、`stop`、`disable`） |
-| `internal/ait/cli/login/` | `ait login` OpenSSH 兼容命令 |
-| `internal/ait/helpdoc/` | login 样式 `--help`（`Write*Help`、OpenSSH 共享块）；`Bind` / `BindCustomArgv` Cobra 辅助 |
+| `internal/ait/cli/` | 薄 Cobra 根：`Execute` / `ExecuteWriters`、`newRootCmd`、manager；经 `registry.AttachRoot` 挂接顶层命令 |
+| `internal/ait/registry/` | 顶层命令注册表（OCP）；根 `--help` 见 `registry/root_help.go` + `internal/pkg/helpdoc` |
+| `internal/pkg/helpdoc/` | 共用 `--help` 排版（`Body`、`Bind`、OpenSSH 块、`WriteTransferHelp`、TTY 键） |
 | `internal/ait/app/` | `NewManager`、`CommandContext`（store/config/ai 引导）、`Runner` |
-| `internal/ait/login/` | OpenSSH login 解析/解析、帮助、退出码 |
-| `internal/ait/shell/` | `ait shell` REPL（`AiT>`）、TTY I/O、行执行 |
+| `internal/ait/login/` | `ait login` — OpenSSH 解析、help、run |
+| `internal/ait/get/` / `internal/ait/put/` | `ait get` / `ait put` SFTP |
+| `internal/ait/shell/` | `ait shell` REPL（`AiT>`）及顶层 `ait shell` Cobra |
+| `internal/ait/session/` | `ait session`（`--list`、`--load` 等 flag）；引用 `internal/pkg/session` 时用 `pkgsession` |
+| `internal/ait/ai/` | `ait ai` 父命令 + `ai/subregistry`；子包 `ask`、`agent`、`provider`、`ollama` |
+| `internal/ait/ai/mode/` | `ait ai` / `!ait ai` 的 AI REPL（`risk`、`approve`、`agent`、`chat` 单轮辅助） |
+| `internal/ait/config/` | `ait config` 父命令 + `config/subregistry`；子包 `set`、`get`、`init`、`view`、`edit`、`validate` |
+| `internal/ait/version/` | `ait version` |
 | `internal/ait/meta/` | 会话内 `!ait <subcmd>` 委托 |
 | `internal/pkg/ssh/args/` | OpenSSH 参数解析、`ssh -G` 解析、`Resolved` → `client.Options` |
 | `internal/pkg/session/` | login、load、suspend、switch、delete、list（`manager.go`、`manager_login.go`、`manager_load.go`、`manager_suspend_switch.go`、`manager_list_pick.go`、`manager_helpers.go`） |
@@ -66,10 +67,10 @@ make test-cross  # windows + darwin go build
 | `internal/pkg/terminal/lineedit/` | `ReadLine`（Ctrl+A/E、历史导航、Ctrl+R 搜索） |
 | `internal/pkg/terminal/history/` | `LineHistory`（内存 + 文件同步）与 `history` 命令 |
 | `internal/pkg/ai/` | `Client`、`Chat`、多 provider 路由 facade |
-| `internal/ait/aimode/risk/` | `Classify`、`Interactive`、`ClassifyAit` — 命令风险分类 |
-| `internal/ait/aimode/approve/` | `Confirm`、`Policy`、`PatternKey`、`SessionTrust` — 确认提示与信任 |
-| `internal/ait/aimode/agent/` | `Action`、`ParseAction`、`Run`、`CapturingRunner` — Agent 模式执行 |
-| `internal/ait/aimode/chat/` | `RunOnce`、`ParseCommand` — AI chat 单轮 |
+| `internal/ait/ai/mode/risk/` | `Classify`、`Interactive`、`ClassifyAit` — 命令风险分类 |
+| `internal/ait/ai/mode/approve/` | `Confirm`、`Policy`、`PatternKey`、`SessionTrust` — 确认提示与信任 |
+| `internal/ait/ai/mode/agent/` | `Action`、`ParseAction`、`Run`、`CapturingRunner` — Agent 模式执行 |
+| `internal/ait/ai/mode/chat/` | `RunOnce`、`ParseCommand` — 单轮 `ask` / REPL `ask` 动词 |
 | `internal/pkg/ai/provider/` | `ProviderID` 常量与 sentinel 错误 |
 | `internal/pkg/ai/router/` | 路由辅助（Strategy + Chain of Responsibility — failover 顺序、分类、API-key 提示） |
 | `internal/pkg/ai/agent/` | function-call `Tools()` 与 tool-call → AiT Agent JSON 适配 |
@@ -84,7 +85,7 @@ make test-cross  # windows + darwin go build
 | `configs/` | `ait.example.yaml` |
 | `docs/` | [`design.zh-CN.md`](docs/design.zh-CN.md)、[`user-manual.zh-CN.md`](docs/user-manual.zh-CN.md) |
 | `.cursor/rules/` | Cursor 规则；Go 结构：[`go-structure.mdc`](.cursor/rules/go-structure.mdc) |
-| `scripts/`、`build/` | 构建与 CI 辅助 |
+| `scripts/` | 构建与 CI 辅助 |
 
 优先在 `internal/pkg/*` 与 `internal/ait` 中扩展，避免随意新增顶层目录。
 
@@ -94,10 +95,12 @@ make test-cross  # windows + darwin go build
 |----|----------------|
 | `ait`（根） | `root.go` — `Run`、`ExitCode` |
 | `ait/app` | `manager.go`、`context.go`、`run.go`（`Runner`） |
-| `ait/cli` | `root.go`、`manager.go`、集成测试；各子命令位于 `cli/{ai,config,session,transfer,ollama,login}` |
-| `ait/login` | `run.go`、`helpers.go`、`help.go` |
-| `ait/shell` | `repl.go`、`exec.go`、`parse.go`、`io.go`、`*_helpers.go` |
-| `ait/aimode` | `scope.go`、`mode.go`、`repl.go`、`exec.go`、`run_local.go`、`agent.go` — AI REPL（子包 `risk`、`approve`、`agent`、`chat`） |
+| `ait/cli` | `root.go`、`manager.go`、集成测试 |
+| `ait/registry` | `registry.go`、`top_level.go`、`deps.go`、`root_help.go`、`all/imports.go` |
+| `ait/login`、`get`、`put`、`shell`、`session`、`version` | 顶层命令：`register.go`、`cmd.go`、`help.go`、`run.go` / flags |
+| `ait/ai` | `cmd.go`、`help.go`、`subregistry/`、`runner/`；嵌套 `ask`、`agent`、`provider`、`ollama` 各有 `register.go` |
+| `ait/ai/mode` | `repl.go`、`exec.go`、`scope.go` 等 — AI REPL（`risk`、`approve`、`agent`、`chat`） |
+| `ait/config` | `cmd.go`、`help.go`、`subregistry/`、`shared/`；嵌套 `set`、`get`、`init`、`view`、`edit`、`validate` |
 | `ait/meta` | `exec.go` — `Execute`、`SetExecutorWriters` |
 
 ### `internal/pkg/ssh/client` 文件布局
@@ -127,8 +130,9 @@ make test-cross  # windows + darwin go build
 
 - **人类贡献者**：[CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) — 开发流程与 Go 编码规范。
 - **Go 编码规范**：生成或重构 Go 代码时遵循 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc)。
+- **包分层**：`cmd/ait` → `internal/ait/<子命令>`（名称、flags、parse、Cobra、help、run 同包闭环）→ 跨命令复用放在 `internal/pkg`（不得 import `internal/ait`）；根目录 `pkg/` 供外部、非业务库。见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)。
 - **复用**：遵循 [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc)。
-- **CLI 帮助**：`ait <cmd> --help` 使用 [`internal/ait/helpdoc`](internal/ait/helpdoc)（`helpdoc.Bind` / `helpdoc.BindCustomArgv`）；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
+- **CLI 帮助**：共用排版在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`pkghelpdoc.Bind`）；各命令正文在 `internal/ait/<cmd>/help.go`（嵌套见 `<parent>/<sub>/help.go`）；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
 - **格式化**：Go 使用 tab；完成修改后运行 `make fmt`。
 - **测试**：`*_test.go` 与实现同目录；`make test` 必须通过；store 测试使用 `:memory:` SQLite。
 - **`internal/`**：模块私有，禁止被本模块外代码 import。
@@ -142,7 +146,8 @@ ait shell                              # AiT> REPL：login、session --list/--lo
 ait login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 ait ai [--model deepseek|minimax]            # 本机 AI REPL（AiT AI>）；tiered 可先走 Ollama
 ait ai model list
-ait ai chat [message...]
+ait ai ask [message...]
+ait ai agent [message...]
 ait ai provider enable|disable <provider>
 ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup 安装前 [y/N]）
 ait session --list [-v]
@@ -162,6 +167,6 @@ ait config init|view|edit|validate|set|get <key> [<value>]
 - `login` 经 `ssh -G` 解析配置；数据面为 Go `x/crypto/ssh`。仅开发环境使用 `AIT_SSH_INSECURE=1`。
 - **默认模式**不保证远程进程保活；仅 `--tmux` 提供远程会话保活。
 - 从本机执行 `ait session --switch` 时，若仍处于 SSH 会话中，须先 `!ait suspend`，或使用 `--force`（不保存当前 scrollback/cwd）。
-- `third_party/` 用于 vendored 工具，非主应用代码。
-- `cli` 子包通过各自的 `New(...)` 工厂在 [`cli/root.go`](internal/ait/cli/root.go) 注册；新增命令请在子包中实现并经由 `root.AddCommand(...)` 接入。
+- `pkg/third-party/` 用于 vendored 工具，非主应用代码。
+- 顶层命令：在 `internal/ait/<cmd>/` 增加 `register.go`（`registry.Register`）并在 [`registry/all/imports.go`](internal/ait/registry/all/imports.go) 空白 import。嵌套子命令：父包 `subregistry` + `<parent>/registry/all/imports.go`（见 [`docs/package-layering.md`](docs/package-layering.md)）。
 - 除用户要求或更新产品文档外，不随意新增 Markdown 文件。

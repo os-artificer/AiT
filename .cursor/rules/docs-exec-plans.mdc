@@ -9,7 +9,7 @@ alwaysApply: true
 
 产品架构与行为以 [docs/design.md](docs/design.md)（英文）、[docs/design.zh-CN.md](docs/design.zh-CN.md)（中文）为准。
 
-常驻文档索引见 [docs/README.md](docs/README.md)、[docs/README.zh-CN.md](docs/README.zh-CN.md)。
+常驻文档索引见 `docs/` 目录。
 
 ## 归档 Cursor 方案
 

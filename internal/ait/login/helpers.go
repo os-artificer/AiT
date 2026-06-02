@@ -23,23 +23,5 @@ import (
 
 // OptsFromResolved maps ssh resolve.Resolved to session.LoginOpts.
 func OptsFromResolved(r resolve.Resolved) session.LoginOpts {
-	return session.LoginOpts{
-		Alias:                 r.Alias,
-		Save:                  r.Save,
-		Host:                  r.Host,
-		LoginDestination:      r.Destination,
-		Port:                  r.Port,
-		User:                  r.User,
-		IdentityPath:          r.IdentityPath,
-		IdentityExplicit:      r.IdentityExplicit,
-		Password:              r.Password,
-		Tmux:                  r.Tmux,
-		RemoteCommand:         append([]string(nil), r.RemoteCommand...),
-		ProxyJump:             append([]string(nil), r.ProxyJump...),
-		ProxyCommand:          r.ProxyCommand,
-		KnownHostsPath:        r.KnownHostsPath,
-		StrictHostKeyChecking: r.StrictHostKeyChecking,
-		ConnectTimeout:        r.ConnectTimeout,
-		BatchMode:             r.BatchMode,
-	}
+	return session.LoginOptsFromResolved(r)
 }

@@ -138,7 +138,7 @@ func TestAICmd_ChatNoTTY(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("ait ai chat blocked (expected non-interactive exit)")
+		t.Fatal("ait ai ask blocked (expected non-interactive exit)")
 	}
 }
 
@@ -182,7 +182,7 @@ func TestAICmd_ChatEmptyNoTTY(t *testing.T) {
 				t.Fatalf("expected Try block: %v", err)
 			}
 		case <-time.After(5 * time.Second):
-			t.Fatal("ait ai chat (empty) blocked (expected quick error)")
+			t.Fatal("ait ai ask (empty) blocked (expected quick error)")
 		}
 	})
 }

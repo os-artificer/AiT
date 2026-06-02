@@ -22,7 +22,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
-	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
 
@@ -37,7 +37,7 @@ import (
 func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	opts.Port = normalizePort(opts.Port)
 	if len(opts.RemoteCommand) > 0 && opts.Tmux {
-		return sshparse.TmuxWithRemoteCommandErr()
+		return openssh.TmuxWithRemoteCommandErr()
 	}
 
 	sshOpts := sshclient.Options{
