@@ -71,7 +71,8 @@ Optional config template:
 | `ait config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
 | `ait ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ait ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
-| `ait ai chat [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ait ai chat` / `!! chat` |
+| `ait ai ask [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ait ai ask` / `!! ask` |
+| `ait ai agent [message...]` | One-shot agent mode with tool execution; SSH: `!ait ai agent` / `!! agent` |
 | `ait ai provider enable <provider>` | Enable provider; for `ollama`: optional install checks ([y/N]); flags `--yes`, `--no-install`, `--no-pull` |
 | `ait ai provider disable <provider>` | Disable provider (no AI requests sent to it) |
 | `ait ai ollama status` | Ollama tiered/enabled flags, API reachability, pulled models |
@@ -94,7 +95,7 @@ On **macOS, Linux, and Windows**, interactive `ait shell` and `ait ai` accept **
 - **Tab:** Inserts a tab character into the current line (for indentation).
 - **TTY keys (local REPL):** Ctrl+A/E (start/end of line), Left/Right (move cursor), Up/Down (recall loaded input history, including prior sessions via `<AppRoot>/repl_history`), **Ctrl+R** (reverse incremental search), Ctrl+U/K/W (kill line/to end/word), Backspace, Ctrl+C (cancel line), Ctrl+D (exit when empty), Ctrl+L (clear screen, keep buffer). Type `help` in `ait shell` or `ait ai` for the full Keys list.
 - **History:** Only commands you submit at the main `AiT>` / `AiT AI>` prompt are stored—not `[y/N]` confirm answers, session picker input, or AiT internal env setup. Use the **`history`** command (bash subset: list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) to inspect or manage input history. Lines persist across sessions in **`<AppRoot>/repl_history`** (see **Data directory** below). In `ait ai`, **`clear`** clears chat history only; **`history`** is input history.
-- **Non-TTY:** `echo 你好 | ait ai chat` works without special locale setup.
+- **Non-TTY:** `echo 你好 | ait ai ask` works without special locale setup.
 - **Clear screen:** In `ait shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ait ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
 
 SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI>` editing is what this section describes.
@@ -175,7 +176,7 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 |-----------|--------------|
 | `--load` with list **ID column** (8-char prefix) | `The list ID column is for display only` → use alias, `FULL_ID` from `-v`, or interactive `--load` |
 | `session --switch` while current session still **active** | Suspend inside SSH (`!ait suspend`) or `session --switch --force` |
-| Empty `ait ai chat` (no message / stdin) | `chat requires a message` → pass a message or pipe stdin |
+| Empty `ait ai ask` (no message / stdin) | `ask requires a message` → pass a message or pipe stdin |
 | Unknown config key | `ait config get <key>` or see example YAML |
 | `ait config validate` failure | Fix listed field paths or run `ait config edit` |
 | Missing config file for `validate` | Run `ait config init` first |

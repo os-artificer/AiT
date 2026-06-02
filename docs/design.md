@@ -13,7 +13,8 @@ CLI entry point: [`internal/ait/root.go`](../internal/ait/root.go) (`Run` plus c
 ait shell                                    # AiT> REPL (login/list/load, etc.)
 ait ai                                       # Local AI mode (AiT AI>); also "ai" inside ait shell
 ait ai model list                            # List configured AI providers (ENABLED column)
-ait ai chat [message...]                     # One-shot AI question (stdin if no args); !ait ai chat in SSH
+ait ai ask [message...]                      # One-shot AI question (stdin if no args); SSH: !ait ai ask / !! ask
+ait ai agent [message...]                    # One-shot agent with tool execution
 ait ai provider enable|disable <provider>    # Enable/disable routing to a provider
 ait ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir + install [y/N])
 ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
@@ -220,17 +221,20 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | Path | Role | Representative files |
 |------|------|----------------------|
 | [`internal/ait/`](../internal/ait/) | CLI entry | `root.go` |
-| [`internal/ait/cli/`](../internal/ait/cli/) | Cobra subcommands | `root.go`, `login.go`, `shell.go`, … |
+| [`internal/ait/cli/`](../internal/ait/cli/) | Thin Cobra root (`Execute`, `registry.AttachRoot`) | `root.go`, `manager.go` |
+| [`internal/ait/registry/`](../internal/ait/registry/) | Top-level command registry (OCP); root `--help` | `register.go`, `root_help.go`, `all/imports.go` |
+| [`internal/pkg/helpdoc/`](../internal/pkg/helpdoc/) | Shared `--help` layout | `body.go`, `bind.go`, `common.go` |
 | [`internal/ait/app/`](../internal/ait/app/) | Manager bootstrap | `manager.go`, `context.go` |
 | [`internal/ait/login/`](../internal/ait/login/) | Login parsing and help | `run.go`, `help.go` |
 | [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
-| [`internal/ait/aimode/`](../internal/ait/aimode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`, `exec.go`, `policy.go`, `run_local.go` |
+| [`internal/ait/ai/`](../internal/ait/ai/) | `ait ai` tree (`ask`, `agent`, `provider`, `ollama` via `subregistry`) | `cmd.go`, `help.go`, `register.go` |
+| [`internal/ait/ai/mode/`](../internal/ait/ai/mode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`, `exec.go`, `run_local.go` |
 | [`internal/ait/meta/`](../internal/ait/meta/) | In-session `!ait` | `exec.go` |
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv, `ssh -G`, mapped options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | Session lifecycle | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode, silent injection | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_zmodem.go` |
-| [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback.go`, `scrollback_io.go`, `path.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode, silent injection | `client.go`, `client_dial.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
+| [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback/delta.go`, `terminal/path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file) | `transfer.go`, `parse.go` |
@@ -248,9 +252,9 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 
 | Scenario | Prompt | How it is set |
 |----------|--------|----------------|
-| `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt.go) |
-| SSH remote | `AiT user@host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) single-line inject after `load`/`login`; setup does not printf the prompt remotely—local writes it once and `copyOut` drops a duplicate precmd line (no extra Enter); filter hides setup echo (independent of standalone `ait get`/`put` SFTP) |
-| SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode.go`](../internal/pkg/ssh/client/localmode.go)) |
+| `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
+| SSH remote | `AiT user@host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) single-line inject after `load`/`login`; setup does not printf the prompt remotely—local writes it once and `copyOut` drops a duplicate precmd line (no extra Enter); filter hides setup echo (independent of standalone `ait get`/`put` SFTP) |
+| SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)) |
 
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.
 
@@ -264,7 +268,7 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 
 ### In-session meta protocol (!ait / !!)
 
-Implementation: [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/client/metascanner.go) and `forwardStdin` / `handleMetaLine` in [`client.go`](../internal/pkg/ssh/client/client.go). The `\ait` prefix is deprecated.
+Implementation: [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/client/meta/scanner.go) and `forwardStdin` / `handleMetaLine` in [`client.go`](../internal/pkg/ssh/client/client.go). The `\ait` prefix is deprecated.
 
 | Command | Behavior |
 |---------|----------|
@@ -337,7 +341,7 @@ flowchart LR
 
 | Topic | Notes |
 |-------|-------|
-| Child process | [`localmode.go`](../internal/pkg/ssh/client/localmode.go): `creack/pty` launches `$SHELL` (Windows uses `ComSpec`) |
+| Child process | [`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go): `creack/pty` launches `$SHELL` (Windows uses `ComSpec`) |
 | Prompt | Constant `AiT Local> `; bash `PS1` uses `\[\]…\[\]`; env `AIT_LOCAL_MODE=1`, `PS1`, `PROMPT` (Windows cmd sets `PROMPT`) |
 | Silent setup | **Do not print** `export PS1=…` setup lines to the terminal: bash uses `--rcfile` temporary rc; zsh uses minimal `ZDOTDIR` `.zshrc` (sources user rc then `export PROMPT` again); temp dirs removed in `stop()` |
 | Lifecycle | `enterLocalMode` / `exitLocalMode` / `onLocalShellExit`; `closing` suppresses expected ptmx close errors |
@@ -419,7 +423,7 @@ When the user has manually SSH'd beyond the directly connected host (e.g. login 
 
 | Mode | Command | Authentication |
 |------|---------|----------------|
-| Standalone CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/args/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/args/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go) (same auth path as login, including password prompt) |
+| Standalone CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/parse/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/resolve/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go) (same auth path as login, including password prompt) |
 | In SSH session | `!ait get …` / `!ait put …` | Reuses the live connection from [`handleMetaLine`](../internal/pkg/ssh/client/client.go) / [`client_transfer.go`](../internal/pkg/ssh/client/client_transfer.go); **no second dial** |
 
 **Standalone flags and paths** (flags and paths may appear in **any order**; glued forms such as `-p22`, `-i~/.ssh/id` are supported):
@@ -479,7 +483,7 @@ flowchart LR
 
 ### AI mode (dual scope)
 
-Package: [`internal/ait/aimode/`](../internal/ait/aimode/) (REPL, exec policy, runners); chat API: [`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go). Remote entry is wired via `InteractiveOpts.OnRemoteAI` from [`internal/ait/cli/ai.go`](../internal/ait/cli/ai.go) (avoids import cycles).
+Package: [`internal/ait/ai/mode/`](../internal/ait/ai/mode/) (REPL, exec policy, runners); one-shot: [`internal/ait/ai/ask/`](../internal/ait/ai/ask/), [`internal/ait/ai/agent/`](../internal/ait/ai/agent/); chat API: [`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go). Remote entry is wired via `InteractiveOpts.OnRemoteAI` from [`internal/ait/ai/cmd.go`](../internal/ait/ai/cmd.go) (avoids import cycles).
 
 | Entry | Scope | Prompt | Command execution |
 |-------|-------|--------|-------------------|
@@ -500,9 +504,9 @@ Package: [`internal/ait/aimode/`](../internal/ait/aimode/) (REPL, exec policy, r
 
 **Authorization:** Multi-line confirm before each `run`/`ait`/Agent tool: **`y`** once, **`c`** trust first shell token for the session, **`s`** trust all low-risk for the session, **`n`** skip (high-risk: **`y`**/`n` only). `approve each`/`approve session` CLI commands unchanged. Internal `ExecPolicy` names unchanged.
 
-**One-shot chat:** `ait ai chat` and `!ait ai chat <msg>` / `!! chat <msg>` call `RunChatOnce` (single `Chat`, no REPL). Empty `chat` returns a usage error.
+**One-shot ask:** `ait ai ask` and `!ait ai ask <msg>` / `!! ask <msg>` call `chat.RunOnce` in [`internal/ait/ai/mode/chat/`](../internal/ait/ai/mode/chat/) (single turn, no REPL). Empty `ask` returns `ask requires a message`.
 
-**SSH integration:** `handleAIMetaLine` runs synchronous `RunREPL` with `pauseRemoteOut`; does not spawn async one-shot `Assist`. Optional trailing text on `!ait ai` / `!!` is the first chat turn (or `chat <msg>` for one-shot).
+**SSH integration:** `handleAIMetaLine` runs synchronous `RunREPL` with `pauseRemoteOut`; does not spawn async one-shot `Assist`. Optional trailing text on `!ait ai` / `!!` is the first REPL turn (or `ask <msg>` / `agent <msg>` for one-shot).
 
 **Install hints** (unchanged): when `platform.LookPath(cmd)==err`, Deepseek suggests install steps via `SuggestInstall`.
 

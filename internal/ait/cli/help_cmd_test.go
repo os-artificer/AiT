@@ -21,11 +21,19 @@ import (
 	"strings"
 	"testing"
 
-	clitransfer "github.com/os-artificer/AiT/internal/ait/cli/transfer"
+	_ "github.com/os-artificer/AiT/internal/ait/registry/all"
+
+	"github.com/os-artificer/AiT/internal/ait/get"
+	"github.com/os-artificer/AiT/internal/ait/put"
+	"github.com/os-artificer/AiT/internal/ait/registry"
 )
 
+func testDeps() registry.Deps {
+	return registry.Deps{RunWithMgr: runWithManager}
+}
+
 func TestGetCmdHelpRunE(t *testing.T) {
-	cmd := clitransfer.NewGet(runWithManager)
+	cmd := get.New(testDeps().RunWithMgr)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
@@ -38,7 +46,7 @@ func TestGetCmdHelpRunE(t *testing.T) {
 }
 
 func TestGetCmdHelpRunEPosArg(t *testing.T) {
-	cmd := clitransfer.NewGet(runWithManager)
+	cmd := get.New(testDeps().RunWithMgr)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
@@ -51,7 +59,7 @@ func TestGetCmdHelpRunEPosArg(t *testing.T) {
 }
 
 func TestPutCmdHelpRunE(t *testing.T) {
-	cmd := clitransfer.NewPut(runWithManager)
+	cmd := put.New(testDeps().RunWithMgr)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
@@ -64,7 +72,7 @@ func TestPutCmdHelpRunE(t *testing.T) {
 }
 
 func TestPutCmdHelpRunEPosArg(t *testing.T) {
-	cmd := clitransfer.NewPut(runWithManager)
+	cmd := put.New(testDeps().RunWithMgr)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)

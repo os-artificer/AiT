@@ -24,7 +24,7 @@ const (
 	replArgH       = "-h"
 	replArgHelp    = "--help"
 	replCmdAI      = "ai"
-	replCmdLogin   = "login"
+	replCmdLogin   = "login" // matches login.Name
 	replCmdLoad    = "load"
 	replCmdList    = "list"
 	replCmdSuspend = "suspend"

@@ -1,6 +1,6 @@
 ---
 description: CLI/Cobra --help 必须与 ait login 同版式；新命令 checklist
-globs: internal/ait/cli/**,internal/ait/helpdoc/**,internal/ait/login/help.go,internal/ait/shell/**,internal/ait/meta/**
+globs: internal/ait/cli/**,internal/pkg/helpdoc/**,internal/ait/**/help.go,internal/ait/login/**,internal/ait/shell/**,internal/ait/meta/**
 alwaysApply: false
 ---
 
@@ -16,9 +16,10 @@ alwaysApply: false
 
 ## 必须
 
-- 正文在 [`internal/ait/helpdoc`](internal/ait/helpdoc)；`Write<Cmd>Help(w io.Writer) error`
-- OpenSSH / Not supported **只**在 [`helpdoc/openssh.go`](internal/ait/helpdoc/openssh.go)
-- `cli` 用 [`help_bind.go`](internal/ait/cli/help_bind.go)：`bindHelp` / `bindCustomArgvHelp`
+- 共用排版在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`Body`、`Bind`、`WriteTransferHelp`、OpenSSH 块）
+- 各命令正文在 **`internal/ait/<cmd>/help.go`**（嵌套子命令在 **`internal/ait/<parent>/<sub>/help.go`**）
+- OpenSSH / Not supported **只**在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`common.go` / helpers）
+- Cobra 绑定：`pkghelpdoc.Bind(cmd, WriteHelp)`（见 [`bind.go`](internal/pkg/helpdoc/bind.go)）
 - get/put：**一个** `WriteTransferHelp(w, cmdName)`
 - `Long`: `Run 'ait <cmd> --help' for usage and examples.`
 - `SilenceUsage: true`
@@ -27,7 +28,7 @@ alwaysApply: false
 
 - 参数/校验/可恢复操作类错误使用 [`internal/pkg/errhint`](internal/pkg/errhint)：`errhint.WithTry(cause, explanation, tries...)`。
 - 首行保留 sentinel（供 `errors.Is`）；空行 + 一句说明 + `Try:` + 每行 2 空格缩进的命令；**错误字符串不含 `AiT:`**（由 `errhint.Print` 按 CLI/REPL/SSH 加前缀）。
-- 禁止 `; use ...` 单行堆叠长 hint；不把 hint 正文写进 `--help`（仍用 helpdoc）。
+- 禁止 `; use ...` 单行堆叠长 hint；不把 hint 正文写进 `--help`（仍用 `pkghelpdoc`）。
 
 ## 章节顺序
 
@@ -36,16 +37,17 @@ alwaysApply: false
 ## 自定义 argv（login / get / put）
 
 - `DisableFlagParsing: true`
-- `RunE`: `helpdoc.HelpRequested(argv)` 早退
+- `RunE`: `pkghelpdoc.HelpRequested(argv)` 早退
 - `MarkHidden("help")`
 
 ## 新命令 checklist
 
-1. `helpdoc` 增加 `WriteXxxHelp` + 测试（`Usage:`、`Examples:`、尾注）
-2. `newXxxCmd` 调用 `bindHelp` 或 `bindCustomArgvHelp`
-3. [`root.go`](internal/ait/cli/root.go) `AddCommand` + [`helpdoc/root.go`](internal/ait/helpdoc/root.go) 子命令表一行
-4. REPL/meta 若暴露则更新 shell/meta 帮助索引
+1. 在命令包增加 `WriteHelp` + 测试（`Usage:`、`Examples:`、尾注）
+2. `New()` 内 `pkghelpdoc.Bind(cmd, WriteHelp)`
+3. 顶层：`registry.Register` + `registry/all/imports.go`；父命令子节点：`<parent>/subregistry` + `<parent>/registry/all/imports.go`
+4. 父级 `--help` 子命令表从 `subregistry.Entries()` 生成，勿手写 growing `AddCommand` 列表
+5. REPL/meta 若暴露则更新 shell/meta 帮助索引
 
 ## 回归
 
-仅改 help 展示；不得改 `Run`/`RunE` 业务逻辑。参考 [`login/help.go`](internal/ait/login/help.go) → `helpdoc.WriteLoginHelp`。
+仅改 help 展示；不得改 `Run`/`RunE` 业务逻辑。参考 [`login/help.go`](internal/ait/login/help.go)（`HelpFull` golden）与 [`internal/pkg/helpdoc`](internal/pkg/helpdoc) 共用块。

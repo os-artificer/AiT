@@ -43,10 +43,10 @@ func NotConfiguredErr() error {
 func ChatMessageRequiredErr() error {
 	return errhint.WithTry(ErrChatMessageRequired,
 		"Provide a message on the command line or via stdin.",
-		"ait ai chat <message>",
-		"echo ping | ait ai chat",
-		"!ait ai chat <message>",
-		"ait ai chat --help",
+		"ait ai ask <message>",
+		"echo ping | ait ai ask",
+		"!ait ai ask <message>",
+		"ait ai ask --help",
 	)
 }
 

@@ -13,7 +13,8 @@ CLI 入口：[`internal/ait/root.go`](../internal/ait/root.go)（`Run` + cobra r
 ait shell                                    # AiT> REPL（login/list/load 等）
 ait ai                                       # 本机 AI 模式（AiT AI>）；ait shell 内也可输入 ai
 ait ai model list                            # 列出已配置 AI provider（含 ENABLED 列）
-ait ai chat [message...]                     # 单轮提问（无参数读 stdin）；SSH 内 !ait ai chat
+ait ai ask [message...]                      # 单轮提问（无参数读 stdin）；SSH：!ait ai ask / !! ask
+ait ai agent [message...]                    # 单轮 agent（工具执行）
 ait ai provider enable|disable <provider>    # 启用/禁用某 provider 的路由
 ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup：models_dir + 安装前 [y/N]）
 ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
@@ -219,18 +220,21 @@ CREATE TABLE app_meta (
 
 | 路径 | 职责 | 主要文件（示例） |
 |------|------|------------------|
-| [`internal/ait/`](../internal/ait/) | CLI entry | `root.go` |
-| [`internal/ait/cli/`](../internal/ait/cli/) | Cobra 子命令 | `root.go`, `login.go`, `shell.go`, … |
+| [`internal/ait/`](../internal/ait/) | CLI 入口 | `root.go` |
+| [`internal/ait/cli/`](../internal/ait/cli/) | 精简 Cobra 根（`Execute`、`registry.AttachRoot`） | `root.go`、`manager.go` |
+| [`internal/ait/registry/`](../internal/ait/registry/) | 顶层命令注册表（OCP）；根 `--help` | `register.go`、`root_help.go`、`all/imports.go` |
+| [`internal/pkg/helpdoc/`](../internal/pkg/helpdoc/) | 共用 `--help` 排版 | `body.go`、`bind.go`、`common.go` |
 | [`internal/ait/app/`](../internal/ait/app/) | Manager 引导 | `manager.go`, `context.go` |
 | [`internal/ait/login/`](../internal/ait/login/) | login 解析与帮助 | `run.go`, `help.go` |
 | [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
-| [`internal/ait/aimode/`](../internal/ait/aimode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`, `exec.go`, `policy.go`, `run_local.go` |
+| [`internal/ait/ai/`](../internal/ait/ai/) | `ait ai` 子树（`ask`、`agent`、`provider`、`ollama`，`subregistry`） | `cmd.go`、`help.go`、`register.go` |
+| [`internal/ait/ai/mode/`](../internal/ait/ai/mode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`、`exec.go`、`run_local.go` |
 | [`internal/ait/meta/`](../internal/ait/meta/) | 会话内 `!ait` | `exec.go` |
-| [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
+| [`internal/pkg/ssh/args/`](../internal/pkg/ssh/parse/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入 | `client.go`, `client_dial.go`, `dialchain.go`, `metascanner.go`, `localmode.go`, `hostkeys.go`, `prompt.go`, `inject.go`, `transfer_zmodem.go` |
-| [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback.go`, `scrollback_io.go`, `path.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入 | `client.go`, `client_dial.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
+| [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback/delta.go`、`terminal/path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
@@ -248,9 +252,9 @@ CREATE TABLE app_meta (
 
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
-| `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt.go) |
-| SSH 远程 | `AiT user@host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt.go) 在 `load`/`login` 后单行注入；setup 不在远程 printf 提示符，由本地写出一次，`copyOut` 丢弃 precmd 重复行（无需再按 Enter）；本地过滤隐藏 setup 回显（与独立 `ait get`/`put` 的 SFTP 无关） |
-| SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode.go`](../internal/pkg/ssh/client/localmode.go)） |
+| `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
+| SSH 远程 | `AiT user@host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后单行注入；setup 不在远程 printf 提示符，由本地写出一次，`copyOut` 丢弃 precmd 重复行（无需再按 Enter）；本地过滤隐藏 setup 回显（与独立 `ait get`/`put` 的 SFTP 无关） |
+| SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
 
@@ -264,7 +268,7 @@ CREATE TABLE app_meta (
 
 ### 会话内 meta 协议（!ait / !!）
 
-实现位于 [`internal/pkg/ssh/client/metascanner.go`](../internal/pkg/ssh/client/metascanner.go) 与 [`client.go`](../internal/pkg/ssh/client/client.go) 的 `forwardStdin` / `handleMetaLine`。已弃用 `\ait` 前缀。
+实现位于 [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/client/meta/scanner.go) 与 [`client.go`](../internal/pkg/ssh/client/client.go) 的 `forwardStdin` / `handleMetaLine`。已弃用 `\ait` 前缀。
 
 | 命令 | 行为 |
 |------|------|
@@ -337,7 +341,7 @@ flowchart LR
 
 | 主题 | 说明 |
 |------|------|
-| 子进程 | [`localmode.go`](../internal/pkg/ssh/client/localmode.go)：`creack/pty` 启动 `$SHELL`（Windows 为 `ComSpec`） |
+| 子进程 | [`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)：`creack/pty` 启动 `$SHELL`（Windows 为 `ComSpec`） |
 | 提示符 | 常量 `AiT Local> `；bash `PS1` 使用 `\[\]…\[\]`；环境变量 `AIT_LOCAL_MODE=1`、`PS1`、`PROMPT`（Windows cmd 另设 `PROMPT`） |
 | 静默设置 | **不向终端打印** `export PS1=…` 等 setup 行：bash 用 `--rcfile` 临时 rc；zsh 用 `ZDOTDIR` 最小 `.zshrc`（source 用户 rc 后再次 `export PROMPT`）；临时目录在 `stop()` 时删除 |
 | 生命周期 | `enterLocalMode` / `exitLocalMode` / `onLocalShellExit`；`closing` 抑制预期 ptmx 关闭错误 |
@@ -419,7 +423,7 @@ sequenceDiagram
 
 | 模式 | 命令 | 认证 |
 |------|------|------|
-| 独立 CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/args/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/args/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go)（与 login 相同认证，含密码提示） |
+| 独立 CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/parse/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/resolve/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go)（与 login 相同认证，含密码提示） |
 | SSH 会话内 | `!ait get …` / `!ait put …` | 复用 [`handleMetaLine`](../internal/pkg/ssh/client/client.go) / [`client_transfer.go`](../internal/pkg/ssh/client/client_transfer.go) 的**当前连接**，**不二次拨号** |
 
 **独立 CLI 参数与路径**（flag 与路径**顺序无关**；支持粘连如 `-p22`、`-i~/.ssh/id`）：
@@ -479,7 +483,7 @@ flowchart LR
 
 ### AI 模式（双作用域）
 
-包：[`internal/ait/aimode/`](../internal/ait/aimode/)（REPL、授权策略、Runner）；对话 API：[`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go)。远程入口经 `InteractiveOpts.OnRemoteAI` 由 [`internal/ait/cli/ai.go`](../internal/ait/cli/ai.go) 注入（避免 import 环）。
+包：[`internal/ait/ai/mode/`](../internal/ait/ai/mode/)（REPL、授权策略、Runner）；单轮：[`internal/ait/ai/ask/`](../internal/ait/ai/ask/)、[`internal/ait/ai/agent/`](../internal/ait/ai/agent/)；对话 API：[`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go)。远程入口经 `InteractiveOpts.OnRemoteAI` 由 [`internal/ait/ai/cmd.go`](../internal/ait/ai/cmd.go) 注入（避免 import 环）。
 
 | 入口 | 作用域 | 提示符 | 命令执行 |
 |------|--------|--------|----------|
@@ -500,9 +504,9 @@ flowchart LR
 
 **授权：** 每次执行前多行确认：`y` 仅本次，`c` 信任首词模式，`s` 信任本会话低危，`n` 跳过（高危仅 y/n）。`approve each`/`approve session` 命令不变；`exit`/`quit` 清除信任。
 
-**单轮 chat：** `ait ai chat` 与 `!ait ai chat <msg>` / `!! chat <msg>` 走 `RunChatOnce`（单次 `Chat`，不进 REPL）；空 `chat` 返回用法错误。
+**单轮 ask：** `ait ai ask` 与 `!ait ai ask <msg>` / `!! ask <msg>` 走 [`ai/mode/chat`](../internal/ait/ai/mode/chat/) 的 `RunOnce`（单次对话，不进 REPL）；空 `ask` 返回 `ask requires a message`。
 
-**SSH：** `handleAIMetaLine` 同步 `RunREPL` 并 `pauseRemoteOut`；不再异步单次 `Assist`。`!ait ai` / `!!` 后可跟首条问题，或 `chat <msg>` 单轮。
+**SSH：** `handleAIMetaLine` 同步 `RunREPL` 并 `pauseRemoteOut`；不再异步单次 `Assist`。`!ait ai` / `!!` 后可跟首条问题，或 `ask <msg>` / `agent <msg>` 单轮。
 
 **安装建议**（不变）：`platform.LookPath` 失败时由 `SuggestInstall` 提示安装方式。
 
