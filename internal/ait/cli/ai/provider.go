@@ -42,9 +42,11 @@ const (
 
 func newProviderCmd(_ Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "provider",
-		Short: "Enable or disable AI provider routing",
-		Long:  "Run 'ait ai provider --help' for subcommands.",
+		Use:           "provider",
+		Short:         "Enable or disable AI provider routing",
+		Long:          "Run 'ait ai provider --help' for subcommands.",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	cmd.AddCommand(newProviderEnableCmd(), newProviderDisableCmd())
 	helpdoc.Bind(cmd, helpdoc.WriteAIProviderHelp)
@@ -54,9 +56,11 @@ func newProviderCmd(_ Deps) *cobra.Command {
 func newProviderEnableCmd() *cobra.Command {
 	var assumeYes, noInstall, noPull bool
 	cmd := &cobra.Command{
-		Use:   "enable <provider>",
-		Short: "Enable an AI provider for routing",
-		Args:  cobra.ExactArgs(1),
+		Use:           "enable <provider>",
+		Short:         "Enable an AI provider for routing",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if !config.IsKnownProvider(id) {
@@ -106,9 +110,11 @@ func newProviderEnableCmd() *cobra.Command {
 
 func newProviderDisableCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "disable <provider>",
-		Short: "Disable an AI provider (no requests will be sent to it)",
-		Args:  cobra.ExactArgs(1),
+		Use:           "disable <provider>",
+		Short:         "Disable an AI provider (no requests will be sent to it)",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if !config.IsKnownProvider(id) {

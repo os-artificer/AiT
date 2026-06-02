@@ -20,15 +20,11 @@ package ai
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/ait/aimode"
-	"github.com/os-artificer/AiT/internal/ait/aimode/agent"
 	"github.com/os-artificer/AiT/internal/ait/helpdoc"
-	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 
@@ -54,9 +50,11 @@ type Deps struct {
 // d.OllamaCmd is the `ait ai ollama` subcommand from the ollama subpackage.
 func New(d Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ai",
-		Short: "Interactive local AI mode (AiT AI> prompt)",
-		Long:  "Run AI-assisted REPL on this machine. Inside SSH use !ait ai or !! instead.",
+		Use:           "ai",
+		Short:         "Interactive local AI mode (AiT AI> prompt)",
+		Long:          helpdoc.LongHint("ai"),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if helpdoc.HasHelpArg(args) {
 				return helpdoc.WriteAIHelp(cmd.OutOrStdout())
@@ -97,75 +95,4 @@ func RemoteRunner(exec CLIExecutor) sshclient.RemoteAIRunner {
 	return func(p sshclient.RemoteAIParams) error {
 		return runRemoteAIMode(p, exec)
 	}
-}
-
-func localAIClient(mgr *session.Manager, modelOverride string) (*ai.Client, error) {
-	if modelOverride == "" && mgr.AI != nil {
-		return mgr.AI, nil
-	}
-	var opts []ai.ClientOption
-	if modelOverride != "" {
-		opts = append(opts, ai.WithProviderOverride(modelOverride))
-	}
-	return ai.NewClient(mgr.Config, opts...)
-}
-
-func localAIModeOptions(aiClient *ai.Client, maxSteps int, exec CLIExecutor) aimode.Options {
-	return aimode.Options{
-		Scope:    ai.ScopeLocal,
-		AI:       aiClient,
-		Local:    aimode.DefaultLocalRunner(),
-		Capture:  agent.DefaultLocalCaptureRunner(),
-		CLI:      func(argv []string, out, errOut io.Writer) error { return exec(argv, out, errOut) },
-		In:       os.Stdin,
-		Out:      os.Stdout,
-		ErrOut:   os.Stderr,
-		MaxSteps: maxSteps,
-	}
-}
-
-type ptyRemoteRunner struct {
-	stdin io.Writer
-}
-
-func (r *ptyRemoteRunner) Run(cmd string) error {
-	if r.stdin == nil {
-		return fmt.Errorf("remote stdin not available")
-	}
-	_, err := io.WriteString(r.stdin, cmd+"\n")
-	return err
-}
-
-func runRemoteAIMode(p sshclient.RemoteAIParams, exec CLIExecutor) error {
-	if p.AI == nil {
-		return ai.NotConfiguredErr()
-	}
-
-	var in io.Reader = os.Stdin
-	useTTY := false
-	if p.ReplIn != nil {
-		in = p.ReplIn
-		useTTY = true
-	}
-
-	opts := aimode.Options{
-		Scope:          ai.ScopeRemote,
-		AI:             p.AI,
-		HostLabel:      p.HostLabel,
-		RemoteCwd:      p.RemoteCwd,
-		Scrollback:     p.Scrollback,
-		Remote:         &ptyRemoteRunner{stdin: p.Stdin},
-		CLI:            func(argv []string, out, errOut io.Writer) error { return exec(argv, out, errOut) },
-		In:             in,
-		Out:            os.Stdout,
-		ErrOut:         os.Stderr,
-		UseTTYLineEdit: useTTY,
-		MaxSteps:       p.MaxSteps,
-	}
-	if p.RunCapture != nil {
-		opts.Capture = agent.NewCaptureRunner(func(_ context.Context, cmd string) (string, error) {
-			return p.RunCapture(cmd)
-		})
-	}
-	return aimode.RunREPL(p.Ctx, opts, p.InitialQuestion)
 }

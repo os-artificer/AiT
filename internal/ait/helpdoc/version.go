@@ -19,8 +19,9 @@ package helpdoc
 import "io"
 
 const (
-	versionIntroMain = "Print build version information (version, git commit hash, and build date).\nVersion is resolved from ldflags, the embedded VERSION file, or \"dev\" as fallback."
-	versionUsage     = "ait version"
+	versionIntroMain = "Print build version information (version, git commit hash, and build date).\n" +
+		"Version is resolved from ldflags, the embedded VERSION file, or \"dev\" as fallback."
+	versionUsage = "ait version"
 )
 
 // WriteVersionHelp prints ait version --help to w.

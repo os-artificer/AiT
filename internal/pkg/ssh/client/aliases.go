@@ -31,6 +31,20 @@ const BasePrompt = prompt.Base
 // LocalPrompt is shown in AiT local mode within an SSH session (alias of prompt.Local).
 const LocalPrompt = prompt.Local
 
+// metaScanner is an alias for the meta subpackage's Scanner so existing call
+// sites in the client package continue to compile without churn.
+type metaScanner = meta.Scanner
+
+// stdinByte is the per-byte input record forwarded from the TTY reader.
+type stdinByte = pty.StdinByte
+
+// stdinReader is the single-goroutine TTY stdin reader controller.
+type stdinReader = pty.Reader
+
+// resizeHandler is implemented by anything that wants window-size updates
+// while RunInteractive is running.
+type resizeHandler = pty.ResizeHandler
+
 // RemotePrompt returns the AiT display prompt for user@host.
 func RemotePrompt(user, host string) string {
 	return prompt.Remote(user, host)
@@ -50,27 +64,13 @@ func remoteSetupPromptMarker(user, host string) string {
 	return prompt.RemoteSetupMarker(user, host)
 }
 
-// metaScanner is an alias for the meta subpackage's Scanner so existing call
-// sites in the client package continue to compile without churn.
-type metaScanner = meta.Scanner
-
 func newMetaScanner(aiAvailable bool) *metaScanner {
 	return meta.New(aiAvailable)
 }
 
-// stdinByte is the per-byte input record forwarded from the TTY reader.
-type stdinByte = pty.StdinByte
-
-// stdinReader is the single-goroutine TTY stdin reader controller.
-type stdinReader = pty.Reader
-
 func startStdinReader() *stdinReader {
 	return pty.Start()
 }
-
-// resizeHandler is implemented by anything that wants window-size updates
-// while RunInteractive is running.
-type resizeHandler = pty.ResizeHandler
 
 func termSize(fd int) (cols, rows int) {
 	return pty.TermSize(fd)

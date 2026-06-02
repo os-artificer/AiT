@@ -32,10 +32,12 @@ type CommandRunner interface {
 
 type osRunner struct{}
 
+// LookPath returns the path to name using the platform's PATH lookup.
 func (osRunner) LookPath(name string) (string, error) {
 	return platform.LookPath(name)
 }
 
+// Run executes name with args under ctx, returning any error.
 func (osRunner) Run(ctx context.Context, name string, args []string) error {
 	return runCommand(ctx, name, args, "")
 }

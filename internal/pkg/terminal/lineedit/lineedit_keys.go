@@ -68,18 +68,9 @@ func (s *editState) insertRune(out io.Writer, prompt string, r rune) {
 	// Pinyin filter: when a CJK character is inserted, remove preceding
 	// lowercase ASCII letters that were likely IME preedit (pinyin) text.
 	if isCJKRune(r) {
-		asciiLen := 0
-		for i := s.cursor - 1; i >= 0; i-- {
-			c := s.runes[i]
-			if c >= 'a' && c <= 'z' {
-				asciiLen++
-			} else {
-				break
-			}
-		}
-		if asciiLen >= 2 {
-			s.runes = append(s.runes[:s.cursor-asciiLen], s.runes[s.cursor:]...)
-			s.cursor -= asciiLen
+		if n := s.pinyinPreeditLen(); n >= 2 {
+			s.runes = append(s.runes[:s.cursor-n], s.runes[s.cursor:]...)
+			s.cursor -= n
 			redrawLine(out, prompt, s.runes, s.cursor)
 		}
 	}
@@ -247,4 +238,19 @@ func handleEscapeKey(out io.Writer, prompt string, st *editState, hist *history.
 // punctuation/symbol likely produced by a Chinese/Japanese/Korean IME.
 func isCJKRune(r rune) bool {
 	return r > 127 && unicode.Is(unicode.Han, r)
+}
+
+// pinyinPreeditLen counts consecutive lowercase ASCII letters before the cursor
+// that were likely IME preedit (pinyin) text.
+func (s *editState) pinyinPreeditLen() int {
+	n := 0
+	for i := s.cursor - 1; i >= 0; i-- {
+		c := s.runes[i]
+		if c >= 'a' && c <= 'z' {
+			n++
+		} else {
+			break
+		}
+	}
+	return n
 }

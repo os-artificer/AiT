@@ -33,9 +33,11 @@ import (
 
 func newAskCmd(d Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ask [message...]",
-		Short: "Send one message to the AI and print the reply (non-interactive)",
-		Long:  "Run 'ait ai ask --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
+		Use:           "ask [message...]",
+		Short:         "Send one message to the AI and print the reply (non-interactive)",
+		Long:          "Run 'ait ai ask --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return d.RunWithMgr(func(ctx context.Context, mgr *session.Manager) error {
 				msg, err := resolveChatMessage(cmd, args)

@@ -45,7 +45,7 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "ait",
 		Short:         "AiT — AI Terminal (SSH client)",
-		Long:          "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant.",
+		Long:          helpdoc.LongHint("ait"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

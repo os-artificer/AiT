@@ -34,3 +34,6 @@ const (
 
 // IO — CRLF line endings for remote TTY output.
 const msgCRLF = "\r\n"
+
+// IO — buffer size for PTY I/O copy loops.
+const ioCopyBufSize = 32 * 1024

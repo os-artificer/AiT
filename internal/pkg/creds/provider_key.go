@@ -19,8 +19,9 @@ package creds
 import (
 	"fmt"
 
-	"github.com/99designs/keyring"
 	"github.com/os-artificer/AiT/internal/pkg/config"
+
+	"github.com/99designs/keyring"
 )
 
 func providerAPIKeyKey(provider string) string {

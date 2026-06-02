@@ -36,6 +36,8 @@ import (
 // LF-only would leave the cursor at the previous column ("staircase" layout).
 const termEOL = msgCRLF
 
+const termEraseEOL = "\x1b[K"
+
 // forwardStdinAction describes how one stdin byte should be handled.
 type forwardStdinAction int
 
@@ -57,8 +59,6 @@ func termPrintln(w io.Writer, s string) {
 	}
 	_, _ = io.WriteString(w, s)
 }
-
-const termEraseEOL = "\x1b[K"
 
 // termPrintInline overwrites the current terminal line without advancing (TTY progress).
 func termPrintInline(w io.Writer, s string) {
@@ -260,4 +260,26 @@ func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 
 	c.finishMetaInteraction(stdin)
 	return nil
+}
+
+// handleRemoteOutput processes one chunk of remote PTY output.
+// When ZMODEM is active, output is fed to the ZMODEM session instead.
+// Filtered output is appended to scrollback and written to stdout unless paused.
+func (c *Client) handleRemoteOutput(buf []byte, user, host, promptMarker string) {
+	c.touchRemoteOut()
+
+	if c.zmodemActive.Load() {
+		c.feedZModemOutput(buf)
+		return
+	}
+
+	chunk := c.filterRemoteOutputChunk(buf, user, host, promptMarker)
+	if chunk == nil {
+		return
+	}
+
+	_, _ = c.scroll.Write(chunk)
+	if !c.pauseRemoteOut.Load() {
+		_, _ = os.Stdout.Write(chunk)
+	}
 }

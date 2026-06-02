@@ -40,7 +40,7 @@ func CheckAvailable(ctx context.Context, client *http.Client, baseURL string) Av
 		out.BinaryOK = true
 	}
 	if client == nil {
-		client = &http.Client{Timeout: 3 * time.Second}
+		client = &http.Client{Timeout: httpClientTimeout}
 	}
 	_, note, err := FetchTags(ctx, client, baseURL, "")
 	if err == nil && note == "" {
@@ -58,7 +58,7 @@ func CheckAvailable(ctx context.Context, client *http.Client, baseURL string) Av
 // WaitReady polls /api/tags until OK or timeout; may start ollama serve on Unix.
 func WaitReady(ctx context.Context, client *http.Client, baseURL, modelsDir string) error {
 	if client == nil {
-		client = &http.Client{Timeout: 3 * time.Second}
+		client = &http.Client{Timeout: httpClientTimeout}
 	}
 	deadline := time.Now().Add(probeTotalTimeout)
 	for time.Now().Before(deadline) {

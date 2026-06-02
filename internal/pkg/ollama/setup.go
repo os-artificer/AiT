@@ -22,7 +22,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
@@ -210,7 +209,7 @@ func (o Options) withDefaults() Options {
 		o.Err = os.Stderr
 	}
 	if o.HTTPClient == nil {
-		o.HTTPClient = &http.Client{Timeout: 3 * time.Second}
+		o.HTTPClient = &http.Client{Timeout: httpClientTimeout}
 	}
 	return o
 }

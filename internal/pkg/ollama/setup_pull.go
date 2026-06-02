@@ -20,7 +20,6 @@ import (
 	"context"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // EnsureModel pulls model when missing from /api/tags.
@@ -29,7 +28,7 @@ func EnsureModel(ctx context.Context, client *http.Client, baseURL, model string
 		return nil
 	}
 	if client == nil {
-		client = &http.Client{Timeout: 3 * time.Second}
+		client = &http.Client{Timeout: httpClientTimeout}
 	}
 	tags, _, err := FetchTags(ctx, client, baseURL, model)
 	if err != nil {

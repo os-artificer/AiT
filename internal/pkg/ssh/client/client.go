@@ -231,29 +231,11 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	promptMarker := remoteSetupPromptMarker(user, host)
 
 	copyOut := func(r io.Reader) {
-		buf := make([]byte, 32*1024)
+		buf := make([]byte, ioCopyBufSize)
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {
-				c.touchRemoteOut()
-				if c.zmodemActive.Load() {
-					c.feedZModemOutput(buf[:n])
-					if err != nil {
-						return
-					}
-					continue
-				}
-				chunk := c.filterRemoteOutputChunk(buf[:n], user, host, promptMarker)
-				if chunk == nil {
-					if err != nil {
-						return
-					}
-					continue
-				}
-				_, _ = c.scroll.Write(chunk)
-				if !c.pauseRemoteOut.Load() {
-					_, _ = os.Stdout.Write(chunk)
-				}
+				c.handleRemoteOutput(buf[:n], user, host, promptMarker)
 			}
 			if err != nil {
 				return

@@ -50,6 +50,7 @@ func newCmd(runWithMgr RunWithMgr, name, short string, op sshparse.TransferOp) *
 		Short:                 short,
 		DisableFlagsInUseLine: true,
 		DisableFlagParsing:    true,
+		SilenceUsage:          true,
 		SilenceErrors:         true,
 	}
 	write := func(w io.Writer) error {

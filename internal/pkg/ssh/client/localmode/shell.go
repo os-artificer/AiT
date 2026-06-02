@@ -33,7 +33,10 @@ import (
 	"github.com/creack/pty"
 )
 
-const noticeEOL = "\r\n"
+const (
+	noticeEOL   = "\r\n"
+	copyBufSize = 32 * 1024
+)
 
 // Shell runs an interactive shell on the local machine via a PTY.
 // Use Start to spawn it and Stop to terminate it; methods are safe to call
@@ -190,7 +193,7 @@ func (l *Shell) SetPTYForTest(f *os.File) {
 
 func (l *Shell) copyOut() {
 	defer close(l.done)
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, copyBufSize)
 	for {
 		l.mu.Lock()
 		ptmx := l.pty
