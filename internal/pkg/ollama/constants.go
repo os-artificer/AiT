@@ -27,6 +27,7 @@ const (
 
 // Timeouts — probe, pull, and install waits.
 const (
+	httpClientTimeout = 3 * time.Second
 	probeInterval     = 2 * time.Second
 	probeTotalTimeout = 30 * time.Second
 	pullTimeout       = 30 * time.Minute

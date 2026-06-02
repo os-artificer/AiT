@@ -35,6 +35,10 @@ type CapturingRunner interface {
 
 type localCaptureRunner struct{}
 
+type fnCaptureRunner struct {
+	fn func(ctx context.Context, cmd string) (string, error)
+}
+
 // DefaultLocalCaptureRunner returns a CapturingRunner that runs cmd via sh -c
 // (POSIX) or cmd /c (Windows) and trims output to MaxOutputBytes.
 func DefaultLocalCaptureRunner() CapturingRunner {
@@ -61,10 +65,6 @@ func (localCaptureRunner) RunCapture(ctx context.Context, cmd string) (string, e
 		s = s[len(s)-MaxOutputBytes:]
 	}
 	return s, err
-}
-
-type fnCaptureRunner struct {
-	fn func(ctx context.Context, cmd string) (string, error)
 }
 
 // NewCaptureRunner wraps fn as a CapturingRunner. Useful in tests and remote

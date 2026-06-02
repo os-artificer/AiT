@@ -17,7 +17,11 @@
 package session
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	pkgsession "github.com/os-artificer/AiT/internal/pkg/session"
 
 	"github.com/spf13/cobra"
 )
@@ -149,4 +153,89 @@ func unexpectedSwitchArgsErr() error {
 		"ait session --switch",
 		"ait session --help",
 	)
+}
+
+// execSessionAction dispatches a detected session action against the manager.
+func execSessionAction(
+	ctx context.Context,
+	mgr *pkgsession.Manager,
+	cmd *cobra.Command,
+	act sessionAction,
+	args []string,
+	verbose, tmux bool,
+	password string,
+	force bool,
+) error {
+	switch act.kind {
+	case sessionActionList:
+		return mgr.List(cmd.OutOrStdout(), verbose)
+	case sessionActionLoad:
+		return execSessionLoad(ctx, mgr, act, args, tmux, password)
+	case sessionActionSuspend:
+		return mgr.SuspendCurrent()
+	case sessionActionDelete:
+		return execSessionDelete(mgr, act, force)
+	case sessionActionSwitch:
+		return execSessionSwitch(ctx, mgr, cmd, act, args, tmux, password, force)
+	default:
+		return fmt.Errorf("internal: unknown session action")
+	}
+}
+
+func execSessionLoad(
+	ctx context.Context,
+	mgr *pkgsession.Manager,
+	act sessionAction,
+	args []string,
+	tmux bool,
+	password string,
+) error {
+	target, err := resolveLoadTarget(act.target, args)
+	if err != nil {
+		return err
+	}
+	target, err = pickSessionIfEmpty(mgr, target)
+	if err != nil {
+		return err
+	}
+	return mgr.Load(ctx, target, tmux, password)
+}
+
+func execSessionDelete(mgr *pkgsession.Manager, act sessionAction, force bool) error {
+	if act.target == "all" {
+		return mgr.DeleteAll(force)
+	}
+	return mgr.Delete(act.target, force)
+}
+
+func execSessionSwitch(
+	ctx context.Context,
+	mgr *pkgsession.Manager,
+	cmd *cobra.Command,
+	act sessionAction,
+	args []string,
+	tmux bool,
+	password string,
+	force bool,
+) error {
+	target, err := resolveSwitchTarget(cmd, act.target, args)
+	if err != nil {
+		return err
+	}
+	target, err = pickSessionIfEmpty(mgr, target)
+	if err != nil {
+		return err
+	}
+	return mgr.Switch(ctx, target, tmux, password, force)
+}
+
+// pickSessionIfEmpty prompts the user to pick a session when target is empty.
+func pickSessionIfEmpty(mgr *pkgsession.Manager, target string) (string, error) {
+	if target != "" {
+		return target, nil
+	}
+	if err := pkgsession.CheckInteractiveStdin(); err != nil {
+		return "", err
+	}
+	return mgr.PickSession()
 }

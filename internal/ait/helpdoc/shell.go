@@ -58,7 +58,8 @@ const shellREPLPrompts = `  AiT>              not connected (this shell)
 
 const (
 	shellSectionActiveSession = "Active session"
-	shellActiveSessionBlock   = "  login and load are unavailable while a session is active.\n  Use suspend to save the current session, or session --switch to change.\n"
+	shellActiveSessionBlock   = "  login and load are unavailable while a session is active.\n" +
+		"  Use suspend to save the current session, or session --switch to change.\n"
 )
 
 // WriteShellHelp prints ait shell --help to w.

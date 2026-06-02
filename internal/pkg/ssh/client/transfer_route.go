@@ -40,6 +40,9 @@ var transferInstallOptsFromClient = func(_ *Client) transferInstallOpts {
 	return transferInstallOpts{}
 }
 
+// transferInstallConfirmHook is the install confirm func (overridable in tests).
+var transferInstallConfirmHook lrzsz.ConfirmFunc
+
 // planTransfer decides ZMODEM vs SFTP and whether the target is chain-only.
 func (c *Client) planTransfer(stdin io.Writer) (route.Plan, string, lrzsz.Target, error) {
 	if planTransferForTest != nil {
@@ -177,9 +180,6 @@ func (c *Client) runRemoteInstall(stdin io.Writer, cmd string) error {
 
 	return c.Inject(stdin, cmd, InjectOpts{SuppressEcho: true})
 }
-
-// transferInstallConfirmHook is the install confirm func (overridable in tests).
-var transferInstallConfirmHook lrzsz.ConfirmFunc
 
 func sftpFallbackNotice(host string) {
 	short := normalizeHost(host)
