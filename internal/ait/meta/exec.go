@@ -22,7 +22,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/ait/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -45,7 +44,7 @@ func SetExecutorWriters(fn func([]string, io.Writer, io.Writer) error) {
 // w must be non-nil. Does not return an error.
 func PrintMetaHelp(w io.Writer) {
 	var buf bytes.Buffer
-	_ = helpdoc.WriteMetaHelp(&buf)
+	_ = WriteMetaHelp(&buf)
 	_, _ = io.WriteString(w, strings.ReplaceAll(buf.String(), "\n", "\r\n"))
 }
 

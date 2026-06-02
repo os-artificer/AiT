@@ -17,20 +17,15 @@
 package cli
 
 import (
-	"context"
 	"io"
 	"os"
 
-	cliai "github.com/os-artificer/AiT/internal/ait/cli/ai"
-	cliconfig "github.com/os-artificer/AiT/internal/ait/cli/config"
-	clilogin "github.com/os-artificer/AiT/internal/ait/cli/login"
-	cliollama "github.com/os-artificer/AiT/internal/ait/cli/ollama"
-	clisession "github.com/os-artificer/AiT/internal/ait/cli/session"
-	clitransfer "github.com/os-artificer/AiT/internal/ait/cli/transfer"
-	"github.com/os-artificer/AiT/internal/ait/helpdoc"
+	"github.com/os-artificer/AiT/internal/ait/ai"
 	"github.com/os-artificer/AiT/internal/ait/meta"
+	"github.com/os-artificer/AiT/internal/ait/registry"
+	_ "github.com/os-artificer/AiT/internal/ait/registry/all"
 	"github.com/os-artificer/AiT/internal/ait/shell"
-	"github.com/os-artificer/AiT/internal/pkg/session"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 
 	"github.com/spf13/cobra"
 )
@@ -38,37 +33,23 @@ import (
 func init() {
 	meta.SetExecutorWriters(ExecuteWriters)
 	shell.SetCLIExecutor(ExecuteWriters)
-	shell.SetAIModeRunner(cliai.RunLocalFromShell(ExecuteWriters))
+	shell.SetAIModeRunner(ai.RunLocalFromShell(ExecuteWriters))
 }
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "ait",
 		Short:         "AiT — AI Terminal (SSH client)",
-		Long:          helpdoc.LongHint("ait"),
+		Long:          pkghelpdoc.LongHint("ait"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.AddCommand(
-		newShellCmd(),
-		newAICmd(),
-		newVersionCmd(),
-		clilogin.New(runWithManager),
-		clitransfer.NewGet(runWithManager),
-		clitransfer.NewPut(runWithManager),
-		cliconfig.New(),
-		clisession.New(runWithManager),
-	)
-	helpdoc.Bind(root, helpdoc.WriteRootHelp)
-	return root
-}
-
-func newAICmd() *cobra.Command {
-	return cliai.New(cliai.Deps{
-		Exec:       ExecuteWriters,
-		RunWithMgr: runWithManager,
-		OllamaCmd:  cliollama.New(),
+	registry.AttachRoot(root, registry.Deps{
+		RunWithMgr:     runWithManager,
+		ExecuteWriters: ExecuteWriters,
 	})
+	pkghelpdoc.Bind(root, registry.WriteRootHelp)
+	return root
 }
 
 // Execute runs the Cobra root with args on os.Stdout/os.Stderr defaults.
@@ -86,21 +67,4 @@ func ExecuteWriters(args []string, out, errOut io.Writer) error {
 	root.SilenceErrors = true
 
 	return root.Execute()
-}
-
-func newShellCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "shell",
-		Short: "Interactive AiT shell (AiT> prompt)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if helpdoc.HasHelpArg(args) {
-				return helpdoc.WriteShellHelp(cmd.OutOrStdout())
-			}
-			return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-				return shell.RunREPL(ctx, mgr, os.Stdin, os.Stdout)
-			})
-		},
-	}
-	helpdoc.Bind(cmd, helpdoc.WriteShellHelp)
-	return cmd
 }

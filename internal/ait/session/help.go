@@ -1,0 +1,67 @@
+/**
+ * Copyright 2026 AiT authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+**/
+
+package session
+
+import (
+	"io"
+
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+)
+
+const sessionIntro = "List, load, suspend, switch, or delete saved SSH sessions in the local AiT database."
+const sessionNote = "Inside an active SSH session, use !ait suspend to suspend (not ait session --suspend). " +
+	"List # column matches interactive pick by number; ID column is display-only unless you set an alias."
+
+const sessionFlags = `  --list              list saved sessions (# column for pick-by-number)
+  --list -v           include FULL_ID (complete UUID) for scripting
+  --load [<id|alias>] reconnect (omit value to pick interactively by #)
+  --suspend           suspend from local CLI (prefer !ait suspend in SSH)
+  --switch [id|alias] switch to another session (omit value to pick interactively)
+  --delete <id|alias|all>   delete one session or all sessions
+  --tmux              use remote tmux for --load or --switch
+  --password P        SSH password when session auth has expired
+  --force             force switch or skip delete confirmation
+`
+
+const sessionExampleDeleteAllForce = "ait session --delete all --force"
+
+// WriteSessionHelp prints ait session --help to w.
+func WriteSessionHelp(w io.Writer) error {
+	b := pkghelpdoc.NewBody(w)
+	if err := b.WriteIntro(sessionIntro, sessionNote); err != nil {
+		return err
+	}
+	if err := b.WriteUsage("ait session [--list [-v] | --load [<id|alias>] | --switch [id|alias] | --suspend | --delete <id|alias|all>]"); err != nil {
+		return err
+	}
+	if err := b.WriteSection(pkghelpdoc.SectionAITFlags, sessionFlags); err != nil {
+		return err
+	}
+	if err := b.WriteExamples(
+		"ait session --list",
+		"ait session --list -v",
+		"ait session --load",
+		"ait session --load prod --tmux",
+		"ait session --switch",
+		"ait session --switch prod --force",
+		sessionExampleDeleteAllForce,
+		"!ait suspend   # inside SSH session",
+	); err != nil {
+		return err
+	}
+	return b.Finish("session")
+}

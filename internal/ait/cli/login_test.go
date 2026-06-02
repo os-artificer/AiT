@@ -21,7 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	clilogin "github.com/os-artificer/AiT/internal/ait/cli/login"
+	_ "github.com/os-artificer/AiT/internal/ait/registry/all"
+
+	pkglogin "github.com/os-artificer/AiT/internal/ait/login"
 )
 
 func TestLoginCmdErrorNoUsage(t *testing.T) {
@@ -40,14 +42,14 @@ func TestLoginCmdErrorNoUsage(t *testing.T) {
 }
 
 func TestLoginCmdSilenceUsage(t *testing.T) {
-	cmd := clilogin.New(runWithManager)
+	cmd := pkglogin.New(testDeps().RunWithMgr)
 	if !cmd.SilenceUsage || !cmd.SilenceErrors {
 		t.Fatalf("login cmd SilenceUsage=%v SilenceErrors=%v", cmd.SilenceUsage, cmd.SilenceErrors)
 	}
 }
 
 func TestLoginCmdHelpRunE(t *testing.T) {
-	cmd := clilogin.New(runWithManager)
+	cmd := pkglogin.New(testDeps().RunWithMgr)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)

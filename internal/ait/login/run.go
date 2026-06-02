@@ -22,7 +22,6 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
-	sshparse "github.com/os-artificer/AiT/internal/pkg/ssh/parse"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 )
 
@@ -36,7 +35,7 @@ func (e exitError) Error() string {
 
 // Run parses argv, resolves OpenSSH config, and runs an interactive or one-shot login via mgr.
 func Run(ctx context.Context, mgr *session.Manager, argv []string) error {
-	spec, err := sshparse.Parse(argv)
+	spec, err := Parse(argv)
 	if err != nil {
 		return err
 	}
