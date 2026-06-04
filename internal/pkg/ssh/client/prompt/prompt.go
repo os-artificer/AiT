@@ -33,6 +33,12 @@ const Local = "AiT Local> "
 
 const remoteGitPS1 = `$(b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && [ -n "$b" ] && printf ":%s" "$b")`
 
+const remoteDirShort = `$(d=$(basename "${PWD:-/}" 2>/dev/null); printf '%s' "${d:-/}")`
+
+const remoteDirAbsoluteBash = `${PWD/#$HOME/\~}`
+
+const remoteDirAbsoluteZsh = `${PWD/#$HOME/~}`
+
 // RemotePrefix returns the fixed AiT remote prompt prefix (e.g. "AiT user@host:").
 func RemotePrefix(user, host string) string {
 	return fmt.Sprintf("AiT %s@%s:", user, host)
@@ -81,32 +87,43 @@ func LocalPS1() string {
 }
 
 // remoteDisplayBody is the dynamic PS1/PROMPT body (cwd + optional git branch).
-func remoteDisplayBody(user, host string) string {
-	return escapeForSingleQuotedShell(RemotePrefix(user, host)) + `${PWD/#$HOME/\~}` + remoteGitPS1 + "> "
+func remoteDisplayBody(user, host string, dirAbsolute bool) string {
+	dir := remoteDirShort
+	if dirAbsolute {
+		dir = remoteDirAbsoluteBash
+	}
+	return escapeForSingleQuotedShell(RemotePrefix(user, host)) + dir + remoteGitPS1 + "> "
+}
+
+func remotePromptBody(user, host string, dirAbsolute bool) string {
+	dir := remoteDirShort
+	if dirAbsolute {
+		dir = remoteDirAbsoluteZsh
+	}
+	return RemotePrefix(user, host) + dir + remoteGitPS1 + "> "
 }
 
 // RemotePS1Dynamic is bash PS1 with live cwd and git branch on the remote host.
-func RemotePS1Dynamic(user, host string) string {
-	return BashPS1(remoteDisplayBody(user, host))
+func RemotePS1Dynamic(user, host string, dirAbsolute bool) string {
+	return BashPS1(remoteDisplayBody(user, host, dirAbsolute))
 }
 
 // RemotePROMPTDynamic is zsh PROMPT with live cwd and git branch (requires PROMPT_SUBST).
-func RemotePROMPTDynamic(user, host string) string {
-	body := RemotePrefix(user, host) + `${PWD/#$HOME/~}` + remoteGitPS1 + "> "
-	return escapeForSingleQuotedShell(body)
+func RemotePROMPTDynamic(user, host string, dirAbsolute bool) string {
+	return escapeForSingleQuotedShell(remotePromptBody(user, host, dirAbsolute))
 }
 
 // RemotePS1 is bash PS1 for remote mode (dynamic).
-func RemotePS1(user, host string) string {
-	return RemotePS1Dynamic(user, host)
+func RemotePS1(user, host string, dirAbsolute bool) string {
+	return RemotePS1Dynamic(user, host, dirAbsolute)
 }
 
 // RemoteSetupLine sets PS1/PROMPT and HISTCONTROL/EXTENDED_HISTORY while echo is off,
 // clears the default prompt line, then restores stty echo (single injected line;
 // local filter suppresses any leaked echo).
-func RemoteSetupLine(user, host string) string {
-	ps1 := RemotePS1Dynamic(user, host)
-	prompt := RemotePROMPTDynamic(user, host)
+func RemoteSetupLine(user, host string, dirAbsolute bool) string {
+	ps1 := RemotePS1Dynamic(user, host, dirAbsolute)
+	prompt := RemotePROMPTDynamic(user, host, dirAbsolute)
 	return "stty -echo 2>/dev/null; export HISTCONTROL=ignorespace:erasedups" +
 		"; [ -n \"$ZSH_VERSION\" ] && setopt HIST_IGNORE_SPACE PROMPT_SUBST" +
 		"; export PS1='" + ps1 + "'" +
@@ -115,26 +132,26 @@ func RemoteSetupLine(user, host string) string {
 }
 
 // RemoteSetupStripFragments returns scrollback/filter fragments for remote PS1 setup leakage.
-func RemoteSetupStripFragments(user, host string) []string {
+func RemoteSetupStripFragments(user, host string, dirAbsolute bool) []string {
 	return []string{
 		"stty -echo 2>/dev/null",
-		RemoteSetupLine(user, host),
+		RemoteSetupLine(user, host, dirAbsolute),
 		"export HISTCONTROL=ignorespace:erasedups",
 		"setopt HIST_IGNORE_SPACE",
 		"PROMPT_SUBST",
 		"git rev-parse --abbrev-ref HEAD",
-		"export PS1='" + RemotePS1Dynamic(user, host) + "'",
-		"export PROMPT='" + RemotePROMPTDynamic(user, host) + "'",
+		"export PS1='" + RemotePS1Dynamic(user, host, dirAbsolute) + "'",
+		"export PROMPT='" + RemotePROMPTDynamic(user, host, dirAbsolute) + "'",
 	}
 }
 
 // RemoteInitialCommands returns shell setup lines to set PS1/PROMPT after the remote shell starts.
 // Returns nil when user or host is empty.
-func RemoteInitialCommands(user, host string) []string {
+func RemoteInitialCommands(user, host string, dirAbsolute bool) []string {
 	if user == "" || host == "" {
 		return nil
 	}
-	return []string{RemoteSetupLine(user, host)}
+	return []string{RemoteSetupLine(user, host, dirAbsolute)}
 }
 
 // escapeForSingleQuotedShell escapes s for embedding inside a single-quoted sh string.

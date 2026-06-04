@@ -71,7 +71,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	m.replayScrollbackIfPresent(st)
 
 	var initialCmds []string
-	initialCmds = append(sshclient.RemotePromptInitialCommands(sess.Username, sess.Host), initialCmds...)
+	initialCmds = append(m.remotePromptInitialCommands(sess.Username, sess.Host), initialCmds...)
 	if st != nil && st.RemoteCwd != "" && pathsafe.RemotePath(st.RemoteCwd) && !sess.TmuxEnabled {
 		initialCmds = append(initialCmds, "cd "+pathsafe.QuoteShellSingle(st.RemoteCwd))
 	}
@@ -154,14 +154,15 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 	}
 
 	err := client.RunInteractive(ctx, sshclient.InteractiveOpts{
-		SessionID:       sess.ID,
-		TmuxEnabled:     sess.TmuxEnabled,
-		TmuxName:        tmuxName,
-		InitialCommands: initialCmds,
-		AI:              m.AI,
-		OnRemoteAI:      m.OnRemoteAI,
-		OnMetaCLI:       m.MetaCLI,
-		AgentMaxSteps:   m.Config.AgentMaxSteps(),
+		SessionID:               sess.ID,
+		TmuxEnabled:             sess.TmuxEnabled,
+		TmuxName:                tmuxName,
+		InitialCommands:         initialCmds,
+		RemotePromptDirAbsolute: m.Config != nil && m.Config.RemotePromptPathAbsolute(),
+		AI:                      m.AI,
+		OnRemoteAI:              m.OnRemoteAI,
+		OnMetaCLI:               m.MetaCLI,
+		AgentMaxSteps:           m.Config.AgentMaxSteps(),
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
 			if !persisted {
 				return ephemeralSuspendErr()

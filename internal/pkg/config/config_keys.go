@@ -32,6 +32,15 @@ func (c *Config) SetKey(key, value string) error {
 		return nil
 	}
 
+	if key == "session.remote_prompt.path" {
+		v := strings.ToLower(strings.TrimSpace(value))
+		if v != RemotePromptPathShort && v != RemotePromptPathAbsolute {
+			return fmt.Errorf("session.remote_prompt.path must be %q or %q", RemotePromptPathShort, RemotePromptPathAbsolute)
+		}
+		c.Session.RemotePrompt.Path = v
+		return nil
+	}
+
 	if key == "ai.default" {
 		if !IsCloudProvider(value) {
 			return validateCloudDefault(value)
@@ -61,6 +70,11 @@ func (c *Config) GetKey(key string) (string, error) {
 	switch key {
 	case "session.auth_ttl":
 		return c.Session.AuthTTL, nil
+	case "session.remote_prompt.path":
+		if c.Session.RemotePrompt.Path == "" {
+			return RemotePromptPathShort, nil
+		}
+		return c.Session.RemotePrompt.Path, nil
 	case "ai.default":
 		return c.DefaultProviderID(), nil
 	case "ai.fallback":
