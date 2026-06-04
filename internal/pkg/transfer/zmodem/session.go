@@ -32,10 +32,11 @@ import (
 )
 
 const (
-	waitPollInterval = 50 * time.Millisecond
-	handshakeTimeout = 30 * time.Second
-	teardownTimeout  = 15 * time.Second
-	waitMaxDuration  = 30 * time.Minute
+	waitPollInterval     = 50 * time.Millisecond
+	handshakeTimeout     = 30 * time.Second
+	teardownTimeout      = 15 * time.Second
+	teardownTimeoutChain = 30 * time.Second
+	waitMaxDuration      = 30 * time.Minute
 )
 
 // handshakeTimeoutDuration is the wait for the remote sz/rz peer to start (overridable in tests).
@@ -43,6 +44,9 @@ var handshakeTimeoutDuration = handshakeTimeout
 
 // teardownTimeoutDuration is the wait for ZFIN after the data plane completes (overridable in tests).
 var teardownTimeoutDuration = teardownTimeout
+
+// teardownTimeoutChainDuration is the chain-mode teardown limit (overridable in tests).
+var teardownTimeoutChainDuration = teardownTimeoutChain
 
 // ErrHandshakeTimeout is returned when the remote sz/rz peer does not start ZMODEM in time.
 var ErrHandshakeTimeout = errors.New("zmodem: handshake timed out waiting for remote sz/rz")
@@ -65,6 +69,19 @@ type Session struct {
 	started atomic.Bool
 	// testBlockIdle forces non-idle status after data done (tests in this package only).
 	testBlockIdle atomic.Bool
+	chainTeardown atomic.Bool
+}
+
+// SetChainTeardown selects the longer teardown window for multi-hop PTY transfers.
+func (s *Session) SetChainTeardown(chain bool) {
+	s.chainTeardown.Store(chain)
+}
+
+func (s *Session) teardownLimit() time.Duration {
+	if s.chainTeardown.Load() {
+		return teardownTimeoutChainDuration
+	}
+	return teardownTimeoutDuration
 }
 
 // NewReceiveSession configures local ZMODEM receive (lrz) after remote sz starts.
@@ -202,7 +219,7 @@ func (s *Session) Wait(ctx context.Context) error {
 					return err
 				}
 				dataDone = true
-				teardownDeadline = time.Now().Add(teardownTimeoutDuration)
+				teardownDeadline = time.Now().Add(s.teardownLimit())
 			case <-ticker.C:
 				now := time.Now()
 				if !s.started.Load() && now.After(handshakeDeadline) {
@@ -230,6 +247,10 @@ func (s *Session) Wait(ctx context.Context) error {
 				return err
 			}
 		case <-ticker.C:
+			status := s.engine.GetStatus()
+			if status != xzmodem.StatusIdle && s.engine.HasUnread() {
+				s.engine.PumpUnread()
+			}
 			if time.Now().After(teardownDeadline) {
 				s.Abort()
 				return fmt.Errorf("%w", ErrTeardownTimeout)

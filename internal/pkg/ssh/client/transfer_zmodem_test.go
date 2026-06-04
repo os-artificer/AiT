@@ -213,3 +213,14 @@ func TestPTYZModemErrHint_IncludesLrzsz(t *testing.T) {
 		t.Fatalf("missing lrzsz hint: %q", s)
 	}
 }
+
+func TestPTYZModemErrHint_TeardownTimeout(t *testing.T) {
+	err := wrapPTYZModemErr(fmt.Errorf("zmodem get: %w", zmodem.ErrTeardownTimeout))
+	s := err.Error()
+	if !strings.Contains(s, "retry the transfer") {
+		t.Fatalf("missing teardown retry hint: %q", s)
+	}
+	if !strings.Contains(s, "lrzsz") {
+		t.Fatalf("missing lrzsz hint: %q", s)
+	}
+}

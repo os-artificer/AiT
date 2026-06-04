@@ -1,0 +1,110 @@
+/**
+ * Copyright 2026 AiT authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+**/
+
+package client
+
+import (
+	"net"
+	"strings"
+)
+
+const (
+	nestedMOTDLastLogin     = "last login:"
+	nestedMOTDWelcome       = "welcome to"
+	nestedPasswordPromptSub = "password:"
+)
+
+type nestedPromptState int
+
+const (
+	nestedPromptIdle nestedPromptState = iota
+	nestedPromptAwaitingShell
+	nestedPromptInjecting
+)
+
+// parseSSHCommandLine extracts user and host from a simple interactive ssh command line.
+// Returns ok=false for non-ssh lines, ProxyJump (-J), or unparseable forms.
+func parseSSHCommandLine(line, defaultUser string) (user, host string, ok bool) {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, "ssh ") {
+		return "", "", false
+	}
+
+	args := strings.Fields(line)
+	if len(args) < 2 {
+		return "", "", false
+	}
+
+	user = strings.TrimSpace(defaultUser)
+	host = ""
+	i := 1
+	for i < len(args) {
+		a := args[i]
+		lower := strings.ToLower(a)
+
+		if lower == "-j" || strings.HasPrefix(lower, "-j") || lower == "-w" || strings.HasPrefix(lower, "-w") {
+			return "", "", false
+		}
+
+		if lower == "-p" || lower == "-l" || lower == "-i" || lower == "-o" || lower == "-b" || lower == "-c" {
+			i += 2
+			if i > len(args) {
+				return "", "", false
+			}
+			continue
+		}
+
+		if strings.HasPrefix(lower, "-p") && len(a) > 2 {
+			i++
+			continue
+		}
+
+		if strings.HasPrefix(a, "-") {
+			i++
+			continue
+		}
+
+		dest := a
+		if at := strings.LastIndex(dest, "@"); at >= 0 {
+			user = dest[:at]
+			host = dest[at+1:]
+		} else {
+			host = dest
+		}
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if host == "" {
+			return "", "", false
+		}
+		if user == "" {
+			user = defaultUser
+		}
+		return user, host, true
+	}
+
+	return "", "", false
+}
+
+func scrollChunkLooksLikePasswordPrompt(chunk []byte) bool {
+	lower := strings.ToLower(string(chunk))
+	return strings.Contains(lower, nestedPasswordPromptSub)
+}
+
+func scrollChunkLooksLikeMOTD(chunk []byte) bool {
+	lower := strings.ToLower(string(chunk))
+	return strings.Contains(lower, nestedMOTDLastLogin) || strings.Contains(lower, nestedMOTDWelcome)
+}

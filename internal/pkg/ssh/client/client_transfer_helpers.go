@@ -26,6 +26,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/lrzsz"
+	pkgzmodem "github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
 )
 
 const activeShellHostCmd = "hostname -f 2>/dev/null || hostname"
@@ -161,10 +162,17 @@ func wrapPTYCaptureErr(cause error) error {
 }
 
 func wrapPTYZModemErr(cause error) error {
+	try := lrzsz.ManualTryLines(lrzsz.TargetUnknown)
+	if errors.Is(cause, pkgzmodem.ErrTeardownTimeout) {
+		try = append([]string{
+			"If the local file size already matches the remote, retry the transfer once.",
+			"On the active shell: sz --version  (upgrade lrzsz if very old)",
+		}, try...)
+	}
 	return errhint.WithTry(
 		cause,
 		"Chain-mode file transfer uses ZMODEM (lrzsz) over the PTY.",
-		lrzsz.ManualTryLines(lrzsz.TargetUnknown)...,
+		try...,
 	)
 }
 
