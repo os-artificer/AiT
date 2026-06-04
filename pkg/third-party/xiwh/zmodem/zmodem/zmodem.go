@@ -82,13 +82,12 @@ func (t *ZModem) sendSubPacket(packet subPacket, frameEncoding FrameEncoding, ap
 }
 
 func (t *ZModem) readFrame() (f frame, err error) {
-	t.lock.RLock()
-	defer t.lock.RUnlock()
-	unreadBufLen := len(t.unreadBuf)
-	if unreadBufLen == 0 {
-		err = errors.New("data is empty")
-		return f, err
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	if len(t.unreadBuf) == 0 {
+		return f, errors.New("data is empty")
 	}
+	t.resyncUnreadBuf()
 	var n int
 	f, n, err = unmarshalFrame(t.unreadBuf)
 	if err != nil {
