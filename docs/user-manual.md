@@ -106,7 +106,8 @@ SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line 
 |---------|--------|
 | `ait shell` | `AiT> ` |
 | `ait ai` (local) | `AiT AI(Ask)> ` or `AiT AI(Agent)> ` after `mode agent` |
-| SSH remote | `AiT user@host:dir[:git-branch]> ` (cwd + optional Git branch; configure dir with `ait config set session.remote_prompt.path short|absolute`) |
+| SSH remote | `AiT user@host:dir[:git-branch]> ` (cwd + optional Git branch; `session.remote_prompt.path` short\|absolute) |
+| SSH nested | same on inner host after `ssh` from an AiT session | Or use `ait login -J jump,final` to skip manual nested `ssh` |
 | SSH AI mode (`!ait ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 

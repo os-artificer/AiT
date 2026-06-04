@@ -254,6 +254,7 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 |----------|--------|----------------|
 | `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) injects dynamic bash `PS1` / zsh `PROMPT` after `load`/`login`; **`session.remote_prompt.path`**: `short` (default, last path segment) or `absolute` (`$PWD` with `~` for home); optional `:branch` via `git rev-parse`; `finishRemoteSetup` sends `\r` to redraw when needed; `copyOut` drops duplicate precmd lines (R2); filter hides setup echo (R1) |
+| SSH nested (manual `ssh` in session) | same as SSH remote on **active** hop | After a simple `ssh user@host` from an AiT session, MOTD + quiet detection triggers the same PS1 inject and enables chain mode; use `ait login -J jump,final` to land on the final host in one step |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)) |
 
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.

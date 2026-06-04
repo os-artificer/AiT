@@ -22,6 +22,8 @@ import (
 	"io"
 	"testing"
 	"time"
+
+	xzmodem "github.com/os-artificer/AiT/pkg/third-party/xiwh/zmodem/zmodem"
 )
 
 // TestSession_Wait_TeardownAfterDone (V1) verifies idle is reached soon after data done.
@@ -85,6 +87,81 @@ func TestSession_Wait_ContextCancelAborts(t *testing.T) {
 	}
 	if len(ptyOut) == 0 {
 		t.Fatal("expected abort sequence on cancel")
+	}
+}
+
+// TestSession_Wait_TeardownAfterZFINWithPrefix (V10) completes teardown after PTY noise + ZEOF/ZFIN.
+func TestSession_Wait_TeardownAfterZFINWithPrefix(t *testing.T) {
+	zeof, err := xzmodem.HexFrameBytes(xzmodem.ZEOF, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zfin, err := xzmodem.HexFrameBytes(xzmodem.ZFIN, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var ptyOut captureWriter
+	sess, err := NewReceiveSession(&ptyOut, t.TempDir()+"/out.bin", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess.engine.EnterReceiveForTest()
+	sess.started.Store(true)
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- sess.Wait(t.Context())
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	sess.finish(nil)
+
+	prefix := []byte("Bytes/sec 9999\r\n")
+	payload := append(append(append([]byte(nil), prefix...), zeof...), zfin...)
+	if _, err := sess.Feed(payload); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Wait: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Wait timed out after ZFIN with prefix")
+	}
+}
+
+// TestSession_Wait_TeardownChainTimeout (V12) uses the chain teardown deadline when enabled.
+func TestSession_Wait_TeardownChainTimeout(t *testing.T) {
+	origChain := teardownTimeoutChainDuration
+	teardownTimeoutChainDuration = 80 * time.Millisecond
+	defer func() { teardownTimeoutChainDuration = origChain }()
+
+	sess, err := NewReceiveSession(io.Discard, t.TempDir()+"/out.bin", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess.SetChainTeardown(true)
+	sess.engine.EnterReceiveForTest()
+	sess.started.Store(true)
+	sess.testBlockIdle.Store(true)
+	sess.finish(nil)
+
+	start := time.Now()
+	err = sess.Wait(t.Context())
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected teardown timeout")
+	}
+	if !errors.Is(err, ErrTeardownTimeout) {
+		t.Fatalf("expected ErrTeardownTimeout, got %v", err)
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Fatalf("chain teardown took %v; expected ~%v", elapsed, teardownTimeoutChainDuration)
 	}
 }
 
