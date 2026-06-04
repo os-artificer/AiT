@@ -45,7 +45,7 @@ func TestInjectInitialCommandsSingleLine(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-done
-	_, _ = c.scroll.Write([]byte(RemotePrompt("u", "h")))
+	_, _ = c.scroll.Write([]byte("AiT u@h:/home> "))
 	c.finishRemoteSetup(stdin, "u", "h")
 
 	body := stdin.String()
@@ -88,7 +88,8 @@ func TestWaitRemoteOutputQuietAfterPostInject(t *testing.T) {
 	}
 }
 
-func TestFinishRemoteSetupWritesPromptWithoutMarker(t *testing.T) {
+// TestFinishRemoteSetup_RefreshOnly (W6) does not print a static prompt; it refreshes remote PS1.
+func TestFinishRemoteSetup_RefreshOnly(t *testing.T) {
 	c := &Client{scroll: &terminal.Buffer{}}
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
@@ -114,15 +115,14 @@ func TestFinishRemoteSetupWritesPromptWithoutMarker(t *testing.T) {
 	os.Stdout = oldStdout
 	got := string(<-done)
 
-	want := RemotePrompt("u", "h")
-	if !strings.Contains(got, want) {
-		t.Fatalf("stdout = %q, want prompt %q", got, want)
+	if strings.Contains(got, RemotePrompt("u", "h")) {
+		t.Fatalf("stdout should not contain static placeholder prompt: %q", got)
 	}
 	if !c.remotePromptShown.Load() {
 		t.Fatal("expected remotePromptShown after paused setup")
 	}
-	if stdin.Len() != 0 {
-		t.Fatalf("stdin should not refresh when paused, got %q", stdin.String())
+	if stdin.String() != "\r" {
+		t.Fatalf("stdin want refresh \\r, got %q", stdin.String())
 	}
 }
 
@@ -132,34 +132,12 @@ func TestFinishRemoteSetupShowsPromptOnceWhenPaused(t *testing.T) {
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 
-	_, _ = c.scroll.Write([]byte(RemotePrompt("u", "h")))
-
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stdout = w
-
-	done := make(chan []byte, 1)
-	go func() {
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
-		done <- buf.Bytes()
-	}()
+	_, _ = c.scroll.Write([]byte("AiT u@h:/work> "))
 
 	c.finishRemoteSetup(stdin, "u", "h")
 
-	_ = w.Close()
-	os.Stdout = oldStdout
-	got := string(<-done)
-
-	want := RemotePrompt("u", "h")
-	if !strings.Contains(got, want) {
-		t.Fatalf("stdout = %q, want prompt %q", got, want)
-	}
 	if stdin.Len() != 0 {
-		t.Fatalf("stdin should be empty without refresh, got %q", stdin.String())
+		t.Fatalf("stdin should be empty when marker already buffered, got %q", stdin.String())
 	}
 	if !c.remotePromptShown.Load() {
 		t.Fatal("expected remotePromptShown")
@@ -172,7 +150,7 @@ func TestCopyOutDropsDuplicatePromptAfterShown(t *testing.T) {
 	user, host := "u", "h"
 	marker := remoteSetupPromptMarker(user, host)
 
-	if got := c.filterRemoteOutputChunk([]byte(RemotePrompt(user, host)), user, host, marker); got != nil {
+	if got := c.filterRemoteOutputChunk([]byte("AiT u@h:/tmp:main> "), user, host, marker); got != nil {
 		t.Fatalf("duplicate prompt should be dropped, got %q", got)
 	}
 	if got := c.filterRemoteOutputChunk([]byte("ls\r\n"), user, host, marker); got == nil {
@@ -181,21 +159,21 @@ func TestCopyOutDropsDuplicatePromptAfterShown(t *testing.T) {
 }
 
 func TestIsDuplicatePromptOutput(t *testing.T) {
-	prompt := RemotePrompt("u", "h")
-	if !isDuplicatePromptOutput([]byte(prompt), "u", "h") {
+	line := "AiT u@h:/data:main> "
+	if !isDuplicatePromptOutput([]byte(line), "u", "h") {
 		t.Fatal("exact prompt chunk should be duplicate")
 	}
-	if !isDuplicatePromptOutput([]byte("\r\n"+prompt+"\n"), "u", "h") {
+	if !isDuplicatePromptOutput([]byte("\r\n"+line+"\n"), "u", "h") {
 		t.Fatal("prompt with surrounding whitespace should be duplicate")
 	}
-	if isDuplicatePromptOutput([]byte(prompt+"ls\n"), "u", "h") {
+	if isDuplicatePromptOutput([]byte(line+"ls\n"), "u", "h") {
 		t.Fatal("prompt plus command should not be duplicate")
 	}
 }
 
 func TestWaitForRemoteAITPrompt(t *testing.T) {
 	c := &Client{scroll: &terminal.Buffer{}}
-	_, _ = c.scroll.Write([]byte("noise\n" + RemotePrompt("u", "h")))
+	_, _ = c.scroll.Write([]byte("noise\nAiT u@h:/home> "))
 
 	start := time.Now()
 	c.waitForRemoteAITPrompt("u", "h", time.Second)

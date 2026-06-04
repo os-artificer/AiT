@@ -106,7 +106,7 @@ SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line 
 |---------|--------|
 | `ait shell` | `AiT> ` |
 | `ait ai` (local) | `AiT AI(Ask)> ` or `AiT AI(Agent)> ` after `mode agent` |
-| SSH remote | `AiT user@host> ` |
+| SSH remote | `AiT user@host:dir[:git-branch]> ` (cwd + optional Git branch) |
 | SSH AI mode (`!ait ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
