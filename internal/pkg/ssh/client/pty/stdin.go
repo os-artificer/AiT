@@ -76,6 +76,11 @@ func (sr *Reader) DrainForward() {
 	sr.drainForward()
 }
 
+// REPLActive reports whether stdin is routed to the AI REPL instead of SSH forwarding.
+func (sr *Reader) REPLActive() bool {
+	return sr.replActive.Load()
+}
+
 // EndREPL stops routing stdin to the AI REPL and discards unread repl bytes.
 func (sr *Reader) EndREPL() {
 	sr.replActive.Store(false)

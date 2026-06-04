@@ -168,6 +168,24 @@ func TestTransferProgress_InlineDoneCRLF(t *testing.T) {
 	}
 }
 
+// TestTransferProgress_SFTPClosingPhase (V6) reports closing… after copy completes.
+func TestTransferProgress_SFTPClosingPhase(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	p.SFTPProgress(100, 100)
+	p.PhaseClosing()
+
+	got := buf.String()
+	if !strings.Contains(got, "closing…") {
+		t.Fatalf("missing closing phase: %q", got)
+	}
+	if strings.Contains(got, "\r\r\n") {
+		t.Fatalf("double-wrapped CRLF: %q", got)
+	}
+}
+
 func TestTransferProgress_LocalPathFromFilepath(t *testing.T) {
 	abs, err := filepath.Abs(".")
 	if err != nil {

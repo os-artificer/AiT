@@ -150,6 +150,10 @@ func (t *ZModemTransfer) waitTransfer(ctx context.Context) error {
 		return errors.New("zmodem session not active")
 	}
 
+	if t.progress != nil {
+		t.progress.PhaseFinishing()
+	}
+
 	time.Sleep(zmodemSettleDelay)
 	return zmodemTransferWaitHook(ctx, sess)
 }

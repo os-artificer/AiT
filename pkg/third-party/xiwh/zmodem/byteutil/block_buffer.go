@@ -6,7 +6,6 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type BlockBuffer struct {
@@ -101,26 +100,37 @@ func (t *BlockBuffer) Read(b []byte) (int, error) {
 	return 0, nil
 }
 
+// BytesReceived returns the number of payload bytes read from the buffer.
+func (t *BlockBuffer) BytesReceived() int64 {
+	return atomic.LoadInt64(&t.readedSize)
+}
+
 func (t *BlockBuffer) Close() error {
 	if t.closed {
 		return nil
 	}
 	t.closed = true
+	t.drainNotifyChannel()
 	select {
 	case t.ch <- 0:
 		return nil
-	case <-time.After(time.Second):
-		//关闭超时,清空channel等待关闭
-		running := true
-		for running {
-			select {
-			case <-t.ch:
-				break
-			default:
-				running = false
-				break
-			}
+	default:
+		t.drainNotifyChannel()
+		select {
+		case t.ch <- 0:
+			return nil
+		default:
+			return errors.New("close timeout")
 		}
-		return errors.New("close timeout")
+	}
+}
+
+func (t *BlockBuffer) drainNotifyChannel() {
+	for {
+		select {
+		case <-t.ch:
+		default:
+			return
+		}
 	}
 }

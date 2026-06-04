@@ -36,7 +36,7 @@ const metaCommands = `  help              show this help
   !! ask <msg>     one-shot AI reply
   !! agent <msg>   one-shot AI agent reply; may execute commands
   local             local mode (prompt: AiT Local>)
-  remote            return to remote shell (prompt: AiT user@host>)
+  remote            return to remote shell (prompt: AiT user@host:dir[:branch]>)
   chain [on|off]    toggle chain mode (PTY-pipe transfer for SSH hops)
   suspend           suspend session and disconnect
   get <remote> <local>   download file (reuses SSH, no re-auth)
