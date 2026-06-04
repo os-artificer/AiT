@@ -117,6 +117,15 @@ func sessionHostLabel(sess *store.Session) string {
 	return sess.Host
 }
 
+// remotePromptInitialCommands returns PS1 setup lines from session config (login/load shared path).
+func (m *Manager) remotePromptInitialCommands(user, host string) []string {
+	dirAbsolute := false
+	if m != nil && m.Config != nil {
+		dirAbsolute = m.Config.RemotePromptPathAbsolute()
+	}
+	return sshclient.RemotePromptInitialCommands(user, host, dirAbsolute)
+}
+
 func (m *Manager) purgeSessionArtifacts(sessID string) {
 	st, _ := m.Store.GetSessionState(sessID)
 	if st != nil && st.ScrollbackPath != "" {

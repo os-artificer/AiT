@@ -103,6 +103,10 @@ func mergeMissingDefaults(cfg *Config, fillTiered bool) []string {
 		cfg.Session.AuthTTL = def.Session.AuthTTL
 		added = append(added, "session.auth_ttl")
 	}
+	if cfg.Session.RemotePrompt.Path == "" {
+		cfg.Session.RemotePrompt.Path = def.Session.RemotePrompt.Path
+		added = append(added, "session.remote_prompt.path")
+	}
 	if cfg.AI.Default == "" {
 		cfg.AI.Default = def.AI.Default
 		added = append(added, "ai.default")

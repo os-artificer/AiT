@@ -4,6 +4,9 @@
 session:
   # Authentication cache TTL for load/switch without re-entering password
   auth_ttl: 168h
+  remote_prompt:
+    # short: last path segment (default); absolute: full path with ~ for $HOME
+    path: short
 
 ai:
   default: deepseek
