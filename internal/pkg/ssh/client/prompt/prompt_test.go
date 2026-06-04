@@ -56,12 +56,12 @@ func TestRemoteSetupMarker_Prefix(t *testing.T) {
 	}
 }
 
-// TestRemoteSetupLine_ContainsDirAndGit (W3) verifies dynamic PS1 includes cwd and git.
+// TestRemoteSetupLine_ContainsDirAndGit (W3) verifies dynamic PS1 includes cwd and git (default short).
 func TestRemoteSetupLine_ContainsDirAndGit(t *testing.T) {
-	line := RemoteSetupLine("u", "h")
+	line := RemoteSetupLine("u", "h", false)
 	for _, part := range []string{
 		"AiT u@h:",
-		"${PWD/#$HOME/",
+		`basename "${PWD:-/}"`,
 		"git rev-parse --abbrev-ref HEAD",
 		"PROMPT_SUBST",
 		"export PS1=",
@@ -69,6 +69,28 @@ func TestRemoteSetupLine_ContainsDirAndGit(t *testing.T) {
 		if !strings.Contains(line, part) {
 			t.Errorf("setup line missing %q: %s", part, line)
 		}
+	}
+}
+
+// TestRemoteSetupLine_ShortDir (W7) verifies short mode uses basename for cwd segment.
+func TestRemoteSetupLine_ShortDir(t *testing.T) {
+	line := RemoteSetupLine("u", "h", false)
+	if !strings.Contains(line, `basename "${PWD:-/}"`) {
+		t.Fatalf("short setup should use basename: %s", line)
+	}
+	if strings.Contains(line, "${PWD/#$HOME") {
+		t.Fatalf("short setup should not use absolute PWD substitution: %s", line)
+	}
+}
+
+// TestRemoteSetupLine_AbsoluteDir (W8) verifies absolute mode uses $HOME tilde substitution.
+func TestRemoteSetupLine_AbsoluteDir(t *testing.T) {
+	line := RemoteSetupLine("u", "h", true)
+	if !strings.Contains(line, "${PWD/#$HOME") {
+		t.Fatalf("absolute setup should use PWD/#$HOME: %s", line)
+	}
+	if strings.Contains(line, "basename") {
+		t.Fatalf("absolute setup should not use basename: %s", line)
 	}
 }
 
@@ -88,7 +110,7 @@ func TestIsRemotePromptLine(t *testing.T) {
 }
 
 func TestRemoteInitialCommands(t *testing.T) {
-	cmds := RemoteInitialCommands("u", "h")
+	cmds := RemoteInitialCommands("u", "h", false)
 	if len(cmds) != 1 {
 		t.Fatalf("cmds = %v, want single setup line", cmds)
 	}
@@ -101,13 +123,13 @@ func TestRemoteInitialCommands(t *testing.T) {
 	if strings.Contains(line, "printf '\\033[1A\\033[2K\\r%s'") {
 		t.Errorf("setup line should not printf display: %s", line)
 	}
-	if len(RemoteInitialCommands("", "h")) != 0 {
+	if len(RemoteInitialCommands("", "h", false)) != 0 {
 		t.Error("empty user should return nil")
 	}
 }
 
 func TestRemoteSetupStripFragments(t *testing.T) {
-	frags := RemoteSetupStripFragments("u", "h")
+	frags := RemoteSetupStripFragments("u", "h", false)
 	if len(frags) < 2 {
 		t.Fatalf("fragments = %v", frags)
 	}

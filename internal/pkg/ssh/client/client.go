@@ -77,6 +77,7 @@ type Client struct {
 	lastRemoteOut       atomic.Int64
 	remoteSetupSuppress atomic.Bool
 	remotePromptShown   atomic.Bool
+	remotePromptDirAbs  bool
 	setupFilter         setupOutputFilter
 	stdinReader         *stdinReader // set for RunInteractive; used during remote AI REPL
 	chainMode           atomic.Bool  // false by default; PTY-pipe injection when chain mode is on
@@ -137,7 +138,9 @@ type InteractiveOpts struct {
 	// the shell starts (e.g. "cd /restored/path"). Each entry is sent as a
 	// separate line.
 	InitialCommands []string
-	AI              *ai.Client
+	// RemotePromptDirAbsolute selects absolute vs short (basename) cwd in the remote PS1.
+	RemotePromptDirAbsolute bool
+	AI                      *ai.Client
 	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/ait/cli.
 	OnRemoteAI RemoteAIRunner
 	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
@@ -259,6 +262,7 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	if len(opts.InitialCommands) > 0 {
 		c.pauseRemoteOut.Store(true)
 		c.remoteSetupSuppress.Store(true)
+		c.remotePromptDirAbs = opts.RemotePromptDirAbsolute
 		c.setupFilter = setupOutputFilter{}
 	}
 	wg.Add(2)

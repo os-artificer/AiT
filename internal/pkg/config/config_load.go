@@ -88,6 +88,7 @@ func loadOrMigrateLegacy(cfg *Config) (*Config, error) {
 func defaults() *Config {
 	cfg := &Config{}
 	cfg.Session.AuthTTL = DefaultAuthTTL.String()
+	cfg.Session.RemotePrompt.Path = RemotePromptPathShort
 	cfg.AI.Default = ProviderDeepseek
 	cfg.AI.Providers = map[string]ProviderConfig{
 		ProviderDeepseek: defaultProviderConfig(ProviderDeepseek),

@@ -253,7 +253,7 @@ CREATE TABLE app_meta (
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
 | `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
-| SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`（`$PWD` 家目录显示为 `~`；在 Git 仓库时追加 `:分支`）；`finishRemoteSetup` 按需发送 `\r` 重绘；`copyOut` 丢弃重复 precmd 行（R2）；本地过滤隐藏 setup 回显（R1） |
+| SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`；`finishRemoteSetup` 按需发送 `\r` 重绘；`copyOut` 丢弃重复 precmd 行（R2）；本地过滤隐藏 setup 回显（R1） |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
