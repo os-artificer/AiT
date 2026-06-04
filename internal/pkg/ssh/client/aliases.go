@@ -51,13 +51,13 @@ func RemotePrompt(user, host string) string {
 }
 
 // RemoteSetupStripFragments returns scrollback/filter fragments for remote PS1 setup leakage.
-func RemoteSetupStripFragments(user, host string) []string {
-	return prompt.RemoteSetupStripFragments(user, host)
+func RemoteSetupStripFragments(user, host string, dirAbsolute bool) []string {
+	return prompt.RemoteSetupStripFragments(user, host, dirAbsolute)
 }
 
 // RemotePromptInitialCommands returns shell setup lines to set PS1/PROMPT after the remote shell starts.
-func RemotePromptInitialCommands(user, host string) []string {
-	return prompt.RemoteInitialCommands(user, host)
+func RemotePromptInitialCommands(user, host string, dirAbsolute bool) []string {
+	return prompt.RemoteInitialCommands(user, host, dirAbsolute)
 }
 
 func remoteSetupPromptMarker(user, host string) string {

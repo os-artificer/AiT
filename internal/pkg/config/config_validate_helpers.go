@@ -45,16 +45,26 @@ func validateSemantics(cfg *Config) []ValidationIssue {
 }
 
 func validateSession(cfg *Config) []ValidationIssue {
-	if cfg.Session.AuthTTL == "" {
-		return nil
+	var issues []ValidationIssue
+
+	if cfg.Session.AuthTTL != "" {
+		if _, err := time.ParseDuration(cfg.Session.AuthTTL); err != nil {
+			issues = append(issues, ValidationIssue{
+				Field:   "session.auth_ttl",
+				Message: fmt.Sprintf("invalid duration %q", cfg.Session.AuthTTL),
+			})
+		}
 	}
-	if _, err := time.ParseDuration(cfg.Session.AuthTTL); err != nil {
-		return []ValidationIssue{{
-			Field:   "session.auth_ttl",
-			Message: fmt.Sprintf("invalid duration %q", cfg.Session.AuthTTL),
-		}}
+
+	path := strings.ToLower(strings.TrimSpace(cfg.Session.RemotePrompt.Path))
+	if path != "" && path != RemotePromptPathShort && path != RemotePromptPathAbsolute {
+		issues = append(issues, ValidationIssue{
+			Field:   "session.remote_prompt.path",
+			Message: fmt.Sprintf("must be %q or %q", RemotePromptPathShort, RemotePromptPathAbsolute),
+		})
 	}
-	return nil
+
+	return issues
 }
 
 func validateAI(cfg *Config) []ValidationIssue {

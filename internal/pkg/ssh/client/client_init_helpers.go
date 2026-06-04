@@ -75,7 +75,7 @@ func (c *Client) finishRemoteSetup(stdin io.Writer, user, host string) {
 	marker := remoteSetupPromptMarker(user, host)
 
 	c.waitForRemoteAITPrompt(user, host, remoteAITPromptMaxWait)
-	c.scroll.StripSubstrings(RemoteSetupStripFragments(user, host)...)
+	c.scroll.StripSubstrings(RemoteSetupStripFragments(user, host, c.remotePromptDirAbs)...)
 	if tail := c.setupFilter.flush(user, host); len(tail) > 0 {
 		_, _ = c.scroll.Write(tail)
 	}

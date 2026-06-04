@@ -99,7 +99,7 @@ func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client
 		}
 	}
 
-	initialCmds := sshclient.RemotePromptInitialCommands(sess.Username, sess.Host)
+	initialCmds := m.remotePromptInitialCommands(sess.Username, sess.Host)
 	err = m.runInteractive(ctx, client, sess, initialCmds, plan.persist)
 	if err != nil && plan.persist {
 		m.clearSessionOnFailure(sess.ID, true)

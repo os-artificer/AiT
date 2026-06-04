@@ -40,7 +40,7 @@ func TestInjectInitialCommandsSingleLine(t *testing.T) {
 		close(done)
 	}()
 
-	cmds := RemotePromptInitialCommands("u", "h")
+	cmds := RemotePromptInitialCommands("u", "h", false)
 	if err := c.injectInitialCommands(stdin, cmds); err != nil {
 		t.Fatal(err)
 	}

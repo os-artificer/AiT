@@ -121,6 +121,29 @@ func TestValidate_BadMinimaxURL(t *testing.T) {
 	}
 }
 
+// TestValidate_BadRemotePromptPath (W9) rejects invalid session.remote_prompt.path.
+func TestValidate_BadRemotePromptPath(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("AIT_HOME", root)
+
+	path := filepath.Join(root, "config.yaml")
+	yaml := "session:\n  auth_ttl: 168h\n  remote_prompt:\n    path: full\nai:\n  default: deepseek\n  providers:\n    deepseek:\n      model: deepseek-chat\n"
+	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := Validate(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.OK() {
+		t.Fatal("expected failure")
+	}
+	if !strings.Contains(report.Error(), "session.remote_prompt.path") {
+		t.Fatalf("issues=%q", report.Error())
+	}
+}
+
 func TestFormatValidation_OK(t *testing.T) {
 	var buf bytes.Buffer
 	FormatValidation(&buf, &ValidationReport{Path: "/tmp/config.yaml"})
