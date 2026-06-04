@@ -18,7 +18,6 @@ package client
 
 import (
 	"io"
-	"os"
 	"strings"
 	"time"
 )
@@ -71,10 +70,9 @@ func (c *Client) waitForRemoteAITPrompt(user, host string, maxWait time.Duration
 	}
 }
 
-// finishRemoteSetup ends setup suppression, strips leaked setup text from scrollback, shows the AiT prompt, and unpauses display.
+// finishRemoteSetup ends setup suppression, strips leaked setup text from scrollback, refreshes the remote PS1, and unpauses display.
 func (c *Client) finishRemoteSetup(stdin io.Writer, user, host string) {
 	marker := remoteSetupPromptMarker(user, host)
-	prompt := RemotePrompt(user, host)
 
 	c.waitForRemoteAITPrompt(user, host, remoteAITPromptMaxWait)
 	c.scroll.StripSubstrings(RemoteSetupStripFragments(user, host)...)
@@ -82,12 +80,15 @@ func (c *Client) finishRemoteSetup(stdin io.Writer, user, host string) {
 		_, _ = c.scroll.Write(tail)
 	}
 
+	hasMarker := strings.Contains(c.scroll.String(), marker)
 	if c.pauseRemoteOut.Load() {
-		_, _ = os.Stdout.Write([]byte(prompt))
+		if !hasMarker {
+			c.refreshRemotePrompt(stdin)
+		}
 		c.remotePromptShown.Store(true)
-	} else if !strings.Contains(c.scroll.String(), marker) {
-		_, _ = os.Stdout.Write([]byte(prompt))
+	} else if !hasMarker {
 		c.refreshRemotePrompt(stdin)
+		c.remotePromptShown.Store(true)
 	}
 
 	c.remoteSetupSuppress.Store(false)

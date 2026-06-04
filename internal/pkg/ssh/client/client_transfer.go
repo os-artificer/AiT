@@ -56,6 +56,9 @@ func (c *Client) handleTransferPut(ctx context.Context, stdin io.Writer, args []
 }
 
 func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transfer.Direction, usage string, args []string) error {
+	transferCtx, endTransfer := c.beginTransfer(ctx)
+	defer endTransfer()
+
 	if len(args) != 2 {
 		err := transferUsageHintErr(usage)
 		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
@@ -77,7 +80,7 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 
 	var err error
 	if plan.Backend == route.BackendZModem && !plan.LrzszOK && plan.ChainOnly {
-		err = c.ensureLrzszForChain(ctx, stdin, activeHost, target)
+		err = c.ensureLrzszForChain(transferCtx, stdin, activeHost, target)
 		if err != nil {
 			errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
 			c.finishMetaInteraction(stdin)
@@ -87,10 +90,10 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 
 	switch plan.Backend {
 	case route.BackendZModem:
-		err = transferRunPTY(c, ctx, stdin, dir, args, prog)
+		err = transferRunPTY(c, transferCtx, stdin, dir, args, prog)
 		if err != nil && !plan.ChainOnly && zmodemFallbackEligible(err) {
 			zmodemSftpFallbackNotice(activeHost, c.opts.Host)
-			err = transferRunSFTP(c, ctx, dir, args, prog)
+			err = transferRunSFTP(c, transferCtx, dir, args, prog)
 		} else if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
 			err = wrapPTYCaptureErr(err)
 		} else if err != nil && (errors.Is(err, ErrMissingLrzsz) || strings.Contains(err.Error(), "zmodem")) {
@@ -104,14 +107,18 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 				sftpFallbackNotice(c.opts.Host)
 			}
 		}
-		err = c.handleTransferSFTP(ctx, dir, args, prog)
+		err = c.handleTransferSFTP(transferCtx, dir, args, prog)
 		if err != nil && isSFTPNotFoundErr(err) {
 			err = wrapTransferWrongHop(c.opts.Host, err)
 		}
 	}
 
 	if err != nil {
-		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
+		if errors.Is(err, context.Canceled) {
+			termPrintln(os.Stderr, transferProgressPrefix+"transfer cancelled")
+		} else {
+			errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
+		}
 	}
 	c.finishMetaInteraction(stdin)
 	return nil
@@ -145,15 +152,17 @@ func (c *Client) resolveTransferMode(stdin io.Writer) (usePTY bool, autoEnabled 
 // handleTransferSFTP uses the direct SFTP connection for file transfer.
 func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction, args []string, prog *TransferProgress) error {
 	var copyProgress transfer.CopyProgress
+	var onClosing func()
 	if prog != nil {
 		copyProgress = prog.SFTPProgress
+		onClosing = prog.PhaseClosing
 	}
 
 	if dir == transfer.DirGet {
 		if prog != nil {
 			prog.StartGet(args[0], args[1], -1)
 		}
-		err := transfer.GetWithProgress(ctx, c.conn, args[0], args[1], copyProgress)
+		err := transfer.GetWithProgressClosing(ctx, c.conn, args[0], args[1], copyProgress, onClosing)
 		if err != nil {
 			return err
 		}
@@ -166,7 +175,7 @@ func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction,
 	if prog != nil {
 		prog.StartPut(args[0], args[1], -1)
 	}
-	err := transfer.PutWithProgress(ctx, c.conn, args[0], args[1], copyProgress)
+	err := transfer.PutWithProgressClosing(ctx, c.conn, args[0], args[1], copyProgress, onClosing)
 	if err != nil {
 		return err
 	}

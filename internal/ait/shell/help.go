@@ -58,7 +58,7 @@ const (
 )
 
 const shellREPLPrompts = `  AiT>              not connected (this shell)
-  AiT user@host>    remote SSH session
+  AiT user@host:dir[:branch]>  remote SSH session (cwd + Git branch when in repo)
   AiT Local>        local mode inside SSH (!ait local)
 `
 

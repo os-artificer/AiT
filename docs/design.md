@@ -248,12 +248,12 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 
 ## Key flows
 
-### Prompts (`AiT>` / `AiT Local>` / `AiT user@host>`)
+### Prompts (`AiT>` / `AiT Local>` / `AiT user@host:dir[:branch]>`)
 
 | Scenario | Prompt | How it is set |
 |----------|--------|----------------|
 | `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
-| SSH remote | `AiT user@host> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) single-line inject after `load`/`login`; setup does not printf the prompt remotely—local writes it once and `copyOut` drops a duplicate precmd line (no extra Enter); filter hides setup echo (independent of standalone `ait get`/`put` SFTP) |
+| SSH remote | `AiT user@host:dir[:git-branch]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) injects dynamic bash `PS1` / zsh `PROMPT` (`$PWD` with `~` for home; optional `:branch` via `git rev-parse`) after `load`/`login`; `finishRemoteSetup` sends `\r` to redraw when needed; `copyOut` drops duplicate precmd lines (R2); filter hides setup echo (R1) |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)) |
 
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.

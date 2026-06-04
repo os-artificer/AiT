@@ -19,6 +19,8 @@ package client
 import (
 	"bytes"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/prompt"
 )
 
 type setupOutputFilter struct {
@@ -68,11 +70,11 @@ func isSetupLeakLine(line, user, host string) bool {
 	if strings.Contains(line, "stty -echo") {
 		return true
 	}
-	marker := remoteSetupPromptMarker(user, host)
-	if strings.Contains(line, "export PS1='") && strings.Contains(line, marker) {
+	prefix := prompt.RemotePrefix(user, host)
+	if strings.Contains(line, "export PS1='") && strings.Contains(line, prefix) {
 		return true
 	}
-	if strings.Contains(line, "export PROMPT='") && strings.Contains(line, marker) {
+	if strings.Contains(line, "export PROMPT='") && strings.Contains(line, prefix) {
 		return true
 	}
 	if strings.Contains(line, "printf '\\033[1A") && strings.Contains(line, "stty echo") {
@@ -107,5 +109,5 @@ func isDuplicatePromptOutput(p []byte, user, host string) bool {
 	if s == "" {
 		return false
 	}
-	return s == strings.TrimSpace(RemotePrompt(user, host))
+	return prompt.IsRemotePromptLine(user, host, s)
 }
