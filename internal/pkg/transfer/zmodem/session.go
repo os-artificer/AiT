@@ -34,17 +34,24 @@ import (
 const (
 	waitPollInterval = 50 * time.Millisecond
 	handshakeTimeout = 30 * time.Second
+	teardownTimeout  = 15 * time.Second
 	waitMaxDuration  = 30 * time.Minute
 )
 
 // handshakeTimeoutDuration is the wait for the remote sz/rz peer to start (overridable in tests).
 var handshakeTimeoutDuration = handshakeTimeout
 
+// teardownTimeoutDuration is the wait for ZFIN after the data plane completes (overridable in tests).
+var teardownTimeoutDuration = teardownTimeout
+
 // ErrHandshakeTimeout is returned when the remote sz/rz peer does not start ZMODEM in time.
 var ErrHandshakeTimeout = errors.New("zmodem: handshake timed out waiting for remote sz/rz")
 
 // ErrNoProtocolResponse is returned when no ZMODEM frames arrive before handshake timeout.
 var ErrNoProtocolResponse = errors.New("zmodem: no protocol response from remote peer")
+
+// ErrTeardownTimeout is returned when ZFIN/idle is not reached soon after the file copy completes.
+var ErrTeardownTimeout = errors.New("zmodem: teardown timed out waiting for ZFIN")
 
 // ProgressFunc reports bytes transferred during a ZMODEM session.
 type ProgressFunc func(written, total int64)
@@ -56,6 +63,8 @@ type Session struct {
 	done    chan error
 	once    sync.Once
 	started atomic.Bool
+	// testBlockIdle forces non-idle status after data done (tests in this package only).
+	testBlockIdle atomic.Bool
 }
 
 // NewReceiveSession configures local ZMODEM receive (lrz) after remote sz starts.
@@ -160,25 +169,55 @@ func (s *Session) Close() {
 func (s *Session) Wait(ctx context.Context) error {
 	start := time.Now()
 	handshakeDeadline := start.Add(handshakeTimeoutDuration)
-	deadline := start.Add(waitMaxDuration)
+	overallDeadline := start.Add(waitMaxDuration)
 	ticker := time.NewTicker(waitPollInterval)
 	defer ticker.Stop()
 
+	dataDone := false
+	var teardownDeadline time.Time
+
 	for {
+		if err := ctx.Err(); err != nil {
+			s.Abort()
+			return err
+		}
+
 		status := s.engine.GetStatus()
 		if status != xzmodem.StatusIdle {
 			s.started.Store(true)
 		}
 
-		if status == xzmodem.StatusIdle && s.started.Load() {
+		if dataDone && status == xzmodem.StatusIdle && !s.testBlockIdle.Load() {
+			return nil
+		}
+
+		if !dataDone {
 			select {
+			case <-ctx.Done():
+				s.Abort()
+				return ctx.Err()
 			case err := <-s.done:
 				if err != nil {
+					s.Abort()
 					return err
 				}
-			default:
+				dataDone = true
+				teardownDeadline = time.Now().Add(teardownTimeoutDuration)
+			case <-ticker.C:
+				now := time.Now()
+				if !s.started.Load() && now.After(handshakeDeadline) {
+					s.Abort()
+					return fmt.Errorf("%w", ErrHandshakeTimeout)
+				}
+				if now.After(overallDeadline) {
+					s.Abort()
+					if !s.started.Load() {
+						return fmt.Errorf("%w", ErrNoProtocolResponse)
+					}
+					return fmt.Errorf("zmodem: transfer timed out")
+				}
 			}
-			return nil
+			continue
 		}
 
 		select {
@@ -187,22 +226,16 @@ func (s *Session) Wait(ctx context.Context) error {
 			return ctx.Err()
 		case err := <-s.done:
 			if err != nil {
+				s.Abort()
 				return err
 			}
-			if s.engine.GetStatus() == xzmodem.StatusIdle {
-				return nil
-			}
 		case <-ticker.C:
-			now := time.Now()
-			if !s.started.Load() && now.After(handshakeDeadline) {
+			if time.Now().After(teardownDeadline) {
 				s.Abort()
-				return fmt.Errorf("%w", ErrHandshakeTimeout)
+				return fmt.Errorf("%w", ErrTeardownTimeout)
 			}
-			if now.After(deadline) {
+			if time.Now().After(overallDeadline) {
 				s.Abort()
-				if !s.started.Load() {
-					return fmt.Errorf("%w", ErrNoProtocolResponse)
-				}
 				return fmt.Errorf("zmodem: transfer timed out")
 			}
 		}

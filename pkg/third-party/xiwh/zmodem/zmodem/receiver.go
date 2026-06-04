@@ -98,7 +98,15 @@ func (t *ZModem) handleReceive() {
 				_ = buf.Close()
 			}
 		case ZEOF:
-			//文件传输完毕
+			if t.lastDownloadFile != nil {
+				if buf, ok := t.lastDownloadFile.buf.(*byteutil.BlockBuffer); ok {
+					if !zeofOffsetMatches(dataFrame.headerData, buf) {
+						_ = t.sendFrame(newHexFrame(ZFERR, DEFAULT_HEADER_DATA))
+						t.close()
+						return
+					}
+				}
+			}
 			err = t.sendFrame(newHexFrame(ZRINIT, DEFAULT_HEADER_DATA))
 			if err != nil {
 				return

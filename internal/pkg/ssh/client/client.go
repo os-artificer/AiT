@@ -82,6 +82,9 @@ type Client struct {
 	chainMode           atomic.Bool  // false by default; PTY-pipe injection when chain mode is on
 	zmodemActive        atomic.Bool
 	zmodemSession       *zmodem.Session
+	transferMu          sync.Mutex
+	transferCancel      context.CancelFunc
+	transferActive      atomic.Bool
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.

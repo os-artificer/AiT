@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -36,7 +37,14 @@ const (
 	DirPut
 )
 
-func transferFile(ctx context.Context, conn *ssh.Client, dir Direction, localPath, remotePath string, progress CopyProgress) error {
+func transferFile(
+	ctx context.Context,
+	conn *ssh.Client,
+	dir Direction,
+	localPath, remotePath string,
+	progress CopyProgress,
+	onClosing func(),
+) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -69,14 +77,14 @@ func transferFile(ctx context.Context, conn *ssh.Client, dir Direction, localPat
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	copyTotal := totalSize
 	if dir == DirGet && remoteSize > 0 {
 		copyTotal = remoteSize
 	}
 
-	if err := copyWithContext(ctx, dst, src, copyTotal, progress); err != nil {
+	if err := copyWithContext(ctx, dst, newCtxReader(ctx, src), copyTotal, progress); err != nil {
+		cleanup()
 		if dir == DirGet {
 			_ = os.Remove(localAbs)
 			return wrapLocalErr(localAbs, err)
@@ -84,7 +92,11 @@ func transferFile(ctx context.Context, conn *ssh.Client, dir Direction, localPat
 		return wrapRemoteErr(remotePath, err)
 	}
 
-	return finishTransfer(dir, localAbs, remotePath, dst)
+	if onClosing != nil {
+		onClosing()
+	}
+
+	return finishTransferWithCleanup(ctx, dir, localAbs, remotePath, dst, cleanup)
 }
 
 func validateLocalRegularFile(localAbs string) error {
@@ -126,8 +138,7 @@ func openTransferEnds(
 		}
 
 		return remote, local, func() {
-			_ = remote.Close()
-			_ = local.Close()
+			_ = closeWithTimeout(ctx, remote)
 		}, info.Size(), nil
 	}
 
@@ -154,19 +165,61 @@ func openTransferEnds(
 
 	return local, remote, func() {
 		_ = local.Close()
-		_ = remote.Close()
+		_ = closeWithTimeout(ctx, remote)
 	}, size, nil
 }
 
-func finishTransfer(dir Direction, localAbs, remotePath string, dst io.Writer) error {
+func finishTransferWithCleanup(
+	ctx context.Context,
+	dir Direction,
+	localAbs, remotePath string,
+	dst io.Writer,
+	cleanup func(),
+) error {
 	if dir == DirGet {
 		if c, ok := dst.(io.Closer); ok {
-			return wrapLocalErr(localAbs, c.Close())
+			if err := wrapLocalErr(localAbs, c.Close()); err != nil {
+				cleanup()
+				return err
+			}
+		}
+		if cleanup != nil {
+			cleanup()
 		}
 		return nil
 	}
+
 	if c, ok := dst.(io.Closer); ok {
-		return wrapRemoteErr(remotePath, c.Close())
+		if err := wrapRemoteErr(remotePath, closeWithTimeout(ctx, c)); err != nil {
+			if cleanup != nil {
+				cleanup()
+			}
+			return err
+		}
+	}
+	if cleanup != nil {
+		cleanup()
 	}
 	return nil
+}
+
+const connCloseTimeout = 30 * time.Second
+
+// closeWithTimeout closes c, returning an error if close blocks longer than connCloseTimeout.
+func closeWithTimeout(ctx context.Context, c interface{ Close() error }) error {
+	if c == nil {
+		return nil
+	}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.Close()
+	}()
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(connCloseTimeout):
+		return context.DeadlineExceeded
+	}
 }

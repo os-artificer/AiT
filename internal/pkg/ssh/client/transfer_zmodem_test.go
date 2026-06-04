@@ -147,6 +147,35 @@ func TestZModemTransfer_ProgressUnifiedCopying(t *testing.T) {
 	}
 }
 
+// TestZModemTransfer_FinishingPhase (V5) shows finishing… before wait completes.
+func TestZModemTransfer_FinishingPhase(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	origWait := zmodemTransferWaitHook
+	defer func() { zmodemTransferWaitHook = origWait }()
+	zmodemTransferWaitHook = func(context.Context, *zmodem.Session) error {
+		return nil
+	}
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	c := &Client{}
+	zt := &ZModemTransfer{client: c, progress: p}
+
+	sess, err := zmodem.NewReceiveSession(io.Discard, t.TempDir()+"/out", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.zmodemSession = sess
+
+	zt.waitTransfer(t.Context())
+
+	got := buf.String()
+	if !strings.Contains(got, "finishing…") {
+		t.Fatalf("missing finishing phase: %q", got)
+	}
+}
+
 func TestZModemTransfer_HandshakeInlineOverwritten(t *testing.T) {
 	enableTransferProgressInlineTTY(t)
 

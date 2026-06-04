@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	transferProgressPrefix = "AiT: "
-	transferProgressPctFmt = "copying… %d%%"
+	transferProgressPrefix       = "AiT: "
+	transferProgressPctFmt       = "copying… %d%%"
+	transferProgressClosingFmt   = "closing…"
+	transferProgressFinishingFmt = "finishing…"
 )
 
 // transferProgressPhaseHook, when set, replaces Phase output (tests only).
@@ -126,6 +128,22 @@ func (p *TransferProgress) reportPercent(pct int64) {
 	}
 	p.lastPct = pct
 	p.PhaseInline(fmt.Sprintf(transferProgressPctFmt, pct))
+}
+
+// PhaseClosing reports the SFTP close phase after copy reaches 100%.
+func (p *TransferProgress) PhaseClosing() {
+	if p == nil {
+		return
+	}
+	p.PhaseInline(transferProgressClosingFmt)
+}
+
+// PhaseFinishing reports the ZMODEM protocol teardown phase after copy reaches 100%.
+func (p *TransferProgress) PhaseFinishing() {
+	if p == nil {
+		return
+	}
+	p.PhaseInline(transferProgressFinishingFmt)
 }
 
 // SFTPProgress reports copy percentage during SFTP transfer.

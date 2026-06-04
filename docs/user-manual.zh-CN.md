@@ -106,7 +106,7 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 |------|--------|
 | `ait shell` | `AiT> ` |
 | `ait ai`（本机） | `AiT AI(Ask)> ` 或 `mode agent` 后为 `AiT AI(Agent)> ` |
-| SSH 远程 | `AiT user@host> ` |
+| SSH 远程 | `AiT user@host:目录[:git分支]> `（当前目录；Git 仓库时显示分支） |
 | SSH AI 模式（`!ait ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
