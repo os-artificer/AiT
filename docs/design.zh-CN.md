@@ -254,6 +254,7 @@ CREATE TABLE app_meta (
 |------|--------|----------|
 | `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
 | SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`；`finishRemoteSetup` 按需发送 `\r` 重绘；`copyOut` 丢弃重复 precmd 行（R2）；本地过滤隐藏 setup 回显（R1） |
+| SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ait login -J jump,final` 一次登录到最终主机 |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
@@ -442,7 +443,7 @@ sequenceDiagram
 
 当连接路径为 `本地 → 堡垒机`（login）再手动 `ssh internal` 时，AiT `Client` 仅持有到堡垒机的直连 SSH 会话。SFTP（`conn.NewSession()`）及基于 `conn.NewSession()` 的 tmux 操作只能到达该拨号目标——**无法**直接到达 internal。已通过 PTY 管道工作的功能（AI 模式 `!!`、scrollback 捕获、远程 cwd 检测）不受跳板数量影响，因为 PTY stdin/stdout 穿越所有 SSH 连接。
 
-**链式模式**（`!ait chain on`，或嵌套 SSH 时会话内传输检测到主机名不一致时自动启用）将文件传输和 tmux 操作从 SFTP/直连会话切换为 PTY 管道注入。所有 AiT 注入的命令均为静默（在历史记录和终端中不可见）：
+**链式模式**（`!ait chain on`，嵌套 SSH 时会话内 `ssh` 成功后自动启用，或传输检测到主机名不一致时自动启用）将文件传输和 tmux 操作从 SFTP/直连会话切换为 PTY 管道注入。会话内简单 `ssh user@host` 在见到 MOTD 且输出安静后，还会在内层 shell 注入与 login 相同的 AiT `PS1`/`PROMPT`（`session.remote_prompt.path` 一致）。所有 AiT 注入的命令均为静默（在历史记录和终端中不可见）：
 
 | 层 | 机制 |
 |----|------|

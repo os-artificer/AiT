@@ -142,6 +142,7 @@ func (c *Client) processForwardStdinByte(
 	if _, err := stdin.Write(fwd); err != nil {
 		return forwardStdinResult{action: fwdStdinReturn, err: err}
 	}
+	c.noteInteractiveInput(fwd)
 	return forwardStdinResult{action: fwdStdinContinue}
 }
 
@@ -265,13 +266,19 @@ func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 // handleRemoteOutput processes one chunk of remote PTY output.
 // When ZMODEM is active, output is fed to the ZMODEM session instead.
 // Filtered output is appended to scrollback and written to stdout unless paused.
-func (c *Client) handleRemoteOutput(buf []byte, user, host, promptMarker string) {
+func (c *Client) handleRemoteOutput(buf []byte) {
 	c.touchRemoteOut()
 
 	if c.zmodemActive.Load() {
 		c.feedZModemOutput(buf)
 		return
 	}
+
+	c.maybeInjectNestedPrompt(buf)
+
+	user := c.promptUser()
+	host := c.promptHost()
+	promptMarker := c.promptMarker()
 
 	chunk := c.filterRemoteOutputChunk(buf, user, host, promptMarker)
 	if chunk == nil {

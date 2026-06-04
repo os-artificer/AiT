@@ -86,6 +86,18 @@ type Client struct {
 	transferMu          sync.Mutex
 	transferCancel      context.CancelFunc
 	transferActive      atomic.Bool
+
+	activePromptUser      string
+	activePromptHost      string
+	forwardLineBuf        []byte
+	interactiveStdin      io.Writer
+	nestedMu              sync.Mutex
+	nestedState           nestedPromptState
+	pendingNestedUser     string
+	pendingNestedHost     string
+	nestedAwaitingSince   time.Time
+	nestedMOTDSeen        bool
+	nestedPasswordPending bool
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.
@@ -232,16 +244,16 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 
 	var wg sync.WaitGroup
 
-	user := c.opts.User
-	host := c.opts.Host
-	promptMarker := remoteSetupPromptMarker(user, host)
+	c.initActivePrompt()
+	c.interactiveStdin = stdin
+	c.nestedState = nestedPromptIdle
 
 	copyOut := func(r io.Reader) {
 		buf := make([]byte, ioCopyBufSize)
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {
-				c.handleRemoteOutput(buf[:n], user, host, promptMarker)
+				c.handleRemoteOutput(buf[:n])
 			}
 			if err != nil {
 				return

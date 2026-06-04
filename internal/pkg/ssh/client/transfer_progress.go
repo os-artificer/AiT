@@ -143,6 +143,14 @@ func (p *TransferProgress) PhaseFinishing() {
 	if p == nil {
 		return
 	}
+	if transferProgressPhaseHook != nil {
+		transferProgressPhaseHook(p, transferProgressFinishingFmt)
+		return
+	}
+	if p.inlineActive {
+		termPrintln(p.w, "")
+		p.inlineActive = false
+	}
 	p.PhaseInline(transferProgressFinishingFmt)
 }
 

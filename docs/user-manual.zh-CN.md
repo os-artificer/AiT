@@ -106,7 +106,8 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 |------|--------|
 | `ait shell` | `AiT> ` |
 | `ait ai`（本机） | `AiT AI(Ask)> ` 或 `mode agent` 后为 `AiT AI(Agent)> ` |
-| SSH 远程 | `AiT user@host:目录[:git分支]> `（`session.remote_prompt.path`：`short` 末级目录名 / `absolute` 完整路径；Git 仓库时显示分支） |
+| SSH 远程 | `AiT user@host:目录[:git分支]> `（`session.remote_prompt.path`：`short` / `absolute`；Git 分支可选） |
+| SSH 内层 | 会话内 `ssh` 到更深层后同样显示 AiT 提示符 | 或 `ait login -J jump,final` 一次登录到目标主机 |
 | SSH AI 模式（`!ait ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 

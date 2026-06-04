@@ -82,6 +82,11 @@ func newHexFrame(frameType FrameType, info []byte) (frameData frame) {
 	return frameData
 }
 
+// HexFrameBytes marshals a hex-encoded ZMODEM frame (tests and diagnostics).
+func HexFrameBytes(frameType FrameType, info []byte) ([]byte, error) {
+	return newHexFrame(frameType, info).marshal()
+}
+
 func unmarshalFrame(data []byte) (dataFrame frame, n int, err error) {
 	dataLen := len(data)
 	if dataLen < 6 {

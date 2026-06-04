@@ -150,6 +150,8 @@ func (t *ZModemTransfer) waitTransfer(ctx context.Context) error {
 		return errors.New("zmodem session not active")
 	}
 
+	sess.SetChainTeardown(t.client.ChainMode())
+
 	if t.progress != nil {
 		t.progress.PhaseFinishing()
 	}
