@@ -10,7 +10,7 @@
 
 ## 特性
 
-在兼容 OpenSSH 配置与连接参数的前提下，AiT 在会话管理、恢复与终端内协作上提供以下能力（相对常规 `ssh` 交互会话）。
+在兼容 OpenSSH 配置与连接参数的前提下，AiT 在会话管理、恢复与终端内协作上提供以下能力（相对常规 `ssh` 交互会话）。交互式 login 与 session load 连接后立即显示远程 AiT 提示符；会话内 `!ait get`/`put` 支持省略目标路径（默认源文件 basename），链式 ZMODEM/SFTP 进度直至 `done:`（详见[用户手册](docs/user-manual.zh-CN.md)）。
 
 ### 会话管理
 

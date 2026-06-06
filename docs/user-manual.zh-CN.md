@@ -105,11 +105,13 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | 场景 | 提示符 |
 |------|--------|
 | `ait shell` | `AiT> ` |
-| `ait ai`（本机） | `AiT AI(Ask)> ` 或 `mode agent` 后为 `AiT AI(Agent)> ` |
+| `ait ai`（本机） | 默认 `AiT AI(Agent)> `；`mode ask` 后为 `AiT AI(Ask)> ` |
 | SSH 远程 | `AiT user@host:目录[:git分支]> `（`session.remote_prompt.path`：`short` / `absolute`；Git 分支可选） |
 | SSH 内层 | 会话内 `ssh` 到更深层后同样显示 AiT 提示符 | 或 `ait login -J jump,final` 一次登录到目标主机 |
 | SSH AI 模式（`!ait ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
+
+**`ait login`** 或 **`ait session --load`** 连接成功后，远程 **`AiT user@host:…>`** 提示符应直接显示，无需额外按 Enter。
 
 ---
 
@@ -121,16 +123,16 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 
 ## AI 模式（云端 + 可选本地 Ollama）
 
-至少配置一个**云端** provider 的 API Key（见上文），除非仅用 tiered Ollama 处理简单问题。本地 AI 可运行 **`ait ai ollama setup`**——选择模型存储目录（`OLLAMA_MODELS`；默认 AiT 数据目录，或 `~/.ollama/models`，或 `--models-dir`）；安装 Ollama 前会询问 `[y/N]`；拒绝仍会写入 tiered 配置并打印手动安装说明。用 **`ait ai ollama status`** 查看服务状态；**`start`** / **`stop`** 控制守护进程；**`disable`**（或 `ait ai provider disable ollama`）停止路由。Ollama 无需密钥环。任何 `run` / `ait` 都须您确认后才会执行。
+至少配置一个**云端** provider 的 API Key（见上文），除非仅用 tiered Ollama 处理简单问题。本地 AI 可运行 **`ait ai ollama setup`**——选择模型存储目录（`OLLAMA_MODELS`；默认 AiT 数据目录，或 `~/.ollama/models`，或 `--models-dir`）；安装 Ollama 前会询问 `[y/N]`；拒绝仍会写入 tiered 配置并打印手动安装说明。用 **`ait ai ollama status`** 查看服务状态；**`start`** / **`stop`** 控制守护进程；**`disable`**（或 `ait ai provider disable ollama`）停止路由。Ollama 无需密钥环。默认 **Agent** 模式下，**只读命令**（如 `ls`、`git status`）自动执行；写命令与高危及 Ask 模式仍须确认。
 
 | 场景 | 进入方式 | 执行位置 |
 |------|----------|----------|
-| 本机（系统 shell 或 `ait shell`） | `ait ai`、`ait ai --model minimax`，或 shell 内 `ai` | `AiT AI(Ask)>` / `AiT AI(Agent)>` — `run` 在本机；`ait` 经确认后跑 CLI |
-| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` — `run` 写入远程 PTY |
+| 本机（系统 shell 或 `ait shell`） | `ait ai`、`ait ai --model minimax`，或 shell 内 `ai` | 默认 `AiT AI(Agent)>`（`mode ask` → `AiT AI(Ask)>`）— `run` 在本机；`ait` 经确认后跑 CLI |
+| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | 默认 `AiT AI(Agent) user@host>` — `run` 写入远程 PTY |
 
-每次 `run` / Agent 执行前有多行确认：**`y`** 仅本次，**`c`** 信任本会话内同**首词**命令，**`s`** 信任本会话所有低危命令，**`n`** 跳过。高危仅 **`y`** / **`n`**。
+写命令或高危 `run` / Agent 执行前有多行确认：**`y`** 仅本次，**`c`** 信任本会话内同**首词**命令，**`s`** 信任本会话所有低危命令，**`n`** 跳过。高危仅 **`y`** / **`n`**。Agent 模式下只读命令（如 `ls`、`git status`）无需确认即可执行。
 
-模式内：`help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 ask）、`approve each|session`（默认 each；`trust` 同 session）、`model` / `model list` / `model <deepseek|minimax>`，自然语言（ask 问答 / agent 自动规划）或 `run` / 本机 `ait`。`policy` 已弃用（请用 `approve`）。勿用 `!ait ai` 当 meta 子命令。
+模式内：`help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **agent**；**`mode ask`** 仅问答）、`approve each|session`（默认 each；`trust` 同 session）、`model` / `model list` / `model <deepseek|minimax>`，自然语言（ask 问答 / agent 自动规划）或 `run` / 本机 `ait`。`policy` 已弃用（请用 `approve`）。勿用 `!ait ai` 当 meta 子命令。
 
 启用 tiered 时，短句首轮走本地 Ollama；过长、含代码块、复杂关键词或多轮历史走云端。`--model` / `model <云端>` 本会话跳过 Ollama。
 
@@ -194,7 +196,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 - 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
 - SSH 会话内 `!ait get` / `!ait put` 复用当前连接（一至两个路径，无 flag）；省略的目标路径默认为源文件 basename。
 - **`!ait put` 的本机路径**指运行 AiT 的机器（笔记本/桌面），不是远程 shell 当前目录。**`!ait get` 的本机路径**同样在 AiT 客户端。远程路径相对于**当前 active shell**（链式模式下可能是嵌套跳板）。
-- SSH 会话内 **`!ait get` / `!ait put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `get … → …`、`handshake…`、`copying… 50%`、`done: get …`）。TTY 上 **`copying… N%` 在同一行内刷新**（get/put、SFTP 与链式 ZMODEM 文案一致）。阶段行与 done 行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
+- SSH 会话内 **`!ait get` / `!ait put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `get … → …`、`handshake…`、`copying… 50%`，SFTP 在 100% 后短暂 **`closing…`**，链式 ZMODEM 为 **`finishing…`**，再 `done: get …`）。TTY 上 **`copying… N%` 在同一行内刷新**（get/put、SFTP 与链式 ZMODEM 文案一致）。阶段行与 done 行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
 - 从本机执行 `ait session --switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
 
 ---
@@ -209,7 +211,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 
 **`!ait chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
 
-- **文件传输**：**优先 lrzsz** — 有 `sz`/`rz` 时经 PTY 跑 ZMODEM。链式且无 lrzsz 时，AiT 给出安装指引；交互 TTY 下询问 **`Install lrzsz on <host>? [y/N]`**，授权后在 active shell 执行 OS 对应安装命令（Linux 包管理器、Homebrew、choco/winget；可能需要远端 `sudo`）。进度含 `handshake…`、**`copying… NN%`**（与 SFTP 相同；TTY 上行内更新）。AiT 客户端无需本地 lrzsz。独立 `ait get/put` 仍走 SFTP。
+- **文件传输**：**优先 lrzsz** — 有 `sz`/`rz` 时经 PTY 跑 ZMODEM。链式且无 lrzsz 时，AiT 给出安装指引；交互 TTY 下询问 **`Install lrzsz on <host>? [y/N]`**，授权后在 active shell 执行 OS 对应安装命令（Linux 包管理器、Homebrew、choco/winget；可能需要远端 `sudo`）。进度含 `handshake…`、**`copying… NN%`**（与 SFTP 相同；TTY 上行内更新），100% 后 **`finishing…`** 再 `done:`（get/put 对称）。AiT 客户端无需本地 lrzsz。独立 `ait get/put` 仍走 SFTP（100% → **`closing…`** → `done:`）。
 - **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
 
 **`!ait chain off`** 返回默认 SFTP/直连会话模式。

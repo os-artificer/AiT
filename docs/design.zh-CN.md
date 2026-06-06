@@ -233,11 +233,11 @@ CREATE TABLE app_meta (
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/parse/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入 | `client.go`, `client_dial.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入、远程提示符 emit | `client.go`, `client_dial.go`, `client_init_helpers.go`, `client_init_prompt_emit_helpers.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback/delta.go`、`terminal/path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
-| [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件） | `transfer.go`、`parse.go` |
+| [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件）、路径默认 | `transfer.go`、`parse.go`、`path_defaults.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、编辑器 | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置、init、validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
 | [`internal/pkg/creds/`](../internal/pkg/creds/) | OS keyring | `keyring.go` |
@@ -253,7 +253,7 @@ CREATE TABLE app_meta (
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
 | `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
-| SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`；`finishRemoteSetup` 按需发送 `\r` 重绘；`copyOut` 丢弃重复 precmd 行（R2）；本地过滤隐藏 setup 回显（R1） |
+| SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`。setup 期间 `pauseRemoteOut` 将远程输出缓冲进 scrollback（R1 过滤 setup 泄漏）。[`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) 先 flush `setupFilter.pending`，再经 [`emitBufferedRemotePrompt`](../internal/pkg/ssh/client/client_init_prompt_emit_helpers.go)（raw TTY 前缀 `\r`）或 `\r` refresh 写 stdout；`remotePromptShown` 仅在 emit 成功或首条 prompt 经 [`handleRemoteOutput`](../internal/pkg/ssh/client/client_interactive_helpers.go) 到达 stdout 后置位，避免 refresh 回显被 duplicate 过滤（R2/W4 仍丢弃后续 precmd 重复）。login/load/nested 共用此路径，连接后应**无需按 Enter** 即见远程提示符。 |
 | SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ait login -J jump,final` 一次登录到最终主机 |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
@@ -323,6 +323,7 @@ sequenceDiagram
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
 - **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的 user@host:port 即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
 - 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；未保存会话时 `!ait suspend` 会提示需保存
+- PS1 setup 结束后，本地终端立即显示远程 AiT 提示符（缓冲 emit 或 refresh 回显，非静态占位符）
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 
 ### 本地模式（!ait local / remote）
@@ -416,7 +417,9 @@ sequenceDiagram
 
 ### get / put
 
-实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（SFTP）、[`transfer_route.go`](../internal/pkg/ssh/client/transfer_route.go) + [`internal/pkg/transfer/route/`](../internal/pkg/transfer/route/)（会话内后端选择）、[`transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/)（PTY ZMODEM）、[`internal/pkg/lrzsz/`](../internal/pkg/lrzsz/)（远端探测与可选自动安装）。**仅支持单个普通文件**；目录会返回明确错误。
+实现：[`internal/pkg/transfer/`](../internal/pkg/transfer/)（SFTP；路径默认见 [`path_defaults.go`](../internal/pkg/transfer/path_defaults.go)）、[`transfer_route.go`](../internal/pkg/ssh/client/transfer_route.go) + [`internal/pkg/transfer/route/`](../internal/pkg/transfer/route/)（会话内后端选择）、[`transfer_zmodem.go`](../internal/pkg/ssh/client/transfer_zmodem.go) + [`internal/pkg/transfer/zmodem/`](../internal/pkg/transfer/zmodem/)（PTY ZMODEM）、[`internal/pkg/lrzsz/`](../internal/pkg/lrzsz/)（远端探测与可选自动安装）。**仅支持单个普通文件**；目录会返回明确错误。
+
+**TTY 进度**（stderr，raw TTY 下 CRLF 安全）：`get … → …` / `put … → …`，可选 `handshake…`，再 **`copying… N%`**（SFTP 与链式 ZMODEM 均在同一行内刷新）。100% 后：SFTP 显示 **`closing…`**；链式 ZMODEM 显示 **`finishing…`**（get/put 对称，含链式 put 上传完成后收尾）；随后 **`done: get …`** / **`done: put …`**。传输中 Ctrl+C 可在数秒内取消。
 
 会话内 `!ait get`/`put` 使用**统一路由**：**直连**（chain 关闭、与拨号目标同 host）始终 **SFTP**；**链式**（active shell 比拨号目标更深）探测 `sz`/`rz`，有则 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**；链式且无 lrzsz 时给出安装指引，交互 TTY 下 `[y/N]` 授权后可自动安装（Linux/macOS/Windows 包管理器，可能需要远端 `sudo`）。ZMODEM 使用专用 PTY 注入（无 `stty` 包装）；握手失败约 30s 超时；直连 ZMODEM 失败时可回退 SFTP。
 
@@ -493,9 +496,9 @@ flowchart LR
 | `ait ai`、`ait shell` 内 `ai` | 本机 | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run` → 本机 shell；`ait` → 确认后跑 Cobra |
 | SSH 内 `!ait ai`、`!!` | 远程 | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
 
-**REPL：** `help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **ask** 仅问答；**agent** 规划并执行）、`approve each|session`（默认 **each**；**session** 低危首次同意后免问；`trust` 同 session）、`model`（路由状态）、`model list`、`model <云端-provider>`（`model ollama` 拒绝）、自然语言（Ask→`Chat`；Agent→工具循环）、`run` / 本机 `ait`。已弃用：`policy per-cmd|once` → `approve`（stderr 提示）。
+**REPL：** `help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **agent** 规划并执行；**`mode ask`** 仅问答）、`approve each|session`（默认 **each**；**session** 低危首次同意后免问；`trust` 同 session）、`model`（路由状态）、`model list`、`model <云端-provider>`（`model ollama` 拒绝）、自然语言（Ask→`Chat`；Agent→工具循环）、`run` / 本机 `ait`。已弃用：`policy per-cmd|once` → `approve`（stderr 提示）。
 
-**Agent 执行：** 支持 OpenAI tools 的走 function calling，否则 JSON。远程 `run_shell` 用 PTY+scrollback 截取；本机 `CombinedOutput`。交互式 TUI（`vim`/`less`/`top` 等）不自动执行。高危命令在 `approve session` 下仍逐条确认。
+**Agent 执行：** 支持 OpenAI tools 的走 function calling，否则 JSON。**只读命令**（如 `ls`、`git status`）在 Agent 模式下自动执行；写命令与高危及 Ask 模式行为仍须 `[y/N]` 确认。远程 `run_shell` 用 PTY+scrollback 截取；本机 `CombinedOutput`。交互式 TUI（`vim`/`less`/`top` 等）不自动执行。高危命令在 `approve session` 下仍逐条确认。
 
 **多 provider 配置：** YAML `ai` 含 `default`（仅云端：`deepseek` 或 `minimax`）、可选 `fallback`、可选 `tiered`（`enabled`、`local_provider`、`max_prompt_chars`、`max_history_turns`、`complex_keywords`）、各 `providers.<id>`。旧版顶层 `deepseek:` 并入 `ai.providers.deepseek`。MiniMax 支持 `openai` / `anthropic`。Ollama 为 OpenAI 兼容 `http://127.0.0.1:11434/v1`（允许 localhost HTTP，无需 API key）。tiered 开启时 `ClassifyPrompt` 将简单首轮发往 Ollama；否则 Chat/Assist 按云端顺序（`--model` / REPL `model`，否则 `ai.default`，再 fallback）。Ollama 失败升到云端。`SuggestInstall` 始终走云端。系统提示注入事实字段 `ai_provider`、`ai_model`、`ai_mode`（`local_first` | `cloud_only`），避免模型编造后端。`AIT_AI_FAILOVER_LOG=1` 可在 stderr 打印切换。
 
