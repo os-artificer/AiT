@@ -100,3 +100,39 @@ func TestParseTransferRequiresRemoteOrSession(t *testing.T) {
 		t.Fatal("expected error without session or user@host:/path")
 	}
 }
+
+// TestParseTransfer_GetSinglePath (TR5) accepts one remote path and defaults local basename.
+func TestParseTransfer_GetSinglePath(t *testing.T) {
+	spec, err := ParseTransfer([]string{"user@host:/remote/path/file"}, OpGet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.RemotePath != "/remote/path/file" || spec.LocalPath != "./file" {
+		t.Fatalf("spec=%+v", spec)
+	}
+	if spec.Conn.Destination != "user@host" {
+		t.Fatalf("dest=%q", spec.Conn.Destination)
+	}
+}
+
+// TestParseTransfer_PutSinglePath (TR9) accepts one path and defaults the omitted side basename.
+func TestParseTransfer_PutSinglePath(t *testing.T) {
+	spec, err := ParseTransfer([]string{"user@host:/opt/app"}, OpPut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.RemotePath != "/opt/app" || spec.LocalPath != "./app" {
+		t.Fatalf("spec=%+v", spec)
+	}
+	if spec.Conn.Destination != "user@host" {
+		t.Fatalf("dest=%q", spec.Conn.Destination)
+	}
+
+	spec, err = ParseTransfer([]string{"./bin/app", "--session", "prod"}, OpPut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Session != "prod" || spec.LocalPath != "./bin/app" || spec.RemotePath != "./app" {
+		t.Fatalf("spec=%+v", spec)
+	}
+}

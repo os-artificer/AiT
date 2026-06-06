@@ -149,8 +149,8 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 | `!ait local` | Local mode: run commands on local machine; SSH stays connected |
 | `!ait remote` | Exit local mode; resume remote input |
 | `!ait suspend` | Suspend: save scrollback and remote cwd; disconnect |
-| `!ait get <remote> <local>` | Download one file over current SSH (no re-auth) |
-| `!ait put <local> <remote>` | Upload one file over current SSH (no re-auth) |
+| `!ait get <remote> [<local>]` | Download one file over current SSH (no re-auth); optional local defaults to `./basename` |
+| `!ait put <local> [<remote>]` | Upload one file over current SSH (no re-auth); optional remote defaults to `./basename` |
 | `!ait chain [on\|off]` | Toggle chain mode: PTY-pipe transfer for SSH hops; `on` = ZMODEM over PTY, `off` = prefer lrzsz then SFTP (default) |
 
 ---
@@ -192,7 +192,7 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 - `ait put` creates missing **parent directories** on the remote host before uploading the file.
 - Transfer errors are prefixed with `local file` or `remote file` so you can tell which side failed. A message like `file does not exist` or `no such file or directory` on **put** often means the remote path or parent directory is wrong (not that the local file is missing).
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
-- In SSH, `!ait get` / `!ait put` reuse the live connection (two paths only, no flags).
+- In SSH, `!ait get` / `!ait put` reuse the live connection (one or two paths, no flags); omitted destination defaults to the source basename.
 - **`!ait put` local path** is on the machine running AiT (your laptop/desktop), not the remote shell’s current directory. **`!ait get` local path** is also on the AiT client. Remote paths are relative to the **active shell** (which may be a nested hop when chain mode is on).
 - In SSH, **`!ait get` / `!ait put` print phase progress and a `done:` line on stderr** (e.g. `get … → …`, `handshake…`, `copying… 50%`, `done: get …`). On a TTY, **`copying… N%` updates in place** on one line (get and put use the same format, including SFTP and chain ZMODEM). Phase and done lines use CRLF-safe output on raw TTY (Linux, macOS, Windows clients).
 - Before `ait session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).

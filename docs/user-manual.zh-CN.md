@@ -149,8 +149,8 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | `!ait local` | 本地模式：命令在本机执行，SSH 连接保持 |
 | `!ait remote` | 退出本地模式，恢复向远程发送输入 |
 | `!ait suspend` | 挂起：保存 scrollback 与远程 cwd，断开连接 |
-| `!ait get <remote> <local>` | 经当前 SSH 下载单个文件（不重新认证） |
-| `!ait put <local> <remote>` | 经当前 SSH 上传单个文件（不重新认证） |
+| `!ait get <remote> [<local>]` | 经当前 SSH 下载单个文件（不重新认证）；省略 local 时默认为 `./basename` |
+| `!ait put <local> [<remote>]` | 经当前 SSH 上传单个文件（不重新认证）；省略 remote 时默认为 `./basename` |
 | `!ait chain [on\|off]` | 切换链式模式：PTY 管道 ZMODEM 用于多跳 SSH；`on` = lrzsz ZMODEM，`off` = 优先 lrzsz 再 SFTP（默认） |
 
 ---
@@ -192,7 +192,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 - `ait put` 会在上传前在远程自动创建**父目录**（若不存在）。
 - 传输失败时错误会带 `local file` 或 `remote file` 前缀，便于区分本机与远端。**put** 若出现 `file does not exist` / `no such file or directory`，常见原因是远程路径或父目录不存在，而非本机文件缺失。
 - 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
-- SSH 会话内 `!ait get` / `!ait put` 复用当前连接（仅两个路径，无 flag）。
+- SSH 会话内 `!ait get` / `!ait put` 复用当前连接（一至两个路径，无 flag）；省略的目标路径默认为源文件 basename。
 - **`!ait put` 的本机路径**指运行 AiT 的机器（笔记本/桌面），不是远程 shell 当前目录。**`!ait get` 的本机路径**同样在 AiT 客户端。远程路径相对于**当前 active shell**（链式模式下可能是嵌套跳板）。
 - SSH 会话内 **`!ait get` / `!ait put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `get … → …`、`handshake…`、`copying… 50%`、`done: get …`）。TTY 上 **`copying… N%` 在同一行内刷新**（get/put、SFTP 与链式 ZMODEM 文案一致）。阶段行与 done 行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
 - 从本机执行 `ait session --switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。

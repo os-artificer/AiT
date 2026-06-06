@@ -138,16 +138,18 @@ func NewSendSession(ptyOut io.Writer, localPath, remoteName string, progress Pro
 
 	s := &Session{done: make(chan error, 1), ptyOut: ptyOut}
 	s.engine = xzmodem.New(xzmodem.ZModemConsumer{
-		Writer:           ptyOut,
-		EchoWriter:       io.Discard,
-		OnUploadProgress: progress,
+		Writer:     ptyOut,
+		EchoWriter: io.Discard,
+		OnUploadProgress: func(written, total int64) {
+			s.reportSendUploadProgress(progress, written, total)
+		},
 		OnUpload: func() *xzmodem.ZModemFile {
 			if uploaded {
 				return nil
 			}
 			uploaded = true
-			if progress != nil && total > 0 {
-				progress(0, total)
+			if total > 0 {
+				s.reportSendUploadProgress(progress, 0, total)
 			}
 			return zf
 		},
@@ -180,6 +182,17 @@ func (s *Session) Abort() {
 // Close is an alias for Abort.
 func (s *Session) Close() {
 	s.Abort()
+}
+
+// EnterSendStateForTest marks the session as started in send mode (tests only).
+func (s *Session) EnterSendStateForTest() {
+	s.engine.EnterSendForTest()
+	s.started.Store(true)
+}
+
+// ReportSendUploadProgressForTest drives send upload progress (tests only).
+func (s *Session) ReportSendUploadProgressForTest(progress ProgressFunc, written, total int64) {
+	s.reportSendUploadProgress(progress, written, total)
 }
 
 // Wait blocks until the transfer completes, ctx is cancelled, or the session times out.
@@ -247,8 +260,7 @@ func (s *Session) Wait(ctx context.Context) error {
 				return err
 			}
 		case <-ticker.C:
-			status := s.engine.GetStatus()
-			if status != xzmodem.StatusIdle && s.engine.HasUnread() {
+			if s.engine.HasUnread() {
 				s.engine.PumpUnread()
 			}
 			if time.Now().After(teardownDeadline) {
@@ -267,4 +279,13 @@ func (s *Session) finish(err error) {
 	s.once.Do(func() {
 		s.done <- err
 	})
+}
+
+func (s *Session) reportSendUploadProgress(progress ProgressFunc, written, total int64) {
+	if progress != nil {
+		progress(written, total)
+	}
+	if total >= 0 && written >= total {
+		s.finish(nil)
+	}
 }

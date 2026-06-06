@@ -24,10 +24,12 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	pkgtransfer "github.com/os-artificer/AiT/internal/pkg/transfer"
 	"github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
+	xzmodem "github.com/os-artificer/AiT/pkg/third-party/xiwh/zmodem/zmodem"
 )
 
 func TestZModemSession_ExclusiveIO(t *testing.T) {
@@ -171,6 +173,59 @@ func TestZModemTransfer_FinishingPhase(t *testing.T) {
 	zt.waitTransfer(t.Context())
 
 	got := buf.String()
+	if !strings.Contains(got, "finishing…") {
+		t.Fatalf("missing finishing phase: %q", got)
+	}
+}
+
+// TestZModemTransfer_PutWaitAfterProgress100 (V14) completes waitTransfer after send upload reaches 100%.
+func TestZModemTransfer_PutWaitAfterProgress100(t *testing.T) {
+	enableTransferProgressInlineTTY(t)
+
+	path := t.TempDir() + "/payload"
+	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	p := NewTransferProgress(&buf)
+	c := &Client{}
+	zt := &ZModemTransfer{client: c, progress: p}
+
+	progressFn := zt.zmodemProgressFn()
+	sess, err := zmodem.NewSendSession(io.Discard, path, "remote.txt", progressFn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.zmodemSession = sess
+	sess.EnterSendStateForTest()
+
+	size := int64(4)
+	zfin, err := xzmodem.HexFrameBytes(xzmodem.ZFIN, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	origWait := zmodemTransferWaitHook
+	defer func() { zmodemTransferWaitHook = origWait }()
+	zmodemTransferWaitHook = func(ctx context.Context, s *zmodem.Session) error {
+		go func() {
+			time.Sleep(30 * time.Millisecond)
+			s.ReportSendUploadProgressForTest(progressFn, size, size)
+			_, _ = s.Feed(zfin)
+		}()
+		return s.Wait(ctx)
+	}
+
+	p.StartPut("./payload", "./remote.txt", size)
+	if err := zt.waitTransfer(t.Context()); err != nil {
+		t.Fatalf("waitTransfer: %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "copying… 100%") {
+		t.Fatalf("missing 100%% progress: %q", got)
+	}
 	if !strings.Contains(got, "finishing…") {
 		t.Fatalf("missing finishing phase: %q", got)
 	}
