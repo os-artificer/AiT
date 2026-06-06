@@ -97,6 +97,8 @@ type Client struct {
 	pendingNestedHost     string
 	nestedAwaitingSince   time.Time
 	nestedMOTDSeen        bool
+	nestedMOTDAt          time.Time
+	nestedShellReadySeen  bool
 	nestedPasswordPending bool
 }
 

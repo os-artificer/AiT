@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
@@ -30,6 +31,14 @@ import (
 )
 
 const activeShellHostCmd = "hostname -f 2>/dev/null || hostname"
+
+const (
+	probeShellPwdBegin = ".__AITPWD__."
+	probeShellPwdEnd   = ".__AITPWDEND__."
+)
+
+// probeShellPwdHook overrides probeShellPwd in tests (TR2).
+var probeShellPwdHook func(c *Client, stdin io.Writer) (string, error)
 
 // ErrTransferWrongHop is returned when SFTP targets the directly connected host but the
 // requested remote path is not found there (often because the active shell is deeper).
@@ -213,4 +222,77 @@ func autoChainNotice(activeHost, dialHost string) {
 		"File transfer will use PTY-pipe injection.",
 		"Use !ait chain off to disable.",
 	)
+}
+
+func isRelativeRemotePath(p string) bool {
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return false
+	}
+	return !strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "~")
+}
+
+func joinRemotePath(cwd, rel string) string {
+	cwd = strings.TrimSpace(cwd)
+	rel = strings.TrimSpace(rel)
+	if cwd == "" {
+		return path.Clean(rel)
+	}
+	return path.Clean(path.Join(cwd, rel))
+}
+
+func parsePwdFromCapture(out, begin, end string) string {
+	i := strings.Index(out, begin)
+	if i < 0 {
+		return ""
+	}
+	rest := out[i+len(begin):]
+	j := strings.Index(rest, end)
+	if j < 0 {
+		return ""
+	}
+	return strings.TrimSpace(rest[:j])
+}
+
+func (c *Client) probeShellPwd(stdin io.Writer) (string, error) {
+	if probeShellPwdHook != nil {
+		return probeShellPwdHook(c, stdin)
+	}
+
+	cmd := fmt.Sprintf(
+		`printf '%%s%%s%%s\n' '%s' "$(pwd -P 2>/dev/null || pwd)" '%s'`,
+		probeShellPwdBegin,
+		probeShellPwdEnd,
+	)
+
+	c.pauseRemoteOut.Store(true)
+	defer c.pauseRemoteOut.Store(false)
+
+	out, err := c.injectCaptureRetry(stdin, cmd)
+	if err != nil {
+		return "", err
+	}
+
+	return parsePwdFromCapture(out, probeShellPwdBegin, probeShellPwdEnd), nil
+}
+
+func (c *Client) resolveRemotePathForTransfer(stdin io.Writer, remotePath string) (string, error) {
+	if !isRelativeRemotePath(remotePath) {
+		return remotePath, nil
+	}
+
+	cwd, err := c.probeShellPwd(stdin)
+	if err != nil || cwd == "" {
+		return remotePath, err
+	}
+
+	return joinRemotePath(cwd, remotePath), nil
+}
+
+func shouldWrapTransferWrongHop(dialHost, loginDest, activeHost string) bool {
+	activeHost = strings.TrimSpace(activeHost)
+	if activeHost == "" {
+		return false
+	}
+	return activeShellNeedsChain(dialHost, loginDest, activeHost)
 }

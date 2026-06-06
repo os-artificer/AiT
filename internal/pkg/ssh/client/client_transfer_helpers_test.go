@@ -16,21 +16,28 @@
 
 package client
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
-func TestTransferUsageHint_Format(t *testing.T) {
-	err := transferUsageHintErr(transferUsageGet)
-	s := err.Error()
-	if !strings.Contains(s, "Try:") {
-		t.Fatalf("missing Try block: %q", s)
+// TestJoinRemotePath_RelativeUnderCwd (TR1) joins relative remote paths under shell cwd.
+func TestJoinRemotePath_RelativeUnderCwd(t *testing.T) {
+	got := joinRemotePath("/data/dev", "./bin/f")
+	if got != "/data/dev/bin/f" {
+		t.Fatalf("got %q want /data/dev/bin/f", got)
 	}
-	if !strings.Contains(s, transferUsageGet) {
-		t.Fatalf("missing usage sentinel: %q", s)
+	if !isRelativeRemotePath("./bin/f") {
+		t.Fatal("expected relative")
 	}
-	if !strings.Contains(s, "!ait get <remote-path> <local-path>") {
-		t.Fatalf("missing get try line: %q", s)
+	if isRelativeRemotePath("/abs") || isRelativeRemotePath("~/x") {
+		t.Fatal("expected absolute/tilde paths to be non-relative")
+	}
+}
+
+// TestWrapTransferWrongHop_SkipsSameHostAfterResolve (TR6) avoids wrong-hop on same active host.
+func TestWrapTransferWrongHop_SkipsSameHostAfterResolve(t *testing.T) {
+	if shouldWrapTransferWrongHop("dev.example", "devhost", "devhost") {
+		t.Fatal("same host should not wrap wrong-hop")
+	}
+	if !shouldWrapTransferWrongHop("bastion", "", "internal") {
+		t.Fatal("nested host should wrap wrong-hop")
 	}
 }

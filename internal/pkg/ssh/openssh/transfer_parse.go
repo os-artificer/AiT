@@ -82,7 +82,7 @@ func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
 		return TransferSpec{}, err
 	}
 
-	local, remote, dest, err := classifyTransferPaths(positionals, session, cmdLabel)
+	local, remote, dest, err := classifyTransferPaths(positionals, session, cmdLabel, op)
 	if err != nil {
 		return TransferSpec{}, err
 	}
@@ -105,25 +105,65 @@ func transferCmdLabel(op TransferOp) string {
 	return "get"
 }
 
-func classifyTransferPaths(positionals []string, session, cmdLabel string) (local, remote, dest string, err error) {
+func classifyTransferPaths(positionals []string, session, cmdLabel string, op TransferOp) (local, remote, dest string, err error) {
 	switch len(positionals) {
+	case 1:
+		if op == OpGet {
+			return classifyOneGetPath(positionals[0], session)
+		}
+		if op == OpPut {
+			return classifyOnePutPath(positionals[0], session)
+		}
+		return "", "", "", transferPathCountErr(cmdLabel)
 	case 2:
-		return classifyTwoPaths(positionals, session)
+		return classifyTwoPaths(positionals, session, op)
 	case 3:
-		return classifyThreePaths(positionals)
+		return classifyThreePaths(positionals, op)
 	default:
 		return "", "", "", transferPathCountErr(cmdLabel)
 	}
 }
 
-func classifyTwoPaths(positionals []string, session string) (local, remote, dest string, err error) {
+func classifyOneGetPath(remoteArg, session string) (local, remote, dest string, err error) {
+	if user, host, path, perr := transfer.ParseRemoteDest(remoteArg); perr == nil {
+		return transfer.DefaultLocalPathForGet(path), path, destinationFromUserHost(user, host), nil
+	}
+	if session == "" {
+		return "", "", "", fmt.Errorf("remote path must be user@host:/path, or use two arguments (remote-path local-path), or --session")
+	}
+	return transfer.DefaultLocalPathForGet(remoteArg), remoteArg, "", nil
+}
+
+func classifyOnePutPath(arg, session string) (local, remote, dest string, err error) {
+	if user, host, path, perr := transfer.ParseRemoteDest(arg); perr == nil {
+		return transfer.DefaultLocalPathForGet(path), path, destinationFromUserHost(user, host), nil
+	}
+	if session == "" {
+		return "", "", "", fmt.Errorf("local path must be user@host:/path, or use two arguments (local-path remote-path), or --session")
+	}
+	return arg, transfer.DefaultRemotePathForPut(arg), "", nil
+}
+
+func classifyTwoPaths(positionals []string, session string, op TransferOp) (local, remote, dest string, err error) {
 	a, b := positionals[0], positionals[1]
 
 	if user, host, path, perr := transfer.ParseRemoteDest(a); perr == nil {
-		return b, path, destinationFromUserHost(user, host), nil
+		local = b
+		if op == OpGet {
+			local = transfer.LocalPathWithDirDefault(path, b, isLocalDirectoryPath)
+		} else {
+			path = transfer.RemotePathWithDirDefault(b, path, isRemoteDirectoryPath)
+		}
+		return local, path, destinationFromUserHost(user, host), nil
 	}
 	if user, host, path, perr := transfer.ParseRemoteDest(b); perr == nil {
-		return a, path, destinationFromUserHost(user, host), nil
+		local = a
+		if op == OpGet {
+			local = transfer.LocalPathWithDirDefault(path, a, isLocalDirectoryPath)
+		} else {
+			path = transfer.RemotePathWithDirDefault(a, path, isRemoteDirectoryPath)
+		}
+		return local, path, destinationFromUserHost(user, host), nil
 	}
 
 	if session == "" {
@@ -134,15 +174,29 @@ func classifyTwoPaths(positionals []string, session string) (local, remote, dest
 	bLocal := isLocalFilePath(b)
 	switch {
 	case aLocal && !bLocal:
-		return a, b, "", nil
+		local := a
+		remote := b
+		if op == OpGet {
+			local = transfer.LocalPathWithDirDefault(b, a, isLocalDirectoryPath)
+		} else {
+			remote = transfer.RemotePathWithDirDefault(a, b, isRemoteDirectoryPath)
+		}
+		return local, remote, "", nil
 	case bLocal && !aLocal:
-		return b, a, "", nil
+		local := b
+		remote := a
+		if op == OpGet {
+			local = transfer.LocalPathWithDirDefault(a, b, isLocalDirectoryPath)
+		} else {
+			remote = transfer.RemotePathWithDirDefault(b, a, isRemoteDirectoryPath)
+		}
+		return local, remote, "", nil
 	default:
 		return "", "", "", fmt.Errorf("cannot tell local vs remote path with --session; use user@host:/path or a distinct local path (e.g. ./file)")
 	}
 }
 
-func classifyThreePaths(positionals []string) (local, remote, dest string, err error) {
+func classifyThreePaths(positionals []string, op TransferOp) (local, remote, dest string, err error) {
 	destIdx, ambiguous := findDestinationIndex(positionals)
 	if ambiguous {
 		return "", "", "", fmt.Errorf("ambiguous destination in arguments")
@@ -158,7 +212,15 @@ func classifyThreePaths(positionals []string) (local, remote, dest string, err e
 	}
 
 	local, remote, err = pairLocalRemote(paths[0], paths[1])
-	return local, remote, dest, err
+	if err != nil {
+		return "", "", "", err
+	}
+	if op == OpGet {
+		local = transfer.LocalPathWithDirDefault(remote, local, isLocalDirectoryPath)
+	} else {
+		remote = transfer.RemotePathWithDirDefault(local, remote, isRemoteDirectoryPath)
+	}
+	return local, remote, dest, nil
 }
 
 func findDestinationIndex(positionals []string) (idx int, ambiguous bool) {
@@ -226,6 +288,18 @@ func isLocalFilePath(p string) bool {
 	}
 	info, err := os.Stat(p)
 	return err == nil && info.Mode().IsRegular()
+}
+
+func isLocalDirectoryPath(p string) bool {
+	if strings.HasSuffix(p, "/") {
+		return true
+	}
+	info, err := os.Stat(p)
+	return err == nil && info.IsDir()
+}
+
+func isRemoteDirectoryPath(p string) bool {
+	return strings.HasSuffix(p, "/")
 }
 
 func destinationFromUserHost(user, host string) string {

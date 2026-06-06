@@ -41,11 +41,13 @@ func TmuxWithRemoteCommandErr() error {
 
 func transferPathCountErr(cmdLabel string) error {
 	tries := []string{tryGetExample, tryGetHelp}
+	msg := "need 1 to 3 path arguments for ait get (remote path required; local optional)"
 	if cmdLabel == "put" {
 		tries = []string{tryPutExample, tryPutHelp}
+		msg = "need 1 to 3 path arguments for ait put (local path required; remote optional)"
 	}
-	return errhint.WithTryMsg("need 2 or 3 path arguments (local and remote)",
-		fmt.Sprintf("Specify local and remote paths for ait %s.", cmdLabel),
+	return errhint.WithTryMsg(msg,
+		fmt.Sprintf("Specify paths for ait %s.", cmdLabel),
 		tries...,
 	)
 }
