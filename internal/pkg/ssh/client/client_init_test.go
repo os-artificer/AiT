@@ -27,8 +27,17 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
+func testClientWithPrompt(user, host string) *Client {
+	c := &Client{
+		scroll: &terminal.Buffer{},
+		opts:   Options{User: user, Host: host},
+	}
+	c.initActivePrompt()
+	return c
+}
+
 func TestInjectInitialCommandsSingleLine(t *testing.T) {
-	c := &Client{scroll: &terminal.Buffer{}}
+	c := testClientWithPrompt("u", "h")
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
@@ -90,7 +99,7 @@ func TestWaitRemoteOutputQuietAfterPostInject(t *testing.T) {
 
 // TestFinishRemoteSetup_RefreshOnly (W6) does not print a static prompt; it refreshes remote PS1.
 func TestFinishRemoteSetup_RefreshOnly(t *testing.T) {
-	c := &Client{scroll: &terminal.Buffer{}}
+	c := testClientWithPrompt("u", "h")
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
@@ -118,29 +127,184 @@ func TestFinishRemoteSetup_RefreshOnly(t *testing.T) {
 	if strings.Contains(got, RemotePrompt("u", "h")) {
 		t.Fatalf("stdout should not contain static placeholder prompt: %q", got)
 	}
-	if !c.remotePromptShown.Load() {
-		t.Fatal("expected remotePromptShown after paused setup")
+	if c.remotePromptShown.Load() {
+		t.Fatal("remotePromptShown should stay false until first prompt reaches stdout")
 	}
 	if stdin.String() != "\r" {
 		t.Fatalf("stdin want refresh \\r, got %q", stdin.String())
 	}
+
+	promptLine := "AiT u@h:/tmp> "
+	c.handleRemoteOutput([]byte(promptLine))
+	if !c.remotePromptShown.Load() {
+		t.Fatal("expected remotePromptShown after first prompt on stdout")
+	}
 }
 
 func TestFinishRemoteSetupShowsPromptOnceWhenPaused(t *testing.T) {
-	c := &Client{scroll: &terminal.Buffer{}}
+	c := testClientWithPrompt("u", "h")
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 
-	_, _ = c.scroll.Write([]byte("AiT u@h:/work> "))
+	promptLine := "AiT u@h:/work> "
+	_, _ = c.scroll.Write([]byte(promptLine))
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	done := make(chan []byte, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.Bytes()
+	}()
 
 	c.finishRemoteSetup(stdin, "u", "h")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+	got := string(<-done)
 
 	if stdin.Len() != 0 {
 		t.Fatalf("stdin should be empty when marker already buffered, got %q", stdin.String())
 	}
 	if !c.remotePromptShown.Load() {
 		t.Fatal("expected remotePromptShown")
+	}
+	if !strings.Contains(got, promptLine) {
+		t.Fatalf("stdout should contain buffered prompt %q, got %q", promptLine, got)
+	}
+}
+
+// TestFinishRemoteSetup_EmitsBufferedPromptStdout (W15) flushes scrollback prompt to stdout without stdin refresh.
+func TestFinishRemoteSetup_EmitsBufferedPromptStdout(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	promptLine := "AiT u@h:/root> "
+	_, _ = c.scroll.Write([]byte("setup noise\n" + promptLine))
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	done := make(chan []byte, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.Bytes()
+	}()
+
+	c.finishRemoteSetup(stdin, "u", "h")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+	got := string(<-done)
+
+	if stdin.Len() != 0 {
+		t.Fatalf("stdin should be empty when marker already buffered, got %q", stdin.String())
+	}
+	if !strings.Contains(got, promptLine) {
+		t.Fatalf("stdout should contain buffered prompt %q, got %q", promptLine, got)
+	}
+	if strings.Contains(got, RemotePrompt("u", "h")) {
+		t.Fatalf("stdout should not contain static placeholder prompt: %q", got)
+	}
+}
+
+func TestLastRemotePromptLine(t *testing.T) {
+	scroll := "leaked export\nAiT u@h:/tmp:main> "
+	if got := lastRemotePromptLine(scroll, "u", "h"); got != "AiT u@h:/tmp:main> " {
+		t.Fatalf("got %q", got)
+	}
+	if got := lastRemotePromptLine("noise\rAiT u@h:/work> ", "u", "h"); got != "AiT u@h:/work> " {
+		t.Fatalf("carriage-return prompt got %q", got)
+	}
+	if got := lastRemotePromptLine("no prompt here", "u", "h"); got != "" {
+		t.Fatalf("want empty, got %q", got)
+	}
+}
+
+// TestFinishRemoteSetup_RefreshPromptReachStdout (W16) lets the first refresh prompt reach stdout before shown is set.
+func TestFinishRemoteSetup_RefreshPromptReachStdout(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	c.finishRemoteSetup(stdin, "u", "h")
+
+	if c.remotePromptShown.Load() {
+		t.Fatal("remotePromptShown should stay false until first prompt on stdout")
+	}
+	if stdin.String() != "\r" {
+		t.Fatalf("stdin want refresh \\r, got %q", stdin.String())
+	}
+
+	promptLine := "AiT u@h:/data> "
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	done := make(chan []byte, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.Bytes()
+	}()
+
+	c.handleRemoteOutput([]byte(promptLine))
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+	got := string(<-done)
+
+	if !strings.Contains(got, promptLine) {
+		t.Fatalf("stdout should contain refresh prompt %q, got %q", promptLine, got)
+	}
+	if !c.remotePromptShown.Load() {
+		t.Fatal("expected remotePromptShown after first prompt on stdout")
+	}
+	if got := c.filterRemoteOutputChunk([]byte(promptLine), "u", "h", remoteSetupPromptMarker("u", "h")); got != nil {
+		t.Fatal("duplicate prompt should be dropped after shown")
+	}
+}
+
+// TestFinishRemoteSetup_EmitFailFallsBackRefresh (W16) falls back to refresh when marker exists without a prompt line.
+func TestFinishRemoteSetup_EmitFailFallsBackRefresh(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	_, _ = c.scroll.Write([]byte("partial AiT u@h: without closing"))
+
+	c.finishRemoteSetup(stdin, "u", "h")
+
+	if c.remotePromptShown.Load() {
+		t.Fatal("remotePromptShown should stay false when emit fails and refresh is used")
+	}
+	if stdin.String() != "\r" {
+		t.Fatalf("stdin want refresh \\r after emit fail, got %q", stdin.String())
+	}
+
+	promptLine := "AiT u@h:/srv> "
+	c.handleRemoteOutput([]byte(promptLine))
+	if !c.remotePromptShown.Load() {
+		t.Fatal("expected remotePromptShown after refresh prompt on stdout")
 	}
 }
 

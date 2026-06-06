@@ -110,7 +110,7 @@ func TestRunInteractive_SingleHopChainOff(t *testing.T) {
 	}
 }
 
-// TestForwardStdin_SSHTriggersNestedPrompt (W11) injects PS1 after MOTD and quiet period.
+// TestForwardStdin_SSHTriggersNestedPrompt (W11) injects PS1 after MOTD, shell prompt, and quiet period.
 func TestForwardStdin_SSHTriggersNestedPrompt(t *testing.T) {
 	c := &Client{
 		opts:               Options{User: "root", Host: "proxy.example"},
@@ -124,11 +124,20 @@ func TestForwardStdin_SSHTriggersNestedPrompt(t *testing.T) {
 	c.onInteractiveLineSubmitted("ssh root@inner.example")
 
 	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
-	c.nestedMu.Lock()
-	c.nestedMOTDSeen = true
-	c.nestedMu.Unlock()
-
 	c.maybeInjectNestedPrompt([]byte("Last login: Thu\n"))
+	if c.ChainMode() {
+		t.Fatal("expected no inject on MOTD alone (W11a)")
+	}
+	if stdin.Len() > 0 {
+		t.Fatal("expected no stdin write on MOTD alone")
+	}
+
+	c.nestedMu.Lock()
+	c.nestedMOTDAt = time.Now().Add(-shellReadyDelay - time.Second)
+	c.nestedMu.Unlock()
+	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
+
+	c.maybeInjectNestedPrompt([]byte("root@inner.example [~] ->"))
 
 	if !c.ChainMode() {
 		t.Fatal("expected chain mode on after nested inject")
@@ -142,5 +151,67 @@ func TestForwardStdin_SSHTriggersNestedPrompt(t *testing.T) {
 	}
 	if !strings.Contains(out, `basename "${PWD:-/}"`) {
 		t.Fatalf("stdin missing short dir segment: %q", out)
+	}
+}
+
+// TestNestedPrompt_MOTDOnlyNoInject (W11a) does not inject after MOTD without shell prompt.
+func TestNestedPrompt_MOTDOnlyNoInject(t *testing.T) {
+	c := &Client{
+		opts:   Options{User: "root", Host: "proxy.example"},
+		scroll: &terminal.Buffer{},
+	}
+	c.initActivePrompt()
+	var stdin bytes.Buffer
+	c.interactiveStdin = &stdin
+
+	c.onInteractiveLineSubmitted("ssh root@inner.example")
+	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
+	c.maybeInjectNestedPrompt([]byte("Welcome to TencentOS\nLast login: Thu\n"))
+
+	if c.ChainMode() {
+		t.Fatal("MOTD alone must not trigger inject")
+	}
+	if stdin.Len() > 0 {
+		t.Fatal("MOTD alone must not write setup commands")
+	}
+}
+
+// TestNestedPrompt_NoMOTDFallbackInject (W11c) injects after max wait without MOTD.
+func TestNestedPrompt_NoMOTDFallbackInject(t *testing.T) {
+	c := &Client{
+		opts:               Options{User: "root", Host: "proxy.example"},
+		scroll:             &terminal.Buffer{},
+		remotePromptDirAbs: false,
+	}
+	c.initActivePrompt()
+	var stdin bytes.Buffer
+	c.interactiveStdin = &stdin
+
+	c.onInteractiveLineSubmitted("ssh root@inner.example")
+	c.nestedMu.Lock()
+	c.nestedAwaitingSince = time.Now().Add(-nestedPromptMaxWait - time.Second)
+	c.nestedMu.Unlock()
+	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
+
+	c.maybeInjectNestedPrompt([]byte("connected\n"))
+
+	if !c.ChainMode() {
+		t.Fatal("expected inject after max wait without MOTD")
+	}
+	if !strings.Contains(stdin.String(), "AiT root@inner.example:") {
+		t.Fatalf("stdin missing nested PS1: %q", stdin.String())
+	}
+}
+
+// TestScrollChunkLooksLikeShellPrompt detects common inner-shell prompt lines.
+func TestScrollChunkLooksLikeShellPrompt(t *testing.T) {
+	if !scrollChunkLooksLikeShellPrompt([]byte("root@ylgeeker.com [~] ->\n")) {
+		t.Fatal("expected TencentOS-style prompt")
+	}
+	if scrollChunkLooksLikeShellPrompt([]byte("Last login: Thu\n")) {
+		t.Fatal("MOTD must not match shell prompt")
+	}
+	if scrollChunkLooksLikeShellPrompt([]byte("Welcome to TencentOS\n")) {
+		t.Fatal("welcome banner must not match shell prompt")
 	}
 }

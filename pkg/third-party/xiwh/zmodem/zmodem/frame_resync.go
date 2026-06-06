@@ -72,3 +72,10 @@ func (t *ZModem) EnterReceiveForTest() {
 	t.status = StatusReceive
 	t.lock.Unlock()
 }
+
+// EnterSendForTest puts the engine into send state (tests only).
+func (t *ZModem) EnterSendForTest() {
+	t.lock.Lock()
+	t.status = StatusSend
+	t.lock.Unlock()
+}

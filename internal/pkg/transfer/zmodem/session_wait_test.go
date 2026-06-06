@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -131,6 +132,50 @@ func TestSession_Wait_TeardownAfterZFINWithPrefix(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Wait timed out after ZFIN with prefix")
+	}
+}
+
+// TestSession_Wait_SendTeardownAfterUpload (V13) signals dataDone at 100% and completes after ZFIN.
+func TestSession_Wait_SendTeardownAfterUpload(t *testing.T) {
+	zfin, err := xzmodem.HexFrameBytes(xzmodem.ZFIN, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	path := dir + "/payload"
+	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var ptyOut captureWriter
+	sess, err := NewSendSession(&ptyOut, path, "remote.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess.engine.EnterSendForTest()
+	sess.started.Store(true)
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- sess.Wait(t.Context())
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	sess.reportSendUploadProgress(nil, 4, 4)
+
+	if _, err := sess.Feed(zfin); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Wait: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Wait timed out after send upload and ZFIN")
 	}
 }
 

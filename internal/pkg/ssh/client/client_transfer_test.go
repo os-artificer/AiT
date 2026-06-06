@@ -325,3 +325,67 @@ func TestResolveTransferMode_SFTPWhenIdentitiesMatch(t *testing.T) {
 		t.Fatalf("expected SFTP path, got usePTY=%v auto=%v", usePTY, auto)
 	}
 }
+
+// TestNormalizeMetaTransferArgs_GetDefaultLocal (TR3) defaults local to remote basename.
+func TestNormalizeMetaTransferArgs_GetDefaultLocal(t *testing.T) {
+	args, err := normalizeMetaTransferArgs(transfer.DirGet, []string{"./bin/ait-darwin-arm64"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args[0] != "./bin/ait-darwin-arm64" || args[1] != "./ait-darwin-arm64" {
+		t.Fatalf("got %#v", args)
+	}
+}
+
+// TestNormalizeMetaTransferArgs_GetDirTarget (TR4) appends basename when local is a directory.
+func TestNormalizeMetaTransferArgs_GetDirTarget(t *testing.T) {
+	dir := t.TempDir()
+	args, err := normalizeMetaTransferArgs(transfer.DirGet, []string{"/remote/file", dir + "/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLocal := dir + "/file"
+	if args[1] != wantLocal {
+		t.Fatalf("local = %q want %q", args[1], wantLocal)
+	}
+}
+
+// TestNormalizeMetaTransferArgs_PutDefaultRemote (TR7) defaults remote to local basename.
+func TestNormalizeMetaTransferArgs_PutDefaultRemote(t *testing.T) {
+	args, err := normalizeMetaTransferArgs(transfer.DirPut, []string{"./bin/ait-darwin-arm64"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args[0] != "./bin/ait-darwin-arm64" || args[1] != "./ait-darwin-arm64" {
+		t.Fatalf("got %#v", args)
+	}
+}
+
+// TestNormalizeMetaTransferArgs_PutDirTarget (TR8) appends basename when remote is a directory.
+func TestNormalizeMetaTransferArgs_PutDirTarget(t *testing.T) {
+	args, err := normalizeMetaTransferArgs(transfer.DirPut, []string{"./local/file", "./remote-dir/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args[0] != "./local/file" || args[1] != "./remote-dir/file" {
+		t.Fatalf("got %#v", args)
+	}
+}
+
+// TestResolveTransferArgs_SFTPRelativeRemote (TR2) resolves relative remote against shell pwd.
+func TestResolveTransferArgs_SFTPRelativeRemote(t *testing.T) {
+	origPwd := probeShellPwdHook
+	defer func() { probeShellPwdHook = origPwd }()
+	probeShellPwdHook = func(c *Client, stdin io.Writer) (string, error) {
+		return "/data/dev", nil
+	}
+
+	c := &Client{scroll: &terminal.Buffer{}}
+	args, err := resolveTransferArgs(c, &bytes.Buffer{}, transfer.DirGet, []string{"./bin/f", "./local"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args[0] != "/data/dev/bin/f" || args[1] != "./local" {
+		t.Fatalf("got %#v", args)
+	}
+}

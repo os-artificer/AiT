@@ -52,4 +52,13 @@ func TestTransferPathCountErr_Format(t *testing.T) {
 	if !strings.Contains(s, tryGetHelp) {
 		t.Fatalf("missing get help try line: %q", s)
 	}
+
+	errPut := transferPathCountErr("put")
+	sPut := errPut.Error()
+	if !strings.Contains(sPut, "1 to 3 path arguments for ait put") {
+		t.Fatalf("missing put path count hint: %q", sPut)
+	}
+	if !strings.Contains(sPut, tryPutHelp) {
+		t.Fatalf("missing put help try line: %q", sPut)
+	}
 }

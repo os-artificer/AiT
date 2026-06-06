@@ -28,10 +28,10 @@ import (
 )
 
 // UsageGet is the user-facing one-line usage for `!ait get`.
-const UsageGet = "usage: !ait get <remote-path> <local-path>"
+const UsageGet = "usage: !ait get <remote-path> [<local-path>]"
 
 // UsagePut is the user-facing one-line usage for `!ait put`.
-const UsagePut = "usage: !ait put <local-path> <remote-path>"
+const UsagePut = "usage: !ait put <local-path> [<remote-path>]"
 
 const metaPrefixAitSpace = "!ait "
 
@@ -63,8 +63,10 @@ func ArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {
 // usage is one of UsageGet / UsagePut.
 func UsageHintErr(usage string) error {
 	return errhint.WithTryMsg(usage,
-		"Provide exactly one local path and one remote path.",
+		"Provide paths; omitted destination defaults to the source basename.",
+		"!ait get <remote-path>",
 		"!ait get <remote-path> <local-path>",
+		"!ait put <local-path>",
 		"!ait put <local-path> <remote-path>",
 		"ait get --help",
 		"ait put --help",
