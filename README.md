@@ -10,7 +10,7 @@
 
 ## Features
 
-While remaining compatible with OpenSSH configuration and connection flags, AiT adds session management, recovery, and in-terminal collaboration beyond a typical interactive `ssh` session.
+While remaining compatible with OpenSSH configuration and connection flags, AiT adds session management, recovery, and in-terminal collaboration beyond a typical interactive `ssh` session. Interactive login and session load show the remote AiT prompt immediately; in-session `!ait get`/`put` accept optional destination defaults and report chain ZMODEM/SFTP progress through `done:` (details in the [user manual](docs/user-manual.md)).
 
 ### Session management
 
