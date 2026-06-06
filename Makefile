@@ -1,4 +1,4 @@
-.PHONY: all build install test vet fmt clean test-cross dupl
+.PHONY: all build build-cross install test vet fmt clean test-cross dupl
 
 BINARY_NAME := ait
 BUILD_DIR   := bin
@@ -13,11 +13,30 @@ LDFLAGS := -X $(LDFLAGS_PKG).version=$(VERSION) \
            -X $(LDFLAGS_PKG).gitCommit=$(GIT_COMMIT) \
            -X $(LDFLAGS_PKG).buildDate=$(BUILD_DATE)
 
+CROSS_PLATFORMS := \
+	linux/amd64 \
+	linux/arm64 \
+	darwin/amd64 \
+	darwin/arm64 \
+	windows/amd64
+
 all: build
 
 build:
 	@mkdir -p $(BUILD_DIR)
 	go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PKG)
+
+build-cross:
+	@mkdir -p $(BUILD_DIR)
+	@set -e; \
+	for platform in $(CROSS_PLATFORMS); do \
+		os=$${platform%%/*}; arch=$${platform#*/}; \
+		ext=; [ "$$os" = windows ] && ext=.exe; \
+		out=$(BUILD_DIR)/$(BINARY_NAME)-$$os-$$arch$$ext; \
+		echo ">> $$out"; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch \
+			go build -ldflags "$(LDFLAGS)" -o $$out $(MAIN_PKG); \
+	done
 
 install:
 	go install -ldflags "$(LDFLAGS)" $(MAIN_PKG)

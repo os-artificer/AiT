@@ -288,5 +288,8 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 	_, _ = c.scroll.Write(chunk)
 	if !c.pauseRemoteOut.Load() {
 		_, _ = os.Stdout.Write(chunk)
+		if !c.remotePromptShown.Load() && isDuplicatePromptOutput(chunk, user, host) {
+			c.remotePromptShown.Store(true)
+		}
 	}
 }

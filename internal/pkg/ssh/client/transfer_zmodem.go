@@ -28,7 +28,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
 )
 
-const zmodemSettleDelay = 400 * time.Millisecond
+const zmodemSettleDelay = 50 * time.Millisecond
 
 // zmodemTransferWaitHook waits for ZMODEM completion (overridable in tests).
 var zmodemTransferWaitHook = func(ctx context.Context, sess *zmodem.Session) error {

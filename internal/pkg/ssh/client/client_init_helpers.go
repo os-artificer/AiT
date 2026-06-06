@@ -71,8 +71,13 @@ func (c *Client) waitForRemoteAITPrompt(user, host string, maxWait time.Duration
 }
 
 // finishRemoteSetup ends setup suppression, strips leaked setup text from scrollback, refreshes the remote PS1, and unpauses display.
-func (c *Client) finishRemoteSetup(stdin io.Writer, user, host string) {
+func (c *Client) finishRemoteSetup(stdin io.Writer, _, _ string) {
+	user, host := c.promptUser(), c.promptHost()
 	marker := remoteSetupPromptMarker(user, host)
+
+	if tail := c.setupFilter.flush(user, host); len(tail) > 0 {
+		_, _ = c.scroll.Write(tail)
+	}
 
 	c.waitForRemoteAITPrompt(user, host, remoteAITPromptMaxWait)
 	c.scroll.StripSubstrings(RemoteSetupStripFragments(user, host, c.remotePromptDirAbs)...)
@@ -82,13 +87,18 @@ func (c *Client) finishRemoteSetup(stdin io.Writer, user, host string) {
 
 	hasMarker := strings.Contains(c.scroll.String(), marker)
 	if c.pauseRemoteOut.Load() {
-		if !hasMarker {
+		emitted := false
+		if hasMarker {
+			emitted = c.emitBufferedRemotePrompt(user, host)
+		}
+		if !emitted {
 			c.refreshRemotePrompt(stdin)
 		}
-		c.remotePromptShown.Store(true)
+		if emitted {
+			c.remotePromptShown.Store(true)
+		}
 	} else if !hasMarker {
 		c.refreshRemotePrompt(stdin)
-		c.remotePromptShown.Store(true)
 	}
 
 	c.remoteSetupSuppress.Store(false)

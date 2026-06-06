@@ -25,9 +25,10 @@ const transferIntro = "Download or upload a single file via SFTP (OpenSSH-compat
 const transferIntroPut = "Upload a single file to a remote host via SFTP (OpenSSH-compatible flags)."
 const transferNote = "Configuration is resolved via ssh -G; requires the OpenSSH client (ssh) on PATH."
 
-const transferPaths = `  user@host:/remote/file  and  local/path     (two arguments)
-  destination  remote/path  local/path       (three arguments)
-  with --session: remote/path and local/path on the saved session host
+const transferPaths = `  user@host:/remote/file              (get: local defaults to ./basename; put: local defaults to ./basename)
+  user@host:/remote/file  local/path  (two arguments)
+  destination  remote/path  local/path (three arguments)
+  with --session: get remote [/local]; put local [/remote] on the saved session host
 `
 
 const transferFlagOrder = `  Flags and paths may appear in any order (same rules as ait login).
@@ -81,12 +82,14 @@ func WriteTransferHelp(w io.Writer, cmdName string) error {
 func transferExamples(cmdName string) []string {
 	if cmdName == "put" {
 		return []string{
+			"ait put user@host:/opt/app",
 			"ait put -p22 -i~/.ssh/id ./bin/app user@host:/usr/local/bin/app",
 			"ait put deploy@10.0.0.5 ./local.bin /opt/app/bin",
 			"ait put ./patch.tar /tmp/patch.tar --session prod",
 		}
 	}
 	return []string{
+		"ait get user@deploy:/var/log/app.log",
 		"ait get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log",
 		"ait get deploy@10.0.0.5 /var/log/app.log ./app.log",
 		"ait get ./app.log /var/log/app.log --session prod",

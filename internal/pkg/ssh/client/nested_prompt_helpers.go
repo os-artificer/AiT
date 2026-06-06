@@ -108,3 +108,38 @@ func scrollChunkLooksLikeMOTD(chunk []byte) bool {
 	lower := strings.ToLower(string(chunk))
 	return strings.Contains(lower, nestedMOTDLastLogin) || strings.Contains(lower, nestedMOTDWelcome)
 }
+
+func lineLooksLikeShellPrompt(line string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return false
+	}
+
+	lower := strings.ToLower(line)
+	if strings.Contains(lower, nestedMOTDLastLogin) || strings.Contains(lower, nestedMOTDWelcome) {
+		return false
+	}
+	if strings.Contains(lower, nestedPasswordPromptSub) {
+		return false
+	}
+	if strings.HasPrefix(line, "AiT ") && strings.HasSuffix(strings.TrimRight(line, " \t\r"), ">") {
+		return false
+	}
+
+	for _, suffix := range []string{"->", "$", "#", "%", ">"} {
+		if strings.HasSuffix(line, suffix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func scrollChunkLooksLikeShellPrompt(chunk []byte) bool {
+	for _, line := range strings.Split(string(chunk), "\n") {
+		if lineLooksLikeShellPrompt(line) {
+			return true
+		}
+	}
+	return false
+}

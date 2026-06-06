@@ -59,16 +59,24 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 	transferCtx, endTransfer := c.beginTransfer(ctx)
 	defer endTransfer()
 
-	if len(args) != 2 {
-		err := transferUsageHintErr(usage)
-		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
+	normalized, normErr := normalizeMetaTransferArgs(dir, args)
+	if normErr != nil {
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, normErr)
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
+	args = normalized
 
 	plan, activeHost, target, planErr := c.planTransfer(stdin)
 	if planErr != nil {
 		errhint.Print(os.Stderr, errhint.SurfaceTTY, planErr)
+		c.finishMetaInteraction(stdin)
+		return nil
+	}
+
+	resolvedArgs, resolveErr := resolveTransferArgs(c, stdin, dir, args)
+	if resolveErr != nil {
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, resolveErr)
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
@@ -90,10 +98,10 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 
 	switch plan.Backend {
 	case route.BackendZModem:
-		err = transferRunPTY(c, transferCtx, stdin, dir, args, prog)
+		err = transferRunPTY(c, transferCtx, stdin, dir, resolvedArgs, prog)
 		if err != nil && !plan.ChainOnly && zmodemFallbackEligible(err) {
 			zmodemSftpFallbackNotice(activeHost, c.opts.Host)
-			err = transferRunSFTP(c, transferCtx, dir, args, prog)
+			err = transferRunSFTP(c, transferCtx, dir, resolvedArgs, prog)
 		} else if err != nil && errors.Is(err, ErrInjectCaptureNoMarkers) {
 			err = wrapPTYCaptureErr(err)
 		} else if err != nil && (errors.Is(err, ErrMissingLrzsz) || strings.Contains(err.Error(), "zmodem")) {
@@ -107,8 +115,9 @@ func (c *Client) handleTransfer(ctx context.Context, stdin io.Writer, dir transf
 				sftpFallbackNotice(c.opts.Host)
 			}
 		}
-		err = c.handleTransferSFTP(transferCtx, dir, args, prog)
-		if err != nil && isSFTPNotFoundErr(err) {
+		err = c.handleTransferSFTP(transferCtx, dir, resolvedArgs, prog)
+		if err != nil && isSFTPNotFoundErr(err) &&
+			shouldWrapTransferWrongHop(c.opts.Host, c.opts.LoginDestination, activeHost) {
 			err = wrapTransferWrongHop(c.opts.Host, err)
 		}
 	}

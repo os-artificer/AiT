@@ -281,8 +281,8 @@ CREATE TABLE app_meta (
 | `!ait local` | 进入本地模式（见下节） |
 | `!ait remote` | 退出本地模式，恢复远程 stdin |
 | `!ait suspend` | 挂起会话（等同 CLI `suspend`） |
-| `!ait get <remote> <local>` | 经 SFTP 从当前 SSH 连接下载单个文件（不重新认证） |
-| `!ait put <local> <remote>` | 经 SFTP 向当前 SSH 连接上传单个文件（不重新认证） |
+| `!ait get <remote> [<local>]` | 经 SFTP 从当前 SSH 连接下载单个文件（不重新认证）；省略 local 时默认为 `./basename`；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
+| `!ait put <local> [<remote>]` | 经 SFTP 向当前 SSH 连接上传单个文件（不重新认证）；省略 remote 时默认为 `./basename`（本地源文件名）；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
 | `!ait chain [on\|off]` | 切换链式模式：使用 PTY 管道注入替代 SFTP 进行文件传输和 tmux 操作；当已 SSH 超越直连主机时需要 |
 
 **识别规则：**
@@ -431,11 +431,13 @@ sequenceDiagram
 
 - OpenSSH 兼容：`-p`、`-l`、`-i`、`-F`、`-J`、`-o`、旧式 `--host`/`--user`/`--port`/`--identity`，以及 `--password`
 - AiT：`--session <id|alias>`（已保存会话；远程路径可为该主机上的裸 `/path`）
+- **单路径（get）**：`user@host:/remote/file` — 本地默认 `./basename`
+- **单路径（put）**：`user@host:/remote/file` — 本地默认 `./basename`；或 `./local/file` 配合 `--session` — 远程默认 `./basename`
 - **两个路径**：`user@host:/remote/file` 与本地路径，顺序任意
 - **三个路径**：`destination` + 远程文件路径 + 本地路径（顺序任意），例如 `ait get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
 - **两个路径 + `--session`**：本地路径与远程服务器路径（顺序无关；通过 `./` 或本地已存在文件识别本地路径）
 
-**会话内**（`!ait get` / `!ait put`）：仅两个服务器相对路径；不支持 SSH flag。
+**会话内**（`!ait get` / `!ait put`）：get 为 remote + 可选 local（默认 remote basename）；put 为 local + 可选 remote（默认 local basename）；相对 remote 在传输前按 active shell cwd 解析；不支持 SSH flag。
 
 ### 代理链式模式（!ait chain）
 

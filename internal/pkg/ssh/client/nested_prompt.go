@@ -95,6 +95,8 @@ func (c *Client) onInteractiveLineSubmitted(line string) {
 	c.nestedState = nestedPromptAwaitingShell
 	c.nestedAwaitingSince = time.Now()
 	c.nestedMOTDSeen = false
+	c.nestedMOTDAt = time.Time{}
+	c.nestedShellReadySeen = false
 	c.nestedPasswordPending = false
 }
 
@@ -116,8 +118,15 @@ func (c *Client) maybeInjectNestedPrompt(chunk []byte) {
 	}
 
 	if scrollChunkLooksLikeMOTD(chunk) {
+		if !c.nestedMOTDSeen {
+			c.nestedMOTDAt = time.Now()
+		}
 		c.nestedMOTDSeen = true
 		c.nestedPasswordPending = false
+	}
+
+	if c.nestedMOTDSeen && scrollChunkLooksLikeShellPrompt(chunk) {
+		c.nestedShellReadySeen = true
 	}
 
 	if !c.nestedReadyToInject() {
@@ -140,10 +149,15 @@ func (c *Client) nestedReadyToInject() bool {
 		}
 	}
 
-	if !c.nestedMOTDSeen {
-		if time.Since(c.nestedAwaitingSince) < nestedPromptMaxWait {
+	if c.nestedMOTDSeen {
+		if !c.nestedShellReadySeen {
 			return false
 		}
+		if !c.nestedMOTDAt.IsZero() && time.Since(c.nestedMOTDAt) < shellReadyDelay {
+			return false
+		}
+	} else if time.Since(c.nestedAwaitingSince) < nestedPromptMaxWait {
+		return false
 	}
 
 	last := c.lastRemoteOut.Load()
@@ -179,6 +193,23 @@ func (c *Client) runNestedPromptInjectLocked() {
 	}
 
 	if err := c.injectInitialCommands(stdin, cmds); err != nil {
+		return
+	}
+
+	c.finishRemoteSetup(stdin, user, host)
+
+	marker := remoteSetupPromptMarker(user, host)
+	if strings.Contains(c.scroll.String(), marker) {
+		return
+	}
+
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+	c.setupFilter = setupOutputFilter{}
+
+	if err := c.injectInitialCommands(stdin, cmds); err != nil {
+		c.remoteSetupSuppress.Store(false)
+		c.pauseRemoteOut.Store(false)
 		return
 	}
 

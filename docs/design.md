@@ -281,8 +281,8 @@ Implementation: [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/
 | `!ait local` | Enter local mode (below) |
 | `!ait remote` | Leave local mode; restore remote stdin |
 | `!ait suspend` | Suspend session (same as CLI `suspend`) |
-| `!ait get <remote> <local>` | Download one file via SFTP on the **current** SSH connection (no re-auth) |
-| `!ait put <local> <remote>` | Upload one file via SFTP on the **current** SSH connection (no re-auth) |
+| `!ait get <remote> [<local>]` | Download one file via SFTP on the **current** SSH connection (no re-auth); optional local path defaults to `./basename`; relative remote paths resolve against the **active shell** cwd before SFTP |
+| `!ait put <local> [<remote>]` | Upload one file via SFTP on the **current** SSH connection (no re-auth); optional remote path defaults to `./basename` (local source); relative remote paths resolve against the **active shell** cwd before SFTP |
 | `!ait chain [on\|off]` | Toggle chain mode: use PTY-pipe injection instead of SFTP for file transfer and tmux; needed when SSH'd beyond the directly connected host |
 
 **Detection rules:**
@@ -431,11 +431,12 @@ When the user has manually SSH'd beyond the directly connected host (e.g. login 
 
 - OpenSSH-compatible: `-p`, `-l`, `-i`, `-F`, `-J`, `-o`, legacy `--host`/`--user`/`--port`/`--identity`, plus `--password`
 - AiT: `--session <id|alias>` (saved session; remote path may be bare `/path` on that host)
-- **Two paths**: `user@host:/remote/file` + local path, in either order
+- **One path (get)**: `user@host:/remote/file` — local defaults to `./basename`
+- **One path (put)**: `user@host:/remote/file` — local defaults to `./basename`; or `./local/file` with `--session` — remote defaults to `./basename`
 - **Three paths**: `destination` + remote file path + local path (any order), e.g. `ait get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
 - **Two paths + `--session`**: local and remote server paths (order-independent; local path detected via `./` prefix or existing local file)
 
-**In-session** (`!ait get` / `!ait put`): two server-relative paths only; no SSH flags.
+**In-session** (`!ait get` / `!ait put`): get accepts remote + optional local (defaults to remote basename); put accepts local + optional remote (defaults to local basename); relative remote paths resolve against the active shell cwd before transfer; no SSH flags.
 
 ### Proxy chain mode (!ait chain)
 
