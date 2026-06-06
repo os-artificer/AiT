@@ -105,11 +105,13 @@ SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line 
 | Context | Prompt |
 |---------|--------|
 | `ait shell` | `AiT> ` |
-| `ait ai` (local) | `AiT AI(Ask)> ` or `AiT AI(Agent)> ` after `mode agent` |
+| `ait ai` (local) | `AiT AI(Agent)> ` by default; `mode ask` for `AiT AI(Ask)> ` |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` (cwd + optional Git branch; `session.remote_prompt.path` short\|absolute) |
 | SSH nested | same on inner host after `ssh` from an AiT session | Or use `ait login -J jump,final` to skip manual nested `ssh` |
 | SSH AI mode (`!ait ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
+
+After **`ait login`** or **`ait session --load`**, the remote **`AiT user@host:…>`** prompt should appear immediately—no extra Enter key.
 
 ---
 
@@ -121,16 +123,16 @@ By default, `~/.ssh/known_hosts` is enforced. For new hosts, run `ssh-keyscan -H
 
 ## AI mode (cloud + optional local Ollama)
 
-Configure at least one **cloud** provider API key (see top of this page), unless you use tiered Ollama only for simple questions. For local AI, run **`ait ai ollama setup`** — choose a models directory (`OLLAMA_MODELS`; default AiT data dir, or `~/.ollama/models`, or `--models-dir`); you will be asked `[y/N]` before installing Ollama via brew/winget/install.sh; declining still enables tiered config and prints manual steps. Use **`ait ai ollama status`** to check service state; **`ait ai ollama start`** / **`stop`** for the daemon; **`ait ai ollama disable`** (or `ait ai provider disable ollama`) to stop routing without removing tiered config. Ollama does not need a keyring entry. AI never runs shell commands without your approval.
+Configure at least one **cloud** provider API key (see top of this page), unless you use tiered Ollama only for simple questions. For local AI, run **`ait ai ollama setup`** — choose a models directory (`OLLAMA_MODELS`; default AiT data dir, or `~/.ollama/models`, or `--models-dir`); you will be asked `[y/N]` before installing Ollama via brew/winget/install.sh; declining still enables tiered config and prints manual steps. Use **`ait ai ollama status`** to check service state; **`ait ai ollama start`** / **`stop`** for the daemon; **`ait ai ollama disable`** (or `ait ai provider disable ollama`) to stop routing without removing tiered config. Ollama does not need a keyring entry. In **Agent** mode (default), read-only commands such as `ls` or `git status` run automatically; write commands and high-risk commands still require confirmation.
 
 | Where | How to enter | What runs |
 |-------|----------------|-----------|
-| Local (system shell or `ait shell`) | `ait ai` or `ait ai --model minimax`, or `ai` in `ait shell` | `AiT AI(Ask)>` / `AiT AI(Agent)>` — `run <cmd>` runs on **this machine**; `ait <subcmd>` runs AiT CLI after confirm |
-| Inside SSH | `!ait ai` or `!!` (optional first question) | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` — `run <cmd>` runs on **remote host** via the live session |
+| Local (system shell or `ait shell`) | `ait ai` or `ait ai --model minimax`, or `ai` in `ait shell` | `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`) — `run <cmd>` runs on **this machine**; `ait <subcmd>` runs AiT CLI after confirm |
+| Inside SSH | `!ait ai` or `!!` (optional first question) | `AiT AI(Agent) user@host>` by default — `run <cmd>` runs on **remote host** via the live session |
 
-Before each `run` / Agent tool execution, AiT shows a multi-line confirm menu: **`y`** run once, **`c`** trust this command’s first word for the rest of the AI session, **`s`** trust all safe commands this session, **`n`** skip. High-risk commands offer only **`y`** / **`n`**.
+Before each write or high-risk `run` / Agent tool execution, AiT shows a multi-line confirm menu: **`y`** run once, **`c`** trust this command’s first word for the rest of the AI session, **`s`** trust all safe commands this session, **`n`** skip. High-risk commands offer only **`y`** / **`n`**. Read-only commands in Agent mode (e.g. `ls`, `git status`) run without a prompt.
 
-In AI mode: `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default ask), `approve each|session` (default each; `trust` = session), `model` / `model list` / `model <deepseek|minimax>`, then questions (ask) or agent planning, or `run …` / local `ait …`. `policy` is deprecated (use `approve`). Do not use `!ait ai` as a meta subcommand (`!ait ai` line form only).
+In AI mode: `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default **agent**; **`mode ask`** for Q&A only), `approve each|session` (default each; `trust` = session), `model` / `model list` / `model <deepseek|minimax>`, then questions (ask) or agent planning, or `run …` / local `ait …`. `policy` is deprecated (use `approve`). Do not use `!ait ai` as a meta subcommand (`!ait ai` line form only).
 
 With tiered routing on, short first-turn questions use local Ollama; longer prompts, code fences, complex keywords, or multi-turn history use cloud providers. `--model` / `model <cloud>` skip Ollama for that session.
 
@@ -194,7 +196,7 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
 - In SSH, `!ait get` / `!ait put` reuse the live connection (one or two paths, no flags); omitted destination defaults to the source basename.
 - **`!ait put` local path** is on the machine running AiT (your laptop/desktop), not the remote shell’s current directory. **`!ait get` local path** is also on the AiT client. Remote paths are relative to the **active shell** (which may be a nested hop when chain mode is on).
-- In SSH, **`!ait get` / `!ait put` print phase progress and a `done:` line on stderr** (e.g. `get … → …`, `handshake…`, `copying… 50%`, `done: get …`). On a TTY, **`copying… N%` updates in place** on one line (get and put use the same format, including SFTP and chain ZMODEM). Phase and done lines use CRLF-safe output on raw TTY (Linux, macOS, Windows clients).
+- In SSH, **`!ait get` / `!ait put` print phase progress and a `done:` line on stderr** (e.g. `get … → …`, `handshake…`, `copying… 50%`, then **`closing…`** for SFTP or **`finishing…`** for chain ZMODEM, then `done: get …`). On a TTY, **`copying… N%` updates in place** on one line (get and put use the same format, including SFTP and chain ZMODEM). Phase and done lines use CRLF-safe output on raw TTY (Linux, macOS, Windows clients).
 - Before `ait session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
 
 ---
@@ -209,7 +211,7 @@ When chain mode is off and you are on the **same host as the dial target**, **`!
 
 **`!ait chain on`** enables chain mode manually, which switches to PTY-pipe injection:
 
-- **File transfer**: **lrzsz first** — ZMODEM over the PTY when `sz`/`rz` are available. In chain mode without lrzsz, AiT shows install instructions and, on an interactive terminal, asks **`Install lrzsz on <host>? [y/N]`** before running an OS-specific install command on the active shell (Linux package managers, Homebrew, choco/winget; may need remote `sudo`). Progress shows `handshake…` and **`copying… NN%`** (same label as SFTP; in-place on TTY). AiT client (Linux/macOS/Windows Terminal) needs no local lrzsz. Standalone `ait get/put` still uses SFTP.
+- **File transfer**: **lrzsz first** — ZMODEM over the PTY when `sz`/`rz` are available. In chain mode without lrzsz, AiT shows install instructions and, on an interactive terminal, asks **`Install lrzsz on <host>? [y/N]`** before running an OS-specific install command on the active shell (Linux package managers, Homebrew, choco/winget; may need remote `sudo`). Progress shows `handshake…`, **`copying… NN%`** (same label as SFTP; in-place on TTY), then **`finishing…`** before `done:` (get and put symmetric). AiT client (Linux/macOS/Windows Terminal) needs no local lrzsz. Standalone `ait get/put` still uses SFTP (100% → **`closing…`** → `done:`).
 - **Tmux**: Tmux operations are injected through the PTY pipe instead of opening a new SSH session.
 
 **`!ait chain off`** returns to the default SFTP/direct-session mode.
