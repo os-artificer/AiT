@@ -144,7 +144,7 @@ make test-cross  # windows + darwin go build
 ```text
 ait shell                              # AiT> REPL：login、session --list/--load、history、help、exit
 ait login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
-ait ai [--model deepseek|minimax]            # 本机 AI REPL（AiT AI>）；tiered 可先走 Ollama
+ait ai [--model deepseek|minimax]            # 本机 AI REPL（默认 Agent；mode ask 为问答）；tiered 可先走 Ollama
 ait ai model list
 ait ai ask [message...]
 ait ai agent [message...]
@@ -159,7 +159,7 @@ ait put [ssh-flags] <paths...>
 ait config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-提示符：`AiT>`（`ait shell`）、`AiT AI>`（`ait ai`）、`AiT AI user@host>`（SSH AI）、`AiT user@host>`（SSH）、`AiT Local>`（`!ait local`）。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`；`!ait chain [on|off]` 用于多跳 SSH 的 PTY 管道注入。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。
+提示符：`AiT>`（`ait shell`）、默认 `AiT AI(Agent)>`（`mode ask` → `AiT AI(Ask)>`）、`AiT AI(Agent) user@host>`（SSH AI）、`AiT user@host>`（SSH；login/load 后立即显示）、`AiT Local>`（`!ait local`）。确认键：`y`/`c`/`s`/`n`；Agent 只读命令自动执行。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`；`!ait chain [on|off]` 用于多跳 SSH 的 PTY 管道注入。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。
 
 ## 注意事项
 
