@@ -1,0 +1,82 @@
+/**
+ * Copyright 2026 AiT authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+**/
+
+package helpdoc
+
+import "io"
+
+// AI help strings — single source for ait ai, ask, agent, ollama, and in-REPL help.
+const (
+	ExampleAIProviderEnableDeepseek  = "ait ai provider enable deepseek"
+	ExampleAIProviderEnableOllamaYes = "ait ai provider enable ollama --yes"
+	ExampleAIProviderDisableMinimax  = "ait ai provider disable minimax"
+	ExampleAIOllamaStatus            = "ait ai ollama status"
+	ExampleAIOllamaSetupYes          = "ait ai ollama setup --yes"
+	ExampleAIOllamaStartWait         = "ait ai ollama start --wait"
+	ExampleAIOllamaDisableStop       = "ait ai ollama disable --stop"
+
+	AIHelpFlagsBody     = "  --model   Override AI provider for this session (uses provider model/base_url from config)\n"
+	AIChatHelpFlagsBody = "  --model   Override cloud provider (deepseek|minimax); inherited from ait ai\n"
+
+	AIHelpTieredRoutingBody = "When ai.tiered.enabled in config.yaml, short first-turn prompts use local Ollama; " +
+		"longer or complex prompts use cloud providers. Setup: ait ai ollama setup. List: ait ai model list\n"
+	AIHelpInSSHBody = "Use !ait ai or !! for interactive AI; " +
+		"!ait ai ask <msg> or !! ask <msg> for one-shot; " +
+		"!ait ai agent <msg> or !! agent <msg> for one-shot agent. " +
+		"!ait ai as a meta subcommand is blocked."
+
+	AIIntroLocal  = "Interactive AI mode on this machine (outside SSH). Commands run locally only after you confirm."
+	AIIntroRemote = "Interactive AI mode for the active SSH session. Shell commands run on the remote host via run after you confirm."
+
+	AIReplCommands = `  help              show AI mode help
+  exit, quit        leave AI mode
+  clear             clear chat history (not input history; see history)
+  history           list or manage input history (history -c, -d, -s, -a, -r, -w)
+  mode ask|agent    Ask = Q&A only; Agent = plan and run commands (default: agent)
+  approve each|session   how often to confirm runs (default: each)
+  trust             same as approve session
+  model             show current AI routing (provider, tiered)
+  model list        list configured providers (same as ait ai model list)
+  model <provider>  set cloud provider for this session (deepseek|minimax)
+  run <command>     run a shell command after confirmation
+  (deprecated: policy per-cmd|once — use approve each|session)
+`
+
+	AIReplCommandsLocalExtra = `  ait <subcmd>      run an ait CLI subcommand after confirmation (local only)
+`
+)
+
+// WriteAIChatSubcommandHelp prints one-shot ask/agent --help using shared layout.
+// cmdName is the subcommand name for the footer (e.g. "ask", "agent").
+func WriteAIChatSubcommandHelp(w io.Writer, cmdName, introMain, introSSH, usageLine, inputBody string, examples ...string) error {
+	b := NewBody(w)
+	if err := b.WriteIntro(introMain, introSSH); err != nil {
+		return err
+	}
+	if err := b.WriteUsage(usageLine); err != nil {
+		return err
+	}
+	if err := b.WriteSection(SectionInput, inputBody); err != nil {
+		return err
+	}
+	if err := b.WriteSection(SectionFlags, AIChatHelpFlagsBody); err != nil {
+		return err
+	}
+	if err := b.WriteExamples(examples...); err != nil {
+		return err
+	}
+	return b.Finish(cmdName)
+}

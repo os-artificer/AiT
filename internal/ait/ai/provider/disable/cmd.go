@@ -18,9 +18,9 @@ package disable
 
 import (
 	"fmt"
+	provshared "github.com/os-artificer/AiT/internal/ait/ai/provider/shared"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
-	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 
 	"github.com/spf13/cobra"
@@ -42,7 +42,7 @@ func New() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if !config.IsKnownProvider(id) {
-				return unknownProviderErr(id)
+				return provshared.UnknownProviderErr(id)
 			}
 			cfg, err := config.Load()
 			if err != nil {
@@ -60,14 +60,4 @@ func New() *cobra.Command {
 	}
 	pkghelpdoc.Bind(cmd, WriteHelp)
 	return cmd
-}
-
-func unknownProviderErr(id string) error {
-	return errhint.WithTryMsg(fmt.Sprintf("unknown provider %q", id),
-		"Use deepseek, minimax, or ollama.",
-		"ait ai provider enable deepseek",
-		"ait ai provider enable minimax",
-		"ait ai provider enable ollama",
-		"ait ai provider --help",
-	)
 }

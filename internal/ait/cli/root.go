@@ -36,6 +36,7 @@ func init() {
 	shell.SetAIModeRunner(ai.RunLocalFromShell(ExecuteWriters))
 }
 
+// newRootCmd builds the Cobra root command with registry-attached subcommands and shared help binding.
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "ait",
@@ -52,12 +53,14 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-// Execute runs the Cobra root with args on os.Stdout/os.Stderr defaults.
+// Execute runs the Cobra root with args on os.Stdout and os.Stderr.
+// Returns Cobra execution errors (including subcommand failures); does not set os.Exit.
 func Execute(args []string) error {
 	return ExecuteWriters(args, os.Stdout, os.Stderr)
 }
 
-// ExecuteWriters runs the Cobra root with custom stdout/stderr (e.g. ait shell REPL).
+// ExecuteWriters runs the Cobra root with custom stdout and stderr (e.g. ait shell REPL or meta !ait).
+// args are passed to the root command; returns Cobra execution errors without calling os.Exit.
 func ExecuteWriters(args []string, out, errOut io.Writer) error {
 	root := newRootCmd()
 	root.SetOut(out)

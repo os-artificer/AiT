@@ -11,7 +11,7 @@ CLI 入口：[`internal/ait/root.go`](../internal/ait/root.go)（`Run` + cobra r
 
 ```text
 ait shell                                    # AiT> REPL（login/list/load 等）
-ait ai                                       # 本机 AI 模式（AiT AI>）；ait shell 内也可输入 ai
+ait ai                                       # 本机 AI 模式（AiT AI(Agent)>）；ait shell 内也可输入 ai
 ait ai model list                            # 列出已配置 AI provider（含 ENABLED 列）
 ait ai ask [message...]                      # 单轮提问（无参数读 stdin）；SSH：!ait ai ask / !! ask
 ait ai agent [message...]                    # 单轮 agent（工具执行）
@@ -34,7 +34,7 @@ ait put [ssh-flags] <paths...>
 ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUAL/$EDITOR（Unix vi / Windows Notepad）
 ```
 
-**AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ait ai [--model <云端-provider>]`** 或 **`ait shell` 内 `ai`** 进入本机 AI REPL（`AiT AI>`），`run` / `ait` 经确认后在本机执行。已连接 SSH 时用 **`!ait ai`** / **`!!`** 进入远程 AI（`AiT AI user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ait ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ait ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议](#会话内-meta-协议ait--)。
+**AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ait ai [--model <云端-provider>]`** 或 **`ait shell` 内 `ai`** 进入本机 AI REPL（`AiT AI(Agent)>`），`run` / `ait` 经确认后在本机执行。已连接 SSH 时用 **`!ait ai`** / **`!!`** 进入远程 AI（`AiT AI(Agent) user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ait ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ait ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议](#会话内-meta-协议ait--)。
 
 **`!ait local` / `!ait remote`** 切换本地/远程输入；**`!ait suspend`** 挂起会话；**`!ait chain [on|off]`** 切换链式模式（经 PTY 管道注入实现多跳 SSH 的文件传输与 tmux 操作）。
 

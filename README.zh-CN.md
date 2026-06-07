@@ -30,7 +30,7 @@
 
 | 功能 | AiT | 常规 SSH 客户端 |
 |------|-----|-----------------|
-| AI 模式 | 本机 `ait ai`（`AiT AI>`）与会话内 `!ait ai` / `!!`（远程 `run` 须确认）；Deepseek + MiniMax + 可选 tiered Ollama | 无集成；须另开工具窗口 |
+| AI 模式 | 本机 `ait ai`（`AiT AI(Agent)>`）与会话内 `!ait ai` / `!!`（远程 `run` 须确认）；Deepseek + MiniMax + 可选 tiered Ollama | 无集成；须另开工具窗口 |
 | 本地模式 | `!ait local` / `!ait remote` 切换输入目标，SSH 连接保持 | 本机与远程须分终端操作 |
 | 文件传输 | `ait get` / `ait put`（SFTP，单文件）；`!ait get` / `!ait put` 复用当前 SSH 会话 | 须自行拼接 scp/rsync 的 SSH 选项 |
 

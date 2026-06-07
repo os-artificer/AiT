@@ -91,7 +91,7 @@ func aitModeNotice(lines ...string) {
 	var b strings.Builder
 	b.WriteString(termEOL)
 	for _, line := range lines {
-		b.WriteString("AiT: ")
+		b.WriteString(errhint.PrefixAiT)
 		b.WriteString(line)
 		b.WriteString(termEOL)
 	}
