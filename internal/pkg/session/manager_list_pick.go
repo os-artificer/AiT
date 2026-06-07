@@ -43,8 +43,8 @@ func (m *Manager) PickSessionFrom(in io.Reader, out io.Writer) (string, error) {
 		return "", err
 	}
 	if len(list) == 0 {
-		return "", errhint.WithTryMsg("no saved sessions",
-			"Save a connection before loading or switching.",
+		return "", errhint.WithTryMsg(errNoSavedSessions,
+			hintNoSavedSessionsExplain,
 			tryLoginSave, tryLoginAlias, trySessionHelp,
 		)
 	}
@@ -53,7 +53,7 @@ func (m *Manager) PickSessionFrom(in io.Reader, out io.Writer) (string, error) {
 		fmt.Fprintf(out, "  %d) %s  %s@%s:%d  [%s]\n", i+1, s.AliasOrID(), s.Username, s.Host, s.Port, s.Status)
 	}
 
-	fmt.Fprint(out, "Select session (number, id, or alias): ")
+	fmt.Fprint(out, pickSessionPrompt)
 	line, err := readPickLine(in, out)
 	if err != nil {
 		return "", err
@@ -101,10 +101,10 @@ func (m *Manager) Delete(idOrAlias string, force bool) error {
 // Clears per-session keyring entries and scrollback files. Returns store.DeleteAllSessions errors.
 func (m *Manager) DeleteAll(force bool) error {
 	if !force {
-		fmt.Print("Delete ALL sessions? [y/N] ")
+		fmt.Print(confirmDeleteAllPrompt)
 		reader := bufio.NewReader(os.Stdin)
 		line, _ := reader.ReadString('\n')
-		if strings.TrimSpace(strings.ToLower(line)) != "y" {
+		if strings.TrimSpace(strings.ToLower(line)) != confirmResponseYes {
 			fmt.Println(msgCancelled)
 			return nil
 		}
@@ -128,26 +128,26 @@ func (m *Manager) List(w io.Writer, verbose bool) error {
 		return err
 	}
 	if len(list) == 0 {
-		fmt.Fprintln(w, "No saved sessions.")
+		fmt.Fprintln(w, msgListEmpty)
 		return nil
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if verbose {
-		fmt.Fprintln(tw, "#\tID\tFULL_ID\tTARGET\tSTATUS\tTMUX\tREMAINING")
+		fmt.Fprintln(tw, listHeaderVerbose)
 	} else {
-		fmt.Fprintln(tw, "#\tID\tTARGET\tSTATUS\tTMUX\tREMAINING")
+		fmt.Fprintln(tw, listHeaderNormal)
 	}
 	now := time.Now().Unix()
 	for i, s := range list {
 		remain := time.Duration(s.AuthExpiresAt-now) * time.Second
 		remainingLabel := remain.Round(time.Hour).String()
 		if remain <= 0 {
-			remainingLabel = "expired"
+			remainingLabel = labelAuthRemainingExpired
 		}
-		tmuxCol := "-"
+		tmuxCol := labelTmuxDisabled
 		if s.TmuxEnabled {
-			tmuxCol = "tmux"
+			tmuxCol = labelTmuxEnabled
 		}
 		target := fmt.Sprintf("%s@%s:%d", s.Username, s.Host, s.Port)
 		if verbose {
@@ -163,10 +163,10 @@ func (m *Manager) List(w io.Writer, verbose bool) error {
 
 // confirmDelete prompts for y/N confirmation and reports whether the user confirmed.
 func confirmDelete(sess *store.Session) bool {
-	fmt.Printf("Delete session %s (%s@%s)? [y/N] ", sess.AliasOrID(), sess.Username, sess.Host)
+	fmt.Printf(confirmDeleteSessionFmt, sess.AliasOrID(), sess.Username, sess.Host)
 	reader := bufio.NewReader(os.Stdin)
 	line, _ := reader.ReadString('\n')
-	if strings.TrimSpace(strings.ToLower(line)) != "y" {
+	if strings.TrimSpace(strings.ToLower(line)) != confirmResponseYes {
 		fmt.Println(msgCancelled)
 		return false
 	}

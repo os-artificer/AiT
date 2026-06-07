@@ -149,7 +149,11 @@ func (s *Store) migrate() error {
 			return err
 		}
 	}
-	return nil
+
+	if err := s.dedupeConnectionKeys(); err != nil {
+		return err
+	}
+	return s.ensureConnectionKeyIndex()
 }
 
 // Close closes the underlying database connection.

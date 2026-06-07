@@ -29,14 +29,14 @@ func wrapLoadNotFound(idOrAlias string, err error) error {
 		return err
 	}
 	return errhint.WithTry(err,
-		"The list ID column is for display only.",
+		hintDisplayIDOnlyExplain,
 		tryLoadByAlias, tryLoadByFullID, tryLoadInteractive, trySessionHelp,
 	)
 }
 
 // isListDisplayIDToken reports whether s matches the 8-character hex prefix shown in session list ID column.
 func isListDisplayIDToken(s string) bool {
-	if len(s) != 8 {
+	if len(s) != listDisplayIDTokenLen {
 		return false
 	}
 	for _, c := range s {

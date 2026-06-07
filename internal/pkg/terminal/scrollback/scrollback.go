@@ -67,6 +67,19 @@ func (b *Buffer) String() string {
 	return b.data.String()
 }
 
+// ReplaceWith replaces buffer contents with fn(s) under the buffer lock.
+func (b *Buffer) ReplaceWith(fn func(string) string) {
+	if fn == nil {
+		return
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	s := fn(b.data.String())
+	b.data.Reset()
+	b.data.WriteString(s)
+}
+
 // StripSubstrings removes every occurrence of each non-empty fragment from the buffer.
 // Empty fragments in fragments are ignored.
 func (b *Buffer) StripSubstrings(fragments ...string) {

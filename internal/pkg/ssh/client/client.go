@@ -330,7 +330,7 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 		if line == "" {
 			continue
 		}
-		if _, err := stdin.Write([]byte(line + "\n")); err != nil {
+		if err := c.Inject(stdin, line, InjectOpts{SuppressEcho: true}); err != nil {
 			return err
 		}
 	}
@@ -476,17 +476,11 @@ func (c *Client) captureRemoteCwd(stdin io.Writer, opts InteractiveOpts) string 
 		}
 	}
 
-	const begin, end = ".__AITPWD__.", ".__AITPWDEND__."
-	snap := c.scroll.String()
-	cmd := fmt.Sprintf("printf '%%s%%s%%s\\n' '%s' \"$(pwd -P 2>/dev/null || pwd)\" '%s'\n", begin, end)
-	_, _ = stdin.Write([]byte(cmd))
-	for i := 0; i < 100; i++ {
-		time.Sleep(20 * time.Millisecond)
-		if p := parsePwdMarker(c.scroll.String(), snap, begin, end); p != "" {
-			return p
-		}
+	pwd, err := c.probeShellPwd(stdin)
+	if err != nil {
+		return ""
 	}
-	return ""
+	return pwd
 }
 
 // Close closes the SSH agent connection (if any) and the underlying ssh.Client.

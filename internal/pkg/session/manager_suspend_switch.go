@@ -34,7 +34,7 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 		return err
 	}
 
-	path := filepath.Join(dir, id+".log")
+	path := filepath.Join(dir, id+scrollbackFileSuffix)
 	if err := scroll.SaveToFile(path); err != nil {
 		return err
 	}
@@ -55,13 +55,13 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 func (m *Manager) SuspendCurrent() error {
 	id, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if id == "" {
-		return errhint.WithTryMsg("no current session",
-			"Load or switch to a session first, or suspend from inside SSH.",
+		return errhint.WithTryMsg(errNoCurrentSession,
+			hintNoCurrentSessionExplain,
 			tryLoadFromLocal, trySuspendInSSH, trySessionHelp,
 		)
 	}
-	fmt.Println("Suspend from the local shell is not supported.")
-	fmt.Println("Reconnect to the session and run !ait suspend inside SSH.")
+	fmt.Println(msgSuspendLocalUnsupported)
+	fmt.Println(msgSuspendLocalUseSSH)
 	return nil
 }
 
@@ -76,7 +76,7 @@ func (m *Manager) Switch(ctx context.Context, target string, useTmux bool, passw
 
 	current, _ := m.Store.GetMeta(store.MetaCurrentSession)
 	if current == tgt.ID {
-		fmt.Println("already on session", tgt.AliasOrID())
+		fmt.Printf(msgAlreadyOnSessionFmt+"\n", tgt.AliasOrID())
 		return nil
 	}
 

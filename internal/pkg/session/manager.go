@@ -17,7 +17,6 @@
 package session
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
@@ -69,15 +68,9 @@ func (m *Manager) DialSSH(sshOpts sshclient.Options, passwordOverride, hostLabel
 
 func (m *Manager) dialLogin(sshOpts sshclient.Options, password, host string) (*sshclient.Client, error) {
 	client, err := sshclient.DialChain(sshOpts)
-	if err != nil && shouldPromptSSHPassword(sshOpts, password) && isSSHAuthFailure(err) {
-		user := sshOpts.User
-		if user == "" {
-			user = "user"
-		}
-		if p, perr := promptPassword(fmt.Sprintf("Password for %s@%s: ", user, host)); perr == nil && p != "" {
-			sshOpts.Password = p
-			client, err = sshclient.DialChain(sshOpts)
-		}
+	if err == nil {
+		return client, nil
 	}
-	return client, err
+
+	return retryDialAfterPasswordPrompt(sshOpts, err, password, host)
 }

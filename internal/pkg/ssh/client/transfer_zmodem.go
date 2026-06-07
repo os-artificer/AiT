@@ -157,5 +157,9 @@ func (t *ZModemTransfer) waitTransfer(ctx context.Context) error {
 	}
 
 	time.Sleep(zmodemSettleDelay)
-	return zmodemTransferWaitHook(ctx, sess)
+	if err := zmodemTransferWaitHook(ctx, sess); err != nil {
+		return err
+	}
+	t.client.drainZModemPostWait()
+	return nil
 }

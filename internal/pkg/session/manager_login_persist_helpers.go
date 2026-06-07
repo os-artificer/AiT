@@ -32,7 +32,8 @@ type loginPersistPlan struct {
 }
 
 // planLoginPersistence decides whether login should upsert a session row and which id to use.
-// Persist when --save/--alias is set or when username+host+port already exists in the store.
+// With --save or --alias, resolvePersistSessionID matches the full connection key (username, host, port, alias).
+// Without flags, persist only when an empty-alias row for the connection already exists.
 func (m *Manager) planLoginPersistence(opts LoginOpts, newID string) (loginPersistPlan, error) {
 	if shouldPersistLogin(opts) {
 		id, err := m.resolvePersistSessionID(opts, newID)
@@ -46,7 +47,7 @@ func (m *Manager) planLoginPersistence(opts LoginOpts, newID string) (loginPersi
 		return plan, nil
 	}
 
-	existing, err := m.Store.FindSessionByConnection(opts.User, opts.Host, normalizePort(opts.Port))
+	existing, err := m.Store.FindSessionByKey(opts.User, opts.Host, normalizePort(opts.Port), "")
 	if err != nil {
 		if errors.Is(err, store.ErrSessionNotFound) {
 			return loginPersistPlan{persist: false, id: newID}, nil

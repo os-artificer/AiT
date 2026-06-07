@@ -281,8 +281,8 @@ func TestQuotePath(t *testing.T) {
 }
 
 func TestNormalizePort(t *testing.T) {
-	if got := normalizePort(0); got != 22 {
-		t.Fatalf("normalizePort(0)=%d want 22", got)
+	if got := normalizePort(0); got != defaultSSHPort {
+		t.Fatalf("normalizePort(0)=%d want %d", got, defaultSSHPort)
 	}
 	if got := normalizePort(2222); got != 2222 {
 		t.Fatalf("normalizePort(2222)=%d want 2222", got)
