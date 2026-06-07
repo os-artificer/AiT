@@ -29,7 +29,7 @@ import (
 )
 
 // ErrNonInteractivePick is returned when session pick requires a TTY on stdin.
-var ErrNonInteractivePick = errhint.NewSentinel("non-interactive terminal")
+var ErrNonInteractivePick = errhint.NewSentinel(errNonInteractiveTerminal)
 
 // CheckInteractiveStdin returns ErrNonInteractivePick when stdin is not a terminal.
 // Used before interactive session pick for ait session --load or --switch without a target.
@@ -38,7 +38,7 @@ func CheckInteractiveStdin() error {
 		return nil
 	}
 	return errhint.WithTry(ErrNonInteractivePick,
-		"Interactive session pick requires a TTY.",
+		hintNonInteractivePickExplain,
 		tryLoadByAlias,
 		tryLoadByFullID,
 		tryLoadInteractive,

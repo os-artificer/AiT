@@ -124,7 +124,7 @@ func (m *Manager) resolvePassword(sess *store.Session, override string) (string,
 	}
 
 	if sess.AuthMethod == store.AuthMethodPassword {
-		p, err := promptPassword(fmt.Sprintf("Password for %s@%s (auth expired): ", sess.Username, sess.Host))
+		p, err := promptPassword(fmt.Sprintf(promptPasswordExpiredFmt, sess.Username, sess.Host))
 		if err != nil {
 			return "", false, err
 		}
@@ -132,7 +132,7 @@ func (m *Manager) resolvePassword(sess *store.Session, override string) (string,
 	}
 
 	if sess.IdentityPath != "" {
-		p, err := promptPassword(fmt.Sprintf("Passphrase for key %s (auth expired): ", sess.IdentityPath))
+		p, err := promptPassword(fmt.Sprintf(promptPassphraseExpiredFmt, sess.IdentityPath))
 		if err != nil {
 			return "", false, err
 		}

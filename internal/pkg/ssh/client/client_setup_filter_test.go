@@ -27,6 +27,8 @@ func TestIsSetupLeakLine(t *testing.T) {
 	user, host := "root", "ylgeeker.com"
 	leaks := []string{
 		"stty -echo 2>/dev/null",
+		"set +o history 2>/dev/null",
+		"[ -n \"$ZSH_VERSION\" ] && _AIT_HIST=$HISTFILE HISTFILE=/dev/null",
 		"export PS1='\\[\\]AiT root@ylgeeker.com:${PWD/#$HOME/\\~}$(b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && [ -n \"$b\" ] && printf \":%s\" \"$b\")> \\[\\] '",
 	}
 	for _, line := range leaks {

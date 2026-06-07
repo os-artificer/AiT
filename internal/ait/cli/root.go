@@ -40,15 +40,17 @@ func init() {
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "ait",
-		Short:         "AiT — AI Terminal (SSH client)",
+		Short:         "AiT — AI Terminal (SSH Client)",
 		Long:          pkghelpdoc.LongHint("ait"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+
 	registry.AttachRoot(root, registry.Deps{
 		RunWithMgr:     runWithManager,
 		ExecuteWriters: ExecuteWriters,
 	})
+
 	pkghelpdoc.Bind(root, registry.WriteRootHelp)
 	return root
 }

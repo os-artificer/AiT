@@ -16,9 +16,90 @@
 
 package session
 
-// Messages — interactive session picker output.
+// Ports and lengths.
+const (
+	defaultSSHPort        = 22
+	listDisplayIDTokenLen = 8
+	scrollbackFileSuffix  = ".log"
+)
+
+// Errhint sentinels (errors.Is / WithTry first line — do not change wording).
 const (
 	errInvalidSelection                = "invalid selection"
-	msgCancelled                       = "cancelled"
 	errEphemeralSuspendRequiresPersist = "suspend requires a saved session; use ait login --save or --alias <name>"
+	errNoSavedSessions                 = "no saved sessions"
+	errNoCurrentSession                = "no current session"
+	errNonInteractiveTerminal          = "non-interactive terminal"
+	errCurrentSessionActiveFmt         = "current session %s is still active"
+	errUnknownTransferOp               = "unknown transfer operation"
+)
+
+// Hint explanations (WithTryMsg body — unchanged).
+const (
+	hintInvalidSelectionExplain    = "Enter a number from the list, a full session id, or an alias."
+	hintEphemeralSuspendExplain    = "Only saved sessions can be suspended to the local database."
+	hintNoSavedSessionsExplain     = "Save a connection before loading or switching."
+	hintNonInteractivePickExplain  = "Interactive session pick requires a TTY."
+	hintNoCurrentSessionExplain    = "Load or switch to a session first, or suspend from inside SSH."
+	hintDisplayIDOnlyExplain       = "The list ID column is for display only."
+	hintActiveSessionSwitchExplain = "Suspend the current session inside SSH before switching."
+)
+
+// Try block lines (shared by load and interactive pick errors).
+const (
+	tryLoadByAlias     = "ait session --load <alias>"
+	tryLoadByFullID    = "ait session --list -v    then ait session --load <FULL_ID>"
+	tryLoadInteractive = "ait session --load       pick by # interactively"
+	trySessionHelp     = "ait session --help"
+	trySuspendInSSH    = "!ait suspend"
+	tryLoadFromLocal   = "ait session --load [<id|alias>]"
+	trySwitchForce     = "ait session --switch <id|alias> --force"
+	tryLoginSave       = "ait login --save <destination>"
+	tryLoginAlias      = "ait login --alias <name> <destination>"
+)
+
+// Interactive password prompts (format strings).
+const (
+	defaultSSHPromptUser       = "user"
+	promptPasswordLoginFmt     = "Password for %s@%s: "
+	promptPasswordExpiredFmt   = "Password for %s@%s (auth expired): "
+	promptPassphraseExpiredFmt = "Passphrase for key %s (auth expired): "
+)
+
+// SSH auth error substring classification (isSSHAuthFailure).
+const (
+	sshHostKeyErrKnownHosts         = "knownhosts"
+	sshHostKeyErrHostKey            = "host key"
+	sshHostKeyErrHostKeyCompact     = "hostkey"
+	sshHostKeyErrKeyUnknown         = "key is unknown"
+	sshHostKeyErrVerificationFailed = "host key verification failed"
+	sshHostKeyErrPossibleMITM       = "possible mitm"
+	sshAuthErrUnableToAuthenticate  = "unable to authenticate"
+	sshAuthErrPermissionDenied      = "permission denied"
+	sshAuthErrNoSupportedAuth       = "no supported authentication"
+	sshAuthErrNoAuthMethod          = "no authentication method"
+)
+
+// List / pick / confirm UI.
+const (
+	msgCancelled              = "cancelled"
+	msgListEmpty              = "No saved sessions."
+	pickSessionPrompt         = "Select session (number, id, or alias): "
+	confirmResponseYes        = "y"
+	confirmDeleteAllPrompt    = "Delete ALL sessions? [y/N] "
+	confirmDeleteSessionFmt   = "Delete session %s (%s@%s)? [y/N] "
+	listHeaderNormal          = "#\tID\tTARGET\tSTATUS\tTMUX\tREMAINING"
+	listHeaderVerbose         = "#\tID\tFULL_ID\tTARGET\tSTATUS\tTMUX\tREMAINING"
+	labelAuthRemainingExpired = "expired"
+	labelTmuxDisabled         = "-"
+	labelTmuxEnabled          = "tmux"
+)
+
+// Stdout/stderr notices.
+const (
+	msgSuspendLocalUnsupported = "Suspend from the local shell is not supported."
+	msgSuspendLocalUseSSH      = "Reconnect to the session and run !ait suspend inside SSH."
+	msgAlreadyOnSessionFmt     = "already on session %s"
+	warnSwitchWithoutSuspend   = "warning: switching without suspend; marking current session suspended"
+	errTmuxEnsureFmt           = "tmux: %w (is tmux installed on remote?)"
 )
