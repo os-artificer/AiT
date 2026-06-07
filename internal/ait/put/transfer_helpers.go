@@ -20,9 +20,7 @@ import (
 	"context"
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
-	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
-	pkgtransfer "github.com/os-artificer/AiT/internal/pkg/transfer"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
 )
 
 func runTransferArgv(ctx context.Context, mgr *session.Manager, argv []string) error {
@@ -30,35 +28,5 @@ func runTransferArgv(ctx context.Context, mgr *session.Manager, argv []string) e
 	if err != nil {
 		return err
 	}
-	client, err := dialForTransfer(ctx, mgr, spec)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	return pkgtransfer.Put(ctx, client.Conn(), spec.LocalPath, spec.RemotePath)
-}
-
-func dialForTransfer(ctx context.Context, mgr *session.Manager, spec TransferSpec) (*sshclient.Client, error) {
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-
-	if spec.Session != "" {
-		sshOpts, err := mgr.SSHOptionsForSession(spec.Session, spec.Conn.Password)
-		if err != nil {
-			return nil, err
-		}
-		return mgr.DialSSH(sshOpts, spec.Conn.Password, sshOpts.Host)
-	}
-
-	resolved, err := resolve.Resolve(spec.Conn)
-	if err != nil {
-		return nil, err
-	}
-	hostLabel := resolved.User + "@" + resolved.Host
-	if resolved.User == "" {
-		hostLabel = resolved.Host
-	}
-	return mgr.DialSSH(resolved.ClientOptions(), spec.Conn.Password, hostLabel)
+	return mgr.RunTransferCLI(ctx, spec, openssh.OpPut)
 }

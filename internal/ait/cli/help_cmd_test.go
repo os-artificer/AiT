@@ -133,6 +133,9 @@ func TestConfigCmdHelpExecute(t *testing.T) {
 	helpExecuteMustContain(t, []string{"config", "set", "--help"}, "help for set")
 	helpExecuteMustContain(t, []string{"config", "get", "--help"}, "help for get")
 	helpExecuteMustContain(t, []string{"config", "init", "--help"}, "help for init")
+	helpExecuteMustContain(t, []string{"config", "view", "--help"}, "help for view")
+	helpExecuteMustContain(t, []string{"config", "edit", "--help"}, "help for edit")
+	helpExecuteMustContain(t, []string{"config", "validate", "--help"}, "help for validate")
 }
 
 func TestSessionCmdHelpExecute(t *testing.T) {

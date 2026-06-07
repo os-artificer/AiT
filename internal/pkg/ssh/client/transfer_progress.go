@@ -21,11 +21,13 @@ import (
 	"io"
 	"os"
 
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
+
 	xterm "golang.org/x/term"
 )
 
 const (
-	transferProgressPrefix       = "AiT: "
+	transferProgressPrefix       = errhint.PrefixAiT
 	transferProgressPctFmt       = "copying… %d%%"
 	transferProgressClosingFmt   = "closing…"
 	transferProgressFinishingFmt = "finishing…"

@@ -47,7 +47,7 @@ type RunWithMgr = deps.RunWithMgr
 func New(d Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "ai",
-		Short:         "Interactive local AI mode (AiT AI> prompt)",
+		Short:         "Interactive local AI mode (AiT AI(Agent)> prompt)",
 		Long:          pkghelpdoc.LongHint("ai"),
 		SilenceUsage:  true,
 		SilenceErrors: true,

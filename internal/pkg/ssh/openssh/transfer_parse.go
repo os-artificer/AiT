@@ -64,11 +64,11 @@ func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
 			continue
 		}
 		if arg == "--session" {
-			i++
-			if i >= len(argv) {
-				return TransferSpec{}, sessionFlagRequiresValueErr()
+			var err error
+			session, i, err = consumeSessionFlag(argv, i)
+			if err != nil {
+				return TransferSpec{}, err
 			}
-			session = argv[i]
 			continue
 		}
 		next, err := applyFlag(&s, argv, i, cmdLabel)

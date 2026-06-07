@@ -30,9 +30,6 @@ const (
 	introMain       = "Enable or disable AI provider routing without editing config.yaml by hand."
 	introOllamaHint = "For Ollama install, models directory, and tiered setup, prefer: ait ai ollama setup"
 	usageLine       = "ait ai provider"
-	exampleEnable   = "ait ai provider enable deepseek"
-	exampleDisable  = "ait ai provider disable minimax"
-	exampleOllama   = "ait ai provider enable ollama --yes"
 )
 
 // WriteHelp prints ait ai provider --help to w.
@@ -47,7 +44,11 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, formatSubcommands()); err != nil {
 		return err
 	}
-	if err := b.WriteExamples(exampleEnable, exampleDisable, exampleOllama); err != nil {
+	if err := b.WriteExamples(
+		pkghelpdoc.ExampleAIProviderEnableDeepseek,
+		pkghelpdoc.ExampleAIProviderDisableMinimax,
+		pkghelpdoc.ExampleAIProviderEnableOllamaYes,
+	); err != nil {
 		return err
 	}
 	return b.Finish("provider")

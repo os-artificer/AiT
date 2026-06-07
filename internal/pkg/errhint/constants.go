@@ -17,6 +17,9 @@
 package errhint
 
 const (
-	msgPrefixAiT = "AiT: "
+	msgPrefixAiT = PrefixAiT
 	tryHeader    = "Try:"
 )
+
+// PrefixAiT is the TTY/REPL line prefix for user-facing AiT messages.
+const PrefixAiT = "AiT: "

@@ -26,51 +26,32 @@ import (
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
-const aiIntroLocal = "Interactive AI mode on this machine (outside SSH). Commands run locally only after you confirm."
-const aiIntroRemote = "Interactive AI mode for the active SSH session. Shell commands run on the remote host via run after you confirm."
 const aiNote = "Requires ai.<provider>.api_key for cloud providers. " +
 	"With ai.tiered.enabled, simple prompts use local Ollama. " +
 	"Use --model to override cloud provider for this session."
 
-const aiREPLCommands = `  help              show AI mode help
-  exit, quit        leave AI mode
-  clear             clear chat history (not input history; see history)
-  history           list or manage input history (history -c, -d, -s, -a, -r, -w)
-  mode ask|agent    Ask = Q&A only; Agent = plan and run commands (default: ask)
-  approve each|session   how often to confirm runs (default: each)
-  trust             same as approve session
-  model             show current AI routing (provider, tiered)
-  model list        list configured providers (same as ait ai model list)
-  model <provider>  set cloud provider for this session (deepseek|minimax)
-  run <command>     run a shell command after confirmation
-  (deprecated: policy per-cmd|once — use approve each|session)
-`
-
-const aiREPLCommandsLocalExtra = `  ait <subcmd>      run an ait CLI subcommand after confirmation (local only)
-`
-
 // WriteAIHelp prints ait ai --help to w.
 func WriteAIHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
-	if err := b.WriteIntro(aiIntroLocal, aiNote); err != nil {
+	if err := b.WriteIntro(pkghelpdoc.AIIntroLocal, aiNote); err != nil {
 		return err
 	}
 	if err := b.WriteUsage("ait ai [--model deepseek|minimax] [REPL-command ...]"); err != nil {
 		return err
 	}
-	if err := b.WriteSection(pkghelpdoc.SectionFlags, aiHelpFlagsBody); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionFlags, pkghelpdoc.AIHelpFlagsBody); err != nil {
 		return err
 	}
-	if err := b.WriteSection(pkghelpdoc.SectionREPLCommands, aiREPLCommands+aiREPLCommandsLocalExtra); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionREPLCommands, pkghelpdoc.AIReplCommands+pkghelpdoc.AIReplCommandsLocalExtra); err != nil {
 		return err
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, formatAISubcommands()); err != nil {
 		return err
 	}
-	if err := b.WriteSection(pkghelpdoc.SectionTieredRouting, aiHelpTieredRoutingBody); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionTieredRouting, pkghelpdoc.AIHelpTieredRoutingBody); err != nil {
 		return err
 	}
-	if err := b.WriteSection(pkghelpdoc.SectionInSSH, aiHelpInSSHBody); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionInSSH, pkghelpdoc.AIHelpInSSHBody); err != nil {
 		return err
 	}
 	if err := pkghelpdoc.WriteTTYKeysHelp(w, pkghelpdoc.TTYKeysAI); err != nil {
@@ -81,9 +62,9 @@ func WriteAIHelp(w io.Writer) error {
 		"ait ai ask \"summarize this\"",
 		"ait ai agent \"find large files in /var/log\"",
 		"ait ai model list",
-		exampleAIOllamaStatus,
-		exampleAIProviderEnableDeepseek,
-		exampleAIOllamaSetupYes,
+		pkghelpdoc.ExampleAIOllamaStatus,
+		pkghelpdoc.ExampleAIProviderEnableDeepseek,
+		pkghelpdoc.ExampleAIOllamaSetupYes,
 		"ait ai --model minimax",
 		"run echo hello",
 		"mode agent",

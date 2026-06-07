@@ -20,9 +20,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mattn/go-runewidth"
-
 	"github.com/os-artificer/AiT/internal/pkg/terminal/screen"
+
+	"github.com/mattn/go-runewidth"
 )
 
 func redrawLine(out io.Writer, prompt string, runes []rune, cursor int) {

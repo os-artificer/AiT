@@ -94,11 +94,11 @@
 - **输入法：** 使用系统 IME 组字，确认后字符进入当前行；AiT 不显示应用内预编辑框。
 - **Tab：** 在当前行插入制表符（可用于缩进）。
 - **TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（移动光标）、Up/Down（召回已加载的输入历史，含跨会话 `<AppRoot>/repl_history`）、**Ctrl+R**（输入历史反向增量搜索）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Ctrl+C（取消当前行）、Ctrl+D（空行退出）、Ctrl+L（清屏保留缓冲）。在 `ait shell` / `ait ai` 中输入 `help` 查看完整 Keys 列表。
-- **历史：** 仅主提示符 `AiT>` / `AiT AI>` 下 Enter 提交的命令会进入历史，不含 `[y/N]` 确认、选 session 输入或 AiT 内部 env 设置。使用 **`history`** 内置命令（bash 子集：列出、`history n`、`-c`、`-d`、`-s`、`-a`、`-r`、`-w`）管理输入历史；跨会话持久化于 **`<AppRoot>/repl_history`**（见 **数据目录**）。`ait ai` 中 **`clear`** 仅清对话历史；**`history`** 为输入行历史。
+- **历史：** 仅主提示符 `AiT>` / `AiT AI(Agent)>` 下 Enter 提交的命令会进入历史，不含 `[y/N]` 确认、选 session 输入或 AiT 内部 env 设置。使用 **`history`** 内置命令（bash 子集：列出、`history n`、`-c`、`-d`、`-s`、`-a`、`-r`、`-w`）管理输入历史；跨会话持久化于 **`<AppRoot>/repl_history`**（见 **数据目录**）。`ait ai` 中 **`clear`** 仅清对话历史；**`history`** 为输入行历史。
 - **非 TTY：** `echo 你好 | ait ai ask` 无需额外 locale 配置。
 - **清屏：** `ait shell` 中输入 `clear` 或 TTY 下按 **Ctrl+L** 清空显示，REPL 不退出。`ait ai` 中 **Ctrl+L** 仅清显示；`clear` 清空对话历史。
 
-SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编辑；本节针对本机 `AiT>` / `AiT AI>`。
+SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编辑；本节针对本机 `AiT>` / `AiT AI(Agent)>`。
 
 ## 提示符
 
