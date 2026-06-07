@@ -118,17 +118,18 @@ func RemotePS1(user, host string, dirAbsolute bool) string {
 	return RemotePS1Dynamic(user, host, dirAbsolute)
 }
 
-// RemoteSetupLine sets PS1/PROMPT and HISTCONTROL/EXTENDED_HISTORY while echo is off,
-// clears the default prompt line, then restores stty echo (single injected line;
-// local filter suppresses any leaked echo).
+// RemoteSetupLine sets PS1/PROMPT and HISTCONTROL while history is off, then clears
+// the default prompt line. Echo suppression is provided by Client.Inject; local filter
+// suppresses any leaked echo.
 func RemoteSetupLine(user, host string, dirAbsolute bool) string {
 	ps1 := RemotePS1Dynamic(user, host, dirAbsolute)
 	prompt := RemotePROMPTDynamic(user, host, dirAbsolute)
-	return "stty -echo 2>/dev/null; export HISTCONTROL=ignorespace:erasedups" +
+	body := "export HISTCONTROL=ignorespace:erasedups" +
 		"; [ -n \"$ZSH_VERSION\" ] && setopt HIST_IGNORE_SPACE PROMPT_SUBST" +
 		"; export PS1='" + ps1 + "'" +
 		"; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + prompt + "'" +
-		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null; stty echo 2>/dev/null"
+		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null"
+	return wrapHistoryOff(body)
 }
 
 // RemoteSetupStripFragments returns scrollback/filter fragments for remote PS1 setup leakage.
@@ -136,6 +137,11 @@ func RemoteSetupStripFragments(user, host string, dirAbsolute bool) []string {
 	return []string{
 		"stty -echo 2>/dev/null",
 		RemoteSetupLine(user, host, dirAbsolute),
+		historyOffBashBegin,
+		historyOffBashEnd,
+		historyOffZshBegin,
+		historyOffZshEnd,
+		"_AIT_HIST",
 		"export HISTCONTROL=ignorespace:erasedups",
 		"setopt HIST_IGNORE_SPACE",
 		"PROMPT_SUBST",

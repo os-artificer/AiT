@@ -70,6 +70,12 @@ func isSetupLeakLine(line, user, host string) bool {
 	if strings.Contains(line, "stty -echo") {
 		return true
 	}
+	if strings.Contains(line, "set +o history") || strings.Contains(line, "set -o history") {
+		return true
+	}
+	if strings.Contains(line, "_AIT_HIST") || strings.Contains(line, "HISTFILE=/dev/null") {
+		return true
+	}
 	prefix := prompt.RemotePrefix(user, host)
 	if strings.Contains(line, "export PS1='") && strings.Contains(line, prefix) {
 		return true
@@ -77,7 +83,7 @@ func isSetupLeakLine(line, user, host string) bool {
 	if strings.Contains(line, "export PROMPT='") && strings.Contains(line, prefix) {
 		return true
 	}
-	if strings.Contains(line, "printf '\\033[1A") && strings.Contains(line, "stty echo") {
+	if strings.Contains(line, "printf '\\033[1A") {
 		return true
 	}
 	return false

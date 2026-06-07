@@ -41,7 +41,7 @@ func shouldPersistLogin(opts LoginOpts) bool {
 
 func normalizePort(port int) int {
 	if port == 0 {
-		return 22
+		return defaultSSHPort
 	}
 	return port
 }
@@ -56,25 +56,46 @@ func shouldPromptSSHPassword(sshOpts sshclient.Options, cliPassword string) bool
 	return true
 }
 
+// retryDialAfterPasswordPrompt retries DialChain once after an interactive password prompt.
+// firstErr is returned unchanged when prompting is skipped or the user provides no password.
+func retryDialAfterPasswordPrompt(sshOpts sshclient.Options, firstErr error, cliPassword, hostLabel string) (*sshclient.Client, error) {
+	if firstErr == nil || !shouldPromptSSHPassword(sshOpts, cliPassword) || !isSSHAuthFailure(firstErr) {
+		return nil, firstErr
+	}
+
+	user := sshOpts.User
+	if user == "" {
+		user = defaultSSHPromptUser
+	}
+
+	p, perr := promptPassword(fmt.Sprintf(promptPasswordLoginFmt, user, hostLabel))
+	if perr != nil || p == "" {
+		return nil, firstErr
+	}
+
+	sshOpts.Password = p
+	return sshclient.DialChain(sshOpts)
+}
+
 func isSSHAuthFailure(err error) bool {
 	if err == nil {
 		return false
 	}
 
 	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "knownhosts") ||
-		strings.Contains(msg, "host key") ||
-		strings.Contains(msg, "hostkey") ||
-		strings.Contains(msg, "key is unknown") ||
-		strings.Contains(msg, "host key verification failed") ||
-		strings.Contains(msg, "possible mitm") {
+	if strings.Contains(msg, sshHostKeyErrKnownHosts) ||
+		strings.Contains(msg, sshHostKeyErrHostKey) ||
+		strings.Contains(msg, sshHostKeyErrHostKeyCompact) ||
+		strings.Contains(msg, sshHostKeyErrKeyUnknown) ||
+		strings.Contains(msg, sshHostKeyErrVerificationFailed) ||
+		strings.Contains(msg, sshHostKeyErrPossibleMITM) {
 		return false
 	}
 
-	return strings.Contains(msg, "unable to authenticate") ||
-		strings.Contains(msg, "permission denied") ||
-		strings.Contains(msg, "no supported authentication") ||
-		strings.Contains(msg, "no authentication method")
+	return strings.Contains(msg, sshAuthErrUnableToAuthenticate) ||
+		strings.Contains(msg, sshAuthErrPermissionDenied) ||
+		strings.Contains(msg, sshAuthErrNoSupportedAuth) ||
+		strings.Contains(msg, sshAuthErrNoAuthMethod)
 }
 
 func promptPassword(msg string) (string, error) {
@@ -198,13 +219,13 @@ func (m *Manager) reconcileCurrentOnSwitch(current string, force bool) error {
 func (m *Manager) warnOrBlockActiveSwitch(cur *store.Session, force bool) error {
 	if !force {
 		return errhint.WithTryMsg(
-			fmt.Sprintf("current session %s is still active", cur.AliasOrID()),
-			"Suspend the current session inside SSH before switching.",
+			fmt.Sprintf(errCurrentSessionActiveFmt, cur.AliasOrID()),
+			hintActiveSessionSwitchExplain,
 			trySuspendInSSH, trySwitchForce, trySessionHelp,
 		)
 	}
 
-	fmt.Fprintln(os.Stderr, "warning: switching without suspend; marking current session suspended")
+	fmt.Fprintln(os.Stderr, warnSwitchWithoutSuspend)
 	_ = m.Store.UpdateStatus(cur.ID, store.StatusSuspended)
 	return nil
 }

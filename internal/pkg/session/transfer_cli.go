@@ -18,7 +18,7 @@ package session
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
@@ -40,7 +40,7 @@ func (m *Manager) RunTransferCLI(ctx context.Context, spec openssh.TransferSpec,
 	case openssh.OpPut:
 		return pkgtransfer.Put(ctx, client.Conn(), spec.LocalPath, spec.RemotePath)
 	default:
-		return fmt.Errorf("unknown transfer operation")
+		return errors.New(errUnknownTransferOp)
 	}
 }
 

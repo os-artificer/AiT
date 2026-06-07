@@ -20,14 +20,14 @@ import "github.com/os-artificer/AiT/internal/pkg/errhint"
 
 func invalidSelectionErr() error {
 	return errhint.WithTryMsg(errInvalidSelection,
-		"Enter a number from the list, a full session id, or an alias.",
+		hintInvalidSelectionExplain,
 		tryLoadInteractive, trySessionHelp,
 	)
 }
 
 func ephemeralSuspendErr() error {
 	return errhint.WithTryMsg(errEphemeralSuspendRequiresPersist,
-		"Only saved sessions can be suspended to the local database.",
+		hintEphemeralSuspendExplain,
 		tryLoginSave, tryLoginAlias, trySessionHelp,
 	)
 }
