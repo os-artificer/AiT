@@ -58,6 +58,23 @@ func (c *Client) waitRemoteOutputQuietAfter(injectAt time.Time, quiet, maxWait t
 	}
 }
 
+// waitRemoteOutputQuietSince returns when no remote output newer than since has occurred for quiet,
+// or maxWait elapses. When nothing arrives after since, returns after quiet from since.
+func (c *Client) waitRemoteOutputQuietSince(since time.Time, quiet, maxWait time.Duration) {
+	deadline := time.Now().Add(maxWait)
+	for time.Now().Before(deadline) {
+		last := c.lastRemoteOut.Load()
+		if last != 0 && !remoteOutAt(last).Before(since) {
+			if time.Since(remoteOutAt(last)) >= quiet {
+				return
+			}
+		} else if time.Since(since) >= quiet {
+			return
+		}
+		time.Sleep(remoteOutputQuietPollStep)
+	}
+}
+
 // waitForRemoteAITPrompt polls scrollback until the AiT remote prompt marker appears or maxWait elapses.
 func (c *Client) waitForRemoteAITPrompt(user, host string, maxWait time.Duration) {
 	marker := remoteSetupPromptMarker(user, host)

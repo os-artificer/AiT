@@ -440,7 +440,7 @@ sequenceDiagram
 
 **TTY 进度**（stderr，raw TTY 下 CRLF 安全）：`get … → …` / `put … → …`，可选 `handshake…`，再 **`copying… N%`**（SFTP 与链式 ZMODEM 均在同一行内刷新）。100% 后：SFTP 显示 **`closing…`**；链式 ZMODEM 显示 **`finishing…`**（get/put 对称，含链式 put 上传完成后收尾）；随后 **`done: get …`** / **`done: put …`**。传输中 Ctrl+C 可在数秒内取消。
 
-会话内 `!ait get`/`put` 使用**统一路由**：**直连**（chain 关闭、与拨号目标同 host）始终 **SFTP**；**链式**（active shell 比拨号目标更深）探测 `sz`/`rz`，有则 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**；链式且无 lrzsz 时给出安装指引，交互 TTY 下 `[y/N]` 授权后可自动安装（Linux/macOS/Windows 包管理器，可能需要远端 `sudo`）。ZMODEM 使用专用 PTY 注入（无 `stty` 包装）；握手失败约 30s 超时；直连 ZMODEM 失败时可回退 SFTP。
+会话内 `!ait get`/`put` 使用**统一路由**：**直连**（chain 关闭、与拨号目标同 host）始终 **SFTP**；**链式**（active shell 比拨号目标更深）探测 `sz`/`rz`，有则 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**；链式且无 lrzsz 时给出安装指引，交互 TTY 下 `[y/N]` 授权后可自动安装（Linux/macOS/Windows 包管理器，可能需要远端 `sudo`）。ZMODEM 使用专用 PTY 注入（无 `stty` 包装）；握手失败约 30s 超时；直连 ZMODEM 失败时可回退 SFTP。ZMODEM 完成后 AiT 会短暂抑制 stdout、drain 延迟 PTY 尾部并从 scrollback 剥离已知协议片段，避免 teardown 乱码上屏。
 
 当用户在会话内手动 SSH 超越拨号目标时，SFTP 只能到达拨号目标。**链式模式**（`!ait chain on` 或主机名不匹配时自动启用）必须经 PTY **ZMODEM**。**login ProxyJump** 不等于链式：`DialChain` 到最终主机后，无 lrzsz 时回退 SFTP，与独立 `ait get`/`put` 一致。AiT 客户端本地为纯 Go 协议栈，无需安装 lrzsz。
 

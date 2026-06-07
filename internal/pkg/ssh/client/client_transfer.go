@@ -197,7 +197,10 @@ func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction,
 // handleTransferPTY uses PTY-pipe injection for file transfer when ChainMode is active.
 func (c *Client) handleTransferPTY(ctx context.Context, stdin io.Writer, dir transfer.Direction, args []string, prog *TransferProgress) error {
 	c.pauseRemoteOut.Store(true)
-	defer c.pauseRemoteOut.Store(false)
+	defer func() {
+		c.drainZModemTail()
+		c.pauseRemoteOut.Store(false)
+	}()
 
 	pt := NewZModemTransfer(c, prog)
 	if dir == transfer.DirGet {

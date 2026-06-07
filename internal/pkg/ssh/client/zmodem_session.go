@@ -22,14 +22,6 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
 )
 
-// zmodemStripFragments are scrollback substrings removed after ZMODEM transfer.
-var zmodemStripFragments = []string{
-	"**\x18B0",
-	"\x18B00",
-	"rz waiting",
-	"sz waiting",
-}
-
 // BeginZModemSession prepares exclusive PTY tap for ZMODEM. Caller must invoke cleanup when done.
 func (c *Client) BeginZModemSession(
 	receive bool, ptyOut io.Writer, localPath, remoteName string, progress zmodem.ProgressFunc,
@@ -69,9 +61,7 @@ func (c *Client) endZModemSession(sess *zmodem.Session) {
 	}
 	c.zmodemActive.Store(false)
 	c.zmodemSession = nil
-	if c.scroll != nil {
-		c.scroll.StripSubstrings(zmodemStripFragments...)
-	}
+	c.stripZModemScrollback()
 }
 
 // feedZModemOutput routes remote PTY bytes into the active ZMODEM session.

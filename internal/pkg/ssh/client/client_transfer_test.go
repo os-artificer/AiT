@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/lrzsz"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
@@ -99,6 +100,10 @@ func TestInjectCapture_StripsScrollback(t *testing.T) {
 }
 
 func TestHandleTransferPTY_PausesRemoteOut(t *testing.T) {
+	origDrain := zmodemDrainWaitHook
+	zmodemDrainWaitHook = func(*Client, time.Time) {}
+	defer func() { zmodemDrainWaitHook = origDrain }()
+
 	c := &Client{scroll: &terminal.Buffer{}}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
