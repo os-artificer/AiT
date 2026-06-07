@@ -73,17 +73,29 @@ func (s *Store) GetSession(idOrAlias string) (*Session, error) {
 	return s.getSessionWhere(`alias = ?`, idOrAlias)
 }
 
-// FindSessionByConnection returns the most recently updated session for username, host, and port.
-// port should already be normalized (for example 22 when unset). Returns ErrSessionNotFound when
-// no row matches, or a database error from Query/Scan.
-func (s *Store) FindSessionByConnection(username, host string, port int) (*Session, error) {
+// FindSessionByKey returns the most recently updated session for username, host, port, and alias.
+// port should already be normalized (for example 22 when unset). Empty alias matches rows with
+// NULL or empty alias. Returns ErrSessionNotFound when no row matches, or a database error.
+func (s *Store) FindSessionByKey(username, host string, port int, alias string) (*Session, error) {
+	if alias == "" {
+		row := s.db.QueryRow(`
+			SELECT id, alias, host, port, username, identity_path, auth_method,
+				auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
+			FROM sessions
+			WHERE username = ? AND host = ? AND port = ?
+			  AND (alias IS NULL OR alias = '')
+			ORDER BY updated_at DESC
+			LIMIT 1`, username, host, port)
+		return scanSession(row)
+	}
+
 	row := s.db.QueryRow(`
 		SELECT id, alias, host, port, username, identity_path, auth_method,
 			auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
 		FROM sessions
-		WHERE username = ? AND host = ? AND port = ?
+		WHERE username = ? AND host = ? AND port = ? AND alias = ?
 		ORDER BY updated_at DESC
-		LIMIT 1`, username, host, port)
+		LIMIT 1`, username, host, port, alias)
 	return scanSession(row)
 }
 

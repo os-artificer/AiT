@@ -17,7 +17,9 @@
 package store
 
 import (
+	"database/sql"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -217,20 +219,20 @@ func TestRefreshAuthExpiryAndUpdateStatus(t *testing.T) {
 	}
 }
 
-func TestFindSessionByConnection_NotFound(t *testing.T) {
+func TestFindSessionByKey_NotFound(t *testing.T) {
 	st, err := OpenPath(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer st.Close()
 
-	_, err = st.FindSessionByConnection("u", "host.example", 22)
+	_, err = st.FindSessionByKey("u", "host.example", 22, "")
 	if !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("got %v want ErrSessionNotFound", err)
 	}
 }
 
-func TestFindSessionByConnection_DifferentUserOrPort(t *testing.T) {
+func TestFindSessionByKey_DifferentUserOrPort(t *testing.T) {
 	st, err := OpenPath(":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +255,7 @@ func TestFindSessionByConnection_DifferentUserOrPort(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := st.FindSessionByConnection("alice", "h.example", 22)
+	got, err := st.FindSessionByKey("alice", "h.example", 22, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +271,7 @@ func TestFindSessionByConnection_DifferentUserOrPort(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err = st.FindSessionByConnection("alice", "h.example", 2222)
+	got, err = st.FindSessionByKey("alice", "h.example", 2222, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +280,7 @@ func TestFindSessionByConnection_DifferentUserOrPort(t *testing.T) {
 	}
 }
 
-func TestFindSessionByConnection_PortZeroEquals22(t *testing.T) {
+func TestFindSessionByKey_PortZeroEquals22(t *testing.T) {
 	st, err := OpenPath(":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -293,7 +295,7 @@ func TestFindSessionByConnection_PortZeroEquals22(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := st.FindSessionByConnection("u", "h", 22)
+	got, err := st.FindSessionByKey("u", "h", 22, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,38 +304,123 @@ func TestFindSessionByConnection_PortZeroEquals22(t *testing.T) {
 	}
 }
 
-func TestFindSessionByConnection_PicksNewest(t *testing.T) {
+func TestFindSessionByKey_DifferentAliasSameConnection(t *testing.T) {
 	st, err := OpenPath(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer st.Close()
 
-	old := newSession("id-old", "")
-	old.Username = "u"
-	old.Host = "h"
-	old.Port = 22
-	old.UpdatedAt = time.Now().Add(-2 * time.Hour).Unix()
-	old.CreatedAt = old.UpdatedAt
-	if err := st.UpsertSession(old); err != nil {
+	prod := newSession("id-prod", "prod")
+	prod.Username = "u"
+	prod.Host = "h"
+	prod.Port = 22
+	staging := newSession("id-staging", "staging")
+	staging.Username = "u"
+	staging.Host = "h"
+	staging.Port = 22
+	if err := st.UpsertSession(prod); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpsertSession(staging); err != nil {
 		t.Fatal(err)
 	}
 
-	time.Sleep(1100 * time.Millisecond)
+	gotProd, err := st.FindSessionByKey("u", "h", 22, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotProd.ID != "id-prod" {
+		t.Fatalf("prod id=%q", gotProd.ID)
+	}
 
-	newer := newSession("id-new", "")
-	newer.Username = "u"
-	newer.Host = "h"
-	newer.Port = 22
-	if err := st.UpsertSession(newer); err != nil {
+	gotStaging, err := st.FindSessionByKey("u", "h", 22, "staging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotStaging.ID != "id-staging" {
+		t.Fatalf("staging id=%q", gotStaging.ID)
+	}
+
+	_, err = st.FindSessionByKey("u", "h", 22, "")
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("empty alias lookup: got %v want ErrSessionNotFound", err)
+	}
+}
+
+func TestMigrate_DedupeConnectionKeyKeepsNewest(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ait.db")
+	db, err := sql.Open("sqlite", buildDSN(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	s := &Store{db: db}
+
+	stmts := []string{
+		`CREATE TABLE sessions (
+			id TEXT PRIMARY KEY,
+			alias TEXT UNIQUE,
+			host TEXT NOT NULL,
+			port INTEGER NOT NULL DEFAULT 22,
+			username TEXT NOT NULL,
+			identity_path TEXT,
+			auth_method TEXT NOT NULL,
+			auth_expires_at INTEGER NOT NULL,
+			tmux_enabled INTEGER NOT NULL DEFAULT 0,
+			tmux_session TEXT,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			status TEXT NOT NULL
+		)`,
+		`CREATE TABLE session_state (
+			session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+			cols INTEGER, rows INTEGER, remote_cwd TEXT,
+			scrollback_path TEXT, suspended_at INTEGER
+		)`,
+		`CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+	}
+	for _, stmt := range stmts {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	now := time.Now().Unix()
+	oldUpdated := now - 7200
+	newUpdated := now - 60
+	_, err = db.Exec(`INSERT INTO sessions (
+		id, alias, host, port, username, identity_path, auth_method,
+		auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
+	) VALUES (?, NULL, ?, ?, ?, NULL, ?, ?, 0, NULL, ?, ?, ?),
+	(?, NULL, ?, ?, ?, NULL, ?, ?, 0, NULL, ?, ?, ?)`,
+		"id-old", "h", 22, "u", AuthMethodKey, now, oldUpdated, oldUpdated, StatusSuspended,
+		"id-new", "h", 22, "u", AuthMethodKey, now, newUpdated, newUpdated, StatusSuspended,
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := st.FindSessionByConnection("u", "h", 22)
+	if err := s.dedupeConnectionKeys(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ensureConnectionKeyIndex(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.FindSessionByKey("u", "h", 22, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.ID != "id-new" {
 		t.Fatalf("id=%q want id-new", got.ID)
+	}
+
+	list, err := s.ListSessions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("sessions=%d want 1 after dedupe", len(list))
 	}
 }

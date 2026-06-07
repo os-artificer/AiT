@@ -23,11 +23,13 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/store"
+
+	"github.com/google/uuid"
 )
 
 func persistLoginForTest(t *testing.T, m *Manager, opts LoginOpts) {
 	t.Helper()
-	plan, err := m.planLoginPersistence(opts, "test-new-id")
+	plan, err := m.planLoginPersistence(opts, uuid.New().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,26 +265,67 @@ func TestResolvePersistSessionID_AliasOnExistingConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != existingID {
-		t.Fatalf("id=%q want %q", id, existingID)
+	if id == existingID {
+		t.Fatalf("alias login should create new id, got reused %q", id)
 	}
 }
 
 func TestResolvePersistSessionID_SaveReusesAliasedRow(t *testing.T) {
 	m := newTestManager(t)
 	persistLoginForTest(t, m, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"})
-	existing, _ := m.Store.GetSession("prod")
 
 	id, err := m.resolvePersistSessionID(LoginOpts{Save: true, Host: "h", Port: 22, User: "u"}, "new-id")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != existing.ID {
-		t.Fatalf("id=%q want %q", id, existing.ID)
+	prod, _ := m.Store.GetSession("prod")
+	if id == prod.ID {
+		t.Fatalf("save without alias must not reuse aliased row %q", prod.ID)
 	}
 }
 
-func TestResolvePersistSessionID_PicksNewestDuplicate(t *testing.T) {
+func TestResolvePersistSessionID_SeparateAliasesSameHost(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"})
+	persistLoginForTest(t, m, LoginOpts{Alias: "staging", Host: "h", Port: 22, User: "u"})
+
+	list, err := m.Store.ListSessions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("sessions=%d want 2", len(list))
+	}
+}
+
+func TestResolvePersistSessionID_SaveAndAliasSeparateRows(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Save: true, Host: "h", Port: 22, User: "u"})
+	persistLoginForTest(t, m, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"})
+
+	list, err := m.Store.ListSessions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("sessions=%d want 2", len(list))
+	}
+}
+
+func TestPlanLoginPersistence_NoFlagSkipsAliasedOnly(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"})
+
+	plan, err := m.planLoginPersistence(LoginOpts{Host: "h", Port: 22, User: "u"}, "new-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.persist {
+		t.Fatal("expected ephemeral plan when only aliased session exists")
+	}
+}
+
+func TestResolvePersistSessionID_ReusesEmptyAliasRow(t *testing.T) {
 	m := newTestManager(t)
 	old := &store.Session{
 		ID: "id-old", Host: "h", Port: 22, Username: "u",
@@ -290,16 +333,7 @@ func TestResolvePersistSessionID_PicksNewestDuplicate(t *testing.T) {
 		Status:        store.StatusSuspended, UpdatedAt: time.Now().Add(-2 * time.Hour).Unix(),
 		CreatedAt: time.Now().Add(-3 * time.Hour).Unix(),
 	}
-	newer := &store.Session{
-		ID: "id-new", Host: "h", Port: 22, Username: "u",
-		AuthExpiresAt: time.Now().Add(time.Hour).Unix(),
-		Status:        store.StatusSuspended,
-	}
 	if err := m.Store.UpsertSession(old); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(1100 * time.Millisecond)
-	if err := m.Store.UpsertSession(newer); err != nil {
 		t.Fatal(err)
 	}
 
@@ -307,8 +341,8 @@ func TestResolvePersistSessionID_PicksNewestDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != "id-new" {
-		t.Fatalf("id=%q want id-new", id)
+	if id != "id-old" {
+		t.Fatalf("id=%q want id-old", id)
 	}
 }
 
@@ -393,6 +427,8 @@ func TestLoginUpdateExistingWithoutSave(t *testing.T) {
 func TestLoginUpdateExistingPreservesAlias(t *testing.T) {
 	m := newTestManager(t)
 	persistLoginForTest(t, m, LoginOpts{Alias: "prod", Host: "h", Port: 22, User: "u"})
+	prod, _ := m.Store.GetSession("prod")
+	firstExpiry := prod.AuthExpiresAt
 
 	persistLoginForTest(t, m, LoginOpts{Host: "h", Port: 22, User: "u"})
 
@@ -402,6 +438,14 @@ func TestLoginUpdateExistingPreservesAlias(t *testing.T) {
 	}
 	if sess.Alias != "prod" {
 		t.Fatalf("alias=%q want prod", sess.Alias)
+	}
+	if sess.AuthExpiresAt != firstExpiry {
+		t.Fatalf("aliased row expiry changed without matching login")
+	}
+
+	list, _ := m.Store.ListSessions()
+	if len(list) != 1 {
+		t.Fatalf("sessions=%d want 1", len(list))
 	}
 }
 

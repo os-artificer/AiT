@@ -122,22 +122,32 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | D1 | `--save` 两次同连接仅 1 条 | `TestResolvePersistSessionID_ReusesConnection` |
 | D2 | 复用同 `id` | `TestPersistLoginSessionSaveOnly`（二次 save） |
 | D3 | `auth_expires_at` 延期 | `TestPersistLoginSession_ExtendsAuthExpiry` |
-| D4 | 不同 user/port → 2 条 | `TestFindSessionByConnection_DifferentUserOrPort` |
-| D5 | port 0 与 22 同连接 | `TestFindSessionByConnection_PortZeroEquals22` |
-| D6 | 无匹配 → `ErrSessionNotFound` | `TestFindSessionByConnection_NotFound` |
-| D7 | 重复行取最新 | `TestResolvePersistSessionID_PicksNewestDuplicate` |
-| D8 | 无 alias 后加 alias 同 id | `TestResolvePersistSessionID_AliasOnExistingConnection` |
-| D9 | 有 alias 后 `--save` 复用 | `TestResolvePersistSessionID_SaveReusesAliasedRow` |
+| D4 | 不同 user/port → 2 条 | `TestFindSessionByKey_DifferentUserOrPort` |
+| D5 | port 0 与 22 同连接 | `TestFindSessionByKey_PortZeroEquals22` |
+| D6 | 无匹配 → `ErrSessionNotFound` | `TestFindSessionByKey_NotFound` |
+| D7 | 迁移 dedupe 同键重复行取最新 | `TestMigrate_DedupeConnectionKeyKeepsNewest` |
+| D8 | `--save` 后再 `--alias prod` → **新 UUID**（不合并） | `TestResolvePersistSessionID_AliasOnExistingConnection` |
+| D9 | 仅有 alias 时 `--save` → **新无 alias 行**，不 reuse alias 行 | `TestResolvePersistSessionID_SaveReusesAliasedRow` |
 | D10 | alias 改 host 清 scrollback | `TestResolveLoginSessionIDClearsScrollbackOnHostChange` |
 | D11 | interactive 路径复用 id | （`resolvePersistSessionID` 与 D1 同路径） |
 | D12 | 无 save/alias 且连接不存在 → 不落库 | `TestShouldPersistLogin`、`TestLoginNoSaveNoExistingStillEphemeral` |
-| D13 | 已有连接无 flag login → 1 行、同 id、TTL 延长 | `TestLoginUpdateExistingWithoutSave` |
-| D14 | 无 flag 更新时 alias 保留 | `TestLoginUpdateExistingPreservesAlias` |
+| D13 | 已有**无 alias** 行时无 flag login → 1 行、同 id、TTL 延长 | `TestLoginUpdateExistingWithoutSave` |
+| D14 | 仅有 alias 会话时无 flag login → **不更新 alias 行** | `TestLoginUpdateExistingPreservesAlias` |
 | D15 | 无 flag、新连接 → 0 行 | `TestLoginNoSaveNoExistingStillEphemeral` |
 | D16 | 无 flag 更新已有连接 → meta 设置 | `TestLoginUpdateExistingSetsMeta`、`TestPlanLoginPersistenceExistingWithoutSave` |
 | D17 | store 非 NotFound 错误向上传播 | `TestResolvePersistSessionID_StoreError` |
 | D18 | one-shot `--save` 写 current session | `TestPersistLoginSessionSetsMeta`、`TestLoginRunOncePersistGating` |
-| D19 | 无 flag 更新已有连接时保留 tmux | `TestLoginUpdateExistingPreservesTmuxEnabled` |
+| D19 | 无 flag 更新已有**无 alias** 连接时保留 tmux | `TestLoginUpdateExistingPreservesTmuxEnabled` |
+
+### E* 明细（会话四元组唯一键 username+host+port+alias）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| E1 | 同 u/h/p，`--alias prod` 与 `--alias staging` → 2 行 | `TestResolvePersistSessionID_SeparateAliasesSameHost` | `login --alias prod` + `login --alias staging` → `--list` 2 条 |
+| E2 | 同 u/h/p，`--save` 与 `--alias prod` → 2 行 | `TestResolvePersistSessionID_SaveAndAliasSeparateRows` | `login --save` + `login --alias prod` → `--list` 2 条 |
+| E3 | Store 按四元组查找；不同 alias 不互相命中 | `TestFindSessionByKey_DifferentAliasSameConnection` | — |
+| E4 | 仅 alias 会话存在时无 flag login → ephemeral | `TestPlanLoginPersistence_NoFlagSkipsAliasedOnly` | 仅 prod 存在时 `login user@h` 不写库 |
+| E5 | 无 alias 行时无 flag 新连接 → ephemeral | `TestLoginNoSaveNoExistingStillEphemeral` | 未知 host 无 flag 不落库 |
 
 ### S* 明细（`ait session` flag CLI）
 
@@ -481,6 +491,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] A22j：Agent 系统提示含只读自动执行说明
 - [ ] A22k：mode agent 提示文案含 auto-run
 - [ ] D1–D19：登录连接去重与已有连接更新（见 **D* 明细**）
+- [ ] E1–E5：会话四元组唯一键 username+host+port+alias（见 **E* 明细**）
 - [ ] S1–S18：`ait session` flag CLI（见 **S* 明细**）
 - [ ] B1–B7：session 列表 `#` 与 load 交互（见 **B* 明细**）
 - [ ] H0a–H0d：errhint 基础设施（见 **H0**）
@@ -667,7 +678,8 @@ ssh internal
 | C* | internal 字符串常量化（语义不变） | `TestLoginHelpMatchesLegacyGolden`、`TestSaveYAML_NoRootDeepseek` |
 | A* | `ait shell` 清屏（`clear` / Ctrl+L） | `TestClearScreen`、`TestExecuteLineClear`、`TestReadLineRawCtrlLRedrawsLine` |
 | L* | login 可选保存（`--save` / `--alias` 隐含保存） | `TestShouldPersistLogin`、`TestPersistLoginSessionSaveOnly`、`TestPersistLoginSessionAliasOnly`、`TestParseSave`、`TestLoginHelpMatchesLegacyGolden` |
-| D* | login 同连接复用行并延期 TTL | `TestResolvePersistSessionID_*`、`TestFindSessionByConnection_*`、`TestPersistLoginSession_ExtendsAuthExpiry` |
+| D* | login 连接键 dedupe 与 TTL（username+host+port+alias） | `TestResolvePersistSessionID_*`、`TestFindSessionByKey_*`、`TestMigrate_DedupeConnectionKeyKeepsNewest`、`TestPersistLoginSession_ExtendsAuthExpiry` |
+| E* | 同主机多 alias 独立会话行 | `TestResolvePersistSessionID_SeparateAliasesSameHost`、`TestResolvePersistSessionID_SaveAndAliasSeparateRows`、`TestFindSessionByKey_DifferentAliasSameConnection`、`TestPlanLoginPersistence_NoFlagSkipsAliasedOnly` |
 | S* | `ait session` 统一 flag | `TestTopLevelListLoadSuspendRemoved`、`TestSessionCmd_*`、`TestExecuteLineList`、`TestWriteSessionHelpSections` |
 | B* | session 列表 `#` / load 交互 / `-v` FULL_ID | `TestSessionCmd_ListNumberColumn`、`TestSessionCmd_LoadPickNonTTY`、`TestPickSession_SelectByNumber`、`TestListVerbose_IncludesFullID` |
 | H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecuteBlockedLogin` |

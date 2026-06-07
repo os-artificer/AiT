@@ -21,7 +21,7 @@ ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--pas
         # OpenSSH-compatible: -p -l -i -F -J -o, etc.; destination is [user@]host or a config Host alias
         # Requires local OpenSSH client (ssh -G) for config resolution; data plane is Go x/crypto/ssh (Windows/macOS/Linux)
         # Persists to SQLite with --save (bookmark by id) or --alias (named save; implies --save)
-        # Also updates an existing row when user@host:port is already saved (refreshes auth TTL)
+        # Also updates an existing empty-alias row when the connection key matches (refreshes auth TTL)
         # With command: one-shot execution (similar to ssh host cmd); new hosts need --save or --alias
         # Legacy --host/--user remain supported for backward compatibility
 ait session --list [-v]   # # column for pick-by-number; -v adds FULL_ID (complete UUID)
@@ -45,7 +45,26 @@ Use **`!ait local` / `!ait remote`** to toggle local versus remote input while S
 | **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally replay scrollback saved at last suspend | No keep-alive guarantee |
 | **tmux keep-alive** | `login`/`load` with `--tmux` | After SSH: `tmux attach -t ait-<session_id>` (or `new -s` if missing) | Shell/process survives disconnect |
 
-**Login metadata is persisted with `--save` or `--alias` for new connections**, or automatically when the same user@host:port already exists in the session list (row updated, auth TTL refreshed). Plain `ait login host` to an unknown host does not write SQLite. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
+**Login metadata is persisted with `--save` or `--alias` for new connections**. Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). Plain `ait login user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
+
+### Login persistence decision (connection key includes alias)
+
+```mermaid
+flowchart TD
+  login[login opts] --> hasSaveAlias{save or alias?}
+  hasSaveAlias -->|yes| hasAlias{opts.Alias set?}
+  hasAlias -->|yes| getByAlias[GetSession alias]
+  getByAlias -->|found| updateAliasRow[reuse alias row id]
+  getByAlias -->|not found| findKey[FindSessionByKey u,h,port,alias]
+  hasAlias -->|no save only| findKey
+  findKey -->|found| reuseKey[reuse matching id]
+  findKey -->|not found| newID[new UUID]
+  hasSaveAlias -->|no| findEmpty[FindSessionByKey u,h,port empty alias]
+  findEmpty -->|found| reuseEmpty[reuse and extend TTL]
+  findEmpty -->|not found| ephemeral[plan.persist=false]
+```
+
+The same `user@host:port` may have both an empty-alias row (`ait login --save user@host`) and named rows (`ait login --alias prod user@host`) as separate records with distinct UUIDs and tmux names `ait-<id>`. SQLite enforces `UNIQUE(username, host, port, COALESCE(alias,''))`; migration dedupes legacy duplicate keys keeping the newest `updated_at`.
 
 ## Architecture overview
 
@@ -196,7 +215,7 @@ CREATE TABLE app_meta (
 -- 键 current_session_id：当前/上次前台会话 UUID（switch/load/login 后更新）
 ```
 
-- Successful `login` with `--save` or `--alias`, or to an **existing** user@host:port → upsert `sessions`, set `auth_expires_at`; if `--tmux`, set `tmux_enabled=1` and initialize remote tmux; write `app_meta.current_session_id`. Login to a new host without those flags does not upsert.
+- Successful `login` with `--save` or `--alias`, or when a matching **empty-alias** connection key exists → upsert `sessions`, set `auth_expires_at`; if `--tmux`, set `tmux_enabled=1` and initialize remote tmux; write `app_meta.current_session_id`. Login to a new host without those flags does not upsert; plain login does not upsert when only named-alias rows match.
 - `suspend` → write `session_state`, `status=suspended`; in tmux mode `tmux detach` before closing SSH
 - `session --delete <id>` / `session --delete all` → delete DB rows, scrollback sidecars, and per-session keyring entries (does not kill remote tmux sessions)
 
@@ -321,7 +340,7 @@ sequenceDiagram
 
 - **Config resolution**: `internal/pkg/ssh/args` invokes local `ssh -G` (`platform.OpenSSHPath`: Linux/macOS on PATH; Windows also tries `System32\OpenSSH\ssh.exe`)
 - **Dial**: `client.DialChain` supports `ProxyJump` / `ProxyCommand` (Unix `sh -c`, Windows `cmd /c`)
-- **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing** user@host:port updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
+- **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing empty-alias** connection key updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
 - Auth order: `-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 - Interactive login writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise `!ait suspend` requires a saved session
 - After PS1 setup, the local terminal shows the remote AiT prompt immediately (buffered emit or refresh echo—not a static placeholder)
