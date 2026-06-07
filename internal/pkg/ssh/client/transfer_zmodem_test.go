@@ -55,6 +55,7 @@ func TestZModemSession_ExclusiveIO(t *testing.T) {
 func TestZModemSession_StripProtocolNoise(t *testing.T) {
 	c := &Client{scroll: &terminal.Buffer{}}
 	_, _ = c.scroll.Write([]byte("noise**\x18B0more"))
+	_, _ = c.scroll.Write([]byte("tail**\x18B01#"))
 
 	var stdin bytes.Buffer
 	_, cleanup, err := c.BeginZModemSession(true, &stdin, t.TempDir()+"/out", "", nil)
@@ -62,9 +63,11 @@ func TestZModemSession_StripProtocolNoise(t *testing.T) {
 		t.Fatal(err)
 	}
 	cleanup()
+	c.drainZModemTail()
 
-	if strings.Contains(c.scroll.String(), "**\x18B0") {
-		t.Fatal("expected zmodem noise stripped from scrollback")
+	s := c.scroll.String()
+	if strings.Contains(s, "**\x18B0") || strings.Contains(s, "**\x18B01") {
+		t.Fatalf("expected zmodem noise stripped from scrollback, got %q", s)
 	}
 }
 
