@@ -23,11 +23,10 @@ import (
 )
 
 const (
-	helpFlagsBody = "  --model   Override cloud provider (deepseek|minimax); inherited from ait ai\n"
-	introMain     = "Send one message in agent mode: the AI may execute shell commands after confirmation."
-	introSSH      = "Does not enter interactive AI mode. Inside SSH use !ait ai agent <message> or !! agent <message>."
-	usageLine     = "ait ai agent [message...]"
-	inputBody     = `  message...   Prompt text (joined with spaces)
+	introMain = "Send one message in agent mode: the AI may execute shell commands after confirmation."
+	introSSH  = "Does not enter interactive AI mode. Inside SSH use !ait ai agent <message> or !! agent <message>."
+	usageLine = "ait ai agent [message...]"
+	inputBody = `  message...   Prompt text (joined with spaces)
   (no args)    Read prompt from stdin until EOF (e.g. echo "question" | ait ai agent)
 `
 	exampleQuote = `ait ai agent "find large files in /var/log"`
@@ -38,21 +37,6 @@ const (
 
 // WriteHelp prints ait ai agent --help to w.
 func WriteHelp(w io.Writer) error {
-	b := pkghelpdoc.NewBody(w)
-	if err := b.WriteIntro(introMain, introSSH); err != nil {
-		return err
-	}
-	if err := b.WriteUsage(usageLine); err != nil {
-		return err
-	}
-	if err := b.WriteSection(pkghelpdoc.SectionInput, inputBody); err != nil {
-		return err
-	}
-	if err := b.WriteSection(pkghelpdoc.SectionFlags, helpFlagsBody); err != nil {
-		return err
-	}
-	if err := b.WriteExamples(exampleQuote, exampleModel, exampleStdin, exampleSSH); err != nil {
-		return err
-	}
-	return b.Finish("agent")
+	return pkghelpdoc.WriteAIChatSubcommandHelp(w, "agent", introMain, introSSH, usageLine, inputBody,
+		exampleQuote, exampleModel, exampleStdin, exampleSSH)
 }

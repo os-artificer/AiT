@@ -23,10 +23,8 @@ import (
 )
 
 const (
-	introMain      = "Disable routing to a provider; no Chat/Assist traffic is sent to it."
-	usageLine      = "ait ai provider disable <provider>"
-	exampleMinimax = "ait ai provider disable minimax"
-	exampleOllama  = "ait ai provider disable ollama"
+	introMain = "Disable routing to a provider; no Chat/Assist traffic is sent to it."
+	usageLine = "ait ai provider disable <provider>"
 )
 
 // WriteHelp prints ait ai provider disable --help to w.
@@ -38,7 +36,10 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteUsage(usageLine); err != nil {
 		return err
 	}
-	if err := b.WriteExamples(exampleMinimax, exampleOllama); err != nil {
+	if err := b.WriteExamples(
+		pkghelpdoc.ExampleAIProviderDisableMinimax,
+		"ait ai provider disable ollama",
+	); err != nil {
 		return err
 	}
 	return b.Finish("disable")

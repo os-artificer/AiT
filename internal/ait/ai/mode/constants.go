@@ -16,6 +16,8 @@
 
 package mode
 
+import "github.com/os-artificer/AiT/internal/pkg/errhint"
+
 // Commands — AI REPL built-in verbs (also checked in isMetaREPLCommand).
 const (
 	replCmdExit     = "exit"
@@ -39,14 +41,11 @@ const (
 
 // IO — CRLF output fragments and error prefix.
 const (
-	msgPrefixAiT               = "AiT: "
+	msgPrefixAiT               = errhint.PrefixAiT
 	msgSkippedCRLF             = "skipped\r\n"
 	msgConversationClearedCRLF = "conversation cleared\r\n"
-	errFmtUnknownPolicy        = "AiT: unknown policy %q (try per-cmd or once)"
-	errUsageRunCommand         = "AiT: usage: run <command>"
 	errRemoteRunnerNotConfig   = "AiT: remote runner not configured"
 	errLocalRunnerNotConfig    = "AiT: local runner not configured"
-	errUsageAitSubcommand      = "AiT: usage: ait <subcommand> [args...]"
 	errCLIExecutorNotConfig    = "AiT: CLI executor not configured"
 	errAitSubcmdLocalOnly      = "AiT: ait subcommands are local-only; use run for remote shell commands"
 	errCannotSetOllamaProvider = "AiT: cannot set session provider to ollama (use tiered routing for local models)"

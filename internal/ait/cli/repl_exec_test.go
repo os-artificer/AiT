@@ -22,6 +22,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/ait/shell"
 )
 
 func TestExecuteWritersSilencesStderr(t *testing.T) {
@@ -44,18 +46,9 @@ func TestExecuteWritersErrorFormattedForREPL(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	var buf bytes.Buffer
-	shellPrintErrForTest(&buf, err.Error())
+	shell.PrintErr(&buf, err.Error())
 	out := buf.String()
 	if strings.Count(out, "AiT:") != 1 {
 		t.Errorf("want single AiT prefix: %q", out)
 	}
-}
-
-// shellPrintErrForTest mirrors shell REPL error formatting (package shell keeps helpers unexported).
-func shellPrintErrForTest(w io.Writer, msg string) {
-	msg = strings.TrimSpace(strings.ReplaceAll(msg, "\n", " "))
-	if msg == "" {
-		return
-	}
-	_, _ = io.WriteString(w, "AiT: "+msg+"\r\n")
 }

@@ -25,6 +25,5 @@ const (
 
 // Errors — in-session meta execution.
 const (
-	errMetaBlockedFmt        = "AiT: %q cannot run inside SSH — %s"
 	errMetaExecutorNotConfig = "AiT: meta executor not configured"
 )

@@ -77,35 +77,6 @@ type AIConfig struct {
 	Providers map[string]ProviderConfig `yaml:"providers"`
 }
 
-// Normalize fills defaults and clamps values for agent config.
-func (a *AgentConfig) Normalize() {
-	if a.MaxSteps <= 0 {
-		a.MaxSteps = DefaultAgentMaxSteps
-	} else if a.MaxSteps > AgentMaxStepsLimit {
-		a.MaxSteps = AgentMaxStepsLimit
-	}
-}
-
-// CloudProviderIDs returns cloud providers used for ai.default, fallback, and --model.
-func CloudProviderIDs() []string {
-	return []string{ProviderDeepseek, ProviderMinimax}
-}
-
-// AllProviderIDs returns every built-in provider ID including local Ollama.
-func AllProviderIDs() []string {
-	return []string{ProviderDeepseek, ProviderMinimax, ProviderOllama}
-}
-
-// IsCloudProvider reports whether id may be ai.default or session --model override.
-func IsCloudProvider(id string) bool {
-	return id == ProviderDeepseek || id == ProviderMinimax
-}
-
-// IsKnownProvider reports whether id is a built-in provider (including ollama).
-func IsKnownProvider(id string) bool {
-	return IsCloudProvider(id) || id == ProviderOllama
-}
-
 // LocalProviderID returns the tiered local provider ID (default ollama).
 func (c *Config) LocalProviderID() string {
 	if c == nil || c.AI.Tiered.LocalProvider == "" {
