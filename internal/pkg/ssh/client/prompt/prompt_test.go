@@ -115,16 +115,40 @@ func TestRemoteInitialCommands(t *testing.T) {
 		t.Fatalf("cmds = %v, want single setup line", cmds)
 	}
 	line := cmds[0]
-	for _, part := range []string{"stty -echo", "export PS1=", "u@h:", "PROMPT=", "033[1A", "stty echo", "HISTCONTROL=ignorespace", "HIST_IGNORE_SPACE"} {
+	for _, part := range []string{
+		"set +o history",
+		"_AIT_HIST",
+		"HISTFILE=/dev/null",
+		"export PS1=", "u@h:", "PROMPT=", "033[1A",
+		"HISTCONTROL=ignorespace", "HIST_IGNORE_SPACE",
+	} {
 		if !strings.Contains(line, part) {
 			t.Errorf("setup line missing %q: %s", part, line)
 		}
+	}
+	if strings.Contains(line, "stty -echo") {
+		t.Errorf("setup line should not embed stty (Inject provides echo suppression): %s", line)
 	}
 	if strings.Contains(line, "printf '\\033[1A\\033[2K\\r%s'") {
 		t.Errorf("setup line should not printf display: %s", line)
 	}
 	if len(RemoteInitialCommands("", "h", false)) != 0 {
 		t.Error("empty user should return nil")
+	}
+}
+
+// TestRemoteSetupLine_HistoryOffWrapper (W17) verifies setup disables bash/zsh history during inject.
+func TestRemoteSetupLine_HistoryOffWrapper(t *testing.T) {
+	line := RemoteSetupLine("u", "h", false)
+	for _, part := range []string{
+		"set +o history",
+		"set -o history",
+		"_AIT_HIST",
+		"HISTFILE=/dev/null",
+	} {
+		if !strings.Contains(line, part) {
+			t.Errorf("setup line missing history-off %q: %s", part, line)
+		}
 	}
 }
 

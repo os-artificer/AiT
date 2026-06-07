@@ -58,8 +58,14 @@ func TestInjectInitialCommandsSingleLine(t *testing.T) {
 	c.finishRemoteSetup(stdin, "u", "h")
 
 	body := stdin.String()
-	if !strings.HasPrefix(body, cmds[0]) {
-		t.Fatalf("stdin missing setup line: %q", body)
+	if !strings.HasPrefix(body, injectSpacePrefix) {
+		t.Fatalf("stdin should use Inject space prefix, got: %q", body)
+	}
+	if !strings.Contains(body, "stty -echo") {
+		t.Fatalf("stdin missing Inject echo suppression: %q", body)
+	}
+	if !strings.Contains(body, cmds[0]) {
+		t.Fatalf("stdin missing setup body: %q", body)
 	}
 	if strings.Contains(body, "\r") {
 		t.Fatalf("stdin should not refresh when marker already buffered: %q", body)

@@ -55,7 +55,7 @@ Optional config template:
 | Command | Description |
 |---------|-------------|
 | `ait shell` | Interactive mode (`AiT> `): `login`, `list`, `help`, `clear`, etc.; `exit` to quit; TTY: UTF-8 input, **Ctrl+L** clear screen |
-| `ait login` | Connect to host; `--save` or `--alias` to bookmark new hosts; re-login to a listed user@host:port updates that row; `host cmd` for one-shot |
+| `ait login` | Connect to host; `--save` or `--alias` to bookmark; multiple `--alias` names on the same `user@host:port` are separate sessions; plain re-login updates only an **empty-alias** match; `host cmd` for one-shot |
 | `ait session --list` | List saved sessions (`#` column; use `-v` for full UUID) |
 | `ait session --load [<id\|alias>]` | Restore session (omit id to pick); use alias or `FULL_ID` from `-v`, not the short ID column |
 | `ait session --suspend` | Use `!ait suspend` inside SSH session |

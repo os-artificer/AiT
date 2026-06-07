@@ -95,7 +95,7 @@ func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client
 	if opts.Tmux {
 		if err := tmux.Ensure(client.Conn(), sess.TmuxSession); err != nil {
 			m.cleanupOnTmuxFailure(plan.persist, sess.ID)
-			return fmt.Errorf("tmux: %w (is tmux installed on remote?)", err)
+			return fmt.Errorf(errTmuxEnsureFmt, err)
 		}
 	}
 
