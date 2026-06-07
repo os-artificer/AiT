@@ -51,8 +51,11 @@ AiT flags:
   --identity P    legacy: same as -i
 
 Persistence:
-  If user@host:port is already in ait session --list, login updates that row and
-  refreshes auth TTL even without --save or --alias. Use --save or --alias for first-time bookmarks.
+  Session rows are keyed by username, host, port, and alias (empty when --alias is omitted).
+  Different --alias values on the same user@host:port are separate saved sessions.
+  If an empty-alias row for the connection is already in ait session --list, login updates
+  that row and refreshes auth TTL even without --save or --alias. Use --save or --alias
+  for first-time bookmarks.
 
 `
 	helpLoginNotSupported = `Not supported by ait login (use the system ssh client instead):

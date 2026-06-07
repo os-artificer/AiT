@@ -21,7 +21,7 @@ ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--pas
         # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
         # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
         # 新连接须 --save（按 id 书签）或 --alias（命名保存，隐含 --save）才写入 SQLite
-        # 若 user@host:port 已在 session 列表中，login 会更新该行并刷新 auth TTL（无需 --save/--alias）
+        # 若匹配的无 alias 行已在 session 列表中，login 会更新该行并刷新 auth TTL（无需 --save/--alias）
         # 带 command 时为一次性执行；新主机无 --save/--alias 时不持久化
         # 旧写法 --host/--user 仍向后兼容
 ait session --list [-v]   # # 列用于按序号选择；-v 输出 FULL_ID（完整 UUID）
@@ -45,7 +45,26 @@ ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUA
 | **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选回放上次 suspend 的本地 scrollback | 不保证保活 |
 | **tmux 保活** | `login`/`load` 加 `--tmux` | SSH 后 `tmux attach -t ait-<session_id>`（不存在则 `new -s`） | 断开连接后 shell/进程仍在 |
 
-**新连接须使用 `--save` 或 `--alias` 才持久化**；若同一 user@host:port 已在 `ait session --list` 中，login 会自动更新该行并刷新认证 TTL。普通 `ait login host` 连接未知主机不写 SQLite。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
+**新连接须使用 `--save` 或 `--alias` 才持久化**。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ait login user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
+
+### login 持久化决策（连接键含 alias）
+
+```mermaid
+flowchart TD
+  login[login opts] --> hasSaveAlias{save or alias?}
+  hasSaveAlias -->|yes| hasAlias{opts.Alias set?}
+  hasAlias -->|yes| getByAlias[GetSession alias]
+  getByAlias -->|found| updateAliasRow[reuse alias row id]
+  getByAlias -->|not found| findKey[FindSessionByKey u,h,port,alias]
+  hasAlias -->|no save only| findKey
+  findKey -->|found| reuseKey[reuse matching id]
+  findKey -->|not found| newID[new UUID]
+  hasSaveAlias -->|no| findEmpty[FindSessionByKey u,h,port empty alias]
+  findEmpty -->|found| reuseEmpty[reuse and extend TTL]
+  findEmpty -->|not found| ephemeral[plan.persist=false]
+```
+
+同一 `user@host:port` 可并存：`ait login --save user@host`（无 alias 行）与 `ait login --alias prod user@host`（`prod` 行）为两条独立记录，各自 `session_id` 与 tmux 会话 `ait-<id>`。SQLite 对 `(username, host, port, COALESCE(alias,''))` 建唯一索引；升级时若存在同键重复行，迁移保留 `updated_at` 最新者。
 
 ## 架构总览
 
@@ -196,7 +215,7 @@ CREATE TABLE app_meta (
 -- 键 current_session_id：当前/上次前台会话 UUID（switch/load/login 后更新）
 ```
 
-- `login` 且带 `--save`/`--alias`，或目标 **已存在** 于 session 列表 → upsert `sessions`、设置 `auth_expires_at`；若 `--tmux` 则 `tmux_enabled=1` 并初始化远程 tmux；写 `app_meta.current_session_id`。连接新主机且无上述 flag 时不 upsert。
+- `login` 且带 `--save`/`--alias`，或存在匹配的**无 alias** 连接键 → upsert `sessions`、设置 `auth_expires_at`；若 `--tmux` 则 `tmux_enabled=1` 并初始化远程 tmux；写 `app_meta.current_session_id`。连接新主机且无上述 flag 时不 upsert；仅有命名 alias 行时无 flag login 也不 upsert。
 - `suspend` → 写 `session_state`，`status=suspended`；tmux 模式先 `tmux detach` 再断 SSH
 - `session --delete <id>` / `session --delete all` → 删 DB 行、scrollback sidecar 及 per-session keyring 条目（**不**杀远程 tmux 会话）
 
@@ -321,7 +340,7 @@ sequenceDiagram
 
 - **配置解析**：`internal/pkg/ssh/args` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
-- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的 user@host:port 即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
+- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的**无 alias** 连接键即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
 - 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；未保存会话时 `!ait suspend` 会提示需保存
 - PS1 setup 结束后，本地终端立即显示远程 AiT 提示符（缓冲 emit 或 refresh 回显，非静态占位符）
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`

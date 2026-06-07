@@ -22,8 +22,8 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/store"
 )
 
-// resolvePersistSessionID returns an existing session id when opts match a saved alias or connection;
-// otherwise newID. Alias lookup runs first; connection lookup uses username, host, and normalized port.
+// resolvePersistSessionID returns an existing session id when opts match a saved alias or connection
+// key (username, host, port, alias); otherwise newID. Alias lookup runs first when opts.Alias is set.
 // Returns store.ErrSessionNotFound as (newID, nil). Other store errors are returned unchanged.
 func (m *Manager) resolvePersistSessionID(opts LoginOpts, newID string) (string, error) {
 	if opts.Alias != "" {
@@ -32,7 +32,7 @@ func (m *Manager) resolvePersistSessionID(opts LoginOpts, newID string) (string,
 		}
 	}
 
-	existing, err := m.Store.FindSessionByConnection(opts.User, opts.Host, normalizePort(opts.Port))
+	existing, err := m.Store.FindSessionByKey(opts.User, opts.Host, normalizePort(opts.Port), opts.Alias)
 	if err != nil {
 		if errors.Is(err, store.ErrSessionNotFound) {
 			return newID, nil
