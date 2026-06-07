@@ -51,17 +51,9 @@ func (c *Client) ListModels(ctx context.Context) (*ModelsReport, error) {
 
 	var rows []ModelRow
 	for _, id := range config.AllProviderIDs() {
-		pc, inCfg := c.cfg.Provider(id)
+		pc, inCfg := providerConfigForList(c.cfg, id)
 		if !inCfg {
-			if id == ProviderOllama {
-				continue
-			}
-			_, err := creds.GetProviderAPIKey(id)
-			if err != nil {
-				continue
-			}
-			pc = config.DefaultProviderConfig(id)
-			inCfg = true
+			continue
 		}
 
 		hasKey := id == ProviderOllama

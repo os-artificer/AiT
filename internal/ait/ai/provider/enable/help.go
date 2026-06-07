@@ -32,8 +32,6 @@ const (
   --no-pull            Skip ollama pull
   --model, --base-url, --models-dir   Passed to Ollama ensure logic
 `
-	exampleDeepseek = "ait ai provider enable deepseek"
-	exampleOllama   = "ait ai provider enable ollama --yes"
 )
 
 // WriteHelp prints ait ai provider enable --help to w.
@@ -51,7 +49,10 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteSection(pkghelpdoc.SectionFlagsOllama, flagsOllama); err != nil {
 		return err
 	}
-	if err := b.WriteExamples(exampleDeepseek, exampleOllama); err != nil {
+	if err := b.WriteExamples(
+		pkghelpdoc.ExampleAIProviderEnableDeepseek,
+		pkghelpdoc.ExampleAIProviderEnableOllamaYes,
+	); err != nil {
 		return err
 	}
 	return b.Finish("enable")

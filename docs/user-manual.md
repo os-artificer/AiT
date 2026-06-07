@@ -94,11 +94,11 @@ On **macOS, Linux, and Windows**, interactive `ait shell` and `ait ai` accept **
 - **IME:** Type with your system input method; after you confirm composition, characters appear in the line. AiT does not show an in-app preedit box.
 - **Tab:** Inserts a tab character into the current line (for indentation).
 - **TTY keys (local REPL):** Ctrl+A/E (start/end of line), Left/Right (move cursor), Up/Down (recall loaded input history, including prior sessions via `<AppRoot>/repl_history`), **Ctrl+R** (reverse incremental search), Ctrl+U/K/W (kill line/to end/word), Backspace, Ctrl+C (cancel line), Ctrl+D (exit when empty), Ctrl+L (clear screen, keep buffer). Type `help` in `ait shell` or `ait ai` for the full Keys list.
-- **History:** Only commands you submit at the main `AiT>` / `AiT AI>` prompt are stored—not `[y/N]` confirm answers, session picker input, or AiT internal env setup. Use the **`history`** command (bash subset: list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) to inspect or manage input history. Lines persist across sessions in **`<AppRoot>/repl_history`** (see **Data directory** below). In `ait ai`, **`clear`** clears chat history only; **`history`** is input history.
+- **History:** Only commands you submit at the main `AiT>` / `AiT AI(Agent)>` prompt are stored—not `[y/N]` confirm answers, session picker input, or AiT internal env setup. Use the **`history`** command (bash subset: list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) to inspect or manage input history. Lines persist across sessions in **`<AppRoot>/repl_history`** (see **Data directory** below). In `ait ai`, **`clear`** clears chat history only; **`history`** is input history.
 - **Non-TTY:** `echo 你好 | ait ai ask` works without special locale setup.
 - **Clear screen:** In `ait shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ait ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
 
-SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI>` editing is what this section describes.
+SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI(Agent)>` editing is what this section describes.
 
 ## Prompts
 

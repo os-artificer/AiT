@@ -24,30 +24,18 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/ait/shell"
-	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
 func aimWrite(w io.Writer, s string) {
-	s = strings.ReplaceAll(s, "\n", "\r\n")
-	_, _ = io.WriteString(w, s)
+	shell.WriteTTY(w, s)
 }
 
 func aimPrintErr(w io.Writer, msg string) {
-	msg = strings.TrimSpace(msg)
-	if msg == "" {
-		return
-	}
-	if strings.Contains(msg, "\n") {
-		errhint.Print(w, errhint.SurfaceTTY, errhint.NewSentinel(msg))
-		return
-	}
-	aimWrite(w, msgPrefixAiT+msg+"\r\n")
+	shell.PrintErr(w, msg)
 }
 
 func normalizeLine(line string) string {
-	line = strings.TrimSpace(line)
-	line = strings.TrimSuffix(line, ";")
-	return strings.TrimSpace(line)
+	return shell.NormalizeLine(line)
 }
 
 func firstWord(line string) (word, rest string) {

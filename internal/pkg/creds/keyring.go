@@ -28,8 +28,6 @@ import (
 // backend.
 var ringOpen = defaultOpen
 
-const serviceName = "ait"
-
 // Environment variables used to pin the keyring backend, primarily for
 // tests and headless CI environments where touching the host keychain or
 // DBus daemon is undesirable.
@@ -38,6 +36,7 @@ const serviceName = "ait"
 //	AIT_KEYRING_DIR=<path>     directory for the file backend (default: <DataDir>/keyring).
 //	AIT_KEYRING_FILE_PASSWORD  master password for the file backend (default: ait-test for dev).
 const (
+	serviceName     = "ait"
 	envBackend      = "AIT_KEYRING_BACKEND"
 	envFileDir      = "AIT_KEYRING_DIR"
 	envFilePassword = "AIT_KEYRING_FILE_PASSWORD"
@@ -104,11 +103,13 @@ func sessionKey(sessionID string) string {
 }
 
 // SetDeepseekAPIKey stores the Deepseek API key in the OS keyring (alias for ai/deepseek/api_key).
+// Returns keyring open or Set errors from the underlying provider backend.
 func SetDeepseekAPIKey(key string) error {
 	return SetProviderAPIKey("deepseek", key)
 }
 
 // GetDeepseekAPIKey returns the Deepseek API key from the OS keyring.
+// Returns the key string, or keyring open/Get errors (including keyring.ErrKeyNotFound).
 func GetDeepseekAPIKey() (string, error) {
 	return GetProviderAPIKey("deepseek")
 }

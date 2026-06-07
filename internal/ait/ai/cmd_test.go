@@ -21,9 +21,11 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
-func TestAIHelpSections(t *testing.T) {
+func TestWriteAIHelpSections(t *testing.T) {
 	var buf bytes.Buffer
 	if err := WriteAIHelp(&buf); err != nil {
 		t.Fatal(err)
@@ -33,11 +35,16 @@ func TestAIHelpSections(t *testing.T) {
 		"Usage:", "Examples:", "help for ai", "ait ai", "ait ai model list", "ait ai ollama status", "ait ai ollama setup",
 		"ait ai --model minimax", "Subcommands:", "ask", "agent", "provider enable", "ollama status", "start", "stop", "disable",
 		"--model", "deepseek|minimax", "run <command>", "mode ask|agent", "approve each|session", "trust", "model list", "!ait ai",
+		pkghelpdoc.SectionKeys, "Ctrl+R",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}
 	}
+}
+
+func TestAIHelpSections(t *testing.T) {
+	TestWriteAIHelpSections(t)
 }
 
 func TestLocalAIModeOptions_HasCaptureAndCLI(t *testing.T) {

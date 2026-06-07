@@ -11,7 +11,7 @@ CLI entry point: [`internal/ait/root.go`](../internal/ait/root.go) (`Run` plus c
 
 ```text
 ait shell                                    # AiT> REPL (login/list/load, etc.)
-ait ai                                       # Local AI mode (AiT AI>); also "ai" inside ait shell
+ait ai                                       # Local AI mode (AiT AI(Agent)>); also "ai" inside ait shell
 ait ai model list                            # List configured AI providers (ENABLED column)
 ait ai ask [message...]                      # One-shot AI question (stdin if no args); SSH: !ait ai ask / !! ask
 ait ai agent [message...]                    # One-shot agent with tool execution
@@ -34,7 +34,7 @@ ait put [ssh-flags] <paths...>
 ait config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUAL/$EDITOR (vi / Notepad)
 ```
 
-**AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ait ai [--model <cloud-provider>]`** or **`ai` inside `ait shell`** runs a local AI REPL (`AiT AI>`); commands run on this machine only after you confirm (`run`, optional `ait` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait).
+**AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ait ai [--model <cloud-provider>]`** or **`ai` inside `ait shell`** runs a local AI REPL (`AiT AI(Agent)>`); commands run on this machine only after you confirm (`run`, optional `ait` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI(Agent) user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait).
 
 Use **`!ait local` / `!ait remote`** to toggle local versus remote input while SSH stays connected; **`!ait suspend`** to suspend; **`!ait chain [on|off]`** to toggle chain mode (PTY-pipe injection for file transfer and tmux over multiple SSH hops).
 
