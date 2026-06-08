@@ -28,6 +28,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
@@ -221,7 +222,7 @@ func (m *Manager) warnOrBlockActiveSwitch(cur *store.Session, force bool) error 
 		return errhint.WithTryMsg(
 			fmt.Sprintf(errCurrentSessionActiveFmt, cur.AliasOrID()),
 			hintActiveSessionSwitchExplain,
-			trySuspendInSSH, trySwitchForce, trySessionHelp,
+			meta.LineSuspend, trySwitchForce, trySessionHelp,
 		)
 	}
 

@@ -66,7 +66,7 @@ func TestExecuteLineStripsTrailingSemicolon(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(words) != 1 || words[0] != replCmdClear {
+	if len(words) != 1 || words[0] != ReplCmdClear {
 		t.Errorf("words = %v want [clear]", words)
 	}
 }

@@ -85,6 +85,15 @@ func TestExecuteBlockedLogin(t *testing.T) {
 	}
 }
 
+// TestMetaCLIArgs_ListUsesSessionFlag (C25) keeps !ait list mapped to session --list.
+func TestMetaCLIArgs_ListUsesSessionFlag(t *testing.T) {
+	got := metaCLIArgs([]string{"list"})
+	want := []string{"session", "--list"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("metaCLIArgs=%v want %v", got, want)
+	}
+}
+
 func TestExecuteSubcommandUsesCRLFStdout(t *testing.T) {
 	SetExecutorWriters(func(args []string, stdout, _ io.Writer) error {
 		want := []string{"session", "--list"}

@@ -25,7 +25,10 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/ait/ai/mode/risk"
+	"github.com/os-artificer/AiT/internal/ait/shell"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/config"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -46,17 +49,17 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 
 	word, rest := firstWord(line)
 	switch word {
-	case replCmdExit, replCmdQuit:
+	case shell.ReplCmdExit, shell.ReplCmdQuit:
 		st.Trust.Clear()
 		return true, nil
-	case replCmdHelp, replArgH, replArgHelp:
+	case pkghelpdoc.HelpArgCmd, pkghelpdoc.HelpArgH, pkghelpdoc.HelpArgHelp:
 		PrintHelp(opt.Out, opt.Scope)
 		return false, nil
-	case replCmdClear:
+	case shell.ReplCmdClear:
 		st.history = nil
 		aimWrite(opt.Out, msgConversationClearedCRLF)
 		return false, nil
-	case replCmdHistory:
+	case shell.ReplCmdHistory:
 		parts := strings.Fields(line)
 		var args []string
 		if len(parts) > 1 {
@@ -68,7 +71,7 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 	case replCmdApprove:
 		return false, setApprove(st, rest, opt.Out, opt.ErrOut)
 	case replCmdTrust:
-		return false, setApprove(st, "session", opt.Out, opt.ErrOut)
+		return false, setApprove(st, labelApproveSession, opt.Out, opt.ErrOut)
 	case replCmdPolicy:
 		return false, setPolicyDeprecated(st, rest, opt.Out, opt.ErrOut)
 	case replCmdModel:
@@ -164,7 +167,7 @@ func setModel(ctx context.Context, opt Options, rest string, out io.Writer) erro
 		aimWrite(out, strings.ReplaceAll(report.Format(), "\n", "\r\n")+"\r\n")
 		return nil
 	}
-	if rest == "ollama" {
+	if rest == config.ProviderOllama {
 		return fmt.Errorf("%s", errCannotSetOllamaProvider)
 	}
 	if err := opt.AI.SetSessionProvider(rest); err != nil {

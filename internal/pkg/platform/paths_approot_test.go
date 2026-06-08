@@ -49,6 +49,20 @@ func TestAppRoot_AITHomeOverride(t *testing.T) {
 	}
 }
 
+func TestBinDir_UnderAppRoot(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv(envHome, root)
+
+	got, err := BinDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "bin")
+	if got != want {
+		t.Fatalf("BinDir=%q want %q", got, want)
+	}
+}
+
 func TestConfigDir_EqualsDataDir(t *testing.T) {
 	isolatePlatformHome(t)
 
@@ -105,7 +119,7 @@ func TestLegacyConfigPath_LinuxOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), appName, configFile)
+	want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), appName, ConfigFileName)
 	if legacy != want {
 		t.Fatalf("legacy=%q want %q", legacy, want)
 	}

@@ -7,7 +7,8 @@
 
 ## [未发布]
 
-- 【优化】会话连接唯一键扩展为 username+host+port+alias；同一目标机可用多个 `--alias` 保存独立会话；无 flag login 仅更新无 alias 匹配行。
+- 【新增】SHELL模式支持完整命令行交互，命令搜索路径为：内置命令，其次扩展命令与PATH环境变量。
+- 【优化】会话连接唯一键扩展为 username+host+port+alias，同一目标机可用多个 `--alias` 保存独立会话；无 flag login 仅更新无 alias 匹配行。
 
 ## v1.0.0-beta.1
 

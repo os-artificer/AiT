@@ -22,6 +22,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/ai/deps"
 	"github.com/os-artificer/AiT/internal/ait/ai/mode"
+	"github.com/os-artificer/AiT/internal/ait/ai/mode/chat"
 	"github.com/os-artificer/AiT/internal/ait/ai/runner"
 	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -30,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const name = "agent"
+const name = chat.AgentVerb
 
 // New builds the `ait ai agent` cobra command.
 func New(d deps.Deps) *cobra.Command {

@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const name = "ask"
+const name = chat.Verb
 
 // New builds the `ait ai ask` cobra command.
 func New(d deps.Deps) *cobra.Command {

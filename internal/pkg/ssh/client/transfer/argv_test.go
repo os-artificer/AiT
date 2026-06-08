@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 )
 
 func TestArgsFromMetaLine_Get(t *testing.T) {
@@ -48,6 +50,18 @@ func TestArgsFromMetaLine_NonTransfer(t *testing.T) {
 	}
 	if _, _, ok := ArgsFromMetaLine("ait get x y"); ok {
 		t.Fatal("missing prefix should not match")
+	}
+}
+
+// TestArgsFromMetaLine_UsesMetaPrefix (C21) keeps argv parsing aligned with meta.PrefixAitSpace.
+func TestArgsFromMetaLine_UsesMetaPrefix(t *testing.T) {
+	line := meta.PrefixAitSpace + "get /r ./l"
+	cmd, args, ok := ArgsFromMetaLine(line)
+	if !ok || cmd != "get" {
+		t.Fatalf("cmd=%q ok=%v", cmd, ok)
+	}
+	if !reflect.DeepEqual(args, []string{"/r", "./l"}) {
+		t.Fatalf("args=%v", args)
 	}
 }
 

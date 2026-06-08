@@ -50,14 +50,14 @@ func IsRetryable(err error) bool {
 	var apiErr *openai.APIError
 	if errors.As(err, &apiErr) {
 		switch apiErr.HTTPStatusCode {
-		case 429, 500, 502, 503, 504:
+		case httpStatusTooManyRequests, httpStatusInternalError, httpStatusBadGateway, httpStatusUnavailable, httpStatusGatewayTimeout:
 			return true
 		default:
 			return apiErr.HTTPStatusCode >= 500
 		}
 	}
 	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "empty response") || strings.Contains(msg, "empty choices") {
+	if strings.Contains(msg, retrySubstrEmptyResponse) || strings.Contains(msg, retrySubstrEmptyChoices) {
 		return true
 	}
 	return false
@@ -103,10 +103,10 @@ func ResolveTryOrder(cfg *config.Config, sessionOverride provider.ID, keyed map[
 // after all chain links failed. lastID is the last provider attempted.
 func AggregateErrors(lastID provider.ID, errs []error) error {
 	if len(errs) == 0 {
-		return fmt.Errorf("ai: all providers failed (last: %s)", lastID)
+		return fmt.Errorf(errAllProvidersFailedFmt, lastID)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "ai: all providers failed; last attempt %s:", lastID)
+	fmt.Fprintf(&b, "%s", fmt.Sprintf(errAllProvidersFailedBody, lastID))
 	for _, e := range errs {
 		if e != nil {
 			b.WriteString("\n  - ")
@@ -125,11 +125,11 @@ func LogFailover(w io.Writer, from, to provider.ID, err error) {
 	if w == nil {
 		w = os.Stderr
 	}
-	fmt.Fprintf(w, "AiT: AI failover %s -> %s (%v)\n", from, to, err)
+	fmt.Fprintf(w, failoverLogFmt, from, to, err)
 }
 
 // APIKeyHint returns the `ait config set ...` command that stores an API key
 // for the given provider, used in human-readable error messages.
 func APIKeyHint(id provider.ID) string {
-	return fmt.Sprintf("ait config set ai.%s.api_key <key>", id)
+	return provider.ConfigSetAPIKeyCmd(string(id))
 }
