@@ -25,4 +25,5 @@ const (
 	scrollbackDir   = "scrollback"
 	historyBasename = "repl_history"
 	keyringDirName  = "keyring"
+	binDirName      = "bin"
 )

@@ -19,16 +19,13 @@ package shell
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 
-	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/ait/shell/builtin"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -58,77 +55,25 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 		return false, nil
 	}
 
-	switch words[0] {
-	case ReplCmdExit, ReplCmdQuit:
-		return true, nil
-	case pkghelpdoc.HelpArgCmd, pkghelpdoc.HelpArgH, pkghelpdoc.HelpArgHelp:
-		PrintHelp(shellCLIOut, mgr.HasActiveSession())
-		return false, nil
-	case ReplCmdClear:
-		terminal.ClearScreen(shellCLIOut)
-		return false, nil
-	case ReplCmdHistory:
-		words, perr := parseShellLine(line)
-		if perr != nil {
-			return false, perr
-		}
-		return false, terminal.RunHistoryCommand(shellCLIOut, hist, words[1:])
-	case ReplCmdAI:
-		if aiModeRunner == nil {
-			return false, fmt.Errorf("%s", errAIModeRunnerNotConfig)
-		}
-		return false, aiModeRunner(ctx, mgr)
-	case ReplCmdLogin:
-		if mgr.HasActiveSession() {
-			return false, errors.New(errLoginBlockedActive)
-		}
-		return false, shellLogin(ctx, mgr, words[1:])
-	case ReplCmdLoad:
-		if mgr.HasActiveSession() {
-			return false, errors.New(errLoadBlockedActive)
-		}
-		return false, shellLoad(ctx, mgr, words[1:])
-	case ReplCmdList:
-		return false, mgr.List(shellCLIOut, false)
-	case ReplCmdSuspend:
-		return false, mgr.SuspendCurrent()
-	default:
-		return false, runCLI(words)
-	}
-}
-
-func shellLogin(ctx context.Context, mgr *session.Manager, argv []string) error {
-	spec, err := openssh.ParseLogin(argv)
-	if err != nil {
-		return err
+	env := builtin.Env{
+		Out:          shellCLIOut,
+		In:           os.Stdin,
+		Mgr:          mgr,
+		Hist:         hist,
+		Line:         line,
+		ParseLine:    parseShellLine,
+		AIModeRunner: aiModeRunner,
+		PrintHelp: func(hasActiveSession bool) {
+			PrintHelp(shellCLIOut, hasActiveSession)
+		},
 	}
 
-	resolved, err := resolve.Resolve(spec)
-	if err != nil {
-		return err
+	exitREPL, handled, err := builtin.Try(ctx, env, words)
+	if handled {
+		return exitREPL, err
 	}
 
-	return mgr.Login(ctx, session.LoginOptsFromResolved(resolved))
-}
-
-func shellLoad(ctx context.Context, mgr *session.Manager, argv []string) error {
-	var id, password string
-	var tmux bool
-	var err error
-
-	if len(argv) == 0 {
-		id, err = mgr.PickSessionFrom(os.Stdin, shellCLIOut)
-		if err != nil {
-			return err
-		}
-	} else {
-		id, password, tmux, err = parseLoadArgs(argv)
-		if err != nil {
-			return err
-		}
-	}
-
-	return mgr.Load(ctx, id, tmux, password)
+	return false, dispatchShellCommand(ctx, words)
 }
 
 // SetAIModeRunner registers the function that enters local AI mode from the REPL.

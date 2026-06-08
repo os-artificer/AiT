@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
+	"github.com/os-artificer/AiT/internal/pkg/shellext"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
 	"golang.org/x/term"
@@ -63,6 +64,12 @@ func reportShellError(err error) {
 }
 
 func runShellREPLPlain(ctx context.Context, mgr *session.Manager, in io.Reader, out io.Writer) error {
+	prevRunner := externalRunner
+	SetExternalRunner(func(ctx context.Context, path string, argv []string) error {
+		return shellext.Run(ctx, path, argv, os.Stdin, os.Stdout, os.Stderr)
+	})
+	defer SetExternalRunner(prevRunner)
+
 	sc := bufio.NewScanner(in)
 	hist := terminal.NewReplLineHistory(os.Stderr)
 	for {
@@ -96,6 +103,19 @@ func runShellREPLTTY(ctx context.Context, mgr *session.Manager, fd int, out io.W
 
 	setShellTTYIO(true)
 	defer setShellTTYIO(false)
+
+	prevRunner := externalRunner
+	SetExternalRunner(func(ctx context.Context, path string, argv []string) error {
+		if restoreErr := term.Restore(fd, old); restoreErr != nil {
+			return restoreErr
+		}
+		runErr := shellext.Run(ctx, path, argv, os.Stdin, os.Stdout, os.Stderr)
+		if _, rawErr := term.MakeRaw(fd); rawErr != nil && runErr == nil {
+			return rawErr
+		}
+		return runErr
+	})
+	defer SetExternalRunner(prevRunner)
 
 	_, _ = io.WriteString(out, "Type help for commands. Use exit or quit to leave.\r\n")
 

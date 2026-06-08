@@ -54,3 +54,13 @@ func HistoryPath() (string, error) {
 	}
 	return filepath.Join(dir, historyBasename), nil
 }
+
+// BinDir returns the optional user extension directory under AppRoot (<AppRoot>/bin).
+// The directory is not created automatically; callers add executables as needed.
+func BinDir() (string, error) {
+	dir, err := AppRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, binDirName), nil
+}
