@@ -22,14 +22,19 @@ import (
 	"os"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/ait/ai"
+	"github.com/os-artificer/AiT/internal/ait/login"
+	"github.com/os-artificer/AiT/internal/ait/session"
+	"github.com/os-artificer/AiT/internal/ait/shell"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 var metaBlockedInSession = map[string]string{
-	"login":   "Exit the SSH session first, then log in from the local shell.",
-	"load":    "Exit the SSH session first, then load a saved session locally.",
-	"suspend": "Use !ait suspend inside this SSH session.",
-	"ai":      "Use !ait ai or !! for AI mode inside SSH.",
+	login.Name:           "Exit the SSH session first, then log in from the local shell.",
+	shell.ReplCmdLoad:    "Exit the SSH session first, then load a saved session locally.",
+	shell.ReplCmdSuspend: "Use !ait suspend inside this SSH session.",
+	ai.Name:              "Use !ait ai or !! for AI mode inside SSH.",
 }
 
 var executor func([]string, io.Writer, io.Writer) error
@@ -52,7 +57,7 @@ func PrintMetaHelp(w io.Writer) {
 // Empty args or "help" prints in-session help.
 // Returns fmt.Errorf when args[0] is blocked in-session (login/load/suspend), or errors from the executor.
 func Execute(args []string) error {
-	if len(args) == 0 || (len(args) == 1 && (args[0] == replCmdHelp || args[0] == replArgH || args[0] == replArgHelp)) {
+	if len(args) == 0 || (len(args) == 1 && helpArgv(args[0])) {
 		PrintMetaHelp(os.Stdout)
 		return nil
 	}
@@ -66,9 +71,13 @@ func Execute(args []string) error {
 	return executor(metaCLIArgs(args), terminal.NewCRLFWriter(os.Stdout), os.Stderr)
 }
 
+func helpArgv(arg string) bool {
+	return arg == pkghelpdoc.HelpArgCmd || arg == pkghelpdoc.HelpArgH || arg == pkghelpdoc.HelpArgHelp
+}
+
 func metaCLIArgs(args []string) []string {
-	if len(args) > 0 && args[0] == "list" {
-		return []string{"session", "--list"}
+	if len(args) > 0 && args[0] == shell.ReplCmdList {
+		return []string{session.Name, session.FlagList}
 	}
 	return args
 }

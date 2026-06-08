@@ -29,18 +29,6 @@ import (
 // RunWithMgr opens a session.Manager and runs fn under a signal-cancellable context.
 type RunWithMgr func(fn func(ctx context.Context, mgr *pkgsession.Manager) error) error
 
-const (
-	flagNameList     = "list"
-	flagNameLoad     = "load"
-	flagNameSuspend  = "suspend"
-	flagNameSwitch   = "switch"
-	flagNameDelete   = "delete"
-	flagNameTmux     = "tmux"
-	flagNamePassword = "password"
-	flagNameForce    = "force"
-	flagNameVerbose  = "verbose"
-)
-
 // New builds the `ait session` cobra command tree.
 // runWithMgr opens a session.Manager and runs fn under a signal-cancellable context.
 func New(runWithMgr RunWithMgr) *cobra.Command {
@@ -48,7 +36,7 @@ func New(runWithMgr RunWithMgr) *cobra.Command {
 	var loadTarget, switchTarget, deleteTarget, password string
 
 	cmd := &cobra.Command{
-		Use:           "session",
+		Use:           Name,
 		Short:         "Manage saved sessions",
 		SilenceUsage:  true,
 		SilenceErrors: true,

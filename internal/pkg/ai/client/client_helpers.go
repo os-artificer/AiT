@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"unicode/utf8"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/models"
 	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/ollama"
@@ -75,18 +76,18 @@ func initTieredEndpoint(cfg *config.Config, localID string, httpClient *http.Cli
 // providerReachable returns a display label for whether the provider is reachable.
 func (c *Client) providerReachable(ctx context.Context, httpClient *http.Client, id ProviderID, enabled bool) string {
 	if !enabled {
-		return "no"
+		return models.KeyNo
 	}
 	ep, ok := c.endpoints[id]
 	if !ok {
-		return "no"
+		return models.KeyNo
 	}
 	if id == ProviderOllama {
 		_, note, err := ollama.FetchTags(ctx, httpClient, ep.baseURL, ep.model)
 		if err == nil && note == "" {
-			return "yes"
+			return models.KeyYes
 		}
-		return "no"
+		return models.KeyNo
 	}
-	return "yes"
+	return models.KeyYes
 }

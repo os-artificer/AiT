@@ -61,7 +61,7 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 	system, msgs := splitAnthropicMessages(messages)
 	body := anthropicRequest{
 		Model:     ep.model,
-		MaxTokens: 4096,
+		MaxTokens: anthropicMaxTokens,
 		System:    system,
 		Messages:  msgs,
 	}
@@ -70,14 +70,14 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 		return "", "", err
 	}
 
-	url := strings.TrimSuffix(ep.baseURL, "/") + "/v1/messages"
+	url := strings.TrimSuffix(ep.baseURL, "/") + anthropicMessagesPath
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(raw))
 	if err != nil {
 		return "", "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", ep.key)
-	req.Header.Set("anthropic-version", anthropicVersion)
+	req.Header.Set(anthropicHeaderContentType, anthropicContentType)
+	req.Header.Set(anthropicHeaderAPIKey, ep.key)
+	req.Header.Set(anthropicHeaderVersion, anthropicVersion)
 
 	client := ep.http
 	if client == nil {
@@ -93,7 +93,7 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 	if err != nil {
 		return "", "", err
 	}
-	if res.StatusCode == 429 || res.StatusCode >= 500 {
+	if res.StatusCode == httpStatusTooManyRequests || res.StatusCode >= httpStatusInternalError {
 		return "", "", fmt.Errorf("anthropic api %s: status %d", ep.id, res.StatusCode)
 	}
 	if res.StatusCode >= 400 {
@@ -114,7 +114,7 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 	var thinkingParts []string
 	for _, block := range parsed.Content {
 		switch block.Type {
-		case "thinking":
+		case anthropicBlockThinking:
 			// MiniMax Anthropic uses "thinking" field; Anthropic SDK uses "thinking" field.
 			// Fall back to "text" for providers that put content there.
 			content := block.Thinking
@@ -124,7 +124,7 @@ func (ep *endpoint) chatAnthropic(ctx context.Context, messages []openai.ChatCom
 			if content != "" {
 				thinkingParts = append(thinkingParts, content)
 			}
-		case "redacted_thinking":
+		case anthropicBlockRedactedThinking:
 			// Extended Thinking encrypted block — no readable content, skip silently.
 		default:
 			if block.Text != "" {
@@ -164,9 +164,9 @@ func splitAnthropicMessages(messages []openai.ChatCompletionMessage) (system str
 			}
 			system += m.Content
 		case openai.ChatMessageRoleUser:
-			out = append(out, anthropicMessage{Role: "user", Content: m.Content})
+			out = append(out, anthropicMessage{Role: anthropicRoleUser, Content: m.Content})
 		case openai.ChatMessageRoleAssistant:
-			out = append(out, anthropicMessage{Role: "assistant", Content: m.Content})
+			out = append(out, anthropicMessage{Role: anthropicRoleAssistant, Content: m.Content})
 		}
 	}
 	return system, out

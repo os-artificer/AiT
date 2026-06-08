@@ -44,11 +44,11 @@ func setMode(ctx context.Context, opt Options, st *sessionState, rest string, ou
 	case "":
 		aimWrite(out, formatModeStatus(opt, st)+"\r\n")
 		return nil
-	case "ask":
+	case labelModeAsk:
 		st.interaction = ModeAsk
 		aimWrite(out, msgModeAskCRLF)
 		return nil
-	case "agent":
+	case labelModeAgent:
 		st.interaction = ModeAgent
 		aimWrite(out, msgModeAgentCRLF)
 		return nil
@@ -64,12 +64,12 @@ func setApprove(st *sessionState, rest string, out io.Writer, errOut io.Writer) 
 	case "", "status":
 		aimWrite(out, formatApproveStatus(st)+"\r\n")
 		return nil
-	case "each", "per-cmd", "per_cmd":
+	case labelApproveEach, labelPolicyPerCmd, labelPolicyPerCmdAlt:
 		st.Trust.Policy = approve.PolicyPerCmd
 		st.Trust.Clear()
 		aimWrite(out, msgApproveEachCRLF)
 		return nil
-	case "session", "once", "session_once", "trust":
+	case labelApproveSession, labelPolicyOnce, labelPolicySessionOnce, labelApproveTrust:
 		st.Trust.Policy = approve.PolicySessionOnce
 		st.Trust.SessionTrusted = false
 		st.Trust.TrustedPatterns = nil
@@ -87,10 +87,10 @@ func setPolicyDeprecated(st *sessionState, rest string, out io.Writer, errOut io
 
 func mapPolicyToApprove(rest string) string {
 	switch strings.ToLower(strings.TrimSpace(rest)) {
-	case "per-cmd", "per_cmd", "":
-		return "each"
-	case "once", "session_once", "trust":
-		return "session"
+	case labelPolicyPerCmd, labelPolicyPerCmdAlt, "":
+		return labelApproveEach
+	case labelPolicyOnce, labelPolicySessionOnce, labelApproveTrust:
+		return labelApproveSession
 	default:
 		return rest
 	}
@@ -108,16 +108,16 @@ func formatApproveStatus(st *sessionState) string {
 
 func interactionLabel(m InteractionMode) string {
 	if m == ModeAgent {
-		return "agent"
+		return labelModeAgent
 	}
-	return "ask"
+	return labelModeAsk
 }
 
 func approveLabel(p approve.Policy) string {
 	if p == approve.PolicySessionOnce {
-		return "session"
+		return labelApproveSession
 	}
-	return "each"
+	return labelApproveEach
 }
 
 func providerStatusSuffix(opt Options) string {

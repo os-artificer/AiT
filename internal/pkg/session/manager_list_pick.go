@@ -27,6 +27,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/store"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 // PickSession lists saved sessions on stdout and reads a selection from stdin.
@@ -104,7 +105,7 @@ func (m *Manager) DeleteAll(force bool) error {
 		fmt.Print(confirmDeleteAllPrompt)
 		reader := bufio.NewReader(os.Stdin)
 		line, _ := reader.ReadString('\n')
-		if strings.TrimSpace(strings.ToLower(line)) != confirmResponseYes {
+		if strings.TrimSpace(strings.ToLower(line)) != terminal.ConfirmResponseYes {
 			fmt.Println(msgCancelled)
 			return nil
 		}
@@ -166,7 +167,7 @@ func confirmDelete(sess *store.Session) bool {
 	fmt.Printf(confirmDeleteSessionFmt, sess.AliasOrID(), sess.Username, sess.Host)
 	reader := bufio.NewReader(os.Stdin)
 	line, _ := reader.ReadString('\n')
-	if strings.TrimSpace(strings.ToLower(line)) != confirmResponseYes {
+	if strings.TrimSpace(strings.ToLower(line)) != terminal.ConfirmResponseYes {
 		fmt.Println(msgCancelled)
 		return false
 	}

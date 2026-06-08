@@ -29,7 +29,7 @@ func KeyringDir() (string, error) {
 		return "", err
 	}
 
-	p := filepath.Join(dir, "keyring")
+	p := filepath.Join(dir, keyringDirName)
 	if err := os.MkdirAll(p, 0o700); err != nil {
 		return "", err
 	}

@@ -25,7 +25,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const registryName = "ai"
+// Name is the top-level `ait ai` subcommand name.
+const Name = "ai"
 
 type topLevel struct{}
 
@@ -33,7 +34,7 @@ func init() {
 	registry.Register(topLevel{})
 }
 
-func (topLevel) Name() string  { return registryName }
+func (topLevel) Name() string  { return Name }
 func (topLevel) Short() string { return "local AI REPL; provider enable/disable; ollama setup/status" }
 func (topLevel) Order() int    { return 20 }
 func (topLevel) NewCobra(d registry.Deps) *cobra.Command {

@@ -278,6 +278,10 @@ CREATE TABLE app_meta (
 
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
 
+**内置 `ll`**（仅 shell REPL，非 `ait ai` / `!ait`）：本机目录长列表（纯 Go [`dirlist`](../internal/pkg/dirlist/)，对齐 `ls -la`）；可选一个路径参数，默认 cwd。
+
+**`ait shell` 命令解析**（仅首词）：**内置**（`exit`、`help`、`clear`、`history`、`ai`、`login`、`load`、`list`、`suspend`）→ **`<AppRoot>/bin/<name>`** 用户扩展（扁平目录；Unix 须可执行位）→ **ait CLI** 子命令（`config`、`session`、`get` 等）→ **系统 PATH**。bin 扩展可覆盖 ait 子命令名，不可覆盖内置。外部命令经 `exec` 传 argv（不经 shell 拼接）；TTY 下 REPL 对子进程临时恢复 cooked 模式。实现：[`exec_dispatch.go`](../internal/ait/shell/exec_dispatch.go)、[`shellext/`](../internal/pkg/shellext/)。
+
 **本地 REPL 输入（UTF-8，macOS / Linux / Windows）：** 交互式 `ait shell` 与本机 `ait ai` 通过 [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) 以 **UTF-8** 读取 stdin（Emacs 行编辑、方向键、Up/Down 遍历已加载输入历史）。请使用 UTF-8 终端：Linux/macOS 设置 `LANG=*.UTF-8`；Windows 推荐 **Windows Terminal** 并启用 UTF-8（避免非 UTF-8 代码页）。IME 组字由终端负责，确认后以 UTF-8 字节送入进程（AiT 不绘制预编辑下划线）。管道/重定向 stdin（`echo … | ait shell`）本就支持 UTF-8；SSH 远程 shell 按字节转发，不受此限制。
 
 **TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（光标）、Up/Down（召回已加载输入历史，含跨会话记录）、**Ctrl+R**（输入历史反向增量搜索）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Tab、Ctrl+C（取消当前行）、Ctrl+D（空行 EOF）、Ctrl+L（清屏保留缓冲）。历史仅记录主提示符下 Enter 提交的命令，不含确认 `[y/N]`、选 session 输入或 `!ait local` 的 env/rc 脚本。见 `help` / `ait shell --help` 的 Keys 段。

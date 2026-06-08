@@ -114,3 +114,11 @@ func TestResolveInstallAllowed_NonTTY(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// TestInstallPrompt_ActiveShellHostLabel (C22) keeps the empty-host install label unchanged.
+func TestInstallPrompt_ActiveShellHostLabel(t *testing.T) {
+	got := InstallPrompt("")
+	if !strings.Contains(got, labelActiveShellHost) {
+		t.Fatalf("prompt=%q", got)
+	}
+}

@@ -26,10 +26,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	name           = "disable"
-	msgDisabledFmt = "disabled provider %s\n"
-)
+const name = "disable"
 
 // New builds the `ait ai provider disable` cobra command.
 func New() *cobra.Command {
@@ -54,7 +51,7 @@ func New() *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), msgDisabledFmt, id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), provshared.MsgDisabledFmt, id)
 			return nil
 		},
 	}

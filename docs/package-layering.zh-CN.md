@@ -87,6 +87,7 @@ pkg/*                    → 供外部模块导入；与 AiT 业务无关的通�
 - 目录/包名与 Cobra 命令一致；禁止 `*cmd` 包后缀。
 - `ait ai` REPL：`internal/ait/ai/mode`；单轮：`ai/ask`、`ai/agent`。
 - CLI `session`：`internal/ait/session`；`internal/pkg/session` 用 `pkgsession` 别名。
+- **`ait shell` REPL 内置命令**（`exit`、`help`、`ll`、`login` 等）在 **`internal/ait/shell/builtin/`**（package `builtin`）；父包 `shell` 负责 REPL I/O 与非 builtin 四层分发（`exec_dispatch.go`）。
 
 ---
 

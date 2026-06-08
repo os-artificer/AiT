@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 )
 
 // UsageGet is the user-facing one-line usage for `!ait get`.
@@ -32,8 +33,6 @@ const UsageGet = "usage: !ait get <remote-path> [<local-path>]"
 
 // UsagePut is the user-facing one-line usage for `!ait put`.
 const UsagePut = "usage: !ait put <local-path> [<remote-path>]"
-
-const metaPrefixAitSpace = "!ait "
 
 // CmdGet is the meta subcommand name for !ait get (must match ait get.Name).
 const CmdGet = "get"
@@ -44,10 +43,10 @@ const CmdPut = "put"
 // ArgsFromMetaLine extracts the subcommand and trailing args from a `!ait <cmd> ...`
 // meta line when cmd is one of get/put. Returns ok=false for other lines.
 func ArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {
-	if !strings.HasPrefix(line, metaPrefixAitSpace) {
+	if !strings.HasPrefix(line, meta.PrefixAitSpace) {
 		return "", nil, false
 	}
-	parts := strings.Fields(strings.TrimPrefix(line, metaPrefixAitSpace))
+	parts := strings.Fields(strings.TrimPrefix(line, meta.PrefixAitSpace))
 	if len(parts) == 0 {
 		return "", nil, false
 	}

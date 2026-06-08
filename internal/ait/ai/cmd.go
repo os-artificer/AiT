@@ -46,7 +46,7 @@ type RunWithMgr = deps.RunWithMgr
 // d.RunWithMgr opens the session Manager for the chat subcommand.
 func New(d Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "ai",
+		Use:           Name,
 		Short:         "Interactive local AI mode (AiT AI(Agent)> prompt)",
 		Long:          pkghelpdoc.LongHint("ai"),
 		SilenceUsage:  true,

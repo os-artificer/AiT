@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	provshared "github.com/os-artificer/AiT/internal/ait/ai/provider/shared"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	pkgollama "github.com/os-artificer/AiT/internal/pkg/ollama"
@@ -49,7 +50,7 @@ func New() *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "disabled provider ollama")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), provshared.MsgDisabledFmt, config.ProviderOllama)
 			return nil
 		},
 	}

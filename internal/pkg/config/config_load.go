@@ -27,8 +27,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const configFileName = "config.yaml"
-
 // Load reads config.yaml from the platform config directory, or returns defaults when missing.
 // On Linux, migrates a legacy ~/.config/ait/config.yaml into AppRoot when the new file is absent.
 // Applies normalizeAI when a file is present. Errors: platform.ConfigPath failure; ReadFile; yaml.Unmarshal.
@@ -113,7 +111,7 @@ func Save(cfg *Config) error {
 		return err
 	}
 
-	final := filepath.Join(dir, configFileName)
+	final := filepath.Join(dir, platform.ConfigFileName)
 	tmp := filepath.Join(dir, ".config.yaml.tmp")
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err

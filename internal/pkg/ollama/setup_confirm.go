@@ -24,9 +24,8 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
-
-const confirmYes = "y"
 
 // ConfirmFunc reads a line after prompt and returns whether the user agreed.
 type ConfirmFunc func(prompt string) (bool, error)
@@ -39,7 +38,7 @@ func DefaultConfirmFunc(in io.Reader, out io.Writer) ConfirmFunc {
 		if err != nil {
 			return false, err
 		}
-		return strings.EqualFold(strings.TrimSpace(line), confirmYes), nil
+		return strings.EqualFold(strings.TrimSpace(line), terminal.ConfirmResponseYes), nil
 	}
 }
 

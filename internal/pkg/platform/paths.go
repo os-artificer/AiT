@@ -21,8 +21,6 @@ import (
 	"path/filepath"
 )
 
-const appName = "ait"
-
 // DBPath returns the default SQLite database file path under AppRoot (DataDir).
 // Returns the joined path, or DataDir errors.
 func DBPath() (string, error) {
@@ -30,7 +28,7 @@ func DBPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "ait.db"), nil
+	return filepath.Join(dir, dbFile), nil
 }
 
 // ScrollbackDir returns the scrollback sidecar directory under DataDir, created with mode 0700.
@@ -41,7 +39,7 @@ func ScrollbackDir() (string, error) {
 		return "", err
 	}
 
-	p := filepath.Join(dir, "scrollback")
+	p := filepath.Join(dir, scrollbackDir)
 	if err := os.MkdirAll(p, 0o700); err != nil {
 		return "", err
 	}
@@ -54,5 +52,15 @@ func HistoryPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "repl_history"), nil
+	return filepath.Join(dir, historyBasename), nil
+}
+
+// BinDir returns the optional user extension directory under AppRoot (<AppRoot>/bin).
+// The directory is not created automatically; callers add executables as needed.
+func BinDir() (string, error) {
+	dir, err := AppRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, binDirName), nil
 }

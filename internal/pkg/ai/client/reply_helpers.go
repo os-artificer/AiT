@@ -19,6 +19,8 @@ package client
 import (
 	"regexp"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/ai/agent"
 )
 
 // Build regex patterns at init time to avoid issues with tag-like content
@@ -29,8 +31,8 @@ var (
 	xmlInvokeRe    = regexp.MustCompile(`(?s)<invoke\b[^>]*>.*?</invoke>`)
 	xmlParameterRe = regexp.MustCompile(`(?s)<parameter\b[^>]*>.*?</parameter>`)
 	orphanCloseRe  = regexp.MustCompile(`(?s)</(?:minimax:tool_call|invoke|parameter)>`)
-	hybridParamRe  = regexp.MustCompile(`(?s)"(?:command|args|text)"\s*>\s*[^<]*</parameter>`)
-	partialJSONRe  = regexp.MustCompile(`(?s)\{"action":"(?:run_shell|ait_cli|answer)"[^}]*\z`)
+	hybridParamRe  = regexp.MustCompile(`(?s)"(?:` + agent.JSONFieldCommand + `|` + agent.JSONFieldArgs + `|` + agent.JSONFieldText + `)"\s*>\s*[^<]*</parameter>`)
+	partialJSONRe  = regexp.MustCompile(`(?s)\{"` + agent.JSONFieldAction + `":"(?:` + agent.ActionNamePattern + `)"[^}]*\z`)
 )
 
 const (

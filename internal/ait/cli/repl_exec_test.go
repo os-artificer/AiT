@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/ait/shell"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
 func TestExecuteWritersSilencesStderr(t *testing.T) {
@@ -37,6 +38,16 @@ func TestExecuteWritersSilencesStderr(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "\n") {
 		t.Errorf("error should be one line from caller's view: %q", err.Error())
+	}
+}
+
+func TestTopLevelLLUnknown(t *testing.T) {
+	err := ExecuteWriters([]string{"ll"}, io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !pkghelpdoc.IsUnknownCommand(err) {
+		t.Fatalf("want unknown command, got %v", err)
 	}
 }
 

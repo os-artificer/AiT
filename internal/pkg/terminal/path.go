@@ -24,12 +24,12 @@ import (
 	"strings"
 )
 
-var scrollbackBaseName = regexp.MustCompile(`^[a-zA-Z0-9-]+\.log$`)
+var scrollbackBaseName = regexp.MustCompile(`^[a-zA-Z0-9-]+` + regexp.QuoteMeta(ScrollbackSuffix) + `$`)
 
 // ScrollbackFileName returns the canonical scrollback sidecar basename for sessionID
-// (sessionID + ".log").
+// (sessionID + ScrollbackSuffix).
 func ScrollbackFileName(sessionID string) string {
-	return sessionID + ".log"
+	return sessionID + ScrollbackSuffix
 }
 
 // ResolveScrollbackPath maps a stored basename (or legacy full path) to a file
