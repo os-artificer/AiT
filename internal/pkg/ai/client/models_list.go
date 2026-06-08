@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai/models"
 	"github.com/os-artificer/AiT/internal/pkg/config"
@@ -41,12 +40,12 @@ type ModelsReport struct {
 // ListModels builds a report of providers AiT can use and optional Ollama tag names.
 func (c *Client) ListModels(ctx context.Context) (*ModelsReport, error) {
 	if c == nil || c.cfg == nil {
-		return nil, fmt.Errorf("ai client not configured")
+		return nil, fmt.Errorf("%s", errClientNotConfigured)
 	}
 
 	httpClient := c.httpClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 3 * time.Second}
+		httpClient = &http.Client{Timeout: modelsListHTTPTimeout}
 	}
 
 	var rows []ModelRow
@@ -70,9 +69,9 @@ func (c *Client) ListModels(ctx context.Context) (*ModelsReport, error) {
 		}
 
 		enabled := c.cfg.ProviderEnabled(id)
-		enabledLabel := "yes"
+		enabledLabel := models.KeyYes
 		if !enabled {
-			enabledLabel = "no"
+			enabledLabel = models.KeyNo
 		}
 
 		reachable := c.providerReachable(ctx, httpClient, id, enabled)
@@ -110,7 +109,7 @@ func (r *ModelsReport) Format() string {
 	if r.TagsNote != "" {
 		out += "\n" + r.TagsNote + "\n"
 	} else if len(r.OllamaTags) > 0 {
-		out += "\nOllama tags:\n"
+		out += "\n" + models.OllamaTagsHeader
 		for _, t := range r.OllamaTags {
 			out += "  " + t + "\n"
 		}

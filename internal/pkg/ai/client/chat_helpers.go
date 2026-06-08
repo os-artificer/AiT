@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/agent"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -60,11 +61,11 @@ Suggest shell commands but do NOT claim you executed them.
 Be concise. For security, never ask the user to paste secrets.
 
 Routing facts (authoritative; do not guess):
-ai_provider: %s
-ai_model: %s
-ai_mode: %s
+%s %s
+%s %s
+%s %s
 When asked which provider or model you use, answer only from these fields.`,
-		meta.Provider, meta.Model, meta.Mode)
+		promptKeyProvider, meta.Provider, promptKeyModel, meta.Model, promptKeyMode, meta.Mode)
 	if scope == ScopeRemote {
 		return base + `
 The user is in remote AI mode (ask): suggested shell commands run on the remote host after they type "run <command>" and confirm.
@@ -84,13 +85,17 @@ func agentSystemPrompt(scope Scope, env AssistEnv, meta PromptMeta) string {
 	}
 	return fmt.Sprintf(`You are AiT in Agent mode on the %s.
 Respond with a single JSON object only (no markdown), one of:
-{"action":"run_shell","command":"<shell command>"}
-{"action":"ait_cli","args":"<ait subcommand args without leading ait>"}
-{"action":"answer","text":"<final reply to user>"}
+{"%s":"%s","%s":"<shell command>"}
+{"%s":"%s","%s":"<ait subcommand args without leading ait>"}
+{"%s":"%s","%s":"<final reply to user>"}
 Commands run on %s. Read-only commands (ls, cat, grep, ps, etc.) are auto-approved;
 write/destructive commands require user confirmation. Do not run vim/less/top or other interactive TUI programs.
 Never ask for secrets. Provider: %s, model: %s.`,
-		scopeHint, runTarget, meta.Provider, meta.Model)
+		scopeHint,
+		agent.JSONFieldAction, agent.ToolRunShell, agent.JSONFieldCommand,
+		agent.JSONFieldAction, agent.ToolAitCLI, agent.JSONFieldArgs,
+		agent.JSONFieldAction, agent.ToolAnswer, agent.JSONFieldText,
+		runTarget, meta.Provider, meta.Model)
 }
 
 // prependEnvContext prepends terminal environment context (host, cwd, scrollback, OS) before the user message.
@@ -98,19 +103,19 @@ func prependEnvContext(user string, env AssistEnv) string {
 	var parts []string
 	if env.Scope == ScopeRemote {
 		if env.HostLabel != "" {
-			parts = append(parts, "remote_host: "+env.HostLabel)
+			parts = append(parts, envKeyRemoteHost+" "+env.HostLabel)
 		}
 		if env.RemoteCwd != "" {
-			parts = append(parts, "remote_cwd: "+env.RemoteCwd)
+			parts = append(parts, envKeyRemoteCwd+" "+env.RemoteCwd)
 		}
 	}
-	parts = append(parts, "local_os: "+platform.OSDescription())
+	parts = append(parts, envKeyLocalOS+" "+platform.OSDescription())
 	if env.Scrollback != "" {
-		parts = append(parts, "recent_terminal_output:\n"+truncate(env.Scrollback, 4000))
+		parts = append(parts, envKeyScrollback+truncate(env.Scrollback, scrollbackContextMax))
 	}
 
 	if len(parts) == 0 {
 		return user
 	}
-	return strings.Join(parts, "\n\n") + "\n\n---\n\n" + user
+	return strings.Join(parts, "\n\n") + envContextSep + user
 }

@@ -451,6 +451,28 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 |----|----------|------------|----------|
 | M1 | `go.mod`/`go.sum` 无外部 `github.com/xiwh/zmodem`；空 cache 可 build | `TestGoMod_NoExternalXiwhZmodem`、`TestBuild_FreshModCache` | macOS：`go install github.com/os-artificer/AiT/cmd/ait@latest` |
 
+### C17–C22 明细（`internal/pkg` 字面量常量化，除 `ai/` 外）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| C17 | `config` 与 `platform` 共用 `ConfigFileName` | `TestConfigFileName_FromPlatform`；`config_load`/`P*` 测试仍过 |
+| C18 | scrollback 侧车仍为 `id.log` | `TestScrollbackFileName_Suffix`；`TestHistoryPath_UnderDataDir`、session suspend 相关测试 |
+| C19 | 传输 `done:` 格式不变 | `TestFormatTransferDone_GetPut`、`TestTransferProgress_*`、`TestZModemTransfer_FinishingPhase` |
+| C20 | 确认 `y` 与 `!ait suspend` try 行不变 | `setup_confirm_test`、session delete confirm 测试 |
+| C21 | `transfer/argv` 与 meta 前缀一致 | `TestArgsFromMetaLine_UsesMetaPrefix`（H2d） |
+| C22 | lrzsz install 空 host 标签不变 | `TestInstallPrompt_ActiveShellHostLabel` |
+
+### C23–C28 明细（`internal/ait` 字面量常量化）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| C23 | REPL help argv 与 `helpdoc` 一致 | `TestHelpRequested`、`TestREPLHelpArgs_FromHelpdoc` |
+| C24 | shell/mode 共享 REPL 核心动词不变 | `TestIsMetaREPLCommand_*`、`TestExecuteLineHistory_*` |
+| C25 | meta `list` → `session --list` 与 blocked 键不变 | `TestExecuteBlocked*`、`TestMetaCLIArgs_ListUsesSessionFlag`、`TestReplCmdLogin_MatchesLoginName` |
+| C26 | ask/agent/mode/approve 标签不变 | `TestSetMode_*`、`TestSetApprove_*`、`TestParseChatCommand` |
+| C27 | mode 内 ollama 字面量对齐 config | mode exec / `setModel` 相关测试 |
+| C28 | provider enable/disable 输出格式不变 | `TestProviderEnableDisable_MsgFormat` |
+
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
@@ -685,7 +707,7 @@ ssh internal
 | 前缀 | 能力 | 代表性测试 |
 |------|------|------------|
 | U* | 本地 REPL UTF-8 输入 | `TestReadLineRawUTF8Chinese`、`TestReadLineRawBackspaceUTF8` |
-| C* | internal 字符串常量化（语义不变） | `TestLoginHelpMatchesLegacyGolden`、`TestSaveYAML_NoRootDeepseek` |
+| C* | internal 字符串常量化（语义不变） | `TestLoginHelpMatchesLegacyGolden`、`TestSaveYAML_NoRootDeepseek`、`TestHints_ConfigSetAPIKeyCmd`、`TestHints_NotConfiguredTryLines`、`TestConstants_TableHeaderGolden`；`internal/pkg/ai/agent/*_test.go`、`client/router_test.go` 仍过；**C17–C22**（`internal/pkg`）、**C23–C28**（`internal/ait`）见上表 |
 | A* | `ait shell` 清屏（`clear` / Ctrl+L） | `TestClearScreen`、`TestExecuteLineClear`、`TestReadLineRawCtrlLRedrawsLine` |
 | L* | login 可选保存（`--save` / `--alias` 隐含保存） | `TestShouldPersistLogin`、`TestPersistLoginSessionSaveOnly`、`TestPersistLoginSessionAliasOnly`、`TestParseSave`、`TestLoginHelpMatchesLegacyGolden` |
 | D* | login 连接键 dedupe 与 TTL（username+host+port+alias） | `TestResolvePersistSessionID_*`、`TestFindSessionByKey_*`、`TestMigrate_DedupeConnectionKeyKeepsNewest`、`TestPersistLoginSession_ExtendsAuthExpiry` |

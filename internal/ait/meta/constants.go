@@ -16,13 +16,6 @@
 
 package meta
 
-// Commands — meta help argv tokens.
-const (
-	replCmdHelp = "help"
-	replArgH    = "-h"
-	replArgHelp = "--help"
-)
-
 // Errors — in-session meta execution.
 const (
 	errMetaExecutorNotConfig = "AiT: meta executor not configured"

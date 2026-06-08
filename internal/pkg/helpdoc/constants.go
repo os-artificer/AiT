@@ -34,9 +34,12 @@ const (
 	SectionInSSH             = "In SSH"
 	SectionOutput            = "Output"
 	SectionFlagsOllama       = "Flags (ollama)"
-	helpArgH                 = "-h"
-	helpArgHelp              = "--help"
-	helpArgCmd               = "help"
+	// HelpArgH is the short -h help argv token.
+	HelpArgH = "-h"
+	// HelpArgHelp is the long --help argv token.
+	HelpArgHelp = "--help"
+	// HelpArgCmd is the bare help subcommand/positional token.
+	HelpArgCmd = "help"
 )
 
 // OpenSSH — blocks embedded by login and transfer help.

@@ -16,17 +16,13 @@
 
 package mode
 
-import "github.com/os-artificer/AiT/internal/pkg/errhint"
+import (
+	"github.com/os-artificer/AiT/internal/ait/ai/mode/chat"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
+)
 
 // Commands — AI REPL built-in verbs (also checked in isMetaREPLCommand).
 const (
-	replCmdExit     = "exit"
-	replCmdQuit     = "quit"
-	replCmdHelp     = "help"
-	replArgH        = "-h"
-	replArgHelp     = "--help"
-	replCmdClear    = "clear"
-	replCmdHistory  = "history"
 	replCmdPolicy   = "policy"
 	replCmdApprove  = "approve"
 	replCmdTrust    = "trust"
@@ -34,7 +30,7 @@ const (
 	replCmdModel    = "model"
 	replCmdRun      = "run"
 	replCmdAit      = "ait"
-	replCmdAsk      = "ask"
+	replCmdAsk      = chat.Verb
 	replModelList   = "list"
 	replModelStatus = "status"
 )

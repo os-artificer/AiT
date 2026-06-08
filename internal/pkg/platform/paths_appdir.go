@@ -26,7 +26,6 @@ import (
 const (
 	envHome    = "AIT_HOME"
 	envDataDir = "AIT_DATA_DIR"
-	configFile = "config.yaml"
 )
 
 // AppRoot returns the unified AiT runtime directory (config, DB, scrollback, history, keyring).
@@ -59,7 +58,7 @@ func ConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, configFile), nil
+	return filepath.Join(dir, ConfigFileName), nil
 }
 
 // LegacyConfigPath returns the pre-unification Linux config.yaml path, or "" when not applicable.
@@ -69,7 +68,7 @@ func LegacyConfigPath() (string, error) {
 	if err != nil || dir == "" {
 		return "", err
 	}
-	return filepath.Join(dir, configFile), nil
+	return filepath.Join(dir, ConfigFileName), nil
 }
 
 func legacyConfigDir() (string, error) {

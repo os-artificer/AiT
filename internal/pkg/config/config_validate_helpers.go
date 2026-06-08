@@ -22,12 +22,13 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/platform"
 )
 
 func configNotFoundErr(path string) error {
 	return errhint.WithTryMsg(
 		"config file not found: "+path,
-		"Create config.yaml before validating.",
+		fmt.Sprintf("Create %s before validating.", platform.ConfigFileName),
 		"ait config init",
 	)
 }
@@ -50,7 +51,7 @@ func validateSession(cfg *Config) []ValidationIssue {
 	if cfg.Session.AuthTTL != "" {
 		if _, err := time.ParseDuration(cfg.Session.AuthTTL); err != nil {
 			issues = append(issues, ValidationIssue{
-				Field:   "session.auth_ttl",
+				Field:   keySessionAuthTTL,
 				Message: fmt.Sprintf("invalid duration %q", cfg.Session.AuthTTL),
 			})
 		}
@@ -90,10 +91,10 @@ func validateAI(cfg *Config) []ValidationIssue {
 	}
 
 	for id, p := range cfg.AI.Providers {
-		prefix := "ai.providers." + id + "."
+		prefix := keyAIProvidersPrefix + id + "."
 		if !IsKnownProvider(id) {
 			issues = append(issues, ValidationIssue{
-				Field:   "ai.providers." + id,
+				Field:   keyAIProvidersPrefix + id,
 				Message: "unknown provider",
 			})
 			continue

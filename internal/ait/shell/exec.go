@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
@@ -58,38 +59,38 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 	}
 
 	switch words[0] {
-	case replCmdExit, replCmdQuit:
+	case ReplCmdExit, ReplCmdQuit:
 		return true, nil
-	case replCmdHelp, replArgH, replArgHelp:
+	case pkghelpdoc.HelpArgCmd, pkghelpdoc.HelpArgH, pkghelpdoc.HelpArgHelp:
 		PrintHelp(shellCLIOut, mgr.HasActiveSession())
 		return false, nil
-	case replCmdClear:
+	case ReplCmdClear:
 		terminal.ClearScreen(shellCLIOut)
 		return false, nil
-	case replCmdHistory:
+	case ReplCmdHistory:
 		words, perr := parseShellLine(line)
 		if perr != nil {
 			return false, perr
 		}
 		return false, terminal.RunHistoryCommand(shellCLIOut, hist, words[1:])
-	case replCmdAI:
+	case ReplCmdAI:
 		if aiModeRunner == nil {
 			return false, fmt.Errorf("%s", errAIModeRunnerNotConfig)
 		}
 		return false, aiModeRunner(ctx, mgr)
-	case replCmdLogin:
+	case ReplCmdLogin:
 		if mgr.HasActiveSession() {
 			return false, errors.New(errLoginBlockedActive)
 		}
 		return false, shellLogin(ctx, mgr, words[1:])
-	case replCmdLoad:
+	case ReplCmdLoad:
 		if mgr.HasActiveSession() {
 			return false, errors.New(errLoadBlockedActive)
 		}
 		return false, shellLoad(ctx, mgr, words[1:])
-	case replCmdList:
+	case ReplCmdList:
 		return false, mgr.List(shellCLIOut, false)
-	case replCmdSuspend:
+	case ReplCmdSuspend:
 		return false, mgr.SuspendCurrent()
 	default:
 		return false, runCLI(words)

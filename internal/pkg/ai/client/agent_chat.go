@@ -32,7 +32,7 @@ func (c *Client) ChatAgent(
 ) (reply, thinking string, updated []ChatMessage, err error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
-		return "", "", history, fmt.Errorf("empty prompt")
+		return "", "", history, fmt.Errorf("%s", errEmptyPrompt)
 	}
 
 	env.AgentMode = true

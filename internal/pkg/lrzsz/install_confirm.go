@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 // ConfirmFunc reads a line after prompt and returns whether the user agreed.
@@ -47,7 +48,7 @@ func DefaultConfirmFunc(in io.Reader, out io.Writer) ConfirmFunc {
 		if err != nil {
 			return false, err
 		}
-		return strings.EqualFold(strings.TrimSpace(line), confirmYes), nil
+		return strings.EqualFold(strings.TrimSpace(line), terminal.ConfirmResponseYes), nil
 	}
 }
 
@@ -95,7 +96,7 @@ func ResolveInstallAllowed(missing bool, opts InstallOptions, confirm ConfirmFun
 func InstallPrompt(activeHost string) string {
 	host := strings.TrimSpace(activeHost)
 	if host == "" {
-		host = "active shell host"
+		host = labelActiveShellHost
 	}
 	return fmt.Sprintf(
 		"Install lrzsz on %s? This may run sudo on the remote shell. [y/N] ",
@@ -119,7 +120,7 @@ func isTerminalIn(r io.Reader) bool {
 func WrapInstallDeclined(activeHost string) error {
 	host := strings.TrimSpace(activeHost)
 	if host == "" {
-		host = "active shell host"
+		host = labelActiveShellHost
 	}
 	return errhint.WithTry(
 		ErrInstallDeclined,
@@ -154,7 +155,7 @@ func WrapNonInteractive(target Target) error {
 func WrapMissingChain(activeHost string, target Target) error {
 	host := strings.TrimSpace(activeHost)
 	if host == "" {
-		host = "active shell host"
+		host = labelActiveShellHost
 	}
 	tries := ManualTryLines(target)
 	if len(tries) == 0 {

@@ -16,20 +16,22 @@
 
 package shell
 
-// Commands — AiT shell REPL built-in verbs.
+import (
+	"github.com/os-artificer/AiT/internal/ait/login"
+	"github.com/os-artificer/AiT/internal/ait/session"
+)
+
+// Commands — AiT shell REPL built-in verbs (shared core verbs exported for ai/mode).
 const (
-	replCmdExit    = "exit"
-	replCmdQuit    = "quit"
-	replCmdHelp    = "help"
-	replArgH       = "-h"
-	replArgHelp    = "--help"
-	replCmdAI      = "ai"
-	replCmdLogin   = "login" // matches login.Name
-	replCmdLoad    = "load"
-	replCmdList    = "list"
-	replCmdSuspend = "suspend"
-	replCmdClear   = "clear"
-	replCmdHistory = "history"
+	ReplCmdExit    = "exit"
+	ReplCmdQuit    = "quit"
+	ReplCmdClear   = "clear"
+	ReplCmdHistory = "history"
+	ReplCmdAI      = "ai" // matches ai.Name (shell cannot import ai: cycle via mode)
+	ReplCmdLogin   = login.Name
+	ReplCmdLoad    = "load"
+	ReplCmdList    = session.ReplAliasList
+	ReplCmdSuspend = "suspend"
 )
 
 // IO — error prefix and runner messages.

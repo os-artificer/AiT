@@ -127,7 +127,7 @@ func ParseChoice(line string, allowPattern, allowSession bool) Result {
 			return Result{}
 		}
 		return Result{Run: true, TrustPattern: true}
-	case "s", "session", "trust":
+	case "s", confirmKeySession, confirmKeyTrust:
 		if !allowSession {
 			return Result{}
 		}

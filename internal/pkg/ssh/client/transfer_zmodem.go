@@ -83,7 +83,7 @@ func (t *ZModemTransfer) Get(ctx context.Context, stdin io.Writer, remotePath, l
 		if info, statErr := os.Stat(localAbs); statErr == nil {
 			t.progress.SetBytes(info.Size())
 		}
-		t.progress.Done(fmt.Sprintf("done: get %s → %s (%d bytes)", remotePath, localPath, t.progress.Bytes()))
+		t.progress.Done(formatTransferDone("get", remotePath, localPath, t.progress.Bytes()))
 	}
 
 	return nil
@@ -129,7 +129,7 @@ func (t *ZModemTransfer) Put(ctx context.Context, stdin io.Writer, localPath, re
 	}
 
 	if t.progress != nil {
-		t.progress.Done(fmt.Sprintf("done: put %s → %s (%d bytes)", localPath, remotePath, info.Size()))
+		t.progress.Done(formatTransferDone("put", localPath, remotePath, info.Size()))
 	}
 
 	return nil

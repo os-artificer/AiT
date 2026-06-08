@@ -24,7 +24,7 @@ import (
 
 // SetKey sets a dotted configuration key on c.
 func (c *Config) SetKey(key, value string) error {
-	if key == "session.auth_ttl" {
+	if key == keySessionAuthTTL {
 		if _, err := time.ParseDuration(value); err != nil {
 			return err
 		}
@@ -32,7 +32,7 @@ func (c *Config) SetKey(key, value string) error {
 		return nil
 	}
 
-	if key == "session.remote_prompt.path" {
+	if key == keySessionRemotePromptPath {
 		v := strings.ToLower(strings.TrimSpace(value))
 		if v != RemotePromptPathShort && v != RemotePromptPathAbsolute {
 			return fmt.Errorf("session.remote_prompt.path must be %q or %q", RemotePromptPathShort, RemotePromptPathAbsolute)
@@ -41,7 +41,7 @@ func (c *Config) SetKey(key, value string) error {
 		return nil
 	}
 
-	if key == "ai.default" {
+	if key == keyAIDefault {
 		if !IsCloudProvider(value) {
 			return validateCloudDefault(value)
 		}
@@ -49,7 +49,7 @@ func (c *Config) SetKey(key, value string) error {
 		return nil
 	}
 
-	if key == "ai.fallback" {
+	if key == keyAIFallback {
 		c.AI.Fallback = parseFallbackList(value)
 		return nil
 	}
@@ -68,16 +68,16 @@ func (c *Config) SetKey(key, value string) error {
 // GetKey returns the string value for a dotted key.
 func (c *Config) GetKey(key string) (string, error) {
 	switch key {
-	case "session.auth_ttl":
+	case keySessionAuthTTL:
 		return c.Session.AuthTTL, nil
-	case "session.remote_prompt.path":
+	case keySessionRemotePromptPath:
 		if c.Session.RemotePrompt.Path == "" {
 			return RemotePromptPathShort, nil
 		}
 		return c.Session.RemotePrompt.Path, nil
-	case "ai.default":
+	case keyAIDefault:
 		return c.DefaultProviderID(), nil
-	case "ai.fallback":
+	case keyAIFallback:
 		return strings.Join(c.AI.Fallback, ","), nil
 	}
 
@@ -93,7 +93,7 @@ func (c *Config) GetKey(key string) (string, error) {
 }
 
 func parseTieredKey(key string) (field string, ok bool) {
-	const prefix = "ai.tiered."
+	const prefix = keyAITieredPrefix
 	if !strings.HasPrefix(key, prefix) {
 		return "", false
 	}
@@ -123,8 +123,8 @@ func parseKeywordList(s string) []string {
 }
 
 func parseProviderKey(key string) (id, field string, ok bool) {
-	if strings.HasPrefix(key, "ai.providers.") {
-		rest := strings.TrimPrefix(key, "ai.providers.")
+	if strings.HasPrefix(key, keyAIProvidersPrefix) {
+		rest := strings.TrimPrefix(key, keyAIProvidersPrefix)
 		parts := strings.SplitN(rest, ".", 2)
 		if len(parts) == 2 && IsKnownProvider(parts[0]) {
 			return parts[0], parts[1], true
