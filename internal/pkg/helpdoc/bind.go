@@ -32,6 +32,7 @@ func Bind(cmd *cobra.Command, write Writer) {
 	if cmd.Long == "" {
 		cmd.Long = LongHint(cmd.Name())
 	}
+
 	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
 		_ = write(c.OutOrStdout())
 	})
@@ -43,6 +44,7 @@ func BindCustomArgv(cmd *cobra.Command, write Writer, run func(c *cobra.Command,
 	Bind(cmd, write)
 	cmd.SilenceErrors = true
 	_ = cmd.Flags().MarkHidden("help")
+
 	cmd.RunE = func(c *cobra.Command, argv []string) error {
 		if HelpRequested(argv) {
 			return write(c.OutOrStdout())

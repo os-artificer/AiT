@@ -19,5 +19,5 @@ package lrzsz
 const (
 	probeOKToken = "ok"
 
-	confirmYes = "y"
+	labelActiveShellHost = "active shell host"
 )

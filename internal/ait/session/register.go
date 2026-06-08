@@ -22,7 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const registryName = "session"
 
 type topLevel struct{}
 
@@ -30,7 +29,7 @@ func init() {
 	registry.Register(topLevel{})
 }
 
-func (topLevel) Name() string  { return registryName }
+func (topLevel) Name() string  { return Name }
 func (topLevel) Short() string { return "list, load, suspend, switch, or delete saved sessions" }
 func (topLevel) Order() int    { return 80 }
 func (topLevel) NewCobra(d registry.Deps) *cobra.Command {

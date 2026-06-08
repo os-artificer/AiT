@@ -24,6 +24,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
@@ -34,7 +35,7 @@ func (m *Manager) suspend(id string, scroll *terminal.Buffer, cwd string, cols, 
 		return err
 	}
 
-	path := filepath.Join(dir, id+scrollbackFileSuffix)
+	path := filepath.Join(dir, terminal.ScrollbackFileName(id))
 	if err := scroll.SaveToFile(path); err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func (m *Manager) SuspendCurrent() error {
 	if id == "" {
 		return errhint.WithTryMsg(errNoCurrentSession,
 			hintNoCurrentSessionExplain,
-			tryLoadFromLocal, trySuspendInSSH, trySessionHelp,
+			tryLoadFromLocal, meta.LineSuspend, trySessionHelp,
 		)
 	}
 	fmt.Println(msgSuspendLocalUnsupported)

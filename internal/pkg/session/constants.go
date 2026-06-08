@@ -20,7 +20,6 @@ package session
 const (
 	defaultSSHPort        = 22
 	listDisplayIDTokenLen = 8
-	scrollbackFileSuffix  = ".log"
 )
 
 // Errhint sentinels (errors.Is / WithTry first line — do not change wording).
@@ -51,7 +50,6 @@ const (
 	tryLoadByFullID    = "ait session --list -v    then ait session --load <FULL_ID>"
 	tryLoadInteractive = "ait session --load       pick by # interactively"
 	trySessionHelp     = "ait session --help"
-	trySuspendInSSH    = "!ait suspend"
 	tryLoadFromLocal   = "ait session --load [<id|alias>]"
 	trySwitchForce     = "ait session --switch <id|alias> --force"
 	tryLoginSave       = "ait login --save <destination>"
@@ -85,7 +83,6 @@ const (
 	msgCancelled              = "cancelled"
 	msgListEmpty              = "No saved sessions."
 	pickSessionPrompt         = "Select session (number, id, or alias): "
-	confirmResponseYes        = "y"
 	confirmDeleteAllPrompt    = "Delete ALL sessions? [y/N] "
 	confirmDeleteSessionFmt   = "Delete session %s (%s@%s)? [y/N] "
 	listHeaderNormal          = "#\tID\tTARGET\tSTATUS\tTMUX\tREMAINING"

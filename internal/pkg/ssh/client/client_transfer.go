@@ -19,7 +19,6 @@ package client
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -176,7 +175,7 @@ func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction,
 			return err
 		}
 		if prog != nil {
-			prog.Done(fmt.Sprintf("done: get %s → %s (%d bytes)", args[0], args[1], prog.Bytes()))
+			prog.Done(formatTransferDone("get", args[0], args[1], prog.Bytes()))
 		}
 		return nil
 	}
@@ -189,7 +188,7 @@ func (c *Client) handleTransferSFTP(ctx context.Context, dir transfer.Direction,
 		return err
 	}
 	if prog != nil {
-		prog.Done(fmt.Sprintf("done: put %s → %s (%d bytes)", args[0], args[1], prog.Bytes()))
+		prog.Done(formatTransferDone("put", args[0], args[1], prog.Bytes()))
 	}
 	return nil
 }

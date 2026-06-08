@@ -31,7 +31,6 @@ import (
 
 const (
 	name              = "enable"
-	msgEnabledFmt     = "enabled provider %s\n"
 	flagNameBaseURL   = "base-url"
 	flagNameModelsDir = "models-dir"
 	flagNameNoInstall = "no-install"
@@ -82,7 +81,7 @@ func New() *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), msgEnabledFmt, id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), provshared.MsgEnabledFmt, id)
 			return nil
 		},
 	}

@@ -24,7 +24,6 @@ package agent
 
 import (
 	"encoding/json"
-	"fmt"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -71,7 +70,7 @@ func Tools() []openai.Tool {
 // Returns an error for unsupported call types or unknown tool names.
 func ToolCallToJSON(tc openai.ToolCall) (string, error) {
 	if tc.Type != openai.ToolTypeFunction || tc.Function.Name == "" {
-		return "", fmt.Errorf("unsupported tool call")
+		return "", ErrUnsupportedToolCall
 	}
 	switch tc.Function.Name {
 	case ToolRunShell:
@@ -81,7 +80,7 @@ func ToolCallToJSON(tc openai.ToolCall) (string, error) {
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return "", err
 		}
-		b, _ := json.Marshal(map[string]string{"action": ToolRunShell, "command": args.Command})
+		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolRunShell, JSONFieldCommand: args.Command})
 		return string(b), nil
 	case ToolAitCLI:
 		var args struct {
@@ -90,7 +89,7 @@ func ToolCallToJSON(tc openai.ToolCall) (string, error) {
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return "", err
 		}
-		b, _ := json.Marshal(map[string]string{"action": ToolAitCLI, "args": args.Args})
+		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolAitCLI, JSONFieldArgs: args.Args})
 		return string(b), nil
 	case ToolAnswer:
 		var args struct {
@@ -99,9 +98,9 @@ func ToolCallToJSON(tc openai.ToolCall) (string, error) {
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return "", err
 		}
-		b, _ := json.Marshal(map[string]string{"action": ToolAnswer, "text": args.Text})
+		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolAnswer, JSONFieldText: args.Text})
 		return string(b), nil
 	default:
-		return "", fmt.Errorf("unknown tool %q", tc.Function.Name)
+		return "", ErrUnknownTool(tc.Function.Name)
 	}
 }

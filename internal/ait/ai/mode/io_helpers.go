@@ -24,6 +24,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/ait/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/ait/shell"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
 func aimWrite(w io.Writer, s string) {
@@ -54,7 +55,8 @@ func firstWord(line string) (word, rest string) {
 func isMetaREPLCommand(line string) bool {
 	word, _ := firstWord(normalizeLine(line))
 	switch word {
-	case replCmdHelp, replArgH, replArgHelp, replCmdClear, replCmdHistory,
+	case pkghelpdoc.HelpArgCmd, pkghelpdoc.HelpArgH, pkghelpdoc.HelpArgHelp,
+		shell.ReplCmdClear, shell.ReplCmdHistory,
 		replCmdMode, replCmdApprove, replCmdTrust, replCmdPolicy, replCmdModel, replCmdRun, replCmdAit:
 		return true
 	default:

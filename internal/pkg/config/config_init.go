@@ -101,15 +101,15 @@ func mergeMissingDefaults(cfg *Config, fillTiered bool) []string {
 
 	if cfg.Session.AuthTTL == "" {
 		cfg.Session.AuthTTL = def.Session.AuthTTL
-		added = append(added, "session.auth_ttl")
+		added = append(added, keySessionAuthTTL)
 	}
 	if cfg.Session.RemotePrompt.Path == "" {
 		cfg.Session.RemotePrompt.Path = def.Session.RemotePrompt.Path
-		added = append(added, "session.remote_prompt.path")
+		added = append(added, keySessionRemotePromptPath)
 	}
 	if cfg.AI.Default == "" {
 		cfg.AI.Default = def.AI.Default
-		added = append(added, "ai.default")
+		added = append(added, keyAIDefault)
 	}
 
 	ensureProviders(cfg)
@@ -129,21 +129,21 @@ func mergeProvider(cfg, def *Config, id string) []string {
 	p, ok := cfg.AI.Providers[id]
 	if !ok {
 		cfg.AI.Providers[id] = def.AI.Providers[id]
-		return []string{"ai.providers." + id}
+		return []string{keyAIProvidersPrefix + id}
 	}
 
 	defP := def.AI.Providers[id]
 	if p.APIStyle == "" {
 		p.APIStyle = defP.APIStyle
-		added = append(added, "ai.providers."+id+".api_style")
+		added = append(added, keyAIProvidersPrefix+id+".api_style")
 	}
 	if p.BaseURL == "" {
 		p.BaseURL = defP.BaseURL
-		added = append(added, "ai.providers."+id+".base_url")
+		added = append(added, keyAIProvidersPrefix+id+".base_url")
 	}
 	if p.Model == "" {
 		p.Model = defP.Model
-		added = append(added, "ai.providers."+id+".model")
+		added = append(added, keyAIProvidersPrefix+id+".model")
 	}
 	cfg.AI.Providers[id] = p
 	return added

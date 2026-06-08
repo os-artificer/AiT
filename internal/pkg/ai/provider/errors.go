@@ -31,30 +31,30 @@ var ErrChatMessageRequired = errhint.NewSentinel("ask requires a message")
 // NotConfiguredErr returns a multi-line hint for missing AI configuration.
 func NotConfiguredErr() error {
 	return errhint.WithTry(ErrNotConfigured,
-		"Set a cloud provider API key or enable tiered Ollama routing.",
-		"ait config set ai.deepseek.api_key <key>",
-		"ait config set ai.minimax.api_key <key>",
-		"ait ai provider enable ollama",
-		"ait ai --help",
+		hintSetCloudKeysOrOllama,
+		hintSetDeepseekAPIKey,
+		hintSetMinimaxAPIKey,
+		hintEnableOllama,
+		hintAIHelp,
 	)
 }
 
 // ChatMessageRequiredErr returns a multi-line hint for empty chat input.
 func ChatMessageRequiredErr() error {
 	return errhint.WithTry(ErrChatMessageRequired,
-		"Provide a message on the command line or via stdin.",
-		"ait ai ask <message>",
-		"echo ping | ait ai ask",
-		"!ait ai ask <message>",
-		"ait ai ask --help",
+		hintProvideChatMessage,
+		hintAIAskWithMessage,
+		hintAIAskStdin,
+		hintMetaAIAsk,
+		hintAIAskHelp,
 	)
 }
 
 // DisabledErr reports a disabled provider override.
 func DisabledErr(id string) error {
 	return errhint.WithTryMsg(fmt.Sprintf("provider %q is disabled", id),
-		"Enable the provider before using it as --model override.",
-		fmt.Sprintf("ait ai provider enable %s", id),
-		"ait ai --help",
+		hintEnableProviderOverride,
+		ProviderEnableCmd(id),
+		hintAIHelp,
 	)
 }

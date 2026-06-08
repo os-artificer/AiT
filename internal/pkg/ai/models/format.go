@@ -42,45 +42,44 @@ type Row struct {
 // ProviderRole classifies id as one of: disabled, local, default, fallback, or "—".
 func ProviderRole(cfg *config.Config, id provider.ID, hasKey bool, enabled bool) string {
 	if !enabled {
-		return "disabled"
+		return RoleDisabled
 	}
 	if id == cfg.LocalProviderID() && cfg.TieredEnabled() {
-		return "local"
+		return RoleLocal
 	}
 	if id == cfg.DefaultProviderID() {
-		return "default"
+		return RoleDefault
 	}
 	for _, fb := range cfg.AI.Fallback {
 		if fb == id {
-			return "fallback"
+			return RoleFallback
 		}
 	}
 	if hasKey {
-		return "—"
+		return RoleNeutral
 	}
-	return "—"
+	return RoleNeutral
 }
 
 // KeyLabel returns the "yes"/"no"/"n/a" label for the KEY column.
 // Ollama always shows "n/a" because it does not consume an API key.
 func KeyLabel(id provider.ID, hasKey bool) string {
 	if id == provider.Ollama {
-		return "n/a"
+		return KeyNA
 	}
 	if hasKey {
-		return "yes"
+		return KeyYes
 	}
-	return "no"
+	return KeyNo
 }
 
 // FormatTable renders rows as the human-readable `ait ai model list` table.
 func FormatTable(rows []Row) string {
-	const hdr = "AiT configured models:\n  PROVIDER   MODEL           KEY   ENABLED  ROLE       REACHABLE\n"
 	var b strings.Builder
-	b.WriteString(hdr)
+	b.WriteString(TableHeader)
 	for _, r := range rows {
 		fmt.Fprintf(&b, "  %-9s  %-15s  %-4s  %-7s  %-9s  %s\n",
-			r.Provider, TruncateDisplay(r.Model, 15), r.Key, r.Enabled, r.Role, r.Reachable)
+			r.Provider, TruncateDisplay(r.Model, ModelColumnWidth), r.Key, r.Enabled, r.Role, r.Reachable)
 	}
 	return b.String()
 }
@@ -90,5 +89,5 @@ func TruncateDisplay(s string, max int) string {
 	if len(s) <= max {
 		return s
 	}
-	return s[:max-3] + "..."
+	return s[:max-len(Ellipsis)] + Ellipsis
 }

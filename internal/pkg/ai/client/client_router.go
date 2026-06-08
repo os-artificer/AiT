@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 	"github.com/os-artificer/AiT/internal/pkg/ai/router"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
@@ -104,39 +105,39 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 
 	if len(eps) == 0 {
 		return nil, errhint.WithTryMsg("no enabled AI providers configured",
-			"Set cloud API keys or enable tiered Ollama routing.",
-			"ait config set ai.deepseek.api_key <key>",
-			"ait ai provider enable ollama",
-			"ait ai --help",
+			hintNoProvidersConfigured,
+			provider.ConfigSetAPIKeyCmd(ProviderDeepseek),
+			provider.ProviderEnableCmd(ProviderOllama),
+			provider.HintAIHelp,
 		)
 	}
 
 	if !hasCloudEndpoint(eps) && !cfg.TieredEnabled() {
 		return nil, errhint.WithTryMsg("no cloud AI API keys configured",
-			"Set an API key for a cloud provider.",
-			fmt.Sprintf("ait config set ai.%s.api_key <key>", cfg.DefaultProviderID()),
-			"ait ai ollama setup",
-			"ait ai --help",
+			provider.HintSetCloudAPIKey,
+			provider.ConfigSetAPIKeyCmd(cfg.DefaultProviderID()),
+			provider.HintOllamaSetup,
+			provider.HintAIHelp,
 		)
 	}
 
 	if o.providerOverride != "" {
 		if !config.IsCloudProvider(o.providerOverride) {
-			return nil, fmt.Errorf("provider override must be a cloud provider (%s or %s)", ProviderDeepseek, ProviderMinimax)
+			return nil, fmt.Errorf(errProviderOverrideCloudFmt, ProviderDeepseek, ProviderMinimax)
 		}
 		if !cfg.ProviderEnabled(o.providerOverride) {
 			return nil, ProviderDisabledErr(string(o.providerOverride))
 		}
 		if _, ok := eps[o.providerOverride]; !ok {
-			return nil, errhint.WithTryMsg(fmt.Sprintf("%s API key not set", o.providerOverride),
-				"Store the provider API key in the OS keyring.",
-				fmt.Sprintf("ait config set ai.%s.api_key <key>", o.providerOverride),
-				"ait config get ai."+string(o.providerOverride)+".api_key",
+			return nil, errhint.WithTryMsg(fmt.Sprintf(errAPIKeyNotSetFmt, o.providerOverride),
+				provider.HintStoreAPIKeyInKeyring,
+				provider.ConfigSetAPIKeyCmd(string(o.providerOverride)),
+				provider.ConfigGetAPIKeyCmd(string(o.providerOverride)),
 			)
 		}
 	} else if cloud := cfg.DefaultProviderID(); hasCloudEndpoint(eps) {
 		if _, ok := eps[cloud]; !ok {
-			return nil, fmt.Errorf("%s API key not set (%s)", cloud, router.APIKeyHint(cloud))
+			return nil, fmt.Errorf(errAPIKeyNotSetWithHintFmt, cloud, router.APIKeyHint(cloud))
 		}
 	}
 
@@ -158,16 +159,16 @@ func (c *Client) SetSessionProvider(id ProviderID) error {
 		return nil
 	}
 	if id == ProviderOllama {
-		return fmt.Errorf("cannot set session provider to ollama (local routing is automatic when tiered is enabled)")
+		return fmt.Errorf("%s", errCannotSetOllamaSession)
 	}
 	if !config.IsCloudProvider(id) {
-		return fmt.Errorf("unknown cloud provider %q", id)
+		return fmt.Errorf(errUnknownCloudProviderFmt, id)
 	}
 	if !c.cfg.ProviderEnabled(id) {
-		return fmt.Errorf("provider %q is disabled (ait ai provider enable %s)", id, id)
+		return fmt.Errorf(errProviderDisabledFmt, id, id)
 	}
 	if _, ok := c.endpoints[id]; !ok {
-		return fmt.Errorf("provider %q has no API key (%s)", id, router.APIKeyHint(id))
+		return fmt.Errorf(errProviderNoAPIKeyFmt, id, router.APIKeyHint(id))
 	}
 	c.sessionProvider = id
 	c.skipTiered = true
@@ -242,7 +243,7 @@ func (c *Client) completionAgent(
 func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
 	order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
 	if len(order) == 0 {
-		return "", "", fmt.Errorf("no enabled cloud AI providers with API keys configured")
+		return "", "", fmt.Errorf("%s", errNoCloudProvidersWithKeys)
 	}
 
 	var errs []error
@@ -266,7 +267,7 @@ func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMet
 func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
 	order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
 	if len(order) == 0 {
-		return "", "", fmt.Errorf("no enabled cloud AI providers with API keys configured")
+		return "", "", fmt.Errorf("%s", errNoCloudProvidersWithKeys)
 	}
 
 	var errs []error
@@ -325,13 +326,13 @@ func (c *Client) StatusLine() string {
 	meta := c.promptMetaForStatus()
 	override := ""
 	if c.sessionProvider != "" {
-		override = fmt.Sprintf(", session override: %s", c.sessionProvider)
+		override = fmt.Sprintf(statusSessionOverride, c.sessionProvider)
 	}
 	tiered := ""
 	if c.TieredEnabled() && c.sessionProvider == "" {
-		tiered = ", tiered=on (simple prompts use local ollama)"
+		tiered = statusTieredOnSuffix
 	}
-	return fmt.Sprintf("AI provider: %s, model: %s, mode: %s (config default: %s%s%s)",
+	return fmt.Sprintf(statusAIProviderPrefix+"%s, model: %s, mode: %s (config default: %s%s%s)",
 		meta.Provider, meta.Model, meta.Mode, c.cfg.DefaultProviderID(), override, tiered)
 }
 
@@ -343,7 +344,7 @@ func (c *Client) promptMetaForStatus() PromptMeta {
 	if c.TieredEnabled() {
 		localID := c.cfg.LocalProviderID()
 		ep := c.endpoints[localID]
-		return PromptMeta{Provider: localID, Model: ep.model, Mode: "tiered (simple prompts local)"}
+		return PromptMeta{Provider: localID, Model: ep.model, Mode: aiModeTieredLabel}
 	}
 	id := c.cfg.DefaultProviderID()
 	ep := c.endpoints[id]

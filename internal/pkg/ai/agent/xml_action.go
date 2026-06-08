@@ -25,9 +25,9 @@ import (
 var (
 	xmlInvokeBlockRe = regexp.MustCompile(`(?s)<invoke\b[^>]*name="([^"]+)"[^>]*>(.*?)</invoke>`)
 	xmlParameterRe   = regexp.MustCompile(`(?s)<parameter\b[^>]*name="([^"]+)"[^>]*>([^<]*)</parameter>`)
-	hybridRunRe      = regexp.MustCompile(`(?s)"action"\s*:\s*"(?:run_shell|run)"\s*,\s*"command"\s*>\s*([^<]+)\s*</parameter>`)
-	hybridAitRe      = regexp.MustCompile(`(?s)"action"\s*:\s*"(?:ait_cli|ait)"\s*,\s*"args"\s*>\s*([^<]+)\s*</parameter>`)
-	hybridAnswerRe   = regexp.MustCompile(`(?s)"action"\s*:\s*"answer"\s*,\s*"text"\s*>\s*([^<]+)\s*</parameter>`)
+	hybridRunRe      = regexp.MustCompile(`(?s)"` + JSONFieldAction + `"\s*:\s*"(?:` + ToolRunShell + `|` + XMLInvokeRun + `)"\s*,\s*"` + JSONFieldCommand + `"\s*>\s*([^<]+)\s*</parameter>`)
+	hybridAitRe      = regexp.MustCompile(`(?s)"` + JSONFieldAction + `"\s*:\s*"(?:` + ToolAitCLI + `|` + XMLInvokeAit + `)"\s*,\s*"` + JSONFieldArgs + `"\s*>\s*([^<]+)\s*</parameter>`)
+	hybridAnswerRe   = regexp.MustCompile(`(?s)"` + JSONFieldAction + `"\s*:\s*"` + ToolAnswer + `"\s*,\s*"` + JSONFieldText + `"\s*>\s*([^<]+)\s*</parameter>`)
 )
 
 // XMLToolCallToJSON extracts the first MiniMax XML-style tool call embedded in
@@ -47,19 +47,19 @@ func XMLToolCallToJSON(content string) (string, bool) {
 		return jsonStr, true
 	}
 
-	if cmd := extractParameterValue(content, "command"); cmd != "" {
-		if strings.Contains(content, `name="run"`) || strings.Contains(content, `name="run_shell"`) {
-			return marshalAction(ToolRunShell, "command", cmd)
+	if cmd := extractParameterValue(content, JSONFieldCommand); cmd != "" {
+		if strings.Contains(content, `name="`+XMLInvokeRun+`"`) || strings.Contains(content, `name="`+ToolRunShell+`"`) {
+			return marshalAction(ToolRunShell, JSONFieldCommand, cmd)
 		}
 	}
-	if args := extractParameterValue(content, "args"); args != "" {
-		if strings.Contains(content, `name="ait"`) || strings.Contains(content, `name="ait_cli"`) {
-			return marshalAction(ToolAitCLI, "args", args)
+	if args := extractParameterValue(content, JSONFieldArgs); args != "" {
+		if strings.Contains(content, `name="`+XMLInvokeAit+`"`) || strings.Contains(content, `name="`+ToolAitCLI+`"`) {
+			return marshalAction(ToolAitCLI, JSONFieldArgs, args)
 		}
 	}
-	if text := extractParameterValue(content, "text"); text != "" {
-		if strings.Contains(content, `name="answer"`) {
-			return marshalAction(ToolAnswer, "text", text)
+	if text := extractParameterValue(content, JSONFieldText); text != "" {
+		if strings.Contains(content, `name="`+ToolAnswer+`"`) {
+			return marshalAction(ToolAnswer, JSONFieldText, text)
 		}
 	}
 
@@ -85,24 +85,24 @@ func invokeToJSON(invokeName, inner string) (string, bool) {
 	}
 
 	switch invokeName {
-	case "run", "run_shell":
-		cmd := params["command"]
+	case XMLInvokeRun, ToolRunShell:
+		cmd := params[JSONFieldCommand]
 		if cmd == "" {
 			return "", false
 		}
-		return marshalAction(ToolRunShell, "command", cmd)
-	case "ait", "ait_cli":
-		args := params["args"]
+		return marshalAction(ToolRunShell, JSONFieldCommand, cmd)
+	case XMLInvokeAit, ToolAitCLI:
+		args := params[JSONFieldArgs]
 		if args == "" {
 			return "", false
 		}
-		return marshalAction(ToolAitCLI, "args", args)
-	case "answer":
-		text := params["text"]
+		return marshalAction(ToolAitCLI, JSONFieldArgs, args)
+	case ToolAnswer:
+		text := params[JSONFieldText]
 		if text == "" {
 			return "", false
 		}
-		return marshalAction(ToolAnswer, "text", text)
+		return marshalAction(ToolAnswer, JSONFieldText, text)
 	default:
 		return "", false
 	}
@@ -111,17 +111,17 @@ func invokeToJSON(invokeName, inner string) (string, bool) {
 func parseHybridFragment(content string) (string, bool) {
 	if m := hybridRunRe.FindStringSubmatch(content); len(m) >= 2 {
 		if cmd := strings.TrimSpace(m[1]); cmd != "" {
-			return marshalAction(ToolRunShell, "command", cmd)
+			return marshalAction(ToolRunShell, JSONFieldCommand, cmd)
 		}
 	}
 	if m := hybridAitRe.FindStringSubmatch(content); len(m) >= 2 {
 		if args := strings.TrimSpace(m[1]); args != "" {
-			return marshalAction(ToolAitCLI, "args", args)
+			return marshalAction(ToolAitCLI, JSONFieldArgs, args)
 		}
 	}
 	if m := hybridAnswerRe.FindStringSubmatch(content); len(m) >= 2 {
 		if text := strings.TrimSpace(m[1]); text != "" {
-			return marshalAction(ToolAnswer, "text", text)
+			return marshalAction(ToolAnswer, JSONFieldText, text)
 		}
 	}
 	return "", false
@@ -141,7 +141,7 @@ func extractParameterValue(content, paramName string) string {
 }
 
 func marshalAction(action, field, value string) (string, bool) {
-	b, err := json.Marshal(map[string]string{"action": action, field: value})
+	b, err := json.Marshal(map[string]string{JSONFieldAction: action, field: value})
 	if err != nil {
 		return "", false
 	}

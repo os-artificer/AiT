@@ -60,7 +60,7 @@ func (c *Client) Chat(
 ) (reply, thinking string, updated []ChatMessage, err error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
-		return "", "", history, fmt.Errorf("empty prompt")
+		return "", "", history, fmt.Errorf("%s", errEmptyPrompt)
 	}
 
 	reply, thinking, err = c.completion(ctx, user, len(history), func(meta PromptMeta) []openai.ChatCompletionMessage {
