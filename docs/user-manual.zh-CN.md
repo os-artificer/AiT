@@ -54,7 +54,7 @@
 
 | 命令 | 说明 |
 |------|------|
-| `ait shell` | 交互模式（`AiT> `）：`login`、`list`、`help`、`clear` 等；`exit` 退出；TTY：UTF-8 输入，**Ctrl+L** 清屏 |
+| `ait shell` | 交互模式（`AiT> `）：内置（`ll` 本机长列表，仅 shell）→ `<AppRoot>/bin` → ait CLI → PATH；`exit` 退出；TTY：UTF-8，**Ctrl+L** 清屏 |
 | `ait login` | 连接主机；`--save` 或 `--alias` 首次保存；同一 `user@host:port` 可用不同 `--alias` 保存多条独立会话；无 flag 重连仅更新**无 alias** 匹配行；`host cmd` 为一次性执行 |
 | `ait session --list` | 列出已保存会话（`#` 列；`-v` 输出完整 UUID） |
 | `ait session --load [<id\|alias>]` | 恢复会话（可省略 id 交互选择）；请用 alias 或 `-v` 的 FULL_ID，勿用 ID 列短码 |

@@ -34,8 +34,14 @@ const shellREPLCommands = `  help              show REPL help
   login [flags] destination [command ...]  (--save or --alias to persist)
   load <id|alias> [--tmux] [--password]
   list              list saved sessions
+  ll [path]         long directory listing (ls -la style; ait shell only)
   config, get, put  — same as: ait <command> ...
   session           — CLI: ait session --list | --load | --switch | --suspend | --delete
+`
+
+const shellREPLExtensions = `  ll [path]             ls -la style listing (builtin; not in ait ai or !ait)
+  <AppRoot>/bin/<name>  user extensions (checked before ait CLI and PATH)
+  <name> on PATH        system commands when not an ait subcommand
 `
 
 const shellREPLCommandsNoLogin = `  help              show REPL help
@@ -44,15 +50,17 @@ const shellREPLCommandsNoLogin = `  help              show REPL help
   exit, quit        leave AiT shell
   ai                enter local AI mode (same as ait ai)
   list              list saved sessions
+  ll [path]         long directory listing (ls -la style; ait shell only)
   config, get, put  — same as: ait <command> ...
   session           — CLI: ait session --list | --load | --switch | --suspend | --delete
 `
 
 const (
+	shellSectionExtensions    = "Extensions"
 	shellSectionPrompts       = "Prompts"
 	shellREPLHelpIntro        = "AiT shell — type commands directly, press Enter to run (no !ait prefix):"
-	shellREPLHelpUsage        = "help | clear | history | login [flags] destination | load <id|alias> | list | exit"
-	shellREPLHelpUsageNoLogin = "help | clear | history | list | exit"
+	shellREPLHelpUsage        = "help | clear | history | login [flags] destination | load <id|alias> | list | ll [path] | exit"
+	shellREPLHelpUsageNoLogin = "help | clear | history | list | ll [path] | exit"
 	shellREPLHelpNoteTTY      = "In a TTY, Ctrl+L clears the screen and redraws the prompt (line buffer kept)."
 	shellExampleLoginServer   = "login myserver"
 )
@@ -78,6 +86,9 @@ func WriteShellHelp(w io.Writer) error {
 		return err
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionREPLCommands, shellREPLCommands); err != nil {
+		return err
+	}
+	if err := b.WriteSection(shellSectionExtensions, shellREPLExtensions); err != nil {
 		return err
 	}
 	if err := pkghelpdoc.WriteTTYKeysHelp(w, pkghelpdoc.TTYKeysShell); err != nil {
@@ -112,6 +123,9 @@ func WriteShellREPLHelp(w io.Writer, hasActiveSession bool) error {
 		cmds = shellREPLCommandsNoLogin
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionCommands, cmds); err != nil {
+		return err
+	}
+	if err := b.WriteSection(shellSectionExtensions, shellREPLExtensions); err != nil {
 		return err
 	}
 	if hasActiveSession {

@@ -22,7 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 type topLevel struct{}
 
 func init() {

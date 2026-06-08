@@ -16,7 +16,12 @@
 
 package shell
 
-import "github.com/os-artificer/AiT/internal/pkg/errhint"
+import (
+	"fmt"
+
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/platform"
+)
 
 func unclosedQuoteErr() error {
 	return errhint.WithTryMsg("unclosed quote",
@@ -25,26 +30,15 @@ func unclosedQuoteErr() error {
 	)
 }
 
-func loadUsageErr() error {
-	return errhint.WithTryMsg("usage: load [<id|alias>] [--tmux] [--password P]",
-		"Load a saved session or pick interactively with no arguments.",
-		"load",
-		"load prod",
-		"list",
-	)
-}
-
-func passwordRequiresValueErr() error {
-	return errhint.WithTryMsg("--password requires a value",
-		"Pass the SSH password after --password.",
-		"load prod --password secret",
-	)
-}
-
-func unknownLoadFlagErr(flag string) error {
-	return errhint.WithTryMsg("unknown load flag "+flag,
-		"Supported load flags are --tmux and --password.",
-		"load prod --tmux",
+func commandNotFoundErr(name string) error {
+	binDir, err := platform.BinDir()
+	if err != nil {
+		binDir = "<AppRoot>/bin"
+	}
+	cause := fmt.Errorf("%w: %s", ErrCommandNotFound, name)
+	return errhint.WithTry(cause,
+		"Drop an executable in "+binDir+"/"+name+", use an ait subcommand, or ensure it is on PATH.",
 		"help",
+		"ls "+binDir,
 	)
 }

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/ait/login"
+	"github.com/os-artificer/AiT/internal/ait/shell/builtin"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
@@ -30,9 +31,12 @@ func TestREPLHelpArgs_FromHelpdoc(t *testing.T) {
 	}
 }
 
-// TestReplCmdLogin_MatchesLoginName (C25) wires shell login verb to login.Name.
+// TestReplCmdLogin_MatchesLoginName (C25) re-exports builtin.CmdLogin as ReplCmdLogin.
 func TestReplCmdLogin_MatchesLoginName(t *testing.T) {
 	if ReplCmdLogin != login.Name {
 		t.Fatalf("ReplCmdLogin=%q login.Name=%q", ReplCmdLogin, login.Name)
+	}
+	if ReplCmdLogin != builtin.CmdLogin {
+		t.Fatalf("ReplCmdLogin=%q builtin.CmdLogin=%q", ReplCmdLogin, builtin.CmdLogin)
 	}
 }

@@ -17,27 +17,25 @@
 package shell
 
 import (
-	"github.com/os-artificer/AiT/internal/ait/login"
-	"github.com/os-artificer/AiT/internal/ait/session"
+	"github.com/os-artificer/AiT/internal/ait/shell/builtin"
 )
 
-// Commands — AiT shell REPL built-in verbs (shared core verbs exported for ai/mode).
+// Commands — AiT shell REPL built-in verbs (re-exported for ai/mode and meta).
 const (
-	ReplCmdExit    = "exit"
-	ReplCmdQuit    = "quit"
-	ReplCmdClear   = "clear"
-	ReplCmdHistory = "history"
-	ReplCmdAI      = "ai" // matches ai.Name (shell cannot import ai: cycle via mode)
-	ReplCmdLogin   = login.Name
-	ReplCmdLoad    = "load"
-	ReplCmdList    = session.ReplAliasList
-	ReplCmdSuspend = "suspend"
+	ReplCmdExit    = builtin.CmdExit
+	ReplCmdQuit    = builtin.CmdQuit
+	ReplCmdClear   = builtin.CmdClear
+	ReplCmdHistory = builtin.CmdHistory
+	ReplCmdAI      = builtin.CmdAI
+	ReplCmdLogin   = builtin.CmdLogin
+	ReplCmdLoad    = builtin.CmdLoad
+	ReplCmdList    = builtin.CmdList
+	ReplCmdLL      = builtin.CmdLL
+	ReplCmdSuspend = builtin.CmdSuspend
 )
 
 // IO — error prefix and runner messages.
 const (
-	errAIModeRunnerNotConfig     = "AiT: AI mode runner not configured"
-	errShellCLIExecutorNotConfig = "AiT: shell CLI executor not configured"
-	errLoginBlockedActive        = "AiT: login is unavailable while a session is active. Use suspend first or session --switch."
-	errLoadBlockedActive         = "AiT: load is unavailable while a session is active. Use suspend first or session --switch."
+	errShellCLIExecutorNotConfig    = "AiT: shell CLI executor not configured"
+	errShellExternalRunnerNotConfig = "AiT: shell external runner not configured"
 )

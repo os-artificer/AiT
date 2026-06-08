@@ -88,6 +88,7 @@ When `internal/pkg` must recognize a subcommand name (e.g. meta `!ait get`):
 - Do not suffix packages with `cmd` (e.g. ~~`shellcmd`~~). The file `cmd.go` is fine for Cobra wiring.
 - REPL for `ait ai` lives in **`internal/ait/ai/mode`** (package `mode`), distinct from one-shot **`ai/ask`** and **`ai/agent`**.
 - Top-level `session` CLI is **`internal/ait/session`**; import the session manager as `pkgsession "…/internal/pkg/session"`.
+- **`ait shell` REPL builtins** (`exit`, `help`, `ll`, `login`, …) live in **`internal/ait/shell/builtin/`** (package `builtin`); parent `shell` wires REPL I/O and non-builtin dispatch (`exec_dispatch.go`).
 
 ---
 
