@@ -51,7 +51,10 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 		return err
 	}
 
-	sshOpts := sshOptionsFromSession(sess, pass)
+	sshOpts, err := m.resolveSSHOptionsFromSession(sess, pass)
+	if err != nil {
+		return wrapLoadDialErr(sess, err)
+	}
 	client, err := m.dialLogin(sshOpts, pass, sessionHostLabel(sess))
 	if err != nil {
 		return err
@@ -83,7 +86,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 		}
 		if err := tmux.Ensure(client.Conn(), name); err != nil {
 			client.Close()
-			return err
+			return tmuxEnsureErr(sess, err)
 		}
 	}
 
@@ -105,7 +108,7 @@ func (m *Manager) SSHOptionsForSession(idOrAlias, passwordOverride string) (sshc
 		return sshclient.Options{}, err
 	}
 
-	return sshOptionsFromSession(sess, pass), nil
+	return m.resolveSSHOptionsFromSession(sess, pass)
 }
 
 // resolvePassword returns the password to use for the next dial and whether it

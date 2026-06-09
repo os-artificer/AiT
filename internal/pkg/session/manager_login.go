@@ -18,7 +18,6 @@ package session
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
@@ -30,14 +29,17 @@ import (
 )
 
 // Login dials the remote host and runs an interactive shell or a one-shot remote command.
-// A session profile is persisted when opts.Save or opts.Alias is set, or when the same
+// A session profile is persisted when opts.Save, opts.Alias, or opts.Tmux is set, or when the same
 // username+host+port already exists in the store (existing rows are updated and TTL refreshed).
 // ctx cancels dial and interactive I/O. opts must include Host; RemoteCommand and Tmux cannot be combined.
-// Returns dial/auth errors, store errors, fmt.Errorf for invalid flag combinations, or sshclient.RemoteExitError for one-shot exits.
+// Returns dial/auth errors, store errors, errhint for invalid flag combinations, or sshclient.RemoteExitError for one-shot exits.
 func (m *Manager) Login(ctx context.Context, opts LoginOpts) error {
 	opts.Port = normalizePort(opts.Port)
 	if len(opts.RemoteCommand) > 0 && opts.Tmux {
 		return openssh.TmuxWithRemoteCommandErr()
+	}
+	if opts.Tmux && !stdinIsTerminal() {
+		return TmuxRequiresTTYErr()
 	}
 
 	sshOpts := sshclient.Options{
@@ -85,6 +87,7 @@ func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client
 	}
 
 	sess := buildSessionForLogin(opts, sshOpts, plan, loginAuthExpiry(m))
+	newRow := plan.existing == nil
 
 	if plan.persist {
 		if err := m.persistInteractiveLogin(sess, opts); err != nil {
@@ -92,17 +95,21 @@ func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client
 		}
 	}
 
-	if opts.Tmux {
+	if sess.TmuxEnabled {
 		if err := tmux.Ensure(client.Conn(), sess.TmuxSession); err != nil {
-			m.cleanupOnTmuxFailure(plan.persist, sess.ID)
-			return fmt.Errorf(errTmuxEnsureFmt, err)
+			m.cleanupOnTmuxFailure(plan.persist, newRow, sess.ID)
+			return tmuxEnsureErr(sess, err)
 		}
 	}
 
 	initialCmds := m.remotePromptInitialCommands(sess.Username, sess.Host)
 	err = m.runInteractive(ctx, client, sess, initialCmds, plan.persist)
 	if err != nil && plan.persist {
-		m.clearSessionOnFailure(sess.ID, true)
+		if newRow {
+			m.deleteLoginSession(sess.ID)
+		} else {
+			m.clearSessionOnFailure(sess.ID, true)
+		}
 	}
 	return err
 }

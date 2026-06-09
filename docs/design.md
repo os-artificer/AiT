@@ -45,7 +45,7 @@ Use **`!ait local` / `!ait remote`** to toggle local versus remote input while S
 | **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally replay scrollback saved at last suspend | No keep-alive guarantee |
 | **tmux keep-alive** | `login`/`load` with `--tmux` | After SSH: `tmux attach -t ait-<session_id>` (or `new -s` if missing) | Shell/process survives disconnect |
 
-**Login metadata is persisted with `--save` or `--alias` for new connections**. Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). Plain `ait login user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
+**Login metadata is persisted with `--save`, `--alias`, or `--tmux` for new connections** (`--tmux` implies `--save`). Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). `login_destination` stores the ssh config Host name (e.g. `devhost`) for `ssh -G` re-resolve on `load`/`switch`. Plain `ait login user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
 
 ### Login persistence decision (connection key includes alias)
 
@@ -434,6 +434,8 @@ sequenceDiagram
 
 - Remote lacks `tmux`: `LookPath` fails → `ai.SuggestInstall` (apt/brew, etc.)
 - Deterministic session name `ait-<session_id>` avoids colliding with manual tmux sessions
+- **Pre-attach PS1 setup** (direct SSH only): before `attach-session`, AiT types the remote prompt setup line into the detached pane via `tmux send-keys -l` + Enter, then `clear-history` + `C-l` so attach shows only the AiT prompt (no setup leakage)
+- **Failed new `--tmux` login**: if setup or attach fails before the user enters the session, the just-created SQLite row is deleted (no phantom `suspended` entry); re-login to an existing saved row still marks `suspended` on failure
 - Windows clients may still `load --tmux`; remote hosts are typically Linux/macOS
 
 ### get / put

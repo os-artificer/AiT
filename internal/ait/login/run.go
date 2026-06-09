@@ -23,6 +23,8 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
+
+	"golang.org/x/crypto/ssh"
 )
 
 // exitError wraps an exit code for main.
@@ -45,12 +47,7 @@ func Run(ctx context.Context, mgr *session.Manager, argv []string) error {
 		return err
 	}
 
-	err = mgr.Login(ctx, OptsFromResolved(resolved))
-	if re, ok := err.(*client.RemoteExitError); ok {
-		return exitError(re.Code)
-	}
-
-	return err
+	return mgr.Login(ctx, OptsFromResolved(resolved))
 }
 
 // ExitCode returns the process exit code if err is from a remote command.
@@ -64,6 +61,11 @@ func ExitCode(err error) (int, bool) {
 	var re *client.RemoteExitError
 	if errors.As(err, &re) {
 		return re.Code, true
+	}
+
+	var exitErr *ssh.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitStatus(), true
 	}
 	return 0, false
 }

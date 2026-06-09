@@ -76,6 +76,8 @@ type Client struct {
 	pauseRemoteOut      atomic.Bool
 	lastRemoteOut       atomic.Int64
 	remoteSetupSuppress atomic.Bool
+	setupInjectDone     atomic.Bool
+	setupLeakGraceUntil atomic.Int64
 	remotePromptShown   atomic.Bool
 	remotePromptDirAbs  bool
 	setupFilter         setupOutputFilter
@@ -91,6 +93,7 @@ type Client struct {
 	activePromptHost      string
 	forwardLineBuf        []byte
 	interactiveStdin      io.Writer
+	interactiveOut        io.Writer // non-nil during RunInteractive raw TTY; CRLF-safe stdout
 	nestedMu              sync.Mutex
 	nestedState           nestedPromptState
 	pendingNestedUser     string
@@ -189,6 +192,9 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		}
 	}()
 
+	c.interactiveOut = terminal.NewCRLFWriter(os.Stdout)
+	defer func() { c.interactiveOut = nil }()
+
 	cols, rows, _ := term.GetSize(fd)
 
 	echo := uint32(1)
@@ -224,10 +230,56 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		return err
 	}
 
+	c.initActivePrompt()
+	c.interactiveStdin = stdin
+	c.nestedState = nestedPromptIdle
+
+	setupNeeded := len(opts.InitialCommands) > 0
+	postAttachCmds := opts.InitialCommands
+	if setupNeeded {
+		c.pauseRemoteOut.Store(true)
+		c.remoteSetupSuppress.Store(true)
+		c.setupInjectDone.Store(false)
+		c.setupLeakGraceUntil.Store(0)
+		c.remotePromptDirAbs = opts.RemotePromptDirAbsolute
+		c.setupFilter = setupOutputFilter{}
+	}
+
+	var wg sync.WaitGroup
+
+	copyOut := func(r io.Reader) {
+		buf := make([]byte, ioCopyBufSize)
+		for {
+			n, err := r.Read(buf)
+			if n > 0 {
+				c.handleRemoteOutput(buf[:n])
+			}
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	wg.Add(2)
+	go func() { defer wg.Done(); copyOut(stdout) }()
+	go func() { defer wg.Done(); copyOut(stderr) }()
+
 	if opts.TmuxEnabled {
-		if err := tmux.Ensure(c.conn, opts.TmuxName); err != nil {
+		if err := c.tmuxEnsure(stdin, opts.TmuxName); err != nil {
 			sess.Close()
 			return err
+		}
+		if err := c.ensureTmuxSessionReady(stdin, opts.TmuxName); err != nil {
+			sess.Close()
+			return err
+		}
+		if setupNeeded {
+			setup, after := partitionInitialCommands(opts.InitialCommands, c.opts.User, c.opts.Host)
+			if err := c.tmuxPreAttachSetup(opts.TmuxName, setup); err != nil {
+				sess.Close()
+				return wrapTmuxPreAttachErr(opts.TmuxName, err)
+			}
+			postAttachCmds = after
 		}
 		if err := sess.Start(tmux.AttachCommand(opts.TmuxName)); err != nil {
 			sess.Close()
@@ -244,25 +296,6 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 
 	defer stopResize()
 
-	var wg sync.WaitGroup
-
-	c.initActivePrompt()
-	c.interactiveStdin = stdin
-	c.nestedState = nestedPromptIdle
-
-	copyOut := func(r io.Reader) {
-		buf := make([]byte, ioCopyBufSize)
-		for {
-			n, err := r.Read(buf)
-			if n > 0 {
-				c.handleRemoteOutput(buf[:n])
-			}
-			if err != nil {
-				return
-			}
-		}
-	}
-
 	c.stdinReader = startStdinReader()
 	stdinCh := c.stdinReader.Ch
 
@@ -273,24 +306,19 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	}
 	defer shutdown()
 
-	if len(opts.InitialCommands) > 0 {
-		c.pauseRemoteOut.Store(true)
-		c.remoteSetupSuppress.Store(true)
-		c.remotePromptDirAbs = opts.RemotePromptDirAbsolute
-		c.setupFilter = setupOutputFilter{}
-	}
-	wg.Add(2)
-	go func() { defer wg.Done(); copyOut(stdout) }()
-	go func() { defer wg.Done(); copyOut(stderr) }()
-
 	// Wait for login shell / .bashrc to finish while output is suppressed.
 	time.Sleep(shellReadyDelay)
 
-	if err := c.injectInitialCommands(stdin, opts.InitialCommands); err != nil {
-		return err
+	if len(postAttachCmds) > 0 {
+		if err := c.injectInitialCommands(stdin, postAttachCmds); err != nil {
+			return err
+		}
+	} else if setupNeeded {
+		c.setupInjectDone.Store(true)
 	}
-	if len(opts.InitialCommands) > 0 {
-		c.finishRemoteSetup(stdin, c.opts.User, c.opts.Host)
+
+	if setupNeeded {
+		c.finishRemoteSetup(stdin, c.opts.User, c.opts.Host, opts.TmuxEnabled)
 	}
 
 	waitCh := make(chan error, 1)
@@ -305,7 +333,7 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		return ctx.Err()
 	case err := <-waitCh:
 		if err != nil && err != io.EOF {
-			return err
+			return wrapInteractiveWaitErr(opts.TmuxEnabled, opts.TmuxName, err)
 		}
 		return nil
 	case err := <-done:
@@ -337,6 +365,7 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 
 	time.Sleep(initialCommandSettleDelay)
 	c.waitRemoteOutputQuietAfter(injectAt, remoteOutputQuietPeriod, remoteOutputQuietMaxWait)
+	c.setupInjectDone.Store(true)
 	return nil
 }
 
@@ -471,7 +500,7 @@ func (c *Client) exitLocalMode() error {
 // captureRemoteCwd reads cwd from the interactive shell (tmux pane path or pwd marker).
 func (c *Client) captureRemoteCwd(stdin io.Writer, opts InteractiveOpts) string {
 	if opts.TmuxEnabled {
-		if p, err := tmux.PanePath(c.conn, opts.TmuxName); err == nil {
+		if p, err := c.tmuxPanePath(stdin, opts.TmuxName); err == nil {
 			return strings.TrimSpace(p)
 		}
 	}

@@ -18,7 +18,6 @@ package builtin
 
 import (
 	"context"
-	"errors"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
@@ -41,8 +40,8 @@ func Try(ctx context.Context, env Env, words []string) (exitREPL, handled bool, 
 		return false, false, nil
 	}
 
-	if cmd.blockedWhenActive != "" && env.Mgr != nil && env.Mgr.HasActiveSession() {
-		return false, true, errors.New(cmd.blockedWhenActive)
+	if cmd.blockedWhenActive != nil && env.Mgr != nil && env.Mgr.HasActiveSession() {
+		return false, true, cmd.blockedWhenActive()
 	}
 
 	exit, runErr := cmd.run(ctx, env, words[1:])

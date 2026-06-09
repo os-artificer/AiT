@@ -75,6 +75,48 @@ func PanePath(conn *ssh.Client, name string) (string, error) {
 	return runRemote(conn, fmt.Sprintf("tmux display-message -p -t %q '#{pane_current_path}'", name))
 }
 
+const (
+	tmuxSendKeysEnter = "Enter"
+	tmuxSendKeysClear = "C-l"
+)
+
+// shSingleQuote wraps s in single quotes for a POSIX sh argument (no $ expansion).
+func shSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+// BuildSendKeysLiteralCmd returns tmux send-keys -l for literal text into session name's pane.
+// literal is passed without outer-shell $ expansion (single-quoted).
+func BuildSendKeysLiteralCmd(name, literal string) string {
+	return fmt.Sprintf("tmux send-keys -t %s -l %s", shSingleQuote(name), shSingleQuote(literal))
+}
+
+// BuildSendKeyCmd returns tmux send-keys for a special key (e.g. Enter, C-l).
+func BuildSendKeyCmd(name, key string) string {
+	return fmt.Sprintf("tmux send-keys -t %s %s", shSingleQuote(name), key)
+}
+
+// SendLine types line into session name's pane and submits with Enter.
+// conn must be connected; line is passed literally to the pane shell.
+// Returns NewSession or remote tmux send-keys errors.
+func SendLine(conn *ssh.Client, name, line string) error {
+	if _, err := runRemote(conn, BuildSendKeysLiteralCmd(name, line)); err != nil {
+		return err
+	}
+	_, err := runRemote(conn, BuildSendKeyCmd(name, tmuxSendKeysEnter))
+	return err
+}
+
+// ClearPane clears scrollback and redraws session name's pane (best effort before attach).
+// Returns NewSession or remote tmux command errors.
+func ClearPane(conn *ssh.Client, name string) error {
+	if _, err := runRemote(conn, fmt.Sprintf("tmux clear-history -t %s 2>/dev/null || true", shSingleQuote(name))); err != nil {
+		return err
+	}
+	_, err := runRemote(conn, BuildSendKeyCmd(name, tmuxSendKeysClear))
+	return err
+}
+
 // Ensure creates tmux session name on the remote host when it does not already exist.
 // Returns HasSession or NewSession errors.
 func Ensure(conn *ssh.Client, name string) error {

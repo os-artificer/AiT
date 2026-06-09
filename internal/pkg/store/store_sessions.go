@@ -40,17 +40,21 @@ func (s *Store) UpsertSession(sess *Session) error {
 	_, err := s.db.Exec(`
 		INSERT INTO sessions (
 			id, alias, host, port, username, identity_path, auth_method,
-			auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			auth_expires_at, tmux_enabled, tmux_session, login_destination, proxy_jump, proxy_command,
+			created_at, updated_at, status
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			alias=excluded.alias, host=excluded.host, port=excluded.port,
 			username=excluded.username, identity_path=excluded.identity_path,
 			auth_method=excluded.auth_method, auth_expires_at=excluded.auth_expires_at,
 			tmux_enabled=excluded.tmux_enabled, tmux_session=excluded.tmux_session,
+			login_destination=excluded.login_destination, proxy_jump=excluded.proxy_jump,
+			proxy_command=excluded.proxy_command,
 			updated_at=excluded.updated_at, status=excluded.status
 	`, sess.ID, nullStr(sess.Alias), sess.Host, sess.Port, sess.Username,
 		nullStr(sess.IdentityPath), sess.AuthMethod, sess.AuthExpiresAt, tmux,
-		nullStr(sess.TmuxSession), sess.CreatedAt, sess.UpdatedAt, sess.Status)
+		nullStr(sess.TmuxSession), nullStr(sess.LoginDestination), nullStr(sess.ProxyJump),
+		nullStr(sess.ProxyCommand), sess.CreatedAt, sess.UpdatedAt, sess.Status)
 	return err
 }
 
@@ -79,8 +83,7 @@ func (s *Store) GetSession(idOrAlias string) (*Session, error) {
 func (s *Store) FindSessionByKey(username, host string, port int, alias string) (*Session, error) {
 	if alias == "" {
 		row := s.db.QueryRow(`
-			SELECT id, alias, host, port, username, identity_path, auth_method,
-				auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
+			SELECT `+sessionsSelectCols+`
 			FROM sessions
 			WHERE username = ? AND host = ? AND port = ?
 			  AND (alias IS NULL OR alias = '')
@@ -90,8 +93,7 @@ func (s *Store) FindSessionByKey(username, host string, port int, alias string) 
 	}
 
 	row := s.db.QueryRow(`
-		SELECT id, alias, host, port, username, identity_path, auth_method,
-			auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
+		SELECT `+sessionsSelectCols+`
 		FROM sessions
 		WHERE username = ? AND host = ? AND port = ? AND alias = ?
 		ORDER BY updated_at DESC
@@ -101,8 +103,7 @@ func (s *Store) FindSessionByKey(username, host string, port int, alias string) 
 
 func (s *Store) getSessionWhere(clause string, arg string) (*Session, error) {
 	row := s.db.QueryRow(`
-		SELECT id, alias, host, port, username, identity_path, auth_method,
-			auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
+		SELECT `+sessionsSelectCols+`
 		FROM sessions WHERE `+clause, arg)
 	return scanSession(row)
 }
@@ -111,8 +112,7 @@ func (s *Store) getSessionWhere(clause string, arg string) (*Session, error) {
 // Returns an empty slice when none exist, or a database error from Query/Scan.
 func (s *Store) ListSessions() ([]*Session, error) {
 	rows, err := s.db.Query(`
-		SELECT id, alias, host, port, username, identity_path, auth_method,
-			auth_expires_at, tmux_enabled, tmux_session, created_at, updated_at, status
+		SELECT ` + sessionsSelectCols + `
 		FROM sessions ORDER BY updated_at DESC
 	`)
 	if err != nil {
@@ -123,12 +123,13 @@ func (s *Store) ListSessions() ([]*Session, error) {
 	var out []*Session
 	for rows.Next() {
 		var sess Session
-		var alias, identity, tmuxName sql.NullString
+		var alias, identity, tmuxName, loginDest, proxyJump, proxyCmd sql.NullString
 		var tmuxEnabled int
 		if err := rows.Scan(
 			&sess.ID, &alias, &sess.Host, &sess.Port, &sess.Username,
 			&identity, &sess.AuthMethod, &sess.AuthExpiresAt, &tmuxEnabled,
-			&tmuxName, &sess.CreatedAt, &sess.UpdatedAt, &sess.Status,
+			&tmuxName, &loginDest, &proxyJump, &proxyCmd,
+			&sess.CreatedAt, &sess.UpdatedAt, &sess.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -137,6 +138,9 @@ func (s *Store) ListSessions() ([]*Session, error) {
 		sess.IdentityPath = identity.String
 		sess.TmuxSession = tmuxName.String
 		sess.TmuxEnabled = tmuxEnabled == 1
+		sess.LoginDestination = loginDest.String
+		sess.ProxyJump = proxyJump.String
+		sess.ProxyCommand = proxyCmd.String
 		out = append(out, &sess)
 	}
 	return out, rows.Err()
