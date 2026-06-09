@@ -239,11 +239,9 @@ CREATE TABLE app_meta (
 
 | 路径 | 职责 | 主要文件（示例） |
 |------|------|------------------|
-| [`internal/ait/`](../internal/ait/) | CLI 入口 | `root.go` |
-| [`internal/ait/cli/`](../internal/ait/cli/) | 精简 Cobra 根（`Execute`、`registry.AttachRoot`） | `root.go`、`manager.go` |
+| [`internal/ait/`](../internal/ait/) | CLI 入口、Cobra 根、Manager 引导 | `root.go`、`cli_root.go`、`manager.go`、`context.go`、`init_hooks.go` |
 | [`internal/ait/registry/`](../internal/ait/registry/) | 顶层命令注册表（OCP）；根 `--help` | `register.go`、`root_help.go`、`all/imports.go` |
 | [`internal/pkg/helpdoc/`](../internal/pkg/helpdoc/) | 共用 `--help` 排版 | `body.go`、`bind.go`、`common.go` |
-| [`internal/ait/app/`](../internal/ait/app/) | Manager 引导 | `manager.go`, `context.go` |
 | [`internal/ait/login/`](../internal/ait/login/) | login 解析与帮助 | `run.go`, `help.go` |
 | [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
 | [`internal/ait/ai/`](../internal/ait/ai/) | `ait ai` 子树（`ask`、`agent`、`provider`、`ollama`，`subregistry`） | `cmd.go`、`help.go`、`register.go` |

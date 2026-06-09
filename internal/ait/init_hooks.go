@@ -14,16 +14,17 @@
  * limitations under the License.
 **/
 
-package app
+package ait
 
 import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
+	"github.com/os-artificer/AiT/internal/ait/ai"
+	"github.com/os-artificer/AiT/internal/ait/meta"
+	_ "github.com/os-artificer/AiT/internal/ait/registry/all"
+	"github.com/os-artificer/AiT/internal/ait/shell"
 )
 
-// CommandContext returns a context cancelled on SIGINT/SIGTERM.
-func CommandContext() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+func init() {
+	meta.SetExecutorWriters(ExecuteWriters)
+	shell.SetCLIExecutor(ExecuteWriters)
+	shell.SetAIModeRunner(ai.RunLocalFromShell(ExecuteWriters))
 }

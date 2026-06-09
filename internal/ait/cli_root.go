@@ -14,27 +14,17 @@
  * limitations under the License.
 **/
 
-package cli
+package ait
 
 import (
 	"io"
 	"os"
 
-	"github.com/os-artificer/AiT/internal/ait/ai"
-	"github.com/os-artificer/AiT/internal/ait/meta"
 	"github.com/os-artificer/AiT/internal/ait/registry"
-	_ "github.com/os-artificer/AiT/internal/ait/registry/all"
-	"github.com/os-artificer/AiT/internal/ait/shell"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 
 	"github.com/spf13/cobra"
 )
-
-func init() {
-	meta.SetExecutorWriters(ExecuteWriters)
-	shell.SetCLIExecutor(ExecuteWriters)
-	shell.SetAIModeRunner(ai.RunLocalFromShell(ExecuteWriters))
-}
 
 // newRootCmd builds the Cobra root command with registry-attached subcommands and shared help binding.
 func newRootCmd() *cobra.Command {

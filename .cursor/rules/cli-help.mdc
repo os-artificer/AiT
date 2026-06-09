@@ -1,6 +1,6 @@
 ---
 description: CLI/Cobra --help 必须与 ait login 同版式；新命令 checklist
-globs: internal/ait/cli/**,internal/pkg/helpdoc/**,internal/ait/**/help.go,internal/ait/login/**,internal/ait/shell/**,internal/ait/meta/**
+globs: internal/ait/*.go,internal/pkg/helpdoc/**,internal/ait/**/help.go,internal/ait/login/**,internal/ait/shell/**,internal/ait/meta/**
 alwaysApply: false
 ---
 

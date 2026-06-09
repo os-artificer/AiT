@@ -40,7 +40,7 @@ var metaBlockedInSession = map[string]string{
 var executor func([]string, io.Writer, io.Writer) error
 
 // SetExecutorWriters registers the function that runs ait subcommands from meta lines.
-// Called from internal/ait/cli init to avoid an import cycle between cli and meta.
+// Called from internal/ait init_hooks to avoid an import cycle between ait root and meta.
 func SetExecutorWriters(fn func([]string, io.Writer, io.Writer) error) {
 	executor = fn
 }

@@ -12,8 +12,7 @@ Cursor Agent 权威副本：[`.cursor/rules/package-layering.mdc`](../.cursor/ru
 
 ```text
 cmd/ait/main.go          → 仅极简 main
-internal/ait             → Run、ExitCode、应用装配
-internal/ait/cli         → Cobra 根与子命令注册（薄层）
+internal/ait             → Run、ExitCode、Execute、NewManager、Cobra 根（薄层）
 internal/ait/<cmd>       → 每个顶层子命令一包（设计闭环）
 internal/pkg/*           → 可复用库（不承载某一子命令的产品语义）
 pkg/*                    → 供外部模块导入；与 AiT 业务无关的通用能力
@@ -41,11 +40,11 @@ pkg/*                    → 供外部模块导入；与 AiT 业务无关的通�
 
 ---
 
-## `internal/ait/cli`
+## `internal/ait`（根包）
 
-- **只做根接线**：`newRootCmd`、`Execute` / `ExecuteWriters`、`runWithManager`、`meta` / `shell` 等 init。
-- 通过 **`internal/ait/<cmd>`** 的 `login.New`、`get.New` 等注册子命令。
-- 避免 `cli/<cmd>/` 只包一层 Cobra，而 parse/flags 在别处的结构。
+- **入口与根接线**：`Run`、`ExitCode`、`newRootCmd`、`Execute` / `ExecuteWriters`、`NewManager`、`runWithManager`；`init_hooks.go` 注入 `meta` / `shell`。
+- 通过 **`registry.AttachRoot`** 挂接子命令；各 **`internal/ait/<cmd>`** 在 `register.go` 实现 `registry.TopLevel`。
+- 避免仅包一层 Cobra、parse/flags 却在别处的薄包装结构。
 
 ---
 

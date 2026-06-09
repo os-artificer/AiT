@@ -20,7 +20,6 @@ package ait
 import (
 	"os"
 
-	"github.com/os-artificer/AiT/internal/ait/cli"
 	"github.com/os-artificer/AiT/internal/ait/login"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
@@ -29,7 +28,7 @@ import (
 // args are os.Args[1:] passed to the Cobra root command.
 // Returns Cobra RunE errors (login, session, get, put, etc.) printed to stderr before return.
 func Run(args []string) error {
-	if err := cli.Execute(args); err != nil {
+	if err := Execute(args); err != nil {
 		errhint.Print(os.Stderr, errhint.SurfaceCLI, err)
 		return err
 	}

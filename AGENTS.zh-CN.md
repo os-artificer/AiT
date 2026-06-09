@@ -34,11 +34,9 @@ make test-cross  # windows + darwin go build
 | 路径 | 职责 |
 |------|------|
 | `cmd/ait/main.go` | 极简 `main` — 委托至 `internal/ait.Run` |
-| `internal/ait/` | CLI 入口（`Run`、`ExitCode`）；子包见下表 |
-| `internal/ait/cli/` | 薄 Cobra 根：`Execute` / `ExecuteWriters`、`newRootCmd`、manager；经 `registry.AttachRoot` 挂接顶层命令 |
+| `internal/ait/` | CLI 入口（`Run`、`ExitCode`、`Execute`、`NewManager`、Cobra 根）；子包见下表 |
 | `internal/ait/registry/` | 顶层命令注册表（OCP）；根 `--help` 见 `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | 共用 `--help` 排版（`Body`、`Bind`、OpenSSH 块、`WriteTransferHelp`、TTY 键） |
-| `internal/ait/app/` | `NewManager`、`CommandContext`（store/config/ai 引导）、`Runner` |
 | `internal/ait/login/` | `ait login` — OpenSSH 解析、help、run |
 | `internal/ait/get/` / `internal/ait/put/` | `ait get` / `ait put` SFTP |
 | `internal/ait/shell/` | `ait shell` REPL（`AiT>`）及顶层 `ait shell` Cobra |
@@ -93,15 +91,13 @@ make test-cross  # windows + darwin go build
 
 | 包 | 文件（示例） |
 |----|----------------|
-| `ait`（根） | `root.go` — `Run`、`ExitCode` |
-| `ait/app` | `manager.go`、`context.go`、`run.go`（`Runner`） |
-| `ait/cli` | `root.go`、`manager.go`、集成测试 |
+| `ait`（根） | `root.go`（`Run`、`ExitCode`）；`cli_root.go`（`Execute`、`newRootCmd`）；`manager.go`（`NewManager`、`runWithManager`）；`context.go`、`runner.go`；`init_hooks.go`（meta/shell/ai 注入）；集成测试 |
 | `ait/registry` | `registry.go`、`top_level.go`、`deps.go`、`root_help.go`、`all/imports.go` |
 | `ait/login`、`get`、`put`、`shell`、`session`、`version` | 顶层命令：`register.go`、`cmd.go`、`help.go`、`run.go` / flags |
 | `ait/ai` | `cmd.go`、`help.go`、`subregistry/`、`runner/`；嵌套 `ask`、`agent`、`provider`、`ollama` 各有 `register.go` |
 | `ait/ai/mode` | `repl.go`、`exec.go`、`scope.go` 等 — AI REPL（`risk`、`approve`、`agent`、`chat`） |
 | `ait/config` | `cmd.go`、`help.go`、`subregistry/`、`shared/`；嵌套 `set`、`get`、`init`、`view`、`edit`、`validate` |
-| `ait/meta` | `exec.go` — `Execute`、`SetExecutorWriters` |
+| `ait/meta` | `exec.go` — `Execute`、`SetExecutorWriters`（由 `init_hooks.go` 注入；SSH 下 stdout CRLF） |
 
 ### `internal/pkg/ssh/client` 文件布局
 
