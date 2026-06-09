@@ -22,7 +22,7 @@ type runFunc func(context.Context, Env, []string) (exitREPL bool, err error)
 
 type command struct {
 	run               runFunc
-	blockedWhenActive string
+	blockedWhenActive func() error
 }
 
 var commands = map[string]command{
@@ -31,8 +31,8 @@ var commands = map[string]command{
 	CmdClear:   {run: runClear},
 	CmdHistory: {run: runHistory},
 	CmdAI:      {run: runAI},
-	CmdLogin:   {run: runLogin, blockedWhenActive: errLoginBlockedActive},
-	CmdLoad:    {run: runLoad, blockedWhenActive: errLoadBlockedActive},
+	CmdLogin:   {run: runLogin, blockedWhenActive: loginBlockedWhenActiveErr},
+	CmdLoad:    {run: runLoad, blockedWhenActive: loadBlockedWhenActiveErr},
 	CmdList:    {run: runList},
 	CmdLL:      {run: runLL},
 	CmdSuspend: {run: runSuspend},

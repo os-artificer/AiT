@@ -32,7 +32,7 @@ type loginPersistPlan struct {
 }
 
 // planLoginPersistence decides whether login should upsert a session row and which id to use.
-// With --save or --alias, resolvePersistSessionID matches the full connection key (username, host, port, alias).
+// With --save, --alias, or --tmux, resolvePersistSessionID matches the full connection key (username, host, port, alias).
 // Without flags, persist only when an empty-alias row for the connection already exists.
 func (m *Manager) planLoginPersistence(opts LoginOpts, newID string) (loginPersistPlan, error) {
 	if shouldPersistLogin(opts) {
@@ -62,12 +62,16 @@ func (m *Manager) planLoginPersistence(opts LoginOpts, newID string) (loginPersi
 	}, nil
 }
 
-// buildSessionForLogin constructs a store.Session for upsert, preserving alias and tmux state when updating.
+// buildSessionForLogin constructs a store.Session for upsert, preserving alias and dial metadata when updating.
+// TmuxEnabled always follows opts.Tmux for this login so bookmark vs tmux mode can be switched per attempt.
 func buildSessionForLogin(opts LoginOpts, sshOpts sshclient.Options, plan loginPersistPlan, expires int64) *store.Session {
 	authMethod := sshclient.DetectAuthMethod(sshOpts)
 	alias := opts.Alias
 	tmuxName := tmux.SessionName(plan.id)
 	tmuxEnabled := opts.Tmux
+	loginDest := opts.LoginDestination
+	proxyJump := formatProxyJump(opts.ProxyJump)
+	proxyCmd := opts.ProxyCommand
 	if plan.existing != nil {
 		if alias == "" {
 			alias = plan.existing.Alias
@@ -75,8 +79,14 @@ func buildSessionForLogin(opts LoginOpts, sshOpts sshclient.Options, plan loginP
 		if plan.existing.TmuxSession != "" {
 			tmuxName = plan.existing.TmuxSession
 		}
-		if !opts.Tmux {
-			tmuxEnabled = plan.existing.TmuxEnabled
+		if loginDest == "" {
+			loginDest = plan.existing.LoginDestination
+		}
+		if proxyJump == "" {
+			proxyJump = plan.existing.ProxyJump
+		}
+		if proxyCmd == "" {
+			proxyCmd = plan.existing.ProxyCommand
 		}
 	}
 
@@ -85,6 +95,7 @@ func buildSessionForLogin(opts LoginOpts, sshOpts sshclient.Options, plan loginP
 		Username: opts.User, IdentityPath: opts.IdentityPath,
 		AuthMethod: authMethod, AuthExpiresAt: expires,
 		TmuxEnabled: tmuxEnabled, TmuxSession: tmuxName,
+		LoginDestination: loginDest, ProxyJump: proxyJump, ProxyCommand: proxyCmd,
 		Status: store.StatusSuspended,
 	}
 }

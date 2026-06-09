@@ -43,7 +43,7 @@ OpenSSH-compatible flags:
 AiT flags:
   --save          save session to SQLite (no alias required; list by session id)
   --alias name    save session under this alias (implies --save); use with ait session --load <alias>
-  --tmux          use remote tmux for shell persistence (interactive login only)
+  --tmux          use remote tmux for shell persistence (interactive only; implies --save)
   --password P    SSH password (stored in OS keyring for session unlock)
   --host H        legacy: remote host (same as positional destination; do not combine)
   --user U        legacy: same as -l
@@ -70,6 +70,7 @@ Examples:
   ait login user@host                             # interactive (new host: not saved unless --save/--alias)
   ait login --save user@host                      # save session (no alias)
   ait login user@host uptime                      # one-shot (not saved unless --save/--alias or known connection)
+  ait login --tmux devhost                        # ssh config Host + tmux (auto-saved)
   ait login --alias prod --tmux user@prod         # save as alias + tmux (no --save needed)
   ait login --host 192.168.1.1 --user root        # legacy flags
 

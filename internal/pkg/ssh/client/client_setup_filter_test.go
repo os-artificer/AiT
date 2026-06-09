@@ -23,6 +23,29 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/prompt"
 )
 
+// TestStripSetupLeakStdout_PreservesCRLF (TM11b) keeps original line endings on stdout-bound output.
+func TestStripSetupLeakStdout_PreservesCRLF(t *testing.T) {
+	user, host := "u", "h"
+	leak := "stty -echo 2>/dev/null\r\n"
+	prompt := "AiT u@h:/tmp> \r\n"
+	out := stripSetupLeakStdout([]byte(leak+prompt), user, host)
+	if strings.Contains(string(out), "stty -echo") {
+		t.Fatal("leak should be stripped")
+	}
+	if string(out) != prompt {
+		t.Fatalf("want preserved bytes %q, got %q", prompt, out)
+	}
+}
+
+func TestStripSetupLeakStdout_PreservesLoneLF(t *testing.T) {
+	user, host := "u", "h"
+	prompt := "AiT u@h:/tmp> \n"
+	out := stripSetupLeakStdout([]byte(prompt), user, host)
+	if string(out) != prompt {
+		t.Fatalf("want %q, got %q", prompt, out)
+	}
+}
+
 func TestIsSetupLeakLine(t *testing.T) {
 	user, host := "root", "ylgeeker.com"
 	leaks := []string{
@@ -58,6 +81,29 @@ func TestSetupOutputFilterAcrossChunks(t *testing.T) {
 		t.Fatalf("filtered output still has setup: %q", out)
 	}
 	if !strings.Contains(out, "AiT u@h:/tmp:main>") {
+		t.Fatalf("prompt missing: %q", out)
+	}
+}
+
+// TestSetupOutputFilter_CRLines (TM9c) verifies setup lines terminated with lone CR are filtered.
+func TestSetupOutputFilter_CRLines(t *testing.T) {
+	user, host := "u", "h"
+	var f setupOutputFilter
+
+	chunk := f.filter([]byte("stty -echo 2>/dev/null\r"), user, host)
+	if len(chunk) != 0 {
+		t.Fatalf("CR-terminated leak should be consumed: %q", chunk)
+	}
+	if tail := f.flush(user, host); len(tail) != 0 {
+		t.Fatalf("flush after CR line = %q", tail)
+	}
+
+	chunk2 := f.filter([]byte("export PS1='AiT u@h:/tmp> '\rAiT u@h:/tmp> "), user, host)
+	out := string(chunk2) + string(f.flush(user, host))
+	if strings.Contains(out, "export PS1=") {
+		t.Fatalf("still has setup: %q", out)
+	}
+	if !strings.Contains(out, "AiT u@h:/tmp>") {
 		t.Fatalf("prompt missing: %q", out)
 	}
 }

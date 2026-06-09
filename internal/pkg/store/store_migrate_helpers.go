@@ -16,6 +16,23 @@
 
 package store
 
+import "strings"
+
+// ensureSessionsDialColumns adds login_destination, proxy_jump, and proxy_command for load re-resolve.
+func (s *Store) ensureSessionsDialColumns() error {
+	stmts := []string{
+		`ALTER TABLE sessions ADD COLUMN login_destination TEXT`,
+		`ALTER TABLE sessions ADD COLUMN proxy_jump TEXT`,
+		`ALTER TABLE sessions ADD COLUMN proxy_command TEXT`,
+	}
+	for _, stmt := range stmts {
+		if _, err := s.db.Exec(stmt); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+			return err
+		}
+	}
+	return nil
+}
+
 // dedupeConnectionKeys removes duplicate session rows that share the same
 // (username, host, port, alias) connection key, keeping the row with the
 // greatest updated_at (ties broken by id).
