@@ -46,8 +46,13 @@ func CheckInteractiveStdin() error {
 	)
 }
 
-func stdinIsTerminal() bool {
+// StdinIsTerminal reports whether os.Stdin is a TTY.
+func StdinIsTerminal() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+func stdinIsTerminal() bool {
+	return StdinIsTerminal()
 }
 
 // readPickLine reads one selection line; uses the line editor when stdin is a TTY.

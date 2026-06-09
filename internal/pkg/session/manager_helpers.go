@@ -35,9 +35,9 @@ import (
 	"golang.org/x/term"
 )
 
-// shouldPersistLogin reports whether login should upsert a session row (--save or --alias).
+// shouldPersistLogin reports whether login should upsert a session row (--save, --alias, or --tmux).
 func shouldPersistLogin(opts LoginOpts) bool {
-	return opts.Save || opts.Alias != ""
+	return opts.Save || opts.Alias != "" || opts.Tmux
 }
 
 func normalizePort(port int) int {
@@ -126,10 +126,7 @@ func sshOptionsFromSession(sess *store.Session, password string) sshclient.Optio
 }
 
 func sessionLoginDestination(sess *store.Session) string {
-	if sess.Alias != "" {
-		return sess.Alias
-	}
-	return sess.Host
+	return sessionDialDestination(sess)
 }
 
 func sessionHostLabel(sess *store.Session) string {
@@ -231,9 +228,23 @@ func (m *Manager) warnOrBlockActiveSwitch(cur *store.Session, force bool) error 
 	return nil
 }
 
-// cleanupOnTmuxFailure clears persisted session state when tmux setup fails.
-func (m *Manager) cleanupOnTmuxFailure(persist bool, sessID string) {
+// deleteLoginSession removes a just-created login row and clears current-session meta.
+func (m *Manager) deleteLoginSession(id string) {
+	_ = m.Store.DeleteSession(id)
+	cur, _ := m.Store.GetMeta(store.MetaCurrentSession)
+	if cur == id {
+		_ = m.Store.SetMeta(store.MetaCurrentSession, "")
+	}
+}
+
+// cleanupOnTmuxFailure clears or deletes persisted session state when tmux setup fails before attach.
+// newRow deletes the row when login created it; existing rows are marked suspended.
+func (m *Manager) cleanupOnTmuxFailure(persist, newRow bool, sessID string) {
 	if !persist {
+		return
+	}
+	if newRow {
+		m.deleteLoginSession(sessID)
 		return
 	}
 	m.clearSessionOnFailure(sessID, true)

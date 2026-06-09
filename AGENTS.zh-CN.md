@@ -21,7 +21,7 @@ make test-cross  # windows + darwin go build
 
 - **SSH 会话**：`shell`、`login`、`session`（`--list`、`--load`、`--suspend`、`--switch`、`--delete`）
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
-- **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）
+- **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）；`login --tmux` 隐含 `--save` 并保存 `login_destination`（ssh config Host 名如 devhost）
 - **AI**：多 provider 路由 + `tiered`；`ait ai ask` / `ait ai agent` 单轮；`ait ai provider enable|disable`；`ait ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ait ai model list`；SSH `!ait ai ask` / `!! ask`
 - **传输**：`ait get` / `ait put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH（统一路由：优先 lrzsz/ZMODEM，直连无 lrzsz 回退 SFTP，链式缺失时可授权自动安装）
 - **代理链支持**：`!ait chain [on|off]` — 链式模式下经 PTY 管道 ZMODEM 文件传输与 tmux（`internal/pkg/ssh/client/inject.go`、`transfer_zmodem.go`；`internal/pkg/tmux/remote_pty.go`）
@@ -34,11 +34,9 @@ make test-cross  # windows + darwin go build
 | 路径 | 职责 |
 |------|------|
 | `cmd/ait/main.go` | 极简 `main` — 委托至 `internal/ait.Run` |
-| `internal/ait/` | CLI 入口（`Run`、`ExitCode`）；子包见下表 |
-| `internal/ait/cli/` | 薄 Cobra 根：`Execute` / `ExecuteWriters`、`newRootCmd`、manager；经 `registry.AttachRoot` 挂接顶层命令 |
+| `internal/ait/` | CLI 入口（`Run`、`ExitCode`、`Execute`、`NewManager`、Cobra 根）；子包见下表 |
 | `internal/ait/registry/` | 顶层命令注册表（OCP）；根 `--help` 见 `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | 共用 `--help` 排版（`Body`、`Bind`、OpenSSH 块、`WriteTransferHelp`、TTY 键） |
-| `internal/ait/app/` | `NewManager`、`CommandContext`（store/config/ai 引导）、`Runner` |
 | `internal/ait/login/` | `ait login` — OpenSSH 解析、help、run |
 | `internal/ait/get/` / `internal/ait/put/` | `ait get` / `ait put` SFTP |
 | `internal/ait/shell/` | `ait shell` REPL（`AiT>`）及顶层 `ait shell` Cobra |
@@ -93,15 +91,13 @@ make test-cross  # windows + darwin go build
 
 | 包 | 文件（示例） |
 |----|----------------|
-| `ait`（根） | `root.go` — `Run`、`ExitCode` |
-| `ait/app` | `manager.go`、`context.go`、`run.go`（`Runner`） |
-| `ait/cli` | `root.go`、`manager.go`、集成测试 |
+| `ait`（根） | `root.go`（`Run`、`ExitCode`）；`cli_root.go`（`Execute`、`newRootCmd`）；`manager.go`（`NewManager`、`runWithManager`）；`context.go`、`runner.go`；`init_hooks.go`（meta/shell/ai 注入）；集成测试 |
 | `ait/registry` | `registry.go`、`top_level.go`、`deps.go`、`root_help.go`、`all/imports.go` |
 | `ait/login`、`get`、`put`、`shell`、`session`、`version` | 顶层命令：`register.go`、`cmd.go`、`help.go`、`run.go` / flags |
 | `ait/ai` | `cmd.go`、`help.go`、`subregistry/`、`runner/`；嵌套 `ask`、`agent`、`provider`、`ollama` 各有 `register.go` |
 | `ait/ai/mode` | `repl.go`、`exec.go`、`scope.go` 等 — AI REPL（`risk`、`approve`、`agent`、`chat`） |
 | `ait/config` | `cmd.go`、`help.go`、`subregistry/`、`shared/`；嵌套 `set`、`get`、`init`、`view`、`edit`、`validate` |
-| `ait/meta` | `exec.go` — `Execute`、`SetExecutorWriters` |
+| `ait/meta` | `exec.go` — `Execute`、`SetExecutorWriters`（由 `init_hooks.go` 注入；SSH 下 stdout CRLF） |
 
 ### `internal/pkg/ssh/client` 文件布局
 

@@ -14,10 +14,14 @@
  * limitations under the License.
 **/
 
-package app
+package ait
 
 import (
-	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"context"
+
+	"github.com/os-artificer/AiT/internal/ait/ai"
+	"github.com/os-artificer/AiT/internal/ait/meta"
+	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
@@ -38,12 +42,28 @@ func NewManager(metaCLI func([]string) error, onRemoteAI sshclient.RemoteAIRunne
 		return nil, err
 	}
 
-	var aiClient *ai.Client
-	if c, err := ai.NewClient(cfg); err == nil {
+	var aiClient *pkgai.Client
+	if c, err := pkgai.NewClient(cfg); err == nil {
 		aiClient = c
 	}
 
 	mgr := &session.Manager{Store: st, Config: cfg, AI: aiClient, OnRemoteAI: onRemoteAI}
 	mgr.MetaCLI = metaCLI
 	return mgr, nil
+}
+
+func newManager() (*session.Manager, error) {
+	return NewManager(meta.Execute, ai.RemoteRunner(ExecuteWriters))
+}
+
+func runWithManager(fn func(ctx context.Context, mgr *session.Manager) error) error {
+	mgr, err := newManager()
+	if err != nil {
+		return err
+	}
+	defer mgr.Store.Close()
+
+	ctx, cancel := CommandContext()
+	defer cancel()
+	return fn(ctx, mgr)
 }

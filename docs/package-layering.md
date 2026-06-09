@@ -12,8 +12,7 @@ This document defines **where code lives** in the AiT module. It complements [go
 
 ```text
 cmd/ait/main.go          → minimal main only
-internal/ait             → Run, ExitCode, app wiring
-internal/ait/cli         → Cobra root and subcommand registration (thin)
+internal/ait             → Run, ExitCode, Execute, NewManager, Cobra root (thin)
 internal/ait/<cmd>       → one package per top-level subcommand (closed loop)
 internal/pkg/*           → shared libraries (no product subcommand ownership)
 pkg/*                    → importable by external modules; generic, non–AiT-business only
@@ -30,7 +29,7 @@ Each **top-level** `ait <subcommand>` (e.g. `login`, `get`, `put`, `shell`, `ai`
 | Command name | `cmd.go` or `name.go` | e.g. `const Name = "login"` — single source for Cobra `Use`, parse errors, meta alignment |
 | Supported flags | `flags.go` | Flag tokens and command-specific `Apply*` |
 | Argv parsing | `parse.go` | `Parse(argv)` for that command only |
-| Cobra | `cmd.go` | `New(runWithMgr) *cobra.Command` — here, not `internal/ait/cli/<cmd>/` |
+| Cobra | `cmd.go` | `New(runWithMgr) *cobra.Command` — here, not a thin wrapper under another package |
 | Help | `help.go` | `--help` body; flag lines use this package’s flag constants |
 | Execution | `run.go` | `Run(ctx, mgr, argv)` or equivalent |
 
@@ -41,11 +40,11 @@ Each **top-level** `ait <subcommand>` (e.g. `login`, `get`, `put`, `shell`, `ai`
 
 ---
 
-## `internal/ait/cli`
+## `internal/ait` (root package)
 
-- **Root wiring only:** `newRootCmd`, `Execute` / `ExecuteWriters`, `runWithManager`, init hooks (`meta`, `shell`).
+- **Entry and root wiring:** `Run`, `ExitCode`, `newRootCmd`, `Execute` / `ExecuteWriters`, `NewManager`, `runWithManager`, init hooks (`init_hooks.go` wires `meta`, `shell`).
 - Attach subcommands via **`registry.AttachRoot`**; each **`internal/ait/<cmd>`** implements `registry.TopLevel` in `register.go`.
-- Avoid `cli/<cmd>/` packages that only wrap Cobra while parse/flags live elsewhere.
+- Avoid thin wrapper packages that only wrap Cobra while parse/flags live elsewhere.
 
 ---
 

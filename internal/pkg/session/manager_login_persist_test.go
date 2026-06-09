@@ -48,6 +48,7 @@ func TestShouldPersistLogin(t *testing.T) {
 		{"save only", LoginOpts{Host: "h", Save: true}, true},
 		{"alias only", LoginOpts{Host: "h", Alias: "prod"}, true},
 		{"both", LoginOpts{Host: "h", Save: true, Alias: "prod"}, true},
+		{"tmux only", LoginOpts{Host: "h", Tmux: true}, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -449,7 +450,8 @@ func TestLoginUpdateExistingPreservesAlias(t *testing.T) {
 	}
 }
 
-func TestLoginUpdateExistingPreservesTmuxEnabled(t *testing.T) {
+// TestLoginWithoutTmuxClearsTmuxEnabled (TM10a) clears tmux_enabled when re-login omits --tmux.
+func TestLoginWithoutTmuxClearsTmuxEnabled(t *testing.T) {
 	m := newTestManager(t)
 	persistLoginForTest(t, m, LoginOpts{Tmux: true, Save: true, Host: "h", Port: 22, User: "u"})
 
@@ -464,8 +466,29 @@ func TestLoginUpdateExistingPreservesTmuxEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if sess.TmuxEnabled {
+		t.Fatal("re-login without --tmux must clear tmux_enabled for bookmark mode")
+	}
+}
+
+// TestLoginWithTmuxSetsTmuxEnabled (TM10b) sets tmux_enabled when login uses --tmux.
+func TestLoginWithTmuxSetsTmuxEnabled(t *testing.T) {
+	m := newTestManager(t)
+	persistLoginForTest(t, m, LoginOpts{Save: true, Host: "h", Port: 22, User: "u"})
+
+	list, _ := m.Store.ListSessions()
+	if list[0].TmuxEnabled {
+		t.Fatal("expected tmux disabled after save without --tmux")
+	}
+
+	persistLoginForTest(t, m, LoginOpts{Tmux: true, Host: "h", Port: 22, User: "u"})
+
+	sess, err := m.Store.GetSession(list[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !sess.TmuxEnabled {
-		t.Fatal("expected tmux_enabled preserved when re-login without --tmux")
+		t.Fatal("re-login with --tmux must set tmux_enabled")
 	}
 }
 

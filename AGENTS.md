@@ -21,7 +21,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 
 - **SSH sessions**: `shell`, `login`, `session` (`--list`, `--load`, `--suspend`, `--switch`, `--delete`)
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
-- **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`)
+- **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`); `login --tmux` implies `--save` and stores `login_destination` for ssh config Host aliases
 - **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `ait ai ask` / `ait ai agent` (one-shot); `ait ai provider enable|disable`; `ait ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `ait ai model list`; SSH `!ait ai ask` / `!! ask`; cloud keys `ai.<provider>.api_key`
 - **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (unified router: lrzsz/ZMODEM first, SFTP fallback on direct hop, chain auto-install when missing lrzsz)
 - **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe ZMODEM file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_zmodem.go`; `internal/pkg/tmux/remote_pty.go`)
@@ -34,11 +34,9 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | Path | Role |
 |------|------|
 | `cmd/ait/main.go` | Thin `main` — delegates to `internal/ait.Run` |
-| `internal/ait/` | CLI entry (`Run`, `ExitCode`); subpackages below |
-| `internal/ait/cli/` | Thin Cobra root: `Execute` / `ExecuteWriters`, `newRootCmd`, manager glue; `registry.AttachRoot` wires top-level commands |
+| `internal/ait/` | CLI entry (`Run`, `ExitCode`, `Execute`, `NewManager`, Cobra root); subpackages below |
 | `internal/ait/registry/` | Top-level command registry (OCP); root help via `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | Shared `--help` layout (`Body`, `Bind`, OpenSSH blocks, `WriteTransferHelp`, TTY keys) |
-| `internal/ait/app/` | `NewManager`, `CommandContext` (store/config/ai bootstrap) |
 | `internal/ait/login/` | `ait login` — OpenSSH parse/resolve, help, run |
 | `internal/ait/get/` / `internal/ait/put/` | `ait get` / `ait put` SFTP |
 | `internal/ait/shell/` | `ait shell` REPL (`AiT>`) and top-level `ait shell` Cobra |
@@ -93,15 +91,13 @@ Prefer extending `internal/pkg/*` and `internal/ait` over new top-level director
 
 | Package | Files (examples) |
 |---------|------------------|
-| `ait` (root) | `root.go` — `Run`, `ExitCode` |
-| `ait/app` | `manager.go`, `context.go`, `run.go` (`Runner`) |
-| `ait/cli` | `root.go`, `manager.go`, integration tests |
+| `ait` (root) | `root.go` (`Run`, `ExitCode`); `cli_root.go` (`Execute`, `newRootCmd`); `manager.go` (`NewManager`, `runWithManager`); `context.go`, `runner.go`; `init_hooks.go` (meta/shell/ai inject); integration tests |
 | `ait/registry` | `registry.go`, `top_level.go`, `deps.go`, `root_help.go`, `all/imports.go` |
 | `ait/login`, `get`, `put`, `shell`, `session`, `version` | Top-level commands: `register.go`, `cmd.go`, `help.go`, `run.go` / flags |
 | `ait/ai` | `cmd.go`, `help.go`, `subregistry/`, `runner/`; nested `ask`, `agent`, `provider`, `ollama` each with `register.go` |
 | `ait/ai/mode` | `repl.go`, `exec.go`, `scope.go`, … — AI REPL (`risk`, `approve`, `agent`, `chat`) |
 | `ait/config` | `cmd.go`, `help.go`, `subregistry/`, `shared/`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
-| `ait/meta` | `exec.go` — `Execute`, `SetExecutorWriters` (wired from `cli` init; CRLF stdout in SSH) |
+| `ait/meta` | `exec.go` — `Execute`, `SetExecutorWriters` (wired from `init_hooks.go`; CRLF stdout in SSH) |
 
 ### `internal/pkg/ssh/client` file layout
 

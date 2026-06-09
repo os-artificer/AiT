@@ -19,6 +19,8 @@ package builtin
 import (
 	"github.com/os-artificer/AiT/internal/ait/login"
 	"github.com/os-artificer/AiT/internal/ait/session"
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 )
 
 // AiT shell REPL built-in command names.
@@ -37,6 +39,26 @@ const (
 
 const (
 	errAIModeRunnerNotConfig = "AiT: AI mode runner not configured"
-	errLoginBlockedActive    = "AiT: login is unavailable while a session is active. Use suspend first or session --switch."
-	errLoadBlockedActive     = "AiT: load is unavailable while a session is active. Use suspend first or session --switch."
+	errLoginBlockedActive    = "login is unavailable while a session is active"
+	errLoadBlockedActive     = "load is unavailable while a session is active"
+	hintLoginBlockedExplain  = "Suspend the current SSH session before starting another login from the local shell."
+	hintLoadBlockedExplain   = "Suspend the current SSH session before loading another from the local shell."
 )
+
+func loginBlockedWhenActiveErr() error {
+	return errhint.WithTryMsg(errLoginBlockedActive,
+		hintLoginBlockedExplain,
+		meta.LineSuspend,
+		"ait session --switch <id|alias>",
+		"ait session --help",
+	)
+}
+
+func loadBlockedWhenActiveErr() error {
+	return errhint.WithTryMsg(errLoadBlockedActive,
+		hintLoadBlockedExplain,
+		meta.LineSuspend,
+		"ait session --switch <id|alias>",
+		"ait session --help",
+	)
+}

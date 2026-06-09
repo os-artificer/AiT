@@ -45,6 +45,12 @@ const (
 	injectCaptureEndPrint = "printf 'AIT_CAPTURE_E_f3e7a1c9'"
 )
 
+// WrapSilentShellCmd wraps cmd with stty -echo/echo for non-interactive remote execution
+// (e.g. PTY stdin injection).
+func WrapSilentShellCmd(cmd string) string {
+	return injectEchoOff + "; " + cmd + "; " + injectEchoOn
+}
+
 // buildInjectParts constructs the shell command parts for a silent injection.
 // opts controls echo suppression and output capture wrapping.
 func buildInjectParts(cmd string, opts InjectOpts) []string {

@@ -14,16 +14,8 @@
  * limitations under the License.
 **/
 
-package app
+package store
 
-import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
-)
-
-// CommandContext returns a context cancelled on SIGINT/SIGTERM.
-func CommandContext() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-}
+const sessionsSelectCols = `id, alias, host, port, username, identity_path, auth_method,
+	auth_expires_at, tmux_enabled, tmux_session, login_destination, proxy_jump, proxy_command,
+	created_at, updated_at, status`

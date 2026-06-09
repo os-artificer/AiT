@@ -14,29 +14,16 @@
  * limitations under the License.
 **/
 
-package cli
+package ait
 
 import (
 	"context"
-
-	"github.com/os-artificer/AiT/internal/ait/ai"
-	"github.com/os-artificer/AiT/internal/ait/app"
-	"github.com/os-artificer/AiT/internal/ait/meta"
-	"github.com/os-artificer/AiT/internal/pkg/session"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-func newManager() (*session.Manager, error) {
-	return app.NewManager(meta.Execute, ai.RemoteRunner(ExecuteWriters))
-}
-
-func runWithManager(fn func(ctx context.Context, mgr *session.Manager) error) error {
-	mgr, err := newManager()
-	if err != nil {
-		return err
-	}
-	defer mgr.Store.Close()
-
-	ctx, cancel := app.CommandContext()
-	defer cancel()
-	return fn(ctx, mgr)
+// CommandContext returns a context cancelled on SIGINT/SIGTERM.
+func CommandContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }

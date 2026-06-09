@@ -77,13 +77,13 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 }
 
 // SetAIModeRunner registers the function that enters local AI mode from the REPL.
-// Called from internal/ait/cli init to avoid an import cycle between shell and aimode.
+// Called from internal/ait init_hooks to avoid an import cycle between shell and aimode.
 func SetAIModeRunner(fn func(context.Context, *session.Manager) error) {
 	aiModeRunner = fn
 }
 
 // SetCLIExecutor registers the function that runs Cobra subcommands from the REPL.
-// Called from internal/ait/cli init to avoid an import cycle between cli and shell.
+// Called from internal/ait init_hooks to avoid an import cycle between ait root and shell.
 func SetCLIExecutor(fn func([]string, io.Writer, io.Writer) error) {
 	cliExecutor = fn
 }
