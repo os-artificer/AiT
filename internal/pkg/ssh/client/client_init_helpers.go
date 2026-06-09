@@ -27,6 +27,9 @@ const (
 	remoteOutputQuietMaxWait  = 2 * time.Second
 	remoteOutputQuietPollStep = 25 * time.Millisecond
 	remoteAITPromptMaxWait    = 5 * time.Second
+	tmuxAttachQuietPeriod     = 450 * time.Millisecond
+	tmuxAttachQuietMaxWait    = 3 * time.Second
+	setupLeakGracePeriod      = 2 * time.Second
 )
 
 func (c *Client) touchRemoteOut() {
@@ -88,9 +91,14 @@ func (c *Client) waitForRemoteAITPrompt(user, host string, maxWait time.Duration
 }
 
 // finishRemoteSetup ends setup suppression, strips leaked setup text from scrollback, refreshes the remote PS1, and unpauses display.
-func (c *Client) finishRemoteSetup(stdin io.Writer, _, _ string) {
+// When tmuxEnabled is true, waits longer for attach redraw to finish before unpausing.
+func (c *Client) finishRemoteSetup(stdin io.Writer, _, _ string, tmuxEnabled bool) {
 	user, host := c.promptUser(), c.promptHost()
 	marker := remoteSetupPromptMarker(user, host)
+
+	if tmuxEnabled {
+		c.waitRemoteOutputQuietSince(time.Now(), tmuxAttachQuietPeriod, tmuxAttachQuietMaxWait)
+	}
 
 	if tail := c.setupFilter.flush(user, host); len(tail) > 0 {
 		_, _ = c.scroll.Write(tail)
@@ -119,5 +127,6 @@ func (c *Client) finishRemoteSetup(stdin io.Writer, _, _ string) {
 	}
 
 	c.remoteSetupSuppress.Store(false)
+	c.setupLeakGraceUntil.Store(time.Now().Add(setupLeakGracePeriod).UnixNano())
 	c.pauseRemoteOut.Store(false)
 }

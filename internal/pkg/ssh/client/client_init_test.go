@@ -55,7 +55,7 @@ func TestInjectInitialCommandsSingleLine(t *testing.T) {
 	}
 	<-done
 	_, _ = c.scroll.Write([]byte("AiT u@h:/home> "))
-	c.finishRemoteSetup(stdin, "u", "h")
+	c.finishRemoteSetup(stdin, "u", "h", false)
 
 	body := stdin.String()
 	if !strings.HasPrefix(body, injectSpacePrefix) {
@@ -124,7 +124,7 @@ func TestFinishRemoteSetup_RefreshOnly(t *testing.T) {
 		done <- buf.Bytes()
 	}()
 
-	c.finishRemoteSetup(stdin, "u", "h")
+	c.finishRemoteSetup(stdin, "u", "h", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -170,7 +170,7 @@ func TestFinishRemoteSetupShowsPromptOnceWhenPaused(t *testing.T) {
 		done <- buf.Bytes()
 	}()
 
-	c.finishRemoteSetup(stdin, "u", "h")
+	c.finishRemoteSetup(stdin, "u", "h", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -211,7 +211,7 @@ func TestFinishRemoteSetup_EmitsBufferedPromptStdout(t *testing.T) {
 		done <- buf.Bytes()
 	}()
 
-	c.finishRemoteSetup(stdin, "u", "h")
+	c.finishRemoteSetup(stdin, "u", "h", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -248,7 +248,7 @@ func TestFinishRemoteSetup_RefreshPromptReachStdout(t *testing.T) {
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 
-	c.finishRemoteSetup(stdin, "u", "h")
+	c.finishRemoteSetup(stdin, "u", "h", false)
 
 	if c.remotePromptShown.Load() {
 		t.Fatal("remotePromptShown should stay false until first prompt on stdout")
@@ -298,7 +298,7 @@ func TestFinishRemoteSetup_EmitFailFallsBackRefresh(t *testing.T) {
 
 	_, _ = c.scroll.Write([]byte("partial AiT u@h: without closing"))
 
-	c.finishRemoteSetup(stdin, "u", "h")
+	c.finishRemoteSetup(stdin, "u", "h", false)
 
 	if c.remotePromptShown.Load() {
 		t.Fatal("remotePromptShown should stay false when emit fails and refresh is used")

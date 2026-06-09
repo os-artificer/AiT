@@ -22,12 +22,12 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
-	"github.com/os-artificer/AiT/internal/pkg/tmux"
 
 	xterm "golang.org/x/term"
 )
@@ -67,6 +67,16 @@ func termPrintInline(w io.Writer, s string) {
 
 func termPrintf(w io.Writer, format string, args ...any) {
 	termPrintln(w, fmt.Sprintf(format, args...))
+}
+
+// writeInteractiveStdout writes remote PTY bytes to the interactive stdout sink.
+// During RunInteractive raw TTY, interactiveOut applies CRLF translation (K23).
+func (c *Client) writeInteractiveStdout(p []byte) (int, error) {
+	w := io.Writer(os.Stdout)
+	if c.interactiveOut != nil {
+		w = c.interactiveOut
+	}
+	return w.Write(p)
 }
 
 // finishMetaInteraction ends local meta output and asks the remote shell to redraw PS1.
@@ -197,7 +207,7 @@ func (c *Client) handleSuspendMeta(stdin io.Writer, opts InteractiveOpts) error 
 	cols, rows, _ := xterm.GetSize(fd)
 
 	if opts.TmuxEnabled {
-		_ = tmux.Detach(c.conn, opts.TmuxName)
+		_ = c.tmuxDetach(stdin, opts.TmuxName)
 	}
 
 	cwd := c.captureRemoteCwd(stdin, opts)
@@ -287,8 +297,15 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 
 	_, _ = c.scroll.Write(chunk)
 	if !c.pauseRemoteOut.Load() {
-		_, _ = os.Stdout.Write(chunk)
-		if !c.remotePromptShown.Load() && isDuplicatePromptOutput(chunk, user, host) {
+		stdoutChunk := chunk
+		if until := c.setupLeakGraceUntil.Load(); until != 0 && time.Now().UnixNano() < until {
+			stdoutChunk = stripSetupLeakStdout(chunk, user, host)
+			if len(stdoutChunk) == 0 {
+				return
+			}
+		}
+		_, _ = c.writeInteractiveStdout(stdoutChunk)
+		if !c.remotePromptShown.Load() && isDuplicatePromptOutput(stdoutChunk, user, host) {
 			c.remotePromptShown.Store(true)
 		}
 	}

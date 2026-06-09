@@ -369,6 +369,9 @@ func TestMigrate_DedupeConnectionKeyKeepsNewest(t *testing.T) {
 			auth_expires_at INTEGER NOT NULL,
 			tmux_enabled INTEGER NOT NULL DEFAULT 0,
 			tmux_session TEXT,
+			login_destination TEXT,
+			proxy_jump TEXT,
+			proxy_command TEXT,
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL,
 			status TEXT NOT NULL
@@ -402,6 +405,9 @@ func TestMigrate_DedupeConnectionKeyKeepsNewest(t *testing.T) {
 	}
 
 	if err := s.dedupeConnectionKeys(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ensureSessionsDialColumns(); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.ensureConnectionKeyIndex(); err != nil {

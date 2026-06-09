@@ -16,7 +16,20 @@
 
 package session
 
-import "github.com/os-artificer/AiT/internal/pkg/errhint"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/store"
+)
+
+const (
+	errTmuxSetupFailed   = "tmux setup failed"
+	errTmuxRequiresTTY   = "tmux requires an interactive terminal"
+	hintTmuxSetupExplain = "Remote tmux is missing or not on PATH for this connection."
+	hintTmuxTTYExplain   = "Tmux attach needs a TTY on stdin."
+)
 
 func invalidSelectionErr() error {
 	return errhint.WithTryMsg(errInvalidSelection,
@@ -30,4 +43,46 @@ func ephemeralSuspendErr() error {
 		hintEphemeralSuspendExplain,
 		tryLoginSave, tryLoginAlias, trySessionHelp,
 	)
+}
+
+// TmuxRequiresTTYErr reports that --tmux cannot run without a TTY on stdin.
+func TmuxRequiresTTYErr() error {
+	return errhint.WithTryMsg(errTmuxRequiresTTY,
+		hintTmuxTTYExplain,
+		"ait login --tmux user@host",
+		"ait login --tmux devhost",
+		tryLoginHelp,
+	)
+}
+
+func tmuxEnsureErr(sess *store.Session, cause error) error {
+	hostLabel := sessionHostLabel(sess)
+	return errhint.WithTry(fmt.Errorf("%s: %w", errTmuxSetupFailed, cause),
+		hintTmuxSetupExplain,
+		fmt.Sprintf("ssh %s 'which tmux'", hostLabel),
+		"sudo apt install tmux    # Debian/Ubuntu",
+		"brew install tmux        # macOS",
+		tryLoginHelp,
+	)
+}
+
+func wrapLoadDialErr(sess *store.Session, cause error) error {
+	tries := []string{
+		tryLoadByAlias,
+		tryLoadByFullID,
+		trySessionHelp,
+	}
+	if sess.ProxyJump != "" || sess.LoginDestination != "" {
+		dest := sessionDialDestination(sess)
+		tries = append([]string{fmt.Sprintf("ssh -G %s | grep -i proxy", dest)}, tries...)
+	}
+	msg := cause.Error()
+	if strings.Contains(strings.ToLower(msg), "connection refused") ||
+		strings.Contains(strings.ToLower(msg), "no route") {
+		return errhint.WithTry(cause,
+			"Could not reach the saved host; check ProxyJump and network path.",
+			tries...,
+		)
+	}
+	return cause
 }

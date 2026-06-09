@@ -38,12 +38,13 @@ func buildDSN(path string) string {
 
 func scanSession(row *sql.Row) (*Session, error) {
 	var sess Session
-	var alias, identity, tmuxName sql.NullString
+	var alias, identity, tmuxName, loginDest, proxyJump, proxyCmd sql.NullString
 	var tmuxEnabled int
 	err := row.Scan(
 		&sess.ID, &alias, &sess.Host, &sess.Port, &sess.Username,
 		&identity, &sess.AuthMethod, &sess.AuthExpiresAt, &tmuxEnabled,
-		&tmuxName, &sess.CreatedAt, &sess.UpdatedAt, &sess.Status,
+		&tmuxName, &loginDest, &proxyJump, &proxyCmd,
+		&sess.CreatedAt, &sess.UpdatedAt, &sess.Status,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrSessionNotFound
@@ -56,6 +57,9 @@ func scanSession(row *sql.Row) (*Session, error) {
 	sess.IdentityPath = identity.String
 	sess.TmuxSession = tmuxName.String
 	sess.TmuxEnabled = tmuxEnabled == 1
+	sess.LoginDestination = loginDest.String
+	sess.ProxyJump = proxyJump.String
+	sess.ProxyCommand = proxyCmd.String
 	return &sess, nil
 }
 

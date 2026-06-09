@@ -17,7 +17,6 @@
 package client
 
 import (
-	"os"
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/prompt"
@@ -51,6 +50,6 @@ func (c *Client) emitBufferedRemotePrompt(user, host string) bool {
 		return false
 	}
 
-	_, _ = os.Stdout.Write([]byte("\r" + line))
+	_, _ = c.writeInteractiveStdout([]byte("\r" + line))
 	return true
 }

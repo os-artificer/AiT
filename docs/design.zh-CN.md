@@ -45,7 +45,7 @@ ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUA
 | **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选回放上次 suspend 的本地 scrollback | 不保证保活 |
 | **tmux 保活** | `login`/`load` 加 `--tmux` | SSH 后 `tmux attach -t ait-<session_id>`（不存在则 `new -s`） | 断开连接后 shell/进程仍在 |
 
-**新连接须使用 `--save` 或 `--alias` 才持久化**。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ait login user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
+**新连接须使用 `--save`、`--alias` 或 `--tmux` 才持久化**（`--tmux` 隐含 `--save`）。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ait login user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。`login_destination` 保存 SSH config Host 名（如 `devhost`），供 `load`/`switch` 时 `ssh -G` 重解析跳板。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
 
 ### login 持久化决策（连接键含 alias）
 
@@ -434,6 +434,8 @@ sequenceDiagram
 
 - 远程无 `tmux`：`LookPath` 失败 → `ai.SuggestInstall`（apt/brew 等）
 - 会话名确定性：`ait-<session_id>`，避免与用户手工 tmux 冲突
+- **pre-attach PS1 设置**（仅直连 SSH）：`attach-session` 前通过 `tmux send-keys -l` + Enter 将远程提示符设置行输入 detached pane，再 `clear-history` + `C-l` 清屏，attach 后仅显示 AiT 提示符（无 setup 泄漏）
+- **新建 `--tmux` login 失败**：若 setup 或 attach 在用户进入会话前失败，删除刚创建的 SQLite 行（不留 phantom `suspended` 记录）；重登已有保存行失败时仍标记为 `suspended`
 - Windows 本地客户端仍可 `load --tmux`，但远程主机通常为 Linux/macOS
 
 ### get / put

@@ -55,9 +55,15 @@ type Session struct {
 	AuthExpiresAt int64
 	TmuxEnabled   bool
 	TmuxSession   string
-	CreatedAt     int64
-	UpdatedAt     int64
-	Status        string
+	// LoginDestination is the ssh config Host or CLI destination (e.g. devhost), not the AiT --alias.
+	LoginDestination string
+	// ProxyJump is comma-separated jump hosts from login -J or ssh -G (used on load re-resolve).
+	ProxyJump string
+	// ProxyCommand is the proxycommand from login -o or ssh -G when persisted.
+	ProxyCommand string
+	CreatedAt    int64
+	UpdatedAt    int64
+	Status       string
 }
 
 // SessionState is local terminal snapshot on suspend.
@@ -127,6 +133,9 @@ func (s *Store) migrate() error {
 			auth_expires_at INTEGER NOT NULL,
 			tmux_enabled INTEGER NOT NULL DEFAULT 0,
 			tmux_session TEXT,
+			login_destination TEXT,
+			proxy_jump TEXT,
+			proxy_command TEXT,
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL,
 			status TEXT NOT NULL
@@ -151,6 +160,9 @@ func (s *Store) migrate() error {
 	}
 
 	if err := s.dedupeConnectionKeys(); err != nil {
+		return err
+	}
+	if err := s.ensureSessionsDialColumns(); err != nil {
 		return err
 	}
 	return s.ensureConnectionKeyIndex()

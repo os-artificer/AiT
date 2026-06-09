@@ -54,6 +54,7 @@ const (
 	trySwitchForce     = "ait session --switch <id|alias> --force"
 	tryLoginSave       = "ait login --save <destination>"
 	tryLoginAlias      = "ait login --alias <name> <destination>"
+	tryLoginHelp       = "ait login --help"
 )
 
 // Interactive password prompts (format strings).
