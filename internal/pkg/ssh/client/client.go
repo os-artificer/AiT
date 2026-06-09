@@ -155,7 +155,7 @@ type InteractiveOpts struct {
 	// RemotePromptDirAbsolute selects absolute vs short (basename) cwd in the remote PS1.
 	RemotePromptDirAbsolute bool
 	AI                      *ai.Client
-	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/ait/cli.
+	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/ait init_hooks.
 	OnRemoteAI RemoteAIRunner
 	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
 	// OnMetaCLI runs ait CLI subcommands from !ait <args> (args exclude the prefix).

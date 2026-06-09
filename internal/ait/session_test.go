@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package cli
+package ait
 
 import (
 	"bytes"

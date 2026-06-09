@@ -239,11 +239,9 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 
 | Path | Role | Representative files |
 |------|------|----------------------|
-| [`internal/ait/`](../internal/ait/) | CLI entry | `root.go` |
-| [`internal/ait/cli/`](../internal/ait/cli/) | Thin Cobra root (`Execute`, `registry.AttachRoot`) | `root.go`, `manager.go` |
+| [`internal/ait/`](../internal/ait/) | CLI entry, Cobra root, manager bootstrap | `root.go`, `cli_root.go`, `manager.go`, `context.go`, `init_hooks.go` |
 | [`internal/ait/registry/`](../internal/ait/registry/) | Top-level command registry (OCP); root `--help` | `register.go`, `root_help.go`, `all/imports.go` |
 | [`internal/pkg/helpdoc/`](../internal/pkg/helpdoc/) | Shared `--help` layout | `body.go`, `bind.go`, `common.go` |
-| [`internal/ait/app/`](../internal/ait/app/) | Manager bootstrap | `manager.go`, `context.go` |
 | [`internal/ait/login/`](../internal/ait/login/) | Login parsing and help | `run.go`, `help.go` |
 | [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
 | [`internal/ait/ai/`](../internal/ait/ai/) | `ait ai` tree (`ask`, `agent`, `provider`, `ollama` via `subregistry`) | `cmd.go`, `help.go`, `register.go` |
