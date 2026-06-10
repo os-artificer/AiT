@@ -208,6 +208,9 @@ func TestScrollChunkLooksLikeShellPrompt(t *testing.T) {
 	if !scrollChunkLooksLikeShellPrompt([]byte("root@ylgeeker.com [~] ->\n")) {
 		t.Fatal("expected TencentOS-style prompt")
 	}
+	if !scrollChunkLooksLikeShellPrompt([]byte("root@ylgeeker [~] ➜\n")) {
+		t.Fatal("expected oh-my-zsh arrow prompt")
+	}
 	if scrollChunkLooksLikeShellPrompt([]byte("Last login: Thu\n")) {
 		t.Fatal("MOTD must not match shell prompt")
 	}

@@ -153,27 +153,58 @@ func (m *Manager) purgeSessionArtifacts(sessID string) {
 	_ = creds.DeleteSessionUnlock(sessID)
 }
 
-func (m *Manager) replayScrollbackIfPresent(st *store.SessionState) {
+// scrollbackDataForReplay loads and sanitizes saved scrollback for load/switch replay.
+// Returns empty string when no scrollback file is present or readable.
+func (m *Manager) scrollbackDataForReplay(sess *store.Session, st *store.SessionState) string {
 	if st == nil || st.ScrollbackPath == "" {
-		return
+		return ""
 	}
 
 	dir, err := platform.ScrollbackDir()
 	if err != nil {
-		return
+		return ""
 	}
 
 	path, err := terminal.ResolveScrollbackPath(dir, st.ScrollbackPath)
 	if err != nil {
-		return
+		return ""
 	}
 
 	data, err := terminal.LoadFromFile(path)
 	if err != nil {
-		return
+		return ""
 	}
 
-	terminal.Replay(data)
+	// Scrollback files recorded before suspend-side filtering may still hold
+	// leaked setup echo; sanitize on every replay so they never resurface.
+	if sess != nil {
+		data = sshclient.StripSetupLeakLines(data, sess.Username, sess.Host)
+	}
+	return data
+}
+
+// suspendOtherActiveSessions marks every active session row except exceptID as suspended.
+// Used when load/login activates a new foreground session without an explicit !ait suspend
+// (status-only demotion; does not save scrollback).
+func (m *Manager) suspendOtherActiveSessions(exceptID string) error {
+	if m == nil || m.Store == nil {
+		return nil
+	}
+
+	list, err := m.Store.ListSessions()
+	if err != nil {
+		return err
+	}
+
+	for _, s := range list {
+		if s.ID == exceptID || s.Status != store.StatusActive {
+			continue
+		}
+		if err := m.Store.UpdateStatus(s.ID, store.StatusSuspended); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // HasActiveSession reports whether a session is currently marked active (connected).

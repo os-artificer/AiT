@@ -50,9 +50,19 @@ func TestIsSetupLeakLine(t *testing.T) {
 	user, host := "root", "ylgeeker.com"
 	leaks := []string{
 		"stty -echo 2>/dev/null",
+		"stty echo 2>/dev/null",
+		".__AITPWD__.",
+		"AITPWDEND__.",
+		`$(d=$(basename "${PWD:-/}" 2>/dev/null); printf '%s' "${d:-/}")`,
 		"set +o history 2>/dev/null",
 		"[ -n \"$ZSH_VERSION\" ] && _AIT_HIST=$HISTFILE HISTFILE=/dev/null",
 		"export PS1='\\[\\]AiT root@ylgeeker.com:${PWD/#$HOME/\\~}$(b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && [ -n \"$b\" ] && printf \":%s\" \"$b\")> \\[\\] '",
+		// Wrapped/redrawn PS1 fragments (line-wrap can cut off the basename prefix).
+		`"${PWD:-/}" 2>/dev/null); printf '%s' "${d:-/}")$(b=$( 2>/dev/null) && [ -n "$b" ] && printf ":%s" "$b")> \[\]'; [ -n`,
+		`printf '%s' "${d:-/}")`,
+		`&& printf ":%s" "$b")>`,
+		// Lone-character noise lines left by ZLE line redraw.
+		"#", "S", "a", "H", " # ",
 	}
 	for _, line := range leaks {
 		if !isSetupLeakLine(line, user, host) {
@@ -131,5 +141,39 @@ func TestDuplicatePromptOutput_PrefixMatch(t *testing.T) {
 	}
 	if !prompt.IsRemotePromptLine(user, host, "AiT u@h:~/x>") {
 		t.Fatal("tilde path should match")
+	}
+}
+
+// TestSetupGraceStripper_PartialChunk (N16) keeps incomplete setup lines across stdout chunks during grace.
+func TestSetupGraceStripper_PartialChunk(t *testing.T) {
+	user, host := "root", "ylgeeker.com"
+	var s setupStdoutStripper
+
+	out1 := s.filterChunk([]byte("stty echo 2>/dev/null"), user, host, true)
+	if len(out1) != 0 {
+		t.Fatalf("partial leak chunk1 = %q", out1)
+	}
+
+	out2 := s.filterChunk([]byte("\r\nAiT root@ylgeeker.com:/tmp> \r\n"), user, host, true)
+	if strings.Contains(string(out2), "stty echo") {
+		t.Fatalf("leak in chunk2: %q", out2)
+	}
+	if !strings.Contains(string(out2), "AiT root@ylgeeker.com:/tmp>") {
+		t.Fatalf("prompt missing: %q", out2)
+	}
+}
+
+// TestSetupOutputFilter_HoldsNativePendingWithoutNewline (P1c) keeps native prompts out of scrollback during setup.
+func TestSetupOutputFilter_HoldsNativePendingWithoutNewline(t *testing.T) {
+	user, host := "root", "ylgeeker.com"
+	var f setupOutputFilter
+
+	native := "root@ylgeeker [~] ➜"
+	out := f.filter([]byte(native), user, host)
+	if len(out) != 0 {
+		t.Fatalf("native pending should stay buffered, filter = %q", out)
+	}
+	if string(f.pending) != native {
+		t.Fatalf("pending = %q, want %q", f.pending, native)
 	}
 }

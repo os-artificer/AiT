@@ -103,7 +103,7 @@ func (m *Manager) loginInteractive(ctx context.Context, client *sshclient.Client
 	}
 
 	initialCmds := m.remotePromptInitialCommands(sess.Username, sess.Host)
-	err = m.runInteractive(ctx, client, sess, initialCmds, plan.persist)
+	err = m.runInteractive(ctx, client, sess, initialCmds, plan.persist, "", "")
 	if err != nil && plan.persist {
 		if newRow {
 			m.deleteLoginSession(sess.ID)

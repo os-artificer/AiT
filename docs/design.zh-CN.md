@@ -42,7 +42,7 @@ ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUA
 
 | 模式 | 触发 | load 行为 | 远程进程 |
 |------|------|-----------|----------|
-| **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选回放上次 suspend 的本地 scrollback | 不保证保活 |
+| **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选将上次 suspend 的 scrollback **种子写入内存**（不在终端显示） | 不保证保活 |
 | **tmux 保活** | `login`/`load` 加 `--tmux` | SSH 后 `tmux attach -t ait-<session_id>`（不存在则 `new -s`） | 断开连接后 shell/进程仍在 |
 
 **新连接须使用 `--save`、`--alias` 或 `--tmux` 才持久化**（`--tmux` 隐含 `--save`）。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ait login user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。`login_destination` 保存 SSH config Host 名（如 `devhost`），供 `load`/`switch` 时 `ssh -G` 重解析跳板。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
@@ -145,7 +145,7 @@ flowchart TB
 
 1. 检查 TTL → 过期则要求密码/口令
 2. SSH 重连
-3. 若有 `session_state`：回放 scrollback、`cd` 到 `remote_cwd`（有则执行）
+3. 若有 `session_state`：将净化后的 scrollback **种子写入内存**（不回放到终端）、`cd` 到 `remote_cwd`（有则执行）
 4. 进入交互
 
 **`load --tmux`：**
@@ -163,7 +163,7 @@ flowchart TB
 | 场景 | 行为 |
 |------|------|
 | 本地无前台 SSH | 等同 `load <target>`（TTL/密码规则相同） |
-| DB 中当前会话仍为 `active` | **阻断**并输出 errhint：须先在 SSH 内 `!ait suspend`，或 `session --switch --force`（仅标记当前为 suspended，**不**保存 scrollback/cwd）→ 再 **load 目标** |
+| DB 中当前会话仍为 `active` | **阻断**并输出 errhint：须先在 SSH 内 `!ait suspend`，或 `session --switch --force`（仅标记当前为 suspended，**不**保存 scrollback/cwd）→ 再 **load 目标**。会话内 `!ait session --switch` 会先自动 suspend。 |
 | 未指定目标 | `list` 展示编号菜单，用户选择 id/alias（支持 `--tmux` 继承当前连接模式或按目标会话 DB 中 `tmux_enabled`） |
 
 ```text
@@ -172,7 +172,7 @@ ait session --switch prod         # 按 alias/id 切换
 ait session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 ```
 
-**交互 SSH 内：** 会话切换以 CLI `ait session --switch` 为主；挂起使用 `!ait suspend`。
+**交互 SSH 内：** 使用 `!ait login`、`!ait load`、`!ait session --switch` 链式切换会话；仅挂起用 `!ait suspend`。
 
 **与 `load` 区别：** `load` 仅连接目标；`switch` 会检查当前会话是否仍为 `active`，须先挂起（或 `--force`）再加载目标，并更新 `app_meta.current_session_id`。
 
@@ -270,7 +270,7 @@ CREATE TABLE app_meta (
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
 | `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
-| SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`。setup 期间 `pauseRemoteOut` 将远程输出缓冲进 scrollback（R1 过滤 setup 泄漏）。[`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) 先 flush `setupFilter.pending`，再经 [`emitBufferedRemotePrompt`](../internal/pkg/ssh/client/client_init_prompt_emit_helpers.go)（raw TTY 前缀 `\r`）或 `\r` refresh 写 stdout；`remotePromptShown` 仅在 emit 成功或首条 prompt 经 [`handleRemoteOutput`](../internal/pkg/ssh/client/client_interactive_helpers.go) 到达 stdout 后置位，避免 refresh 回显被 duplicate 过滤（R2/W4 仍丢弃后续 precmd 重复）。login/load/nested 共用此路径，连接后应**无需按 Enter** 即见远程提示符。 |
+| SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`（非 tmux：[`waitForShellReadyBeforeInject`](../internal/pkg/ssh/client/client_init_helpers.go) 等待 scrollback 出现原生或 AiT prompt 且输出安静，最长 10s；bash 回退为 attach 后安静）；setup 末尾输出 **`RemotePromptReadySentinel`** 握手行；zsh **去重并追加** **`precmd_functions` hook**，避免 oh-my-zsh 主题永久覆盖 `PROMPT`，并**向 PTY 打印展开后的 prompt**（`${PS1@P}` / `print -Pn "$PROMPT"`，可用时 `zle reset-prompt`）；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`。setup 期间 `pauseRemoteOut` 将远程输出缓冲进 scrollback（R1 过滤 setup 泄漏；不向 scroll pending 释放原生 prompt）。[`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) 经 [`waitForRemotePromptReady`](../internal/pkg/ssh/client/client_init_helpers.go) 等待哨兵，再由 [`ensureFirstPromptVisible`](../internal/pkg/ssh/client/client_init_helpers.go) emit scrollback AiT 行、见到哨兵时**客户端绘制**、或仅在 setup 未成功时原生回退；`remotePromptShown` 为真才解除 pause。**load/switch** setup 后经 [`seedReplayScrollback`](../internal/pkg/ssh/client/client_init_helpers.go) / [`SanitizeReplayScrollback`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) **种子写入** [`ReplayScrollback`](../internal/pkg/ssh/client/client.go)（剥泄漏与提示符行；不写终端）。login/load/nested 共用 [`runRemotePromptSetup`](../internal/pkg/ssh/client/prompt_setup.go)，连接后应**无需按 Enter** 即见 AiT 提示符。 |
 | SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ait login -J jump,final` 一次登录到最终主机 |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
@@ -295,13 +295,16 @@ CREATE TABLE app_meta (
 | 命令 | 行为 |
 |------|------|
 | `!ait help` / `!ait` | 打印会话内命令与可本地执行的 CLI 说明 |
-| `!ait <子命令> …` | 在本地执行对应 `ait` CLI（如 `!ait list`）；`login`/`load` 请用 `ait shell` |
+| `!ait <子命令> …` | 在本地执行对应 `ait` CLI（如 `!ait list`）；`login`/`load`/`session --switch` 走链式 handler |
+| `!ait login [flags] dest` | 必要时自动落库 → suspend → 关闭 SSH → `Manager.Login` 连接新主机 |
+| `!ait load [id\|alias]` | 必要时自动落库 → suspend → `Manager.Load` |
+| `!ait session --switch [id\|alias]` | 必要时自动落库 → suspend → `Manager.Switch`（无需 `--force`）；无参 picker 使用 raw TTY；选同一会话时 **重连**（suspend 后 SSH 已断开） |
 | `!ait ai [问题]` | 进入**远程** AI REPL；可选首条提问 |
 | `!! [问题]` | `!ait ai` 别名（`!!` 后须有空格） |
 | `!ait ai`（子命令形式） | **阻断** — 使用行首 `!ait ai`，勿经 CLI runner |
 | `!ait local` | 进入本地模式（见下节） |
 | `!ait remote` | 退出本地模式，恢复远程 stdin |
-| `!ait suspend` | 挂起会话（等同 CLI `suspend`） |
+| `!ait suspend` | 必要时自动落库 → 挂起会话并断开 |
 | `!ait get <remote> [<local>]` | 经 SFTP 从当前 SSH 连接下载单个文件（不重新认证）；省略 local 时默认为 `./basename`；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
 | `!ait put <local> [<remote>]` | 经 SFTP 向当前 SSH 连接上传单个文件（不重新认证）；省略 remote 时默认为 `./basename`（本地源文件名）；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
 | `!ait chain [on\|off]` | 切换链式模式：使用 PTY 管道注入替代 SFTP 进行文件传输和 tmux 操作；当已 SSH 超越直连主机时需要 |
@@ -343,7 +346,7 @@ sequenceDiagram
 - **配置解析**：`internal/pkg/ssh/args` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
 - **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的**无 alias** 连接键即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
-- 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；未保存会话时 `!ait suspend` 会提示需保存
+- 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；否则保持 ephemeral，直至首次 `!ait suspend` / `!ait login` / `!ait load` / `!ait session --switch` 时自动落库（D1 dedupe）
 - PS1 setup 结束后，本地终端立即显示远程 AiT 提示符（缓冲 emit 或 refresh 回显，非静态占位符）
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 
@@ -375,8 +378,11 @@ flowchart LR
 
 - **suspend**：`!ait suspend`；tmux 模式先 detach；写 `session_state`（可选 scrollback/cwd）→ 关 SSH
 - **list**：表格输出 `#`、`ID`（alias 或 8 位前缀）、`TARGET`（`user@host:port`）、`STATUS`、`TMUX`、`REMAINING`（auth TTL）；`-v` 增加 `FULL_ID`（`--load` / `--switch` 请用 alias 或完整 UUID，勿用 ID 列短码）
-- **load**：TTL 校验 →（过期则读密码）→ 重连 → 默认回放+cwd 或 `--tmux` attach → 更新 `current_session_id`
-- **switch**：当前会话为 `active` 且未 `--force` 时阻断并 errhint；`--force` 时仅标记当前 suspended、不保存 scrollback/cwd → `Load(target)`；目标与当前相同则 no-op 并提示
+- **load**：TTL 校验 →（过期则读密码）→ 重连 → 将已保存 scrollback 种子写入内存（屏幕仅 MOTD + AiT 提示符）、恢复 cwd 或 `--tmux` attach → 更新 `current_session_id`
+- **switch**：当前会话为 `active` 且未 `--force` 时阻断并 errhint；`--force` 时仅标记当前 suspended、不保存 scrollback/cwd → `Load(target)`；目标与当前相同则 no-op 并提示（**standalone CLI**；SSH 内 `!ait session --switch` 在 suspend 后选同一会话会 **重连**）
+- **交互 picker**（`session --load` / `--switch` 无参，及 SSH 链式 `!ait load` / `!ait session --switch`）：在 raw TTY 下列表并读行（CRLF 输出）；Ctrl+C 取消并返回 errhint（`session pick cancelled`）；**picker 结束后 drain stdin**，避免残留输入进入下一次 SSH。`ait shell` 内 `load` 仍使用 REPL 已有 raw TTY，不重复切换，picker 后同样 drain。
+- **Setup echo 过滤**：重连/login 后**泄漏过滤**（最长 30s）吞掉泄漏的 inject/PS1 片段（`stty echo`、`AITPWDEND`、PS1 目录/git 段、折行片段及 ZLE 重绘残留的单字符行），含跨 chunk 的不完整行；过滤窗口内 scrollback 与 stdout 写入相同过滤结果。**击键 grace** 在首次转发用户字节时结束，单字节回显直通，泄漏过滤继续。[`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) 在见到 ready 哨兵但远端无回显时**客户端绘制**首帧 AiT 提示符；`remotePromptShown` 为真才解除 `pauseRemoteOut`。`stdinReader` 仅在远端 setup 完成后启动。
+- **Scrollback 泄漏清理**：suspend 保存 scrollback 前过滤泄漏的 setup/探针回显行（含单字符噪声行）；`session --load` / `--switch` **种子写入**已保存 scrollback 时再次净化（剥提示符行；不写终端），屏幕不会重现历史污染。
 
 ### session --switch 流程
 

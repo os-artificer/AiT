@@ -60,6 +60,33 @@ func saveSession(t *testing.T, m *Manager, id, alias string) {
 	}
 }
 
+// TestSuspendOtherActiveSessions (S20) demotes other active rows when activating a foreground session.
+func TestSuspendOtherActiveSessions(t *testing.T) {
+	m := newTestManager(t)
+	saveSession(t, m, "id-a", "a")
+	saveSession(t, m, "id-b", "b")
+
+	if err := m.suspendOtherActiveSessions("id-b"); err != nil {
+		t.Fatal(err)
+	}
+
+	gotA, err := m.Store.GetSession("id-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotA.Status != store.StatusSuspended {
+		t.Fatalf("id-a status = %q, want suspended", gotA.Status)
+	}
+
+	gotB, err := m.Store.GetSession("id-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotB.Status != store.StatusActive {
+		t.Fatalf("id-b status = %q, want active", gotB.Status)
+	}
+}
+
 func TestDeleteWithForce(t *testing.T) {
 	m := newTestManager(t)
 	saveSession(t, m, "id-1", "dev")

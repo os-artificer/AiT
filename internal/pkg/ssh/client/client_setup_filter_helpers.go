@@ -23,6 +23,48 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/prompt"
 )
 
+// setupLeakFragments are literal substrings that identify AiT-injected setup
+// echo (PS1 export, history toggles, pwd probe markers, capture delimiters).
+// Lines containing any of them are dropped from stdout/scrollback filters.
+var setupLeakFragments = []string{
+	"stty -echo",
+	"stty echo",
+	"set +o history",
+	"set -o history",
+	"_AIT_HIST",
+	"HISTFILE=/dev/null",
+	".__AITPWD",
+	"AITPWDEND",
+	`basename "${PWD`,
+	"${PWD/#$HOME",
+	`"${PWD:-/}"`,
+	`printf '%s' "${d:-/}"`,
+	`&& printf ":%s"`,
+	"git rev-parse --abbrev-ref HEAD",
+	"AIT_CAPTURE_B_",
+	"AIT_CAPTURE_E_",
+	"export HISTCONTROL=ignorespace:erasedups",
+	"setopt HIST_IGNORE_SPACE",
+	"PROMPT_SUBST",
+	"printf '\\033[1A",
+	"__ait_p=${PS1@P}",
+	`printf '%b' "$PS1"`,
+	`print -Pn "$PROMPT"`,
+	"ait_precmd()",
+	"precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)",
+	"zle reset-prompt",
+	"dev/null",
+	"HISTFILE=",
+	"unset _AIT_HIST",
+	"precmd_functions",
+	prompt.RemotePromptReadySentinel,
+}
+
+// nativePromptSuffixes are trailing terminators accepted by isNativePromptLike.
+var nativePromptSuffixes = []string{"->", ">", "$", "#", "%", "→", "➜", "❯"}
+
+const nativePromptMinLen = 8
+
 type setupOutputFilter struct {
 	pending []byte
 }
@@ -59,6 +101,15 @@ func (f *setupOutputFilter) filter(p []byte, user, host string) []byte {
 		if !isSetupLeakLine(line, user, host) {
 			out.WriteString(line)
 			out.WriteByte('\n')
+		}
+	}
+
+	// A real prompt line arrives without a trailing newline; release it
+	// immediately so waitForRemoteAITPrompt converges without extra delay.
+	if pending := string(f.pending); pending != "" {
+		if prompt.IsRemotePromptLine(user, host, pending) {
+			out.WriteString(pending)
+			f.pending = nil
 		}
 	}
 	return out.Bytes()
@@ -137,6 +188,73 @@ func (s *setupStdoutStripper) strip(user, host string) []byte {
 	return out.Bytes()
 }
 
+// flushPendingPrompt emits a complete remote prompt held in pending without a trailing newline.
+func (s *setupStdoutStripper) flushPendingPrompt(user, host string) []byte {
+	if len(s.pending) == 0 {
+		return nil
+	}
+	line := strings.TrimRight(string(s.pending), "\r\n")
+	if isSetupLeakLine(line, user, host) {
+		return nil
+	}
+	if !prompt.IsRemotePromptLine(user, host, line) {
+		return nil
+	}
+	out := append([]byte(nil), s.pending...)
+	s.pending = nil
+	return out
+}
+
+// flushPendingNativePrompt emits pending bytes when they form a complete native
+// shell prompt (e.g. "root@host [~] →" without a trailing newline), so the user
+// is never left without a prompt during the grace window. Single characters and
+// other wrapped setup-echo fragments never match and stay held.
+func (s *setupStdoutStripper) flushPendingNativePrompt(user, host string) []byte {
+	if len(s.pending) == 0 {
+		return nil
+	}
+	line := strings.TrimRight(string(s.pending), "\r\n")
+	if isSetupLeakLine(line, user, host) || !isNativePromptLike(line) {
+		return nil
+	}
+	out := append([]byte(nil), s.pending...)
+	s.pending = nil
+	return out
+}
+
+// filterChunk appends p and returns stdout-safe bytes for complete non-leak lines.
+// Pending bytes flush only when they form a complete AiT or native shell prompt;
+// wrapped setup-echo fragments (including single characters) stay held until the
+// line completes or the grace window ends.
+func (s *setupStdoutStripper) filterChunk(p []byte, user, host string, allowNative bool) []byte {
+	if len(p) == 0 {
+		return nil
+	}
+	s.pending = append(s.pending, p...)
+	out := s.strip(user, host)
+
+	if promptBytes := s.flushPendingPrompt(user, host); len(promptBytes) > 0 {
+		return append(out, promptBytes...)
+	}
+	if allowNative {
+		if nativeBytes := s.flushPendingNativePrompt(user, host); len(nativeBytes) > 0 {
+			return append(out, nativeBytes...)
+		}
+	}
+	return out
+}
+
+func (s *setupStdoutStripper) reset() {
+	s.pending = nil
+}
+
+// endGrace drops any trailing pending bytes when the grace window ends.
+// Incomplete setup-echo fragments must not be flushed to stdout on load/switch.
+func (s *setupStdoutStripper) endGrace(user, host string) []byte {
+	s.pending = nil
+	return nil
+}
+
 func (s *setupStdoutStripper) flushStdout(user, host string) []byte {
 	if len(s.pending) == 0 {
 		return nil
@@ -161,57 +279,170 @@ func stripSetupLeakStdout(p []byte, user, host string) []byte {
 	return out
 }
 
+// StripSetupLeakLines removes AiT setup/probe echo lines (PS1 export, stty
+// toggles, pwd probe markers and wrapped fragments) from recorded scrollback
+// data while preserving the original line endings of the remaining lines.
+// user and host scope the prompt-specific patterns; data is returned unchanged
+// when it contains no leak lines.
+func StripSetupLeakLines(data, user, host string) string {
+	if data == "" {
+		return ""
+	}
+	return string(stripSetupLeakStdout([]byte(data), user, host))
+}
+
+// SanitizeReplayScrollback strips setup leaks, prompt lines, and collapses excessive blank lines for load/switch seeding.
+func SanitizeReplayScrollback(data, user, host string) string {
+	if data == "" {
+		return ""
+	}
+	data = StripSetupLeakLines(data, user, host)
+	data = stripReplayPromptLines(data, user, host)
+	return collapseBlankRuns(data)
+}
+
+// stripReplayPromptLines removes AiT and native shell prompt lines from saved scrollback seed data.
+func stripReplayPromptLines(data, user, host string) string {
+	if data == "" {
+		return ""
+	}
+
+	normalized := strings.ReplaceAll(data, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	lines := strings.Split(normalized, "\n")
+
+	var out []string
+	for _, line := range lines {
+		if prompt.IsRemotePromptLine(user, host, line) || isNativePromptLike(line) {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
+// collapseBlankRuns folds consecutive empty lines to at most one blank line.
+func collapseBlankRuns(data string) string {
+	if data == "" {
+		return ""
+	}
+
+	normalized := strings.ReplaceAll(data, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	lines := strings.Split(normalized, "\n")
+
+	var out []string
+	blankRun := 0
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			blankRun++
+			if blankRun <= 1 {
+				out = append(out, line)
+			}
+			continue
+		}
+		blankRun = 0
+		out = append(out, line)
+	}
+
+	return strings.Join(out, "\n")
+}
+
 func isSetupLeakLine(line, user, host string) bool {
 	if strings.TrimSpace(line) == "" {
 		return false
 	}
-	if strings.Contains(line, "stty -echo") {
+	if isScrollNoiseLine(line) {
 		return true
 	}
-	if strings.Contains(line, "set +o history") || strings.Contains(line, "set -o history") {
-		return true
-	}
-	if strings.Contains(line, "_AIT_HIST") || strings.Contains(line, "HISTFILE=/dev/null") {
+	if isSetupLeakFragment(line) {
 		return true
 	}
 	prefix := prompt.RemotePrefix(user, host)
+	if strings.Contains(line, prefix) && !prompt.IsRemotePromptLine(user, host, line) {
+		return true
+	}
 	if strings.Contains(line, "export PS1='") && strings.Contains(line, prefix) {
 		return true
 	}
 	if strings.Contains(line, "export PROMPT='") && strings.Contains(line, prefix) {
 		return true
 	}
-	if strings.Contains(line, "printf '\\033[1A") {
-		return true
+	return false
+}
+
+func isSetupLeakFragment(s string) bool {
+	for _, frag := range setupLeakFragments {
+		if strings.Contains(s, frag) {
+			return true
+		}
 	}
 	return false
 }
 
-// filterRemoteOutputChunk applies setup suppression and duplicate-prompt dropping before scroll/stdout.
-// Returns nil when the chunk should not be forwarded.
-func (c *Client) filterRemoteOutputChunk(chunk []byte, user, host, promptMarker string) []byte {
-	if c.remoteSetupSuppress.Load() {
-		chunk = c.setupFilter.filter(chunk, user, host)
-		if c.setupInjectDone.Load() && strings.Contains(string(chunk), promptMarker) {
-			c.remoteSetupSuppress.Store(false)
+// isNativePromptLike reports whether line looks like a complete native shell
+// prompt (e.g. "root@ylgeeker [~] →" or "user@host:~$"). It requires a
+// user@host marker, a minimum length, and a trailing prompt terminator so
+// wrapped setup-echo fragments and single characters never match.
+func isNativePromptLike(line string) bool {
+	line = strings.TrimSpace(stripANSIForPromptMatch(line))
+	if len(line) < nativePromptMinLen || !strings.Contains(line, "@") {
+		return false
+	}
+	if strings.HasPrefix(line, "AiT ") {
+		return false
+	}
+	for _, suffix := range nativePromptSuffixes {
+		if strings.HasSuffix(line, suffix) {
+			return true
 		}
 	}
+	return false
+}
+
+// isScrollNoiseLine reports whether line is a setup-echo fragment too short to
+// carry meaning: ZLE line redraw leaves lone characters ("#", "S", "a") on
+// their own lines when echoing wrapped setup commands.
+func isScrollNoiseLine(line string) bool {
+	return len([]rune(strings.TrimSpace(line))) == 1
+}
+
+// filterRemoteOutputChunk applies setup suppression and duplicate-prompt dropping before scroll/stdout.
+// Suppression ends only on a real AiT prompt line (not setup echo containing the marker text).
+// Returns nil when the chunk should not be forwarded.
+func (c *Client) filterRemoteOutputChunk(chunk []byte, user, host string) []byte {
+	out, _ := c.filterRemoteOutputChunkRepaint(chunk, user, host)
+	return out
+}
+
+// isWhitespaceOnlyPTYOutput reports whether chunk is only terminal whitespace
+// (newlines/spaces) with no visible shell content.
+func isWhitespaceOnlyPTYOutput(chunk []byte) bool {
 	if len(chunk) == 0 {
-		return nil
+		return false
 	}
-	if c.remotePromptShown.Load() && isDuplicatePromptOutput(chunk, user, host) {
-		return nil
+	for _, b := range chunk {
+		switch b {
+		case '\r', '\n', ' ', '\t':
+			continue
+		default:
+			return false
+		}
 	}
-	return chunk
+	return true
 }
 
 func isDuplicatePromptOutput(p []byte, user, host string) bool {
 	if len(p) == 0 {
 		return false
 	}
-	s := strings.TrimSpace(string(p))
-	if s == "" {
-		return false
+	normalized := strings.ReplaceAll(string(p), "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	lines := strings.Split(normalized, "\n")
+	for _, line := range lines {
+		if isDuplicatePromptLine(line, user, host) {
+			return true
+		}
 	}
-	return prompt.IsRemotePromptLine(user, host, s)
+	return false
 }

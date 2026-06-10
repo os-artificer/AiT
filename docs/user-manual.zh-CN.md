@@ -111,7 +111,7 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | SSH AI 模式（`!ait ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
-**`ait login`** 或 **`ait session --load`** 连接成功后，远程 **`AiT user@host:…>`** 提示符应直接显示，无需额外按 Enter。
+**`ait login`** 或 **`ait session --load`** 连接成功后，远程 **`AiT user@host:…>`** 提示符应直接显示，无需额外按 Enter。**`session --load` / `--switch`** 不会在屏幕上回放挂起前的命令输出；已保存 scrollback 仅写入内存，供 suspend/AI 上下文使用。
 
 ---
 
@@ -145,12 +145,15 @@ SSH 会话（`ait login`）与 `!ait local` 由远端/本地 shell 提供行编�
 | 输入 | 作用 |
 |------|------|
 | `!ait help` / `!ait` | 打印会话内命令与可本地执行的 CLI 说明 |
-| `!ait <子命令> …` | 在本地执行 `ait` 子命令；`login`/`load`/`ai` 须先退出 SSH |
+| `!ait <子命令> …` | 在本地执行 `ait` 子命令；`login`/`load`/`session --switch` 可在 SSH 内链式切换（见下） |
+| `!ait login [flags] dest` | 必要时自动落库 → 挂起当前会话 → 登录新主机 |
+| `!ait load [id\|alias]` | 必要时自动落库 → 挂起 → 加载已保存会话 |
+| `!ait session --switch [id\|alias]` | 必要时自动落库 → 挂起 → 切换到另一会话 |
 | `!ait ai [问题]` | 远程 AI 模式（见上） |
 | `!! [问题]` | 同 `!ait ai` |
 | `!ait local` | 本地模式：命令在本机执行，SSH 连接保持 |
 | `!ait remote` | 退出本地模式，恢复向远程发送输入 |
-| `!ait suspend` | 挂起：保存 scrollback 与远程 cwd，断开连接 |
+| `!ait suspend` | 必要时自动落库 → 挂起：保存 scrollback 与远程 cwd，断开连接 |
 | `!ait get <remote> [<local>]` | 经当前 SSH 下载单个文件（不重新认证）；省略 local 时默认为 `./basename` |
 | `!ait put <local> [<remote>]` | 经当前 SSH 上传单个文件（不重新认证）；省略 remote 时默认为 `./basename` |
 | `!ait chain [on\|off]` | 切换链式模式：PTY 管道 ZMODEM 用于多跳 SSH；`on` = lrzsz ZMODEM，`off` = 优先 lrzsz 再 SFTP（默认） |
@@ -178,7 +181,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 | 场景 | 典型提示 |
 |------|----------|
 | `--load` 使用列表 **ID 列**（8 位前缀） | `The list ID column is for display only` → 请用 alias、`-v` 的 FULL_ID 或交互式 `--load` |
-| 当前会话仍为 **active** 时 `session --switch` | 在 SSH 内 `!ait suspend` 或 `session --switch --force` |
+| 当前会话仍为 **active** 时本机 `session --switch` | 在 SSH 内 `!ait suspend` 或 `session --switch --force`；SSH 内可用 `!ait session --switch` 自动挂起 |
 | 空 `ait ai ask`（无消息/stdin） | `ask requires a message` → 传入消息或管道 stdin |
 | 未知配置键 | `ait config get <key>` 或参考示例 YAML |
 | `ait config validate` 失败 | 按字段路径修正或 `ait config edit` |
