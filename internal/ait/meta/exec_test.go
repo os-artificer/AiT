@@ -35,10 +35,12 @@ func TestPrintMetaHelp(t *testing.T) {
 		"help",
 		"ai [question]",
 		"remote AI mode",
+		"login [flags] dest",
+		"session --switch",
 		"local",
 		"suspend",
 		"!ait list",
-		"ait shell",
+		"auto-save",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("help missing %q:\n%s", want, out)

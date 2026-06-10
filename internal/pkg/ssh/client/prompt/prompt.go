@@ -39,6 +39,19 @@ const remoteDirAbsoluteBash = `${PWD/#$HOME/\~}`
 
 const remoteDirAbsoluteZsh = `${PWD/#$HOME/~}`
 
+// RemotePromptReadySentinel is printed at the end of remote PS1 setup so the client
+// can detect setup completion without polling heuristics alone.
+const RemotePromptReadySentinel = ".__AIT_PROMPT_READY__"
+
+const remotePromptReadyCmd = `; printf '%s\n' '` + RemotePromptReadySentinel + `'`
+
+// remotePromptPrintCmd writes the expanded PS1/PROMPT to the PTY so local emit can
+// show the prompt without waiting for user input. Bash 4.4+ uses ${PS1@P}; older
+// bash falls back to printf '%b'. Zsh uses print -Pn and zle reset-prompt when available.
+const remotePromptPrintCmd = `[ -z "$ZSH_VERSION" ] && { __ait_p=${PS1@P}; [ -n "$__ait_p" ] && printf '%s' "$__ait_p" || printf '%b' "$PS1"; }` +
+	`; [ -n "$ZSH_VERSION" ] && print -Pn "$PROMPT"` +
+	`; [ -n "$ZSH_VERSION" ] && { zle 2>/dev/null && zle reset-prompt 2>/dev/null; }`
+
 // RemotePrefix returns the fixed AiT remote prompt prefix (e.g. "AiT user@host:").
 func RemotePrefix(user, host string) string {
 	return fmt.Sprintf("AiT %s@%s:", user, host)
@@ -118,9 +131,20 @@ func RemotePS1(user, host string, dirAbsolute bool) string {
 	return RemotePS1Dynamic(user, host, dirAbsolute)
 }
 
+// RemotePromptRedrawCmd returns a shell one-liner that prints the current expanded
+// remote prompt to the PTY. Used after setup and as a refresh fallback.
+func RemotePromptRedrawCmd() string {
+	return remotePromptPrintCmd
+}
+
 // RemoteSetupLine sets PS1/PROMPT and HISTCONTROL while history is off, then clears
-// the default prompt line. Echo suppression is provided by Client.Inject; local filter
-// suppresses any leaked echo.
+// the default prompt line and prints the expanded prompt to the PTY. Echo suppression
+// is provided by Client.Inject; local filter suppresses any leaked echo.
+func remoteZshPrecmdHook(prompt string) string {
+	return `[ -n "$ZSH_VERSION" ] && ait_precmd() { PROMPT='` + prompt + `'; RPROMPT=; }` +
+		`; [ -n "$ZSH_VERSION" ] && precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)`
+}
+
 func RemoteSetupLine(user, host string, dirAbsolute bool) string {
 	ps1 := RemotePS1Dynamic(user, host, dirAbsolute)
 	prompt := RemotePROMPTDynamic(user, host, dirAbsolute)
@@ -128,7 +152,10 @@ func RemoteSetupLine(user, host string, dirAbsolute bool) string {
 		"; [ -n \"$ZSH_VERSION\" ] && setopt HIST_IGNORE_SPACE PROMPT_SUBST" +
 		"; export PS1='" + ps1 + "'" +
 		"; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + prompt + "'" +
-		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null"
+		"; " + remoteZshPrecmdHook(prompt) +
+		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null" +
+		"; " + remotePromptPrintCmd +
+		remotePromptReadyCmd
 	return wrapHistoryOff(body)
 }
 
@@ -136,6 +163,7 @@ func RemoteSetupLine(user, host string, dirAbsolute bool) string {
 func RemoteSetupStripFragments(user, host string, dirAbsolute bool) []string {
 	return []string{
 		"stty -echo 2>/dev/null",
+		"stty echo 2>/dev/null",
 		RemoteSetupLine(user, host, dirAbsolute),
 		historyOffBashBegin,
 		historyOffBashEnd,
@@ -146,8 +174,22 @@ func RemoteSetupStripFragments(user, host string, dirAbsolute bool) []string {
 		"setopt HIST_IGNORE_SPACE",
 		"PROMPT_SUBST",
 		"git rev-parse --abbrev-ref HEAD",
+		`basename "${PWD`,
+		"${PWD/#$HOME",
+		".__AITPWD",
+		"AITPWDEND",
+		"AIT_CAPTURE_B_",
+		"AIT_CAPTURE_E_",
 		"export PS1='" + RemotePS1Dynamic(user, host, dirAbsolute) + "'",
 		"export PROMPT='" + RemotePROMPTDynamic(user, host, dirAbsolute) + "'",
+		remotePromptPrintCmd,
+		"__ait_p=${PS1@P}",
+		`printf '%b' "$PS1"`,
+		`print -Pn "$PROMPT"`,
+		"ait_precmd()",
+		"precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)",
+		"zle reset-prompt",
+		RemotePromptReadySentinel,
 	}
 }
 

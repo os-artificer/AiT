@@ -24,8 +24,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/prompt"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
+
+func stdinHasPromptRedraw(s string) bool {
+	return strings.Contains(s, "__ait_p=${PS1@P}") || strings.Contains(s, `print -Pn "$PROMPT"`)
+}
 
 func testClientWithPrompt(user, host string) *Client {
 	c := &Client{
@@ -133,17 +138,14 @@ func TestFinishRemoteSetup_RefreshOnly(t *testing.T) {
 	if strings.Contains(got, RemotePrompt("u", "h")) {
 		t.Fatalf("stdout should not contain static placeholder prompt: %q", got)
 	}
-	if c.remotePromptShown.Load() {
-		t.Fatal("remotePromptShown should stay false until first prompt reaches stdout")
-	}
-	if stdin.String() != "\r" {
-		t.Fatalf("stdin want refresh \\r, got %q", stdin.String())
-	}
-
-	promptLine := "AiT u@h:/tmp> "
-	c.handleRemoteOutput([]byte(promptLine))
 	if !c.remotePromptShown.Load() {
-		t.Fatal("expected remotePromptShown after first prompt on stdout")
+		t.Fatal("remotePromptShown should be set by client paint before unpause")
+	}
+	if !strings.Contains(got, "AiT u@h:") {
+		t.Fatalf("stdout should contain client-painted prompt, got %q", got)
+	}
+	if !stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("stdin want prompt redraw inject, got %q", stdin.String())
 	}
 }
 
@@ -241,23 +243,13 @@ func TestLastRemotePromptLine(t *testing.T) {
 	}
 }
 
-// TestFinishRemoteSetup_RefreshPromptReachStdout (W16) lets the first refresh prompt reach stdout before shown is set.
+// TestFinishRemoteSetup_RefreshPromptReachStdout (W16) paints prompt before unpause and drops duplicate refresh lines.
 func TestFinishRemoteSetup_RefreshPromptReachStdout(t *testing.T) {
 	c := testClientWithPrompt("u", "h")
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 
-	c.finishRemoteSetup(stdin, "u", "h", false)
-
-	if c.remotePromptShown.Load() {
-		t.Fatal("remotePromptShown should stay false until first prompt on stdout")
-	}
-	if stdin.String() != "\r" {
-		t.Fatalf("stdin want refresh \\r, got %q", stdin.String())
-	}
-
-	promptLine := "AiT u@h:/data> "
 	oldStdout := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -272,19 +264,20 @@ func TestFinishRemoteSetup_RefreshPromptReachStdout(t *testing.T) {
 		done <- buf.Bytes()
 	}()
 
-	c.handleRemoteOutput([]byte(promptLine))
+	c.finishRemoteSetup(stdin, "u", "h", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
 	got := string(<-done)
 
-	if !strings.Contains(got, promptLine) {
-		t.Fatalf("stdout should contain refresh prompt %q, got %q", promptLine, got)
-	}
 	if !c.remotePromptShown.Load() {
-		t.Fatal("expected remotePromptShown after first prompt on stdout")
+		t.Fatal("remotePromptShown should be set by client paint before unpause")
 	}
-	if got := c.filterRemoteOutputChunk([]byte(promptLine), "u", "h", remoteSetupPromptMarker("u", "h")); got != nil {
+	if !strings.Contains(got, "AiT u@h:") {
+		t.Fatalf("stdout should contain client-painted prompt, got %q", got)
+	}
+	promptLine := "AiT u@h:/data> "
+	if got := c.filterRemoteOutputChunk([]byte(promptLine), "u", "h"); got != nil {
 		t.Fatal("duplicate prompt should be dropped after shown")
 	}
 }
@@ -300,17 +293,11 @@ func TestFinishRemoteSetup_EmitFailFallsBackRefresh(t *testing.T) {
 
 	c.finishRemoteSetup(stdin, "u", "h", false)
 
-	if c.remotePromptShown.Load() {
-		t.Fatal("remotePromptShown should stay false when emit fails and refresh is used")
-	}
-	if stdin.String() != "\r" {
-		t.Fatalf("stdin want refresh \\r after emit fail, got %q", stdin.String())
-	}
-
-	promptLine := "AiT u@h:/srv> "
-	c.handleRemoteOutput([]byte(promptLine))
 	if !c.remotePromptShown.Load() {
-		t.Fatal("expected remotePromptShown after refresh prompt on stdout")
+		t.Fatal("remotePromptShown should be set by client paint when scroll emit fails")
+	}
+	if !stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("stdin want prompt redraw inject after emit fail, got %q", stdin.String())
 	}
 }
 
@@ -318,12 +305,11 @@ func TestCopyOutDropsDuplicatePromptAfterShown(t *testing.T) {
 	c := &Client{}
 	c.remotePromptShown.Store(true)
 	user, host := "u", "h"
-	marker := remoteSetupPromptMarker(user, host)
 
-	if got := c.filterRemoteOutputChunk([]byte("AiT u@h:/tmp:main> "), user, host, marker); got != nil {
+	if got := c.filterRemoteOutputChunk([]byte("AiT u@h:/tmp:main> "), user, host); got != nil {
 		t.Fatalf("duplicate prompt should be dropped, got %q", got)
 	}
-	if got := c.filterRemoteOutputChunk([]byte("ls\r\n"), user, host, marker); got == nil {
+	if got := c.filterRemoteOutputChunk([]byte("ls\r\n"), user, host); got == nil {
 		t.Fatal("normal command output should pass through")
 	}
 }
@@ -341,6 +327,122 @@ func TestIsDuplicatePromptOutput(t *testing.T) {
 	}
 }
 
+// TestFinishRemoteSetup_RequiresVisiblePromptBeforeUnpause (P1h) emits prompt before unpause.
+func TestFinishRemoteSetup_RequiresVisiblePromptBeforeUnpause(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	promptLine := "AiT u@h:/work> "
+	_, _ = c.scroll.Write([]byte(promptLine))
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	done := make(chan []byte, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.Bytes()
+	}()
+
+	c.finishRemoteSetup(stdin, "u", "h", false)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+	got := string(<-done)
+
+	if !c.remotePromptShown.Load() {
+		t.Fatal("remotePromptShown must be set before unpause")
+	}
+	if c.pauseRemoteOut.Load() {
+		t.Fatal("pauseRemoteOut should be cleared after setup")
+	}
+	if !strings.Contains(got, promptLine) {
+		t.Fatalf("stdout should contain prompt %q, got %q", promptLine, got)
+	}
+}
+
+// TestSeedReplayScrollback_FiltersDevNullFragments (P2h) seeds sanitized scroll without stdout.
+func TestSeedReplayScrollback_FiltersDevNullFragments(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+
+	data := strings.Join([]string{
+		"Welcome to TencentOS",
+		"#",
+		"S",
+		"a",
+		"dev/null",
+		"hello world",
+	}, "\n")
+	c.seedReplayScrollback(data, "root", "ylgeeker.com")
+
+	if buf.Len() != 0 {
+		t.Fatalf("seed replay must not write stdout, got %q", buf.String())
+	}
+	scroll := c.scroll.String()
+	for _, leak := range []string{"#", "dev/null", "\nS\n", "\na\n"} {
+		if strings.Contains(scroll, leak) {
+			t.Fatalf("seed scroll should not contain %q, got %q", leak, scroll)
+		}
+	}
+	if !strings.Contains(scroll, "hello world") {
+		t.Fatalf("seed scroll should keep content, got %q", scroll)
+	}
+}
+
+// TestReplayFilteredScrollback_CollapsesBlankRuns (P2i) folds excessive blank lines on replay.
+func TestReplayFilteredScrollback_CollapsesBlankRuns(t *testing.T) {
+	got := collapseBlankRuns("a\n\n\n\nb")
+	if strings.Count(got, "\n\n") != 1 {
+		t.Fatalf("collapseBlankRuns = %q", got)
+	}
+}
+
+// TestSeedReplayScrollback_NoStdout (P2k) seeds scroll only; stdout stays empty.
+func TestSeedReplayScrollback_NoStdout(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+
+	data := "Welcome\r\nhello world"
+	c.seedReplayScrollback(data, "u", "h")
+
+	if buf.Len() != 0 {
+		t.Fatalf("seed replay must not write stdout, got %q", buf.String())
+	}
+	if strings.Contains(c.scroll.String(), "stty -echo") {
+		t.Fatalf("seed scroll should not contain setup leak, got %q", c.scroll.String())
+	}
+	if !strings.Contains(c.scroll.String(), "hello world") {
+		t.Fatalf("scroll should seed replay data, got %q", c.scroll.String())
+	}
+}
+
+// TestFinishRemoteSetup_NoScrollPrompt_InjectRedraw (P1) injects redraw when scrollback has no prompt.
+func TestFinishRemoteSetup_NoScrollPrompt_InjectRedraw(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	start := time.Now()
+	c.finishRemoteSetup(stdin, "u", "h", false)
+	if time.Since(start) > 4*time.Second {
+		t.Fatalf("finishRemoteSetup should not block for full prompt max wait: %v", time.Since(start))
+	}
+	if !stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("stdin want prompt redraw inject, got %q", stdin.String())
+	}
+}
+
 func TestWaitForRemoteAITPrompt(t *testing.T) {
 	c := &Client{scroll: &terminal.Buffer{}}
 	_, _ = c.scroll.Write([]byte("noise\nAiT u@h:/home> "))
@@ -349,5 +451,212 @@ func TestWaitForRemoteAITPrompt(t *testing.T) {
 	c.waitForRemoteAITPrompt("u", "h", time.Second)
 	if time.Since(start) > 200*time.Millisecond {
 		t.Fatalf("should return quickly when marker present: %v", time.Since(start))
+	}
+}
+
+// TestWaitForShellReadyBeforeInject_NativePrompt (P1e) returns quickly when scroll has a native prompt and output is quiet.
+func TestWaitForShellReadyBeforeInject_NativePrompt(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	attachAt := time.Now().Add(-500 * time.Millisecond)
+	_, _ = c.scroll.Write([]byte("motd\nroot@ylgeeker [~] ➜"))
+	c.touchRemoteOut()
+	time.Sleep(remoteOutputQuietPeriod + 30*time.Millisecond)
+
+	start := time.Now()
+	c.waitForShellReadyBeforeInject(attachAt, "root", "ylgeeker.com", shellReadyMaxWait)
+	if time.Since(start) > 500*time.Millisecond {
+		t.Fatalf("should return quickly when native prompt present and quiet: %v", time.Since(start))
+	}
+}
+
+// TestTriggerRemotePrecmd_WritesSpaceNewline (P1f) sends a history-ignored blank line to stdin.
+func TestTriggerRemotePrecmd_WritesSpaceNewline(t *testing.T) {
+	c := &Client{scroll: &terminal.Buffer{}}
+	stdin := &bytes.Buffer{}
+	c.triggerRemotePrecmd(stdin)
+	if stdin.String() != " \n" {
+		t.Fatalf("stdin = %q, want %q", stdin.String(), " \n")
+	}
+}
+
+// TestEmitBufferedRemotePromptIfReady_NoPrecmd (P1g) does not trigger precmd from emit helper.
+func TestEmitBufferedRemotePromptIfReady_NoPrecmd(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	c.pauseRemoteOut.Store(true)
+	stdin := &bytes.Buffer{}
+
+	c.emitBufferedRemotePromptIfReady(stdin, "root", "ylgeeker.com")
+
+	if strings.HasPrefix(stdin.String(), " \n") {
+		t.Fatalf("emit helper should not trigger precmd, got %q", stdin.String())
+	}
+}
+
+// TestWaitRemoteOutputQuietSince_BeforeShellInject (P1d) verifies quiet-since-attach fallback timing.
+func TestWaitRemoteOutputQuietSince_BeforeShellInject(t *testing.T) {
+	c := &Client{scroll: &terminal.Buffer{}}
+	attachAt := time.Now()
+	c.touchRemoteOut()
+
+	start := time.Now()
+	c.waitRemoteOutputQuietSince(attachAt, remoteOutputQuietPeriod, shellQuietMaxWait)
+	elapsed := time.Since(start)
+	if elapsed < remoteOutputQuietPeriod {
+		t.Fatalf("should wait at least quiet period after MOTD, got %v", elapsed)
+	}
+	if elapsed > shellQuietMaxWait+500*time.Millisecond {
+		t.Fatalf("should not exceed shell quiet max wait, got %v", elapsed)
+	}
+}
+
+// TestFinishRemoteSetup_EmitsNativePromptFallback (P1c) writes native prompt only when setup sentinel is absent.
+func TestFinishRemoteSetup_EmitsNativePromptFallback(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	nativeLine := "root@ylgeeker [~] ➜"
+	_, _ = c.scroll.Write([]byte("motd\n" + nativeLine))
+	// No RemotePromptReadySentinel — native fallback is allowed.
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	done := make(chan []byte, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.Bytes()
+	}()
+
+	c.finishRemoteSetup(stdin, "root", "ylgeeker.com", false)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+	got := string(<-done)
+
+	if !strings.Contains(got, nativeLine) {
+		t.Fatalf("stdout should contain native prompt %q, got %q", nativeLine, got)
+	}
+	if !c.remotePromptShown.Load() {
+		t.Fatal("remotePromptShown should be set after native emit fallback")
+	}
+}
+
+func TestLastNativePromptLine(t *testing.T) {
+	scroll := "motd\nroot@ylgeeker [~] ➜\n"
+	if got := lastNativePromptLine(scroll); got != "root@ylgeeker [~] ➜" {
+		t.Fatalf("got %q", got)
+	}
+	if got := lastNativePromptLine("AiT u@h:/tmp> "); got != "" {
+		t.Fatalf("want empty for AiT-only scroll, got %q", got)
+	}
+}
+
+// TestFinishRemoteSetup_ClientPaintWhenSentinelOnlyNative (P1i) paints AiT prompt instead of native fallback.
+func TestFinishRemoteSetup_ClientPaintWhenSentinelOnlyNative(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	nativeLine := "root@ylgeeker [~] ->"
+	_, _ = c.scroll.Write([]byte(nativeLine + "\n" + prompt.RemotePromptReadySentinel + "\n"))
+	c.remotePromptReadySeen.Store(true)
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+
+	done := make(chan []byte, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.Bytes()
+	}()
+
+	c.finishRemoteSetup(stdin, "root", "ylgeeker.com", false)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+	got := string(<-done)
+
+	if strings.Contains(got, nativeLine) {
+		t.Fatalf("stdout should not contain native prompt %q, got %q", nativeLine, got)
+	}
+	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
+		t.Fatalf("stdout should contain client-painted AiT prompt, got %q", got)
+	}
+}
+
+// TestEnsureFirstPromptVisible_NoPrecmdWhenSetupSucceeded (P1n) paints without precmd when sentinel is ready.
+func TestEnsureFirstPromptVisible_NoPrecmdWhenSetupSucceeded(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	c.pauseRemoteOut.Store(true)
+	c.remotePromptReadySeen.Store(true)
+	stdin := &bytes.Buffer{}
+
+	if !c.ensureFirstPromptVisible(stdin, "root", "ylgeeker.com") {
+		t.Fatal("expected prompt visible")
+	}
+	if strings.Contains(stdin.String(), " \n") {
+		t.Fatalf("precmd should be skipped when setup succeeded, stdin=%q", stdin.String())
+	}
+	if !c.remotePromptShown.Load() {
+		t.Fatal("remotePromptShown should be set")
+	}
+}
+
+// TestFormatActivePromptStdout_NoTrailingNewline (P1m) keeps the cursor on the prompt line.
+func TestFormatActivePromptStdout_NoTrailingNewline(t *testing.T) {
+	line := "AiT root@ylgeeker.com:~> "
+	out := formatActivePromptStdout(line)
+	if strings.HasSuffix(out, "\n") || strings.HasSuffix(out, "\r\n") {
+		t.Fatalf("active prompt must not end with newline, got %q", out)
+	}
+	if !strings.HasPrefix(out, "\r") {
+		t.Fatalf("active prompt should start with carriage return, got %q", out)
+	}
+	if !strings.HasSuffix(out, "> ") {
+		t.Fatalf("active prompt should end at prompt suffix, got %q", out)
+	}
+}
+
+// TestFinishRemoteSetup_SinglePrecmdTrigger (P1k) sends at most one precmd blank line during setup finish.
+func TestFinishRemoteSetup_SinglePrecmdTrigger(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	c.finishRemoteSetup(stdin, "root", "ylgeeker.com", false)
+
+	if strings.Count(stdin.String(), " \n") != 1 {
+		t.Fatalf("want exactly one precmd trigger, stdin=%q", stdin.String())
+	}
+}
+
+// TestFinishRemoteSetup_HardGateUnpause (P1l) never clears pauseRemoteOut without remotePromptShown.
+func TestFinishRemoteSetup_HardGateUnpause(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	stdin := &bytes.Buffer{}
+	c.pauseRemoteOut.Store(true)
+	c.remoteSetupSuppress.Store(true)
+
+	c.finishRemoteSetup(stdin, "u", "h", false)
+
+	if !c.remotePromptShown.Load() {
+		t.Fatal("remotePromptShown must be true before unpause")
+	}
+	if c.pauseRemoteOut.Load() {
+		t.Fatal("pauseRemoteOut should clear once prompt is shown")
 	}
 }

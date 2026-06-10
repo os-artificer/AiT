@@ -183,10 +183,7 @@ func (c *Client) runNestedPromptInjectLocked() {
 	c.activePromptHost = host
 	c.SetChainMode(true)
 
-	c.pauseRemoteOut.Store(true)
-	c.remoteSetupSuppress.Store(true)
-	c.setupInjectDone.Store(false)
-	c.setupFilter = setupOutputFilter{}
+	c.beginRemotePromptSetup(c.remotePromptDirAbs, "")
 
 	cmds := RemotePromptInitialCommands(user, host, c.remotePromptDirAbs)
 	if len(cmds) == 0 {
@@ -194,26 +191,10 @@ func (c *Client) runNestedPromptInjectLocked() {
 	}
 
 	if err := c.injectInitialCommands(stdin, cmds); err != nil {
-		return
-	}
-
-	c.finishRemoteSetup(stdin, user, host, false)
-
-	marker := remoteSetupPromptMarker(user, host)
-	if strings.Contains(c.scroll.String(), marker) {
-		return
-	}
-
-	c.pauseRemoteOut.Store(true)
-	c.remoteSetupSuppress.Store(true)
-	c.setupInjectDone.Store(false)
-	c.setupFilter = setupOutputFilter{}
-
-	if err := c.injectInitialCommands(stdin, cmds); err != nil {
 		c.remoteSetupSuppress.Store(false)
 		c.pauseRemoteOut.Store(false)
 		return
 	}
 
-	c.finishRemoteSetup(stdin, user, host, false)
+	c.runRemotePromptSetup(stdin, user, host, false)
 }

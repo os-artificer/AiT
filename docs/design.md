@@ -42,7 +42,7 @@ Use **`!ait local` / `!ait remote`** to toggle local versus remote input while S
 
 | Mode | Trigger | `load` behavior | Remote processes |
 |------|---------|-----------------|------------------|
-| **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally replay scrollback saved at last suspend | No keep-alive guarantee |
+| **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally **seed** saved scrollback into in-memory buffer (not displayed on the terminal) | No keep-alive guarantee |
 | **tmux keep-alive** | `login`/`load` with `--tmux` | After SSH: `tmux attach -t ait-<session_id>` (or `new -s` if missing) | Shell/process survives disconnect |
 
 **Login metadata is persisted with `--save`, `--alias`, or `--tmux` for new connections** (`--tmux` implies `--save`). Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). `login_destination` stores the ssh config Host name (e.g. `devhost`) for `ssh -G` re-resolve on `load`/`switch`. Plain `ait login user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
@@ -145,7 +145,7 @@ flowchart TB
 
 1. Check TTL → if expired, require password or passphrase
 2. SSH reconnect
-3. If `session_state` exists: replay scrollback and `cd` to `remote_cwd` when present
+3. If `session_state` exists: **seed** sanitized scrollback into the in-memory buffer (not replayed to the terminal) and `cd` to `remote_cwd` when present
 4. Enter interactive session
 
 **`load --tmux`:**
@@ -163,7 +163,7 @@ Switch among saved sessions. When no local foreground SSH is active, behavior ma
 | Scenario | Behavior |
 |----------|----------|
 | No foreground SSH locally | Equivalent to `load <target>` (same TTL/password rules) |
-| Current session still `active` in DB | **Blocked** with errhint: run `!ait suspend` inside SSH first, or `session --switch --force` (marks current suspended **without** saving scrollback/cwd) → then **load target** |
+| Current session still `active` in DB | **Blocked** with errhint: run `!ait suspend` inside SSH first, or `session --switch --force` (marks current suspended **without** saving scrollback/cwd) → then **load target**. In-session `!ait session --switch` auto-suspends first. |
 | Target omitted | `list`-style numbered menu; user selects id/alias (`--tmux` follows current connection mode or target `tmux_enabled` in DB) |
 
 ```text
@@ -172,7 +172,7 @@ ait session --switch prod         # Switch by alias/id
 ait session --switch prod --tmux  # Switch and attach target in tmux mode
 ```
 
-**Inside interactive SSH:** prefer CLI `ait session --switch`; use `!ait suspend` for suspend.
+**Inside interactive SSH:** use `!ait login`, `!ait load`, or `!ait session --switch` to chain sessions; `!ait suspend` to suspend only.
 
 **Compared with `load`:** `load` connects only to the target; `switch` additionally checks whether the current session is still `active` and blocks until you suspend (or `--force`), then loads the target and updates `app_meta.current_session_id`.
 
@@ -270,7 +270,7 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | Scenario | Prompt | How it is set |
 |----------|--------|----------------|
 | `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
-| SSH remote | `AiT user@host:dir[:git-branch]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) injects dynamic bash `PS1` / zsh `PROMPT` after `load`/`login`; **`session.remote_prompt.path`**: `short` (default, last path segment) or `absolute` (`$PWD` with `~` for home); optional `:branch` via `git rev-parse`. During setup, `pauseRemoteOut` buffers remote output in scrollback (R1 filters setup leaks). [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) flushes `setupFilter.pending`, then either [`emitBufferedRemotePrompt`](../internal/pkg/ssh/client/client_init_prompt_emit_helpers.go) (prefix `\r` on raw TTY) or `\r` refresh; `remotePromptShown` is set only after emit succeeds or the first prompt reaches stdout via [`handleRemoteOutput`](../internal/pkg/ssh/client/client_interactive_helpers.go), so refresh echo is not dropped as duplicate (R2/W4 still suppress later precmd repeats). Login/load/nested share this path—the remote prompt should appear **without pressing Enter**. |
+| SSH remote | `AiT user@host:dir[:git-branch]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) injects dynamic bash `PS1` / zsh `PROMPT` after `load`/`login` (non-tmux: [`waitForShellReadyBeforeInject`](../internal/pkg/ssh/client/client_init_helpers.go) waits for a native or AiT prompt line in scrollback plus output quiet, up to 10s; bash hosts fall back to quiet-since-attach); setup ends with a **`RemotePromptReadySentinel`** handshake line; zsh deduplicates and appends a **`precmd_functions` hook** so oh-my-zsh themes do not permanently override `PROMPT`, then **prints the expanded prompt** to the PTY (`${PS1@P}` / `print -Pn "$PROMPT"` + `zle reset-prompt` when available); **`session.remote_prompt.path`**: `short` (default, last path segment) or `absolute` (`$PWD` with `~` for home); optional `:branch` via `git rev-parse`. During setup, `pauseRemoteOut` buffers remote output in scrollback (R1 filters setup leaks; native prompts are not seeded into scroll pending). [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) waits for the ready sentinel via [`waitForRemotePromptReady`](../internal/pkg/ssh/client/client_init_helpers.go), then [`ensureFirstPromptVisible`](../internal/pkg/ssh/client/client_init_helpers.go) emits scrollback AiT lines, **client-paints** when the sentinel is present, or native fallback only when setup did not succeed; unpause requires `remotePromptShown`. **Load/switch** seeds [`ReplayScrollback`](../internal/pkg/ssh/client/client.go) into memory **after** setup via [`seedReplayScrollback`](../internal/pkg/ssh/client/client_init_helpers.go) / [`SanitizeReplayScrollback`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) (leak strip, prompt-line strip, blank-line collapse)—not displayed on the terminal. Login/load/nested share [`runRemotePromptSetup`](../internal/pkg/ssh/client/prompt_setup.go)—the AiT prompt should appear **without pressing Enter**. |
 | SSH nested (manual `ssh` in session) | same as SSH remote on **active** hop | After a simple `ssh user@host` from an AiT session, MOTD + quiet detection triggers the same PS1 inject and enables chain mode; use `ait login -J jump,final` to land on the final host in one step |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)) |
 
@@ -295,13 +295,16 @@ Implementation: [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/
 | Command | Behavior |
 |---------|----------|
 | `!ait help` / `!ait` | Print in-session commands and locally runnable CLI notes |
-| `!ait <subcommand> …` | Run matching `ait` CLI locally (for example `!ait list`); use `ait shell` for `login`/`load` |
+| `!ait <subcommand> …` | Run matching `ait` CLI locally (for example `!ait list`); `login`/`load`/`session --switch` use chain handlers below |
+| `!ait login [flags] dest` | Auto-save current session if needed, suspend, close SSH, then `Manager.Login` to the new host |
+| `!ait load [id\|alias]` | Auto-save if needed, suspend, then `Manager.Load` |
+| `!ait session --switch [id\|alias]` | Auto-save if needed, suspend, then `Manager.Switch` (no `--force` required); no-arg picker uses raw TTY; picking the **same** session **reconnects** after suspend closed SSH |
 | `!ait ai [question]` | Enter **remote** AI REPL; optional first question |
 | `!! [question]` | Alias for `!ait ai` (`!!` must be followed by space when used) |
 | `!ait ai` (as subcommand) | **Blocked** — use `!ait ai` line form above, not `!ait` + CLI runner |
 | `!ait local` | Enter local mode (below) |
 | `!ait remote` | Leave local mode; restore remote stdin |
-| `!ait suspend` | Suspend session (same as CLI `suspend`) |
+| `!ait suspend` | Auto-save if needed, suspend session, disconnect |
 | `!ait get <remote> [<local>]` | Download one file via SFTP on the **current** SSH connection (no re-auth); optional local path defaults to `./basename`; relative remote paths resolve against the **active shell** cwd before SFTP |
 | `!ait put <local> [<remote>]` | Upload one file via SFTP on the **current** SSH connection (no re-auth); optional remote path defaults to `./basename` (local source); relative remote paths resolve against the **active shell** cwd before SFTP |
 | `!ait chain [on\|off]` | Toggle chain mode: use PTY-pipe injection instead of SFTP for file transfer and tmux; needed when SSH'd beyond the directly connected host |
@@ -344,7 +347,7 @@ sequenceDiagram
 - **Dial**: `client.DialChain` supports `ProxyJump` / `ProxyCommand` (Unix `sh -c`, Windows `cmd /c`)
 - **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing empty-alias** connection key updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
 - Auth order: `-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
-- Interactive login writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise `!ait suspend` requires a saved session
+- Interactive login writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise the session stays ephemeral until the first `!ait suspend`, `!ait login`, `!ait load`, or `!ait session --switch` (auto-save, D1 dedupe)
 - After PS1 setup, the local terminal shows the remote AiT prompt immediately (buffered emit or refresh echo—not a static placeholder)
 
 ### Local mode (!ait local / remote)
@@ -375,8 +378,11 @@ flowchart LR
 
 - **suspend**: `!ait suspend`; tmux mode detaches first; write `session_state` (optional scrollback/cwd) → close SSH
 - **list**: tabular output `#`, `ID` (alias or 8-char prefix), `TARGET` (`user@host:port`), `STATUS`, `TMUX`, `REMAINING` (auth TTL); `-v` adds `FULL_ID` (use alias or full UUID for `--load` / `--switch`, not the short ID column)
-- **load**: TTL check → (prompt password if expired) → reconnect → default replay plus cwd or `--tmux` attach → update `current_session_id`
-- **switch**: if current session is `active` and not `--force`, block with errhint; with `--force`, mark current suspended without saving scrollback/cwd → `Load(target)`; same target is no-op with notice
+- **load**: TTL check → (prompt password if expired) → reconnect → seed saved scrollback into memory (screen shows MOTD + AiT prompt only), restore cwd or `--tmux` attach → update `current_session_id`
+- **switch**: if current session is `active` and not `--force`, block with errhint; with `--force`, mark current suspended without saving scrollback/cwd → `Load(target)`; same target is no-op with notice (**standalone CLI**; in-SSH `!ait session --switch` **reconnects** when picking the same session after suspend)
+- **Interactive picker** (`session --load` / `--switch` with no target, and in-SSH chain `!ait load` / `!ait session --switch`): lists sessions and reads input in raw TTY mode (CRLF output); Ctrl+C cancels with errhint (`session pick cancelled`); **drains stdin** after pick so stale input is not forwarded to the next SSH session. `ait shell` `load` reuses the REPL raw TTY without an extra mode switch and drains stdin after pick.
+- **Setup echo filter**: after reconnect/login, **leak filtering** (up to 30s) suppresses leaked inject/PS1 fragments (`stty echo`, `AITPWDEND`, PS1 dir/git segments, wrapped fragments, and lone-character lines left by ZLE redraw) including partial line chunks; scrollback and stdout receive the same filtered bytes during this window. **Keystroke grace** ends on the first forwarded user byte so single-byte echo passes through while leak filtering continues. [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) **client-paints** the first AiT prompt when the ready sentinel is seen but remote echo is missing; unpause is gated on `remotePromptShown`. `stdinReader` starts only after remote setup completes.
+- **Scrollback leak hygiene**: leaked setup/probe echo lines (including lone-character noise lines) are filtered out of the scrollback buffer before suspend saves it, and again when saved scrollback is **seeded** on `session --load` / `--switch` (prompt lines stripped; not written to the terminal), so previously polluted recordings never resurface on screen.
 
 ### Session switch flow
 

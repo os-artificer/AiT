@@ -17,6 +17,7 @@
 package client
 
 import (
+	"io"
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/prompt"
@@ -42,6 +43,94 @@ func lastRemotePromptLine(scroll string, user, host string) string {
 	return ""
 }
 
+// containsPromptReadySentinel reports whether s contains the setup ready handshake marker.
+func containsPromptReadySentinel(s string) bool {
+	return strings.Contains(s, prompt.RemotePromptReadySentinel)
+}
+
+// containsRemotePromptLine reports whether s contains a real AiT remote prompt line.
+// Unlike a marker substring check, setup echo that merely contains the prompt
+// prefix (e.g. an echoed "export PS1='...'") does not match.
+func containsRemotePromptLine(s, user, host string) bool {
+	return lastRemotePromptLine(s, user, host) != ""
+}
+
+// lastNativePromptLine returns the last scrollback line that looks like a native shell prompt.
+func lastNativePromptLine(scroll string) string {
+	if scroll == "" {
+		return ""
+	}
+
+	normalized := strings.ReplaceAll(scroll, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	lines := strings.Split(normalized, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		if !isNativePromptLike(line) {
+			continue
+		}
+		return line
+	}
+
+	return ""
+}
+
+// emitBufferedRemotePromptIfReady emits a buffered AiT prompt or client paint while pauseRemoteOut holds
+// setup output in scrollback. It does not trigger precmd or native fallback.
+// Returns true when a prompt line was written to stdout.
+func (c *Client) emitBufferedRemotePromptIfReady(stdin io.Writer, user, host string) bool {
+	if !c.pauseRemoteOut.Load() {
+		return false
+	}
+
+	if containsRemotePromptLine(c.scroll.String(), user, host) {
+		if c.emitBufferedRemotePrompt(user, host) {
+			c.remotePromptShown.Store(true)
+			return true
+		}
+	}
+
+	if c.setupSucceeded() {
+		if c.paintClientRemotePrompt(user, host) {
+			c.remotePromptShown.Store(true)
+			return true
+		}
+	}
+
+	c.refreshRemotePrompt(stdin)
+	c.waitForRemoteAITPrompt(user, host, remoteAITPromptRefreshWait)
+	if c.emitBufferedRemotePrompt(user, host) {
+		c.remotePromptShown.Store(true)
+		return true
+	}
+	if c.setupSucceeded() && c.paintClientRemotePrompt(user, host) {
+		c.remotePromptShown.Store(true)
+		return true
+	}
+	return false
+}
+
+// formatActivePromptStdout formats a prompt for stdout with the cursor left on the same line.
+func formatActivePromptStdout(line string) string {
+	line = strings.TrimRight(line, "\r\n")
+	return "\r" + line
+}
+
+// emitBufferedNativePrompt writes the last native shell prompt from scrollback to stdout.
+// Returns true when a native prompt line was found and written.
+func (c *Client) emitBufferedNativePrompt() bool {
+	line := lastNativePromptLine(c.scroll.String())
+	if line == "" {
+		return false
+	}
+
+	out := formatActivePromptStdout(line)
+	if _, err := c.writeInteractiveStdout([]byte(out)); err != nil {
+		return false
+	}
+	return true
+}
+
 // emitBufferedRemotePrompt writes the buffered remote prompt from scrollback to stdout.
 // Returns true when a prompt line was found and written.
 func (c *Client) emitBufferedRemotePrompt(user, host string) bool {
@@ -50,6 +139,9 @@ func (c *Client) emitBufferedRemotePrompt(user, host string) bool {
 		return false
 	}
 
-	_, _ = c.writeInteractiveStdout([]byte("\r" + line))
+	out := formatActivePromptStdout(line)
+	if _, err := c.writeInteractiveStdout([]byte(out)); err != nil {
+		return false
+	}
 	return true
 }
