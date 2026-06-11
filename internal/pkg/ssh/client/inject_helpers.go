@@ -86,6 +86,8 @@ func injectStripFragments() []string {
 		injectCaptureEnd,
 		injectCaptureBeginPrint,
 		injectCaptureEndPrint,
+		injectEchoOff,
+		injectEchoOn,
 	}
 }
 

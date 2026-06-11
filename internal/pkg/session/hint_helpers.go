@@ -38,10 +38,12 @@ func invalidSelectionErr() error {
 	)
 }
 
-func ephemeralSuspendErr() error {
-	return errhint.WithTryMsg(errEphemeralSuspendRequiresPersist,
-		hintEphemeralSuspendExplain,
-		tryLoginSave, tryLoginAlias, trySessionHelp,
+func pickCancelledErr() error {
+	return errhint.WithTry(ErrPickCancelled,
+		hintPickCancelledExplain,
+		tryLoadByAlias,
+		tryLoadInteractive,
+		trySessionHelp,
 	)
 }
 

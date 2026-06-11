@@ -52,7 +52,7 @@ func TestHandleRemoteOutput_GraceStripUsesCRLF(t *testing.T) {
 	var buf bytes.Buffer
 	c.interactiveOut = terminal.NewCRLFWriter(&buf)
 	c.pauseRemoteOut.Store(false)
-	c.setupLeakGraceUntil.Store(time.Now().Add(setupLeakGracePeriod).UnixNano())
+	c.setupLeakGraceUntil.Store(time.Now().Add(setupLeakGraceMax).UnixNano())
 
 	leak := "stty -echo 2>/dev/null\r\n"
 	prompt := "AiT u@h:/tmp> \n"
