@@ -60,6 +60,11 @@ func RemotePromptInitialCommands(user, host string, dirAbsolute bool) []string {
 	return prompt.RemoteInitialCommands(user, host, dirAbsolute)
 }
 
+// RemotePromptRedrawCmd returns a shell one-liner that prints the expanded remote prompt.
+func RemotePromptRedrawCmd() string {
+	return prompt.RemotePromptRedrawCmd()
+}
+
 func remoteSetupPromptMarker(user, host string) string {
 	return prompt.RemoteSetupMarker(user, host)
 }

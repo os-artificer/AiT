@@ -67,27 +67,32 @@ type Options struct {
 
 // Client is an SSH connection with optional interactive shell.
 type Client struct {
-	conn                *ssh.Client
-	agentConn           net.Conn
-	opts                Options
-	scroll              *terminal.Buffer
-	remoteCwd           string
-	localShell          localmode.Shell
-	pauseRemoteOut      atomic.Bool
-	lastRemoteOut       atomic.Int64
-	remoteSetupSuppress atomic.Bool
-	setupInjectDone     atomic.Bool
-	setupLeakGraceUntil atomic.Int64
-	remotePromptShown   atomic.Bool
-	remotePromptDirAbs  bool
-	setupFilter         setupOutputFilter
-	stdinReader         *stdinReader // set for RunInteractive; used during remote AI REPL
-	chainMode           atomic.Bool  // false by default; PTY-pipe injection when chain mode is on
-	zmodemActive        atomic.Bool
-	zmodemSession       *zmodem.Session
-	transferMu          sync.Mutex
-	transferCancel      context.CancelFunc
-	transferActive      atomic.Bool
+	conn                       *ssh.Client
+	agentConn                  net.Conn
+	opts                       Options
+	scroll                     *terminal.Buffer
+	remoteCwd                  string
+	localShell                 localmode.Shell
+	pauseRemoteOut             atomic.Bool
+	lastRemoteOut              atomic.Int64
+	remoteSetupSuppress        atomic.Bool
+	setupInjectDone            atomic.Bool
+	setupLeakGraceUntil        atomic.Int64
+	setupKeystrokeGraceUntil   atomic.Int64
+	metaRecoverWhitespaceUntil atomic.Int64
+	remotePromptShown          atomic.Bool
+	remotePromptReadySeen      atomic.Bool
+	remotePromptDirAbs         bool
+	initialRemoteCwd           string
+	setupFilter                setupOutputFilter
+	setupGraceStripper         setupStdoutStripper
+	stdinReader                *stdinReader // set for RunInteractive; used during remote AI REPL
+	chainMode                  atomic.Bool  // false by default; PTY-pipe injection when chain mode is on
+	zmodemActive               atomic.Bool
+	zmodemSession              *zmodem.Session
+	transferMu                 sync.Mutex
+	transferCancel             context.CancelFunc
+	transferActive             atomic.Bool
 
 	activePromptUser      string
 	activePromptHost      string
@@ -165,6 +170,12 @@ type InteractiveOpts struct {
 	OnMetaCLI func(args []string) error
 	// AgentMaxSteps overrides the agent turn limit; 0 means use default from config.
 	AgentMaxSteps int
+	// InitialRemoteCwd is the saved remote cwd for client-painted first prompt on load/switch.
+	InitialRemoteCwd string
+	// ReplayScrollback is sanitized scrollback from a prior suspend, seeded into the
+	// in-memory scroll buffer after setup (load/switch). Not written to stdout.
+	// Empty skips seeding.
+	ReplayScrollback string
 }
 
 // RunInteractive runs a PTY shell with !ait / !! meta handling, optional tmux, and AI/local modes.
@@ -194,6 +205,8 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 
 	c.interactiveOut = terminal.NewCRLFWriter(os.Stdout)
 	defer func() { c.interactiveOut = nil }()
+
+	pendingReplay := opts.ReplayScrollback
 
 	cols, rows, _ := term.GetSize(fd)
 
@@ -237,12 +250,7 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	setupNeeded := len(opts.InitialCommands) > 0
 	postAttachCmds := opts.InitialCommands
 	if setupNeeded {
-		c.pauseRemoteOut.Store(true)
-		c.remoteSetupSuppress.Store(true)
-		c.setupInjectDone.Store(false)
-		c.setupLeakGraceUntil.Store(0)
-		c.remotePromptDirAbs = opts.RemotePromptDirAbsolute
-		c.setupFilter = setupOutputFilter{}
+		c.beginRemotePromptSetup(opts.RemotePromptDirAbsolute, opts.InitialRemoteCwd)
 	}
 
 	var wg sync.WaitGroup
@@ -296,18 +304,22 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 
 	defer stopResize()
 
-	c.stdinReader = startStdinReader()
-	stdinCh := c.stdinReader.Ch
-
 	shutdown := func() {
-		c.stdinReader.Stop()
+		if c.stdinReader != nil {
+			c.stdinReader.Stop()
+		}
 		_ = sess.Close()
 		wg.Wait()
 	}
 	defer shutdown()
 
 	// Wait for login shell / .bashrc to finish while output is suppressed.
-	time.Sleep(shellReadyDelay)
+	attachAt := time.Now()
+	if opts.TmuxEnabled {
+		time.Sleep(shellReadyDelay)
+	} else {
+		c.waitForShellReadyBeforeInject(attachAt, c.promptUser(), c.promptHost(), shellReadyMaxWait)
+	}
 
 	if len(postAttachCmds) > 0 {
 		if err := c.injectInitialCommands(stdin, postAttachCmds); err != nil {
@@ -318,8 +330,16 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 	}
 
 	if setupNeeded {
-		c.finishRemoteSetup(stdin, c.opts.User, c.opts.Host, opts.TmuxEnabled)
+		c.runRemotePromptSetup(stdin, c.opts.User, c.opts.Host, opts.TmuxEnabled)
 	}
+
+	if pendingReplay != "" {
+		c.seedReplayScrollback(pendingReplay, c.promptUser(), c.promptHost())
+	}
+
+	drainInteractiveStdin()
+	c.stdinReader = startStdinReader()
+	stdinCh := c.stdinReader.Ch
 
 	waitCh := make(chan error, 1)
 
@@ -365,6 +385,7 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 
 	time.Sleep(initialCommandSettleDelay)
 	c.waitRemoteOutputQuietAfter(injectAt, remoteOutputQuietPeriod, remoteOutputQuietMaxWait)
+	c.waitRemoteOutputQuietSince(injectAt, remoteOutputQuietPeriod, remoteOutputQuietMaxWait)
 	c.setupInjectDone.Store(true)
 	return nil
 }
@@ -398,7 +419,7 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 		if err := c.handleSuspendMeta(stdin, opts); err != nil {
 			return err
 		}
-		_ = c.conn.Close()
+		_ = c.Close()
 		return io.EOF
 	case line == metaLineLocal:
 		return c.enterLocalMode()
@@ -408,6 +429,14 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 		return c.handleChainMeta(stdin, line)
 
 	default:
+
+		if chain, ok := ParseMetaChainLine(line); ok {
+			if err := c.handleSuspendMeta(stdin, opts); err != nil {
+				return err
+			}
+			_ = c.Close()
+			return chain
+		}
 
 		prompt, isAI := aiPromptFromMetaLine(line)
 		if isAI {
@@ -441,6 +470,10 @@ func (c *Client) runMetaCLI(stdin io.Writer, opts InteractiveOpts, args []string
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
+
+	c.pauseRemoteOut.Store(true)
+	defer c.pauseRemoteOut.Store(false)
+
 	if err := opts.OnMetaCLI(args); err != nil {
 		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
 	}

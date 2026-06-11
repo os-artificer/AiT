@@ -19,6 +19,8 @@ package builtin
 import (
 	"context"
 	"os"
+
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 func runLoad(ctx context.Context, env Env, argv []string) (bool, error) {
@@ -35,6 +37,7 @@ func runLoad(ctx context.Context, env Env, argv []string) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		terminal.DrainStdin()
 	} else {
 		id, password, tmux, err = parseLoadArgs(argv)
 		if err != nil {

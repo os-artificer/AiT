@@ -18,6 +18,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -71,7 +72,11 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	}
 
 	st, _ := m.Store.GetSessionState(sess.ID)
-	m.replayScrollbackIfPresent(st)
+	replayScrollback := m.scrollbackDataForReplay(sess, st)
+	initialRemoteCwd := ""
+	if st != nil {
+		initialRemoteCwd = st.RemoteCwd
+	}
 
 	var initialCmds []string
 	initialCmds = append(m.remotePromptInitialCommands(sess.Username, sess.Host), initialCmds...)
@@ -91,7 +96,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	}
 
 	_ = m.Store.SetMeta(store.MetaCurrentSession, sess.ID)
-	return m.runInteractive(ctx, client, sess, initialCmds, true)
+	return m.runInteractive(ctx, client, sess, initialCmds, true, replayScrollback, initialRemoteCwd)
 }
 
 // SSHOptionsForSession builds sshclient.Options for a saved session (e.g. ait get, ait put).
@@ -144,13 +149,24 @@ func (m *Manager) resolvePassword(sess *store.Session, override string) (string,
 	return "", false, nil
 }
 
-func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, sess *store.Session, initialCmds []string, persisted bool) error {
+func (m *Manager) runInteractive(
+	ctx context.Context,
+	client *sshclient.Client,
+	sess *store.Session,
+	initialCmds []string,
+	persisted bool,
+	replayScrollback string,
+	initialRemoteCwd string,
+) error {
 	defer client.Close()
 	tmuxName := sess.TmuxSession
 	if tmuxName == "" {
 		tmuxName = tmux.SessionName(sess.ID)
 	}
 	if persisted {
+		if err := m.suspendOtherActiveSessions(sess.ID); err != nil {
+			return err
+		}
 		if err := m.Store.UpdateStatus(sess.ID, store.StatusActive); err != nil {
 			return err
 		}
@@ -161,18 +177,27 @@ func (m *Manager) runInteractive(ctx context.Context, client *sshclient.Client, 
 		TmuxEnabled:             sess.TmuxEnabled,
 		TmuxName:                tmuxName,
 		InitialCommands:         initialCmds,
+		InitialRemoteCwd:        initialRemoteCwd,
+		ReplayScrollback:        replayScrollback,
 		RemotePromptDirAbsolute: m.Config != nil && m.Config.RemotePromptPathAbsolute(),
 		AI:                      m.AI,
 		OnRemoteAI:              m.OnRemoteAI,
 		OnMetaCLI:               m.MetaCLI,
 		AgentMaxSteps:           m.Config.AgentMaxSteps(),
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
-			if !persisted {
-				return ephemeralSuspendErr()
+			id, err := m.ensureSessionPersisted(sess)
+			if err != nil {
+				return err
 			}
-			return m.suspend(sess.ID, scroll, cwd, cols, rows)
+			return m.suspend(id, scroll, cwd, cols, rows)
 		},
 	})
+
+	var chain *sshclient.ChainActionError
+	if errors.As(err, &chain) {
+		return m.runChainAction(ctx, chain)
+	}
+
 	if err != nil && persisted {
 		m.clearSessionOnFailure(sess.ID, true)
 	}

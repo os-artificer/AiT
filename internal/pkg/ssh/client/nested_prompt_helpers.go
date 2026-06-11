@@ -126,7 +126,7 @@ func lineLooksLikeShellPrompt(line string) bool {
 		return false
 	}
 
-	for _, suffix := range []string{"->", "$", "#", "%", ">"} {
+	for _, suffix := range []string{"->", "$", "#", "%", ">", "→", "➜", "❯"} {
 		if strings.HasSuffix(line, suffix) {
 			return true
 		}

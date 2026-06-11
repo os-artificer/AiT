@@ -111,7 +111,7 @@ SSH sessions (`ait login`) and `!ait local` use the remote/local shell’s line 
 | SSH AI mode (`!ait ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
 | `!ait local` | `AiT Local> ` |
 
-After **`ait login`** or **`ait session --load`**, the remote **`AiT user@host:…>`** prompt should appear immediately—no extra Enter key.
+After **`ait login`** or **`ait session --load`**, the remote **`AiT user@host:…>`** prompt should appear immediately—no extra Enter key. **`session --load` / `--switch`** does not redraw prior command output on screen; saved scrollback is kept in memory for suspend/AI context only.
 
 ---
 
@@ -145,12 +145,15 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 | Input | Action |
 |-------|--------|
 | `!ait help` / `!ait` | Print in-session commands and local CLI help |
-| `!ait <subcmd> …` | Run `ait` subcommand locally; exit SSH before `login`/`load`/`ai` |
+| `!ait <subcmd> …` | Run `ait` subcommand locally; `login`/`load`/`session --switch` chain from SSH (see below) |
+| `!ait login [flags] dest` | Auto-save if needed, suspend current session, log in to another host |
+| `!ait load [id\|alias]` | Auto-save if needed, suspend, load saved session |
+| `!ait session --switch [id\|alias]` | Auto-save if needed, suspend, switch to another session |
 | `!ait ai [question]` | Remote AI mode (see above) |
 | `!! [question]` | Same as `!ait ai` |
 | `!ait local` | Local mode: run commands on local machine; SSH stays connected |
 | `!ait remote` | Exit local mode; resume remote input |
-| `!ait suspend` | Suspend: save scrollback and remote cwd; disconnect |
+| `!ait suspend` | Auto-save if needed; suspend: save scrollback and remote cwd; disconnect |
 | `!ait get <remote> [<local>]` | Download one file over current SSH (no re-auth); optional local defaults to `./basename` |
 | `!ait put <local> [<remote>]` | Upload one file over current SSH (no re-auth); optional remote defaults to `./basename` |
 | `!ait chain [on\|off]` | Toggle chain mode: PTY-pipe transfer for SSH hops; `on` = ZMODEM over PTY, `off` = prefer lrzsz then SFTP (default) |
@@ -178,7 +181,7 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 | Situation | Typical hint |
 |-----------|--------------|
 | `--load` with list **ID column** (8-char prefix) | `The list ID column is for display only` → use alias, `FULL_ID` from `-v`, or interactive `--load` |
-| `session --switch` while current session still **active** | Suspend inside SSH (`!ait suspend`) or `session --switch --force` |
+| `session --switch` while current session still **active** (local CLI) | Suspend inside SSH (`!ait suspend`) or `session --switch --force`; use `!ait session --switch` in SSH to auto-suspend |
 | Empty `ait ai ask` (no message / stdin) | `ask requires a message` → pass a message or pipe stdin |
 | Unknown config key | `ait config get <key>` or see example YAML |
 | `ait config validate` failure | Fix listed field paths or run `ait config edit` |

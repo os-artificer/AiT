@@ -25,7 +25,7 @@ import (
 const (
 	metaHelpIntro    = "AiT in-session commands (!ait prefix):"
 	metaHelpUsage    = "!ait <subcommand> [args...]"
-	metaHelpTailNote = "\nFor login/load use: ait shell (AiT> prompt), not from inside SSH.\n"
+	metaHelpTailNote = "\nlogin/load/switch suspend the current session (auto-save if needed) and connect to the target.\n"
 )
 
 const metaCommands = `  help              show this help
@@ -35,10 +35,13 @@ const metaCommands = `  help              show this help
   !! [question]     alias for !ait ai
   !! ask <msg>     one-shot AI reply
   !! agent <msg>   one-shot AI agent reply; may execute commands
+  login [flags] dest   suspend current session; log in to another host
+  load [id|alias]      suspend current session; load a saved session
+  session --switch [id|alias]   suspend current; switch to another session
   local             local mode (prompt: AiT Local>)
   remote            return to remote shell (prompt: AiT user@host:dir[:branch]>)
   chain [on|off]    toggle chain mode (PTY-pipe transfer for SSH hops)
-  suspend           suspend session and disconnect
+  suspend           suspend session and disconnect (auto-save if needed)
   get <remote> <local>   download file (reuses SSH, no re-auth)
   put <local> <remote>   upload file (reuses SSH, no re-auth)
 `
@@ -57,6 +60,8 @@ func WriteMetaHelp(w io.Writer) error {
 	}
 	if err := b.WriteExamples(
 		"!ait list",
+		"!ait login user@hostB",
+		"!ait session --switch prod",
 		"!ait config get session.auth_ttl",
 		"!ait session delete <id|alias>",
 	); err != nil {

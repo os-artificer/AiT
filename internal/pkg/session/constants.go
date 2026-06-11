@@ -29,6 +29,7 @@ const (
 	errNoSavedSessions                 = "no saved sessions"
 	errNoCurrentSession                = "no current session"
 	errNonInteractiveTerminal          = "non-interactive terminal"
+	errPickCancelled                   = "session pick cancelled"
 	errCurrentSessionActiveFmt         = "current session %s is still active"
 	errUnknownTransferOp               = "unknown transfer operation"
 )
@@ -39,6 +40,7 @@ const (
 	hintEphemeralSuspendExplain    = "Only saved sessions can be suspended to the local database."
 	hintNoSavedSessionsExplain     = "Save a connection before loading or switching."
 	hintNonInteractivePickExplain  = "Interactive session pick requires a TTY."
+	hintPickCancelledExplain       = "Session selection was cancelled."
 	hintNoCurrentSessionExplain    = "Load or switch to a session first, or suspend from inside SSH."
 	hintDisplayIDOnlyExplain       = "The list ID column is for display only."
 	hintActiveSessionSwitchExplain = "Suspend the current session inside SSH before switching."

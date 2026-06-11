@@ -18,6 +18,7 @@ package session
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -30,6 +31,9 @@ import (
 
 // ErrNonInteractivePick is returned when session pick requires a TTY on stdin.
 var ErrNonInteractivePick = errhint.NewSentinel(errNonInteractiveTerminal)
+
+// ErrPickCancelled is returned when the user cancels an interactive session picker (Ctrl+C).
+var ErrPickCancelled = errhint.NewSentinel(errPickCancelled)
 
 // CheckInteractiveStdin returns ErrNonInteractivePick when stdin is not a terminal.
 // Used before interactive session pick for ait session --load or --switch without a target.
@@ -55,11 +59,44 @@ func stdinIsTerminal() bool {
 	return StdinIsTerminal()
 }
 
+// PickSessionInteractiveTTY lists sessions and reads a selection with raw TTY line editing.
+// Used after SSH chain actions and standalone ait session --load/--switch pickers.
+// Shell REPL callers should use PickSessionFrom directly while already in raw mode.
+// Returns ErrNonInteractivePick when stdin is not a TTY, ErrPickCancelled on Ctrl+C,
+// or invalid-selection / store errors from the picker.
+func (m *Manager) PickSessionInteractiveTTY() (string, error) {
+	if err := CheckInteractiveStdin(); err != nil {
+		return "", err
+	}
+
+	fd := int(os.Stdin.Fd())
+	old, err := term.MakeRaw(fd)
+	if err != nil {
+		return "", fmt.Errorf("terminal: %w", err)
+	}
+	defer func() { _ = term.Restore(fd, old) }()
+
+	out := terminal.NewCRLFWriter(os.Stdout)
+	id, err := m.PickSessionFrom(os.Stdin, out)
+	if err != nil {
+		return "", err
+	}
+	terminal.DrainStdin()
+	return id, nil
+}
+
 // readPickLine reads one selection line; uses the line editor when stdin is a TTY.
 func readPickLine(in io.Reader, out io.Writer) (string, error) {
 	if stdinIsTerminal() && in == os.Stdin {
 		br := bufio.NewReader(in)
-		return terminal.ReadLine(br, out, terminal.LineEditOptions{Prompt: ""})
+		line, err := terminal.ReadLine(br, out, terminal.LineEditOptions{Prompt: ""})
+		if err != nil {
+			return "", err
+		}
+		if line == "" {
+			return "", pickCancelledErr()
+		}
+		return line, nil
 	}
 	reader := bufio.NewReader(in)
 	line, err := reader.ReadString('\n')

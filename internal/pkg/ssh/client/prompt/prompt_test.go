@@ -129,8 +129,11 @@ func TestRemoteInitialCommands(t *testing.T) {
 	if strings.Contains(line, "stty -echo") {
 		t.Errorf("setup line should not embed stty (Inject provides echo suppression): %s", line)
 	}
-	if strings.Contains(line, "printf '\\033[1A\\033[2K\\r%s'") {
-		t.Errorf("setup line should not printf display: %s", line)
+	if !strings.Contains(line, "__ait_p=${PS1@P}") {
+		t.Errorf("setup line should print expanded PS1: %s", line)
+	}
+	if !strings.Contains(line, `print -Pn "$PROMPT"`) {
+		t.Errorf("setup line should print expanded zsh PROMPT: %s", line)
 	}
 	if len(RemoteInitialCommands("", "h", false)) != 0 {
 		t.Error("empty user should return nil")
@@ -148,6 +151,35 @@ func TestRemoteSetupLine_HistoryOffWrapper(t *testing.T) {
 	} {
 		if !strings.Contains(line, part) {
 			t.Errorf("setup line missing history-off %q: %s", part, line)
+		}
+	}
+}
+
+// TestRemoteSetupLine_PrintsExpandedPrompt (P1) verifies setup ends with explicit prompt print.
+func TestRemoteSetupLine_PrintsExpandedPrompt(t *testing.T) {
+	line := RemoteSetupLine("root", "ylgeeker.com", false)
+	for _, part := range []string{
+		"__ait_p=${PS1@P}",
+		`printf '%b' "$PS1"`,
+		`print -Pn "$PROMPT"`,
+		"zle reset-prompt",
+		RemotePromptReadySentinel,
+	} {
+		if !strings.Contains(line, part) {
+			t.Errorf("setup line missing prompt-print %q: %s", part, line)
+		}
+	}
+}
+
+// TestRemoteSetupLine_ZshPrecmdHook (P1b) verifies zsh setup installs a precmd hook after theme init.
+func TestRemoteSetupLine_ZshPrecmdHook(t *testing.T) {
+	line := RemoteSetupLine("root", "ylgeeker.com", false)
+	for _, part := range []string{
+		"ait_precmd()",
+		"precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)",
+	} {
+		if !strings.Contains(line, part) {
+			t.Errorf("setup line missing zsh precmd %q: %s", part, line)
 		}
 	}
 }

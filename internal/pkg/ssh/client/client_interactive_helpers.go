@@ -79,17 +79,21 @@ func (c *Client) writeInteractiveStdout(p []byte) (int, error) {
 	return w.Write(p)
 }
 
-// finishMetaInteraction ends local meta output and asks the remote shell to redraw PS1.
-func (c *Client) finishMetaInteraction(stdin io.Writer) {
-	_, _ = os.Stdout.Write([]byte(termEOL))
-	c.refreshRemotePrompt(stdin)
-}
-
 func (c *Client) refreshRemotePrompt(stdin io.Writer) {
 	if stdin == nil || c.localShell.Active() {
 		return
 	}
-	_, _ = stdin.Write([]byte("\r"))
+
+	wasPaused := c.pauseRemoteOut.Load()
+	if !wasPaused {
+		c.pauseRemoteOut.Store(true)
+	}
+
+	_ = c.Inject(stdin, RemotePromptRedrawCmd(), InjectOpts{SuppressEcho: true})
+
+	if !wasPaused {
+		c.pauseRemoteOut.Store(false)
+	}
 }
 
 // aitModeNotice prints a multi-line AiT status block on stderr. It also emits
@@ -149,6 +153,11 @@ func (c *Client) processForwardStdinByte(
 		return forwardStdinResult{action: fwdStdinContinue}
 	}
 
+	// End keystroke grace before forwarding user input so echo is visible; leak
+	// filtering continues until setupLeakGraceMax regardless of keystrokes.
+	if c.setupKeystrokeGraceUntil.Load() != 0 {
+		c.setupKeystrokeGraceUntil.Store(0)
+	}
 	if _, err := stdin.Write(fwd); err != nil {
 		return forwardStdinResult{action: fwdStdinReturn, err: err}
 	}
@@ -215,6 +224,12 @@ func (c *Client) handleSuspendMeta(stdin io.Writer, opts InteractiveOpts) error 
 		c.remoteCwd = cwd
 	}
 
+	// Filter leaked setup/probe echo lines before the scrollback is saved so
+	// the next load/switch replay never shows them.
+	user, host := c.promptUser(), c.promptHost()
+	c.scroll.ReplaceWith(func(s string) string {
+		return StripSetupLeakLines(s, user, host)
+	})
 	c.scroll.StripSubstrings(".__AITPWD__.", ".__AITPWDEND__")
 	return opts.OnSuspend(c.scroll, c.remoteCwd, cols, rows)
 }
@@ -288,25 +303,83 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 
 	user := c.promptUser()
 	host := c.promptHost()
-	promptMarker := c.promptMarker()
 
-	chunk := c.filterRemoteOutputChunk(buf, user, host, promptMarker)
+	chunk, repaintPrompt := c.filterRemoteOutputChunkRepaint(buf, user, host)
 	if chunk == nil {
+		if repaintPrompt {
+			c.repaintInteractivePrompt(user, host)
+		}
 		return
 	}
 
-	_, _ = c.scroll.Write(chunk)
-	if !c.pauseRemoteOut.Load() {
-		stdoutChunk := chunk
-		if until := c.setupLeakGraceUntil.Load(); until != 0 && time.Now().UnixNano() < until {
-			stdoutChunk = stripSetupLeakStdout(chunk, user, host)
-			if len(stdoutChunk) == 0 {
-				return
-			}
+	// While paused (setup phase) raw output is buffered in scrollback only;
+	// finishRemoteSetup needs the unfiltered prompt there.
+	if c.pauseRemoteOut.Load() {
+		if containsPromptReadySentinel(string(chunk)) {
+			c.remotePromptReadySeen.Store(true)
 		}
-		_, _ = c.writeInteractiveStdout(stdoutChunk)
-		if !c.remotePromptShown.Load() && isDuplicatePromptOutput(stdoutChunk, user, host) {
-			c.remotePromptShown.Store(true)
+		_, _ = c.scroll.Write(chunk)
+		return
+	}
+
+	// Scroll and stdout share the grace-filtered bytes so leaked setup echo
+	// never reaches the saved scrollback either (replayed on next load/switch).
+	stdoutChunk := c.applySetupGrace(chunk, user, host)
+	if len(stdoutChunk) == 0 {
+		return
+	}
+	if c.metaRecoverWhitespaceUntil.Load() > time.Now().UnixNano() && isWhitespaceOnlyPTYOutput(stdoutChunk) {
+		return
+	}
+	_, _ = c.scroll.Write(stdoutChunk)
+	_, _ = c.writeInteractiveStdout(stdoutChunk)
+	if !c.remotePromptShown.Load() && isDuplicatePromptOutput(stdoutChunk, user, host) {
+		c.remotePromptShown.Store(true)
+	}
+	if repaintPrompt {
+		c.repaintInteractivePrompt(user, host)
+	}
+}
+
+// applySetupGrace filters setup-leak lines from stdout-bound output while the
+// post-setup leak-filter window is active. The window ends after setupLeakGraceMax;
+// remotePromptShown and the first keystroke do not end leak filtering early.
+func (c *Client) applySetupGrace(chunk []byte, user, host string) []byte {
+	until := c.setupLeakGraceUntil.Load()
+	if until == 0 {
+		return chunk
+	}
+
+	if time.Now().UnixNano() >= until {
+		c.setupLeakGraceUntil.Store(0)
+		if tail := c.setupGraceStripper.endGrace(user, host); len(tail) > 0 {
+			return append(tail, chunk...)
+		}
+		return chunk
+	}
+
+	if c.remotePromptShown.Load() && isWhitespaceOnlyPTYOutput(chunk) {
+		return nil
+	}
+
+	if c.metaRecoverWhitespaceUntil.Load() > time.Now().UnixNano() && c.shouldStripNativePrompt() {
+		var stripped bool
+		chunk, stripped = stripUnwantedPromptLines(
+			chunk, user, host, c.shouldStripNativePrompt(), c.remotePromptShown.Load(),
+		)
+		if stripped && len(chunk) == 0 {
+			return nil
 		}
 	}
+
+	// After the first keystroke, pass single-byte echo through; strip leak lines from larger chunks.
+	if c.setupKeystrokeGraceUntil.Load() == 0 {
+		if len(chunk) == 1 {
+			return chunk
+		}
+		return stripSetupLeakStdout(chunk, user, host)
+	}
+
+	allowNative := !c.remotePromptShown.Load()
+	return c.setupGraceStripper.filterChunk(chunk, user, host, allowNative)
 }

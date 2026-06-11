@@ -66,7 +66,7 @@ func TestRunInteractive_TmuxAttachBurstSuppressed(t *testing.T) {
 func TestHandleRemoteOutput_TmuxLateSetupLeakFiltered(t *testing.T) {
 	user, host := "root", "dev.os-artificer.com"
 	c := testClientWithPrompt(user, host)
-	c.setupLeakGraceUntil.Store(time.Now().Add(setupLeakGracePeriod).UnixNano())
+	c.setupLeakGraceUntil.Store(time.Now().Add(setupLeakGraceMax).UnixNano())
 
 	leak := []byte("stty -echo 2>/dev/null; set +o history 2>/dev/null\r\n")
 

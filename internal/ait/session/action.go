@@ -234,8 +234,5 @@ func pickSessionIfEmpty(mgr *pkgsession.Manager, target string) (string, error) 
 	if target != "" {
 		return target, nil
 	}
-	if err := pkgsession.CheckInteractiveStdin(); err != nil {
-		return "", err
-	}
-	return mgr.PickSession()
+	return mgr.PickSessionInteractiveTTY()
 }
