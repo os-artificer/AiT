@@ -6,8 +6,8 @@ This file records **product and CLI** functional changes only; documentation-onl
 
 ## [Unreleased]
 
-- 【Added】`ait shell` supports full command-line interaction; command lookup order: builtins, then extension commands and system PATH.
-- 【Changed】Session connection key is now username+host+port+alias; multiple `--alias` names on the same host are separate saved sessions; plain login updates only an empty-alias match.
+- 【Added】Shell mode supports full command-line interaction; command lookup order: builtins first, then extension commands and the PATH environment variable.
+- 【Optimized】Session connection uniqueness key extended to username+host+port+alias; multiple `--alias` values on the same target host save separate sessions; login without flags updates only the empty-alias matching row.
 
 ## v1.0.0-beta.1
 
