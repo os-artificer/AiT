@@ -326,6 +326,9 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 	// never reaches the saved scrollback either (replayed on next load/switch).
 	stdoutChunk := c.applySetupGrace(chunk, user, host)
 	if len(stdoutChunk) == 0 {
+		if repaintPrompt {
+			c.repaintInteractivePrompt(user, host)
+		}
 		return
 	}
 	if c.metaRecoverWhitespaceUntil.Load() > time.Now().UnixNano() && isWhitespaceOnlyPTYOutput(stdoutChunk) {

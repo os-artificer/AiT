@@ -29,7 +29,8 @@ import (
 )
 
 func stdinHasPromptRedraw(s string) bool {
-	return strings.Contains(s, "__ait_p=${PS1@P}") || strings.Contains(s, `print -Pn "$PROMPT"`)
+	return strings.Contains(s, `[ -z "$ZSH_VERSION" ] && true`) ||
+		strings.Contains(s, `print -Pn "$PROMPT"`)
 }
 
 func testClientWithPrompt(user, host string) *Client {

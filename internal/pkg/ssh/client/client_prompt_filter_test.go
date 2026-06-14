@@ -110,13 +110,41 @@ func TestStripUnwantedPromptLines_KeepsTableDropsPrompt(t *testing.T) {
 
 	out, nativeRemoved := stripUnwantedPromptLines(chunk, "root", "ylgeeker.com", true, true)
 	if !nativeRemoved {
-		t.Fatal("expected native prompt line removal")
+		t.Fatal("expected prompt line removal")
 	}
 	if !strings.Contains(string(out), "abc12345") {
 		t.Fatalf("session table should remain, got %q", out)
 	}
 	if strings.Contains(string(out), "ylgeeker") && !strings.Contains(string(out), "ylgeeker.com") {
 		t.Fatalf("native prompt host should be removed, got %q", out)
+	}
+}
+
+// TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip (P11) repaints when
+// a remote AiT prompt echo is dropped as duplicate after command output.
+func TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	c.remotePromptShown.Store(true)
+	c.remotePromptReadySeen.Store(true)
+
+	aitLine := prompt.RemoteFormat("root", "ylgeeker.com", "~", "")
+	chunk := []byte("go  ips  snap\r\n" + aitLine)
+	out, repaint := c.filterRemoteOutputChunkRepaint(chunk, "root", "ylgeeker.com")
+	if out == nil || !strings.Contains(string(out), "go") {
+		t.Fatalf("command output should remain, got %q", out)
+	}
+	if strings.Contains(string(out), "AiT root@ylgeeker.com:") {
+		t.Fatalf("duplicate AiT prompt should be stripped, got %q", out)
+	}
+	if !repaint {
+		t.Fatal("expected repaint after duplicate AiT prompt strip")
+	}
+
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+	c.repaintInteractivePrompt("root", "ylgeeker.com")
+	if !strings.Contains(buf.String(), "AiT root@ylgeeker.com:") {
+		t.Fatalf("repaint should show AiT prompt, got %q", buf.String())
 	}
 }
 

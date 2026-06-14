@@ -129,11 +129,14 @@ func TestRemoteInitialCommands(t *testing.T) {
 	if strings.Contains(line, "stty -echo") {
 		t.Errorf("setup line should not embed stty (Inject provides echo suppression): %s", line)
 	}
-	if !strings.Contains(line, "__ait_p=${PS1@P}") {
-		t.Errorf("setup line should print expanded PS1: %s", line)
+	if strings.Contains(line, "__ait_p=${PS1@P}") {
+		t.Errorf("setup line should not manually print bash PS1 (breaks readline): %s", line)
 	}
 	if !strings.Contains(line, `print -Pn "$PROMPT"`) {
 		t.Errorf("setup line should print expanded zsh PROMPT: %s", line)
+	}
+	if !strings.Contains(line, `[ -n "$ZSH_VERSION" ] && printf '\033[1A\033[2K\r'`) {
+		t.Errorf("setup line should guard line-clear for zsh only: %s", line)
 	}
 	if len(RemoteInitialCommands("", "h", false)) != 0 {
 		t.Error("empty user should return nil")
@@ -155,12 +158,10 @@ func TestRemoteSetupLine_HistoryOffWrapper(t *testing.T) {
 	}
 }
 
-// TestRemoteSetupLine_PrintsExpandedPrompt (P1) verifies setup ends with explicit prompt print.
+// TestRemoteSetupLine_PrintsExpandedPrompt (P1) verifies setup ends with zsh redraw and sentinel.
 func TestRemoteSetupLine_PrintsExpandedPrompt(t *testing.T) {
 	line := RemoteSetupLine("root", "ylgeeker.com", false)
 	for _, part := range []string{
-		"__ait_p=${PS1@P}",
-		`printf '%b' "$PS1"`,
 		`print -Pn "$PROMPT"`,
 		"zle reset-prompt",
 		RemotePromptReadySentinel,
@@ -168,6 +169,17 @@ func TestRemoteSetupLine_PrintsExpandedPrompt(t *testing.T) {
 		if !strings.Contains(line, part) {
 			t.Errorf("setup line missing prompt-print %q: %s", part, line)
 		}
+	}
+	if strings.Contains(line, "__ait_p=${PS1@P}") {
+		t.Errorf("bash setup must not manually print PS1: %s", line)
+	}
+}
+
+// TestRemotePromptRedrawCmd_BashNoOp (P2) verifies bash refresh uses a completing no-op.
+func TestRemotePromptRedrawCmd_BashNoOp(t *testing.T) {
+	line := RemotePromptRedrawCmd()
+	if !strings.Contains(line, `[ -z "$ZSH_VERSION" ] && true`) {
+		t.Fatalf("redraw cmd missing bash no-op: %s", line)
 	}
 }
 
@@ -180,6 +192,19 @@ func TestRemoteSetupLine_ZshPrecmdHook(t *testing.T) {
 	} {
 		if !strings.Contains(line, part) {
 			t.Errorf("setup line missing zsh precmd %q: %s", part, line)
+		}
+	}
+}
+
+// TestRemoteSetupLine_BashPromptCommandHook (P3) verifies bash setup installs PROMPT_COMMAND persistence.
+func TestRemoteSetupLine_BashPromptCommandHook(t *testing.T) {
+	line := RemoteSetupLine("root", "ylgeeker.com", false)
+	for _, part := range []string{
+		"ait_prompt_command()",
+		"export PROMPT_COMMAND=ait_prompt_command",
+	} {
+		if !strings.Contains(line, part) {
+			t.Errorf("setup line missing bash PROMPT_COMMAND %q: %s", part, line)
 		}
 	}
 }
