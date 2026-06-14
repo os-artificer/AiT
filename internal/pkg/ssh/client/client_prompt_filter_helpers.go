@@ -109,6 +109,22 @@ func (c *Client) repaintInteractivePrompt(user, host string) {
 	_ = c.emitMetaPromptStdout(user, host)
 }
 
+// repaintAfterNestedSSHClose restores the outer-shell prompt after a nested ssh exits.
+func (c *Client) repaintAfterNestedSSHClose(user, host string) {
+	if c == nil || user == "" || host == "" {
+		return
+	}
+
+	if stdin := c.interactiveStdin; stdin != nil && !c.localShell.Active() {
+		c.triggerRemotePrecmd(stdin)
+		c.refreshRemotePrompt(stdin)
+	}
+
+	if c.emitMetaPromptStdout(user, host) {
+		c.remotePromptShown.Store(true)
+	}
+}
+
 // filterRemoteOutputChunkRepaint applies setup suppression, managed-native stripping, and
 // duplicate-prompt dropping. The bool is true when a managed native prompt was stripped
 // and the AiT prompt should be repainted locally.

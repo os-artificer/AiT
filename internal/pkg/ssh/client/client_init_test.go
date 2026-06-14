@@ -626,7 +626,10 @@ func TestFormatActivePromptStdout_NoTrailingNewline(t *testing.T) {
 	if !strings.HasPrefix(out, "\r") {
 		t.Fatalf("active prompt should start with carriage return, got %q", out)
 	}
-	if !strings.HasSuffix(out, "> ") {
+	if !strings.HasSuffix(out, promptClearToEOL) {
+		t.Fatalf("active prompt should clear to EOL, got %q", out)
+	}
+	if !strings.HasSuffix(strings.TrimSuffix(out, promptClearToEOL), "> ") {
 		t.Fatalf("active prompt should end at prompt suffix, got %q", out)
 	}
 }

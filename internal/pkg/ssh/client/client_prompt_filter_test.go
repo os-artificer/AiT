@@ -155,3 +155,37 @@ func TestIsDuplicatePromptLine_AIT(t *testing.T) {
 		t.Fatalf("AiT prompt line should be duplicate: %q", line)
 	}
 }
+
+// TestLastNativePromptLineForHost_SkipsMismatchedHost (N7a) ignores inner native prompts
+// when the active host is the outer dial target.
+func TestLastNativePromptLineForHost_SkipsMismatchedHost(t *testing.T) {
+	scroll := "motd\nroot@ylgeeker [~] ->\n"
+	if got := lastNativePromptLineForHost(scroll, "dev.ylgeeker.com"); got != "" {
+		t.Fatalf("inner native prompt should not match dial host, got %q", got)
+	}
+	if got := lastNativePromptLineForHost(scroll, "ylgeeker.com"); got != "root@ylgeeker [~] ->" {
+		t.Fatalf("inner native prompt should match inner host, got %q", got)
+	}
+}
+
+// TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose (N7b) paints dial AiT prompt
+// instead of re-emitting a stale inner native prompt from scrollback.
+func TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose(t *testing.T) {
+	c := testClientWithPrompt("root", "dev.ylgeeker.com")
+	c.remotePromptShown.Store(true)
+	c.remotePromptReadySeen.Store(true)
+	_, _ = c.scroll.Write([]byte("Connection to ylgeeker.com closed.\r\nroot@ylgeeker [~] ->\r\n"))
+
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+	if !c.emitMetaPromptStdout("root", "dev.ylgeeker.com") {
+		t.Fatal("expected prompt emit")
+	}
+	got := buf.String()
+	if strings.Contains(got, "root@ylgeeker") {
+		t.Fatalf("should not repaint inner native prompt, got %q", got)
+	}
+	if !strings.Contains(got, "AiT root@dev.ylgeeker.com:") {
+		t.Fatalf("expected dial AiT prompt, got %q", got)
+	}
+}

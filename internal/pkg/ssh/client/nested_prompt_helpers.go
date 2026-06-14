@@ -25,6 +25,8 @@ const (
 	nestedMOTDLastLogin     = "last login:"
 	nestedMOTDWelcome       = "welcome to"
 	nestedPasswordPromptSub = "password:"
+
+	promptClearToEOL = "\x1b[K"
 )
 
 type nestedPromptState int
@@ -142,4 +144,41 @@ func scrollChunkLooksLikeShellPrompt(chunk []byte) bool {
 		}
 	}
 	return false
+}
+
+// parseSSHConnectionClosedHost extracts the host from OpenSSH client text
+// "Connection to HOST closed." Returns empty when the chunk is unrelated.
+func parseSSHConnectionClosedHost(chunk string) string {
+	chunk = strings.ReplaceAll(chunk, "\r\n", "\n")
+	chunk = strings.ReplaceAll(chunk, "\r", "\n")
+	for _, line := range strings.Split(chunk, "\n") {
+		line = strings.TrimSpace(line)
+		const prefix = "Connection to "
+		const suffix = " closed."
+		if !strings.HasPrefix(line, prefix) || !strings.HasSuffix(line, suffix) {
+			continue
+		}
+		host := strings.TrimSuffix(strings.TrimPrefix(line, prefix), suffix)
+		return strings.TrimSpace(host)
+	}
+	return ""
+}
+
+// hostsEquivalent reports whether two SSH host labels refer to the same target.
+func hostsEquivalent(a, b string) bool {
+	return hostnameBase(a) == hostnameBase(b)
+}
+
+func hostnameBase(host string) string {
+	host = strings.TrimSpace(strings.ToLower(host))
+	if host == "" {
+		return ""
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	if i := strings.IndexByte(host, '.'); i > 0 {
+		return host[:i]
+	}
+	return host
 }

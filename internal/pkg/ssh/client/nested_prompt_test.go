@@ -203,6 +203,39 @@ func TestNestedPrompt_NoMOTDFallbackInject(t *testing.T) {
 	}
 }
 
+// TestParseSSHConnectionClosedHost (N6) parses OpenSSH client disconnect banners.
+func TestParseSSHConnectionClosedHost(t *testing.T) {
+	got := parseSSHConnectionClosedHost("Connection to ylgeeker.com closed.\r\n")
+	if got != "ylgeeker.com" {
+		t.Fatalf("host = %q", got)
+	}
+	if parseSSHConnectionClosedHost("logout\r\n") != "" {
+		t.Fatal("unrelated chunk should not match")
+	}
+}
+
+// TestOnNestedSSHSessionClosed_RestoresDial (N6) resets active prompt after nested exit.
+func TestOnNestedSSHSessionClosed_RestoresDial(t *testing.T) {
+	c := &Client{opts: Options{User: "root", Host: "dev.ylgeeker.com"}}
+	c.initActivePrompt()
+	c.activePromptHost = "ylgeeker.com"
+	c.nestedRemoteHost = "ylgeeker.com"
+	c.SetChainMode(true)
+
+	if !c.onNestedSSHSessionClosed("ylgeeker.com") {
+		t.Fatal("expected nested close handling")
+	}
+	if c.promptHost() != "dev.ylgeeker.com" {
+		t.Fatalf("active host = %q", c.promptHost())
+	}
+	if c.ChainMode() {
+		t.Fatal("chain mode should be off after nested exit")
+	}
+	if c.nestedRemoteHost != "" {
+		t.Fatal("nested remote host should be cleared")
+	}
+}
+
 // TestScrollChunkLooksLikeShellPrompt detects common inner-shell prompt lines.
 func TestScrollChunkLooksLikeShellPrompt(t *testing.T) {
 	if !scrollChunkLooksLikeShellPrompt([]byte("root@ylgeeker.com [~] ->\n")) {

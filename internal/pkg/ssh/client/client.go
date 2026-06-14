@@ -108,6 +108,7 @@ type Client struct {
 	nestedMOTDAt          time.Time
 	nestedShellReadySeen  bool
 	nestedPasswordPending bool
+	nestedRemoteHost      string
 }
 
 // Conn returns the underlying golang.org/x/crypto/ssh client connection.

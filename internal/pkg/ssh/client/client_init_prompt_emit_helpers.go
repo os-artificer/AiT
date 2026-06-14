@@ -57,6 +57,12 @@ func containsRemotePromptLine(s, user, host string) bool {
 
 // lastNativePromptLine returns the last scrollback line that looks like a native shell prompt.
 func lastNativePromptLine(scroll string) string {
+	return lastNativePromptLineForHost(scroll, "")
+}
+
+// lastNativePromptLineForHost returns the last native prompt whose user@host matches activeHost.
+// When activeHost is empty, any native prompt line may match.
+func lastNativePromptLineForHost(scroll, activeHost string) string {
 	if scroll == "" {
 		return ""
 	}
@@ -67,6 +73,9 @@ func lastNativePromptLine(scroll string) string {
 	for i := len(lines) - 1; i >= 0; i-- {
 		line := lines[i]
 		if !isNativePromptLike(line) {
+			continue
+		}
+		if !nativePromptMatchesActiveHost(line, activeHost) {
 			continue
 		}
 		return line
@@ -111,15 +120,20 @@ func (c *Client) emitBufferedRemotePromptIfReady(stdin io.Writer, user, host str
 }
 
 // formatActivePromptStdout formats a prompt for stdout with the cursor left on the same line.
+// Clears to end of line so typed command echo (e.g. "exit") cannot linger after repaint.
 func formatActivePromptStdout(line string) string {
 	line = strings.TrimRight(line, "\r\n")
-	return "\r" + line
+	return "\r" + line + promptClearToEOL
 }
 
 // emitBufferedNativePrompt writes the last native shell prompt from scrollback to stdout.
 // Returns true when a native prompt line was found and written.
 func (c *Client) emitBufferedNativePrompt() bool {
-	line := lastNativePromptLine(c.scroll.String())
+	activeHost := ""
+	if c != nil {
+		activeHost = c.promptHost()
+	}
+	line := lastNativePromptLineForHost(c.scroll.String(), activeHost)
 	if line == "" {
 		return false
 	}
