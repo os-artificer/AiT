@@ -402,6 +402,37 @@ func isNativePromptLike(line string) bool {
 	return false
 }
 
+// nativePromptHostInLine extracts the host label from a native prompt like "root@host [~] ->".
+func nativePromptHostInLine(line string) string {
+	plain := strings.TrimSpace(stripANSIForPromptMatch(line))
+	at := strings.Index(plain, "@")
+	if at < 0 {
+		return ""
+	}
+	rest := plain[at+1:]
+	end := len(rest)
+	for i, r := range rest {
+		if r == ' ' || r == '[' || r == ':' {
+			end = i
+			break
+		}
+	}
+	return strings.TrimSpace(rest[:end])
+}
+
+// nativePromptMatchesActiveHost reports whether line's user@host matches activeHost.
+// When activeHost is empty, any native prompt line matches.
+func nativePromptMatchesActiveHost(line, activeHost string) bool {
+	if activeHost == "" {
+		return true
+	}
+	h := nativePromptHostInLine(line)
+	if h == "" {
+		return false
+	}
+	return hostsEquivalent(h, activeHost)
+}
+
 // isScrollNoiseLine reports whether line is a setup-echo fragment too short to
 // carry meaning: ZLE line redraw leaves lone characters ("#", "S", "a") on
 // their own lines when echoing wrapped setup commands.
