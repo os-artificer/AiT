@@ -1,0 +1,47 @@
+"""Chain login/load/switch via !ait meta (N*)."""
+
+from __future__ import annotations
+
+import uuid
+
+import pytest
+
+from tests.lib.expect import AITExpectSession, runner_env_from
+
+pytestmark = pytest.mark.ssh
+
+
+def _alias() -> str:
+    return f"chain-{uuid.uuid4().hex[:6]}"
+
+
+@pytest.fixture
+def chain_env(test_config, tmp_path):
+    home = tmp_path / "chain_home"
+    home.mkdir()
+    return test_config, runner_env_from(test_config, home)
+
+
+def test_meta_suspend_lists_session(chain_env):
+    cfg, env = chain_env
+    alias = _alias()
+    from tests.lib.cli import AITRunner
+
+    runner = AITRunner(
+        cfg.binary,
+        __import__("pathlib").Path(env["AIT_HOME"]),
+        base_env={
+            "AIT_KEYRING_FILE_PASSWORD": cfg.keyring_password,
+            "LANG": cfg.lang,
+        },
+    )
+    runner.run_ok(
+        cfg.primary.one_shot_login_argv(["echo", "chain"], ["--alias", alias]),
+        timeout=90,
+    )
+    sess = AITExpectSession.spawn_login(cfg, env, extra_login_args=["--alias", alias])
+    try:
+        out = sess.meta("session --list")
+        assert alias in out
+    finally:
+        sess.close()

@@ -1,4 +1,4 @@
-.PHONY: all build build-cross install test vet fmt clean test-cross dupl
+.PHONY: all build build-cross install test vet fmt clean test-cross test-e2e test-e2e-smoke dupl
 
 BINARY_NAME := ait
 BUILD_DIR   := bin
@@ -47,6 +47,18 @@ test:
 test-cross:
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" ./...
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" ./...
+
+test-e2e:
+	@test -x bin/ait || $(MAKE) build
+	@python3 -m venv tests/.venv 2>/dev/null || true
+	tests/.venv/bin/pip install -r tests/requirements.txt -q
+	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
+
+test-e2e-smoke:
+	@test -x bin/ait || $(MAKE) build
+	@python3 -m venv tests/.venv 2>/dev/null || true
+	tests/.venv/bin/pip install -r tests/requirements.txt -q
+	cd tests && ../tests/.venv/bin/pytest e2e -v -m smoke
 
 vet:
 	go vet ./...
