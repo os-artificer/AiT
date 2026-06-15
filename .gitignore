@@ -28,6 +28,30 @@ go.work.sum
 # env file
 .env
 
+# Python bytecode, caches, and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+.venv/
+venv/
+ENV/
+env/
+
+# Python E2E tests (local secrets and temp)
+tests/config.local.yaml
+tests/.env
+tests/.tmp/
+
 # Build output
 /bin/
 /dist/
