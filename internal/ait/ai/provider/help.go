@@ -17,13 +17,12 @@
 package provider
 
 import (
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/os-artificer/AiT/internal/ait/ai/provider/subregistry"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	pkgsubregistry "github.com/os-artificer/AiT/internal/pkg/subregistry"
 )
 
 const (
@@ -41,7 +40,7 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteUsage(usageLine); err != nil {
 		return err
 	}
-	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, formatSubcommands()); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, pkgsubregistry.FormatSubcommandLines(subregistry.Entries())); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
@@ -52,12 +51,4 @@ func WriteHelp(w io.Writer) error {
 		return err
 	}
 	return b.Finish("provider")
-}
-
-func formatSubcommands() string {
-	var b strings.Builder
-	for _, e := range subregistry.Entries() {
-		fmt.Fprintf(&b, "  %s   %s\n", e.Name, e.Short)
-	}
-	return b.String()
 }

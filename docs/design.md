@@ -274,6 +274,33 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | SSH nested (manual `ssh` in session) | same as SSH remote on **active** hop | After a simple `ssh user@host` from an AiT session, MOTD + quiet detection triggers the same PS1 inject and enables chain mode; use `ait login -J jump,final` to land on the final host in one step |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)) |
 
+### Remote prompt pipeline
+
+PTY output and meta completion share one path so oh-my-zsh native prompts do not replace AiT prompts after `!ait` commands.
+
+```mermaid
+sequenceDiagram
+  participant PTY as RemotePTY
+  participant HRO as handleRemoteOutput
+  participant Filt as filterRemoteOutputChunkRepaint
+  participant Grace as applySetupGrace
+  participant Meta as finishMetaInteraction
+  PTY->>HRO: chunk
+  HRO->>Filt: strip_native_duplicate
+  Filt->>Grace: setup_leak_meta_window
+  Grace->>Stdout: CRLF_write
+  Meta->>PTY: resyncRemotePS1AfterMeta
+  Meta->>Stdout: repaintInteractivePrompt
+```
+
+| Stage | Role | Key symbols |
+|-------|------|-------------|
+| Login / load setup | Inject PS1, wait for ready sentinel, first paint | [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go), [`syncRemotePromptBeforeUnpause`](../internal/pkg/ssh/client/client_init_helpers.go) |
+| Streaming filter | Drop native / duplicate prompt lines from PTY stdout | [`filterRemoteOutputChunkRepaint`](../internal/pkg/ssh/client/client_prompt_filter_helpers.go), [`client_setup_filter_helpers.go`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) |
+| Meta end | Resync remote readline, repaint AiT prompt (no native fallback when managed) | [`finishMetaInteraction`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go), [`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go), [`resyncRemotePS1AfterMeta`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) |
+
+When `remotePromptShown` is set, [`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) prefers scrollback AiT lines or client paint (`setupSucceeded` or `remotePromptReadySeen`) and **does not** fall back to native shell prompts (P11).
+
 **`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.
 
 **Built-in `ll`** (shell REPL only, not `ait ai` or `!ait`): long-format local directory listing (`ls -la` style via pure Go [`dirlist`](../internal/pkg/dirlist/)); optional one path argument; default cwd.
@@ -582,7 +609,7 @@ Prefer stdlib plus `x/` extensions when adding dependencies; follow project rule
 | `ait` | REPL, shell line parsing, login help |
 | `terminal`, `ai`, `config`, `transfer`, `platform`, `pathsafe` | Unit tests |
 
-Gates: `make test`, `make vet`; `make test-cross` runs windows/darwin `go build`.
+Gates: `make test`, `make vet`; `make test-cross` runs `go build ./...` for five platforms (linux/darwin/windows × amd64/arm64).
 
 ## Implementation status
 

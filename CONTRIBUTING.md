@@ -21,8 +21,26 @@ make build       # build to bin/ait
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
-make test-cross  # Windows / macOS cross-compile gate
+make test-cross  # cross-compile for Windows/macOS (compile only; does not run tests on those OSes)
+make test-e2e-smoke  # optional Python CLI smoke (no SSH); also run in CI after merge gate
 ./bin/ait        # run the binary
+```
+
+`make test-cross` runs `go build ./...` for `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, and `windows/amd64` to catch platform-specific compile errors. It does **not** execute the test suite on those platforms.
+
+If the system `/tmp` is tight on disk, point Go caches into the repo (gitignored):
+
+```bash
+export TMPDIR="$PWD/.tmp"
+export GOCACHE="$PWD/.gocache"
+mkdir -p "$TMPDIR" "$GOCACHE"
+```
+
+Optional broader validation (requires `tests/config.local.yaml` for SSH):
+
+```bash
+make test-e2e-smoke   # help, config, session hints, local AI non-hang
+make test-e2e         # full E2E including SSH when configured
 ```
 
 Windows cross-compile example:

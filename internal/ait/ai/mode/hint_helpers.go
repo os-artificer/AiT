@@ -19,6 +19,7 @@ package mode
 import (
 	"fmt"
 
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
@@ -61,8 +62,8 @@ func usageRunCommandErr() error {
 func usageAitSubcommandErr() error {
 	return errhint.WithTryMsg("usage: ait <subcommand> [args...]",
 		"Run a local ait subcommand from AI mode.",
-		"ait list",
-		"ait session --list",
+		clihints.TryShellList,
+		clihints.TrySessionList,
 		"help",
 	)
 }

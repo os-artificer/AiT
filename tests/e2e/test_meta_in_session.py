@@ -37,3 +37,17 @@ def test_meta_chain_toggle(meta_session):
 def test_meta_help(meta_session):
     out = meta_session.send_line("!ait help")
     assert "ait" in out.lower() or "help" in out.lower()
+
+
+def test_meta_session_list_prompt_ait_format(meta_session, test_config):
+    tgt = test_config.primary
+    out = meta_session.meta("session --list")
+    meta_session.assert_ait_remote_prompt(tgt.user, tgt.host, out + meta_session.buffer())
+
+
+def test_meta_session_list_first_keystroke(meta_session, test_config):
+    tgt = test_config.primary
+    meta_session.meta("session --list")
+    out = meta_session.send_line("echo ok")
+    assert "ok" in out
+    meta_session.assert_ait_remote_prompt(tgt.user, tgt.host, out + meta_session.buffer())

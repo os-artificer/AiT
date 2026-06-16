@@ -61,13 +61,13 @@ func (c *Client) emitMetaPromptStdout(user, host string) bool {
 	if c.scroll != nil && c.emitBufferedRemotePrompt(user, host) {
 		return true
 	}
-	if c.setupSucceeded() && c.paintClientRemotePrompt(user, host) {
+	if (c.setupSucceeded() || c.remotePromptReadySeen.Load()) && c.paintClientRemotePrompt(user, host) {
 		return true
 	}
-	if c.emitBufferedNativePrompt() {
-		return true
+	if c.shouldStripNativePrompt() {
+		return false
 	}
-	return false
+	return c.emitBufferedNativePrompt()
 }
 
 // finishMetaInteraction ends local meta output and repaints the remote shell prompt.
