@@ -88,6 +88,18 @@ class AITExpectSession:
         pat = rf"AiT\s+{re.escape(user)}@{re.escape(host_fragment)}"
         self.child.expect(pat, timeout=timeout)
 
+    def assert_no_native_prompt(self, text: str) -> None:
+        """Fail when oh-my-zsh or bracket-style native prompts appear in output."""
+        native_markers = ("➜", "->", " [%] ", " [~] ")
+        for marker in native_markers:
+            if marker in text:
+                raise AssertionError(f"native prompt marker {marker!r} in output: {text!r}")
+
+    def assert_ait_remote_prompt(self, user: str, host_fragment: str, text: str) -> None:
+        if "AiT " not in text and f"AiT {user}@" not in text:
+            raise AssertionError(f"missing AiT prompt for {user}@{host_fragment}: {text!r}")
+        self.assert_no_native_prompt(text)
+
     def close(self, *, timeout: int = 30) -> None:
         try:
             self.send_line("exit", timeout=timeout)

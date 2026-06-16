@@ -21,8 +21,26 @@ make build       # 编译到 bin/ait
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
-make test-cross  # Windows / macOS 交叉编译门禁
+make test-cross  # Windows/macOS 交叉编译（仅编译，不在对应 OS 上执行测试）
+make test-e2e-smoke  # 可选 Python CLI 烟雾（无需 SSH）；CI 在合并门禁之后运行
 ./bin/ait        # 运行二进制
+```
+
+`make test-cross` 对 `linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64`、`windows/amd64` 执行 `go build ./...`，用于发现平台相关编译错误，**不会**在那些平台上运行测试套件。
+
+若系统 `/tmp` 空间不足，可将 Go 缓存指到仓库内（已列入 `.gitignore`）：
+
+```bash
+export TMPDIR="$PWD/.tmp"
+export GOCACHE="$PWD/.gocache"
+mkdir -p "$TMPDIR" "$GOCACHE"
+```
+
+可选的更广泛验证（SSH 用例需 `tests/config.local.yaml`）：
+
+```bash
+make test-e2e-smoke   # help、config、session hint、本机 AI 非挂起
+make test-e2e         # 配置后含 SSH 的完整 E2E
 ```
 
 Windows 交叉编译示例：

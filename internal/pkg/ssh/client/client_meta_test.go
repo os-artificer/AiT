@@ -265,9 +265,9 @@ func TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive(t *testin
 	}
 }
 
-// TestFinishMetaInteraction_EmitsNativePromptFromScrollback (M7) repaints the user's native
-// shell prompt after meta when scrollback holds native output but no AiT line (oh-my-zsh hosts).
-func TestFinishMetaInteraction_EmitsNativePromptFromScrollback(t *testing.T) {
+// TestFinishMetaInteraction_PaintsAITWhenManaged (M7/P11) paints the AiT prompt after meta when
+// remotePromptShown is set, even if scrollback only holds native oh-my-zsh lines.
+func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
 	c := testClientWithPrompt("root", "ylgeeker.com")
 	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
@@ -283,11 +283,11 @@ func TestFinishMetaInteraction_EmitsNativePromptFromScrollback(t *testing.T) {
 	c.finishMetaInteraction(&stdin)
 
 	got := buf.String()
-	if strings.Contains(got, "AiT root@ylgeeker.com:") {
-		t.Fatalf("stdout should not client-paint AiT when native prompt is buffered, got %q", got)
+	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
+		t.Fatalf("expected AiT client paint when managed, got %q", got)
 	}
-	if !strings.Contains(got, nativeLine) {
-		t.Fatalf("stdout should emit native prompt from scrollback, got %q", got)
+	if strings.Contains(got, nativeLine) {
+		t.Fatalf("should not emit native prompt when managed, got %q", got)
 	}
 }
 

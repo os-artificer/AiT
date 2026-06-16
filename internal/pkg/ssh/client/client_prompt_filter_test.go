@@ -189,3 +189,25 @@ func TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose(t *testing.T) {
 		t.Fatalf("expected dial AiT prompt, got %q", got)
 	}
 }
+
+// TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown (P11) never repaints a native
+// oh-my-zsh prompt after meta when AiT already owns the interactive prompt.
+func TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	c.remotePromptShown.Store(true)
+	c.remotePromptReadySeen.Store(true)
+	_, _ = c.scroll.Write([]byte("root@ylgeeker [~] ➜ \r\n"))
+
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+	if !c.emitMetaPromptStdout("root", "ylgeeker.com") {
+		t.Fatal("expected prompt emit")
+	}
+	got := buf.String()
+	if strings.Contains(got, "➜") || strings.Contains(got, "root@ylgeeker [") {
+		t.Fatalf("native prompt fallback after meta, got %q", got)
+	}
+	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
+		t.Fatalf("expected AiT prompt paint, got %q", got)
+	}
+}

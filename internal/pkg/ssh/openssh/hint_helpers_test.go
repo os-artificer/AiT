@@ -19,6 +19,8 @@ package openssh
 import (
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 )
 
 func TestDestinationRequiredErr_Format(t *testing.T) {
@@ -27,7 +29,7 @@ func TestDestinationRequiredErr_Format(t *testing.T) {
 	if !strings.Contains(s, "Try:") {
 		t.Fatalf("missing Try block: %q", s)
 	}
-	if !strings.Contains(s, tryLoginHelp) {
+	if !strings.Contains(s, clihints.TryLoginHelp) {
 		t.Fatalf("missing login help try line: %q", s)
 	}
 }
@@ -49,7 +51,7 @@ func TestTransferPathCountErr_Format(t *testing.T) {
 	if !strings.Contains(s, "Try:") {
 		t.Fatalf("missing Try block: %q", s)
 	}
-	if !strings.Contains(s, tryGetHelp) {
+	if !strings.Contains(s, clihints.TryGetHelp) {
 		t.Fatalf("missing get help try line: %q", s)
 	}
 
@@ -58,7 +60,7 @@ func TestTransferPathCountErr_Format(t *testing.T) {
 	if !strings.Contains(sPut, "1 to 3 path arguments for ait put") {
 		t.Fatalf("missing put path count hint: %q", sPut)
 	}
-	if !strings.Contains(sPut, tryPutHelp) {
+	if !strings.Contains(sPut, clihints.TryPutHelp) {
 		t.Fatalf("missing put help try line: %q", sPut)
 	}
 }

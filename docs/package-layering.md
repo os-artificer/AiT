@@ -120,13 +120,31 @@ Command-specific flags (`--alias`, `--save`, `--tmux` for login; `--session` for
 
 ---
 
+## Command entry surfaces
+
+AiT exposes three **independent** command registration paths. New user-facing verbs must be added at the correct layer; they are not interchangeable.
+
+| Entry | Mechanism | Extension |
+|-------|-----------|-----------|
+| **Cobra subcommands** | `registry` / `subregistry` + per-package `register.go` | New package under `internal/ait/<cmd>/` (or nested) + blank import in `registry/all/imports.go` |
+| **`ait shell` builtins** | [`shell/builtin/registry.go`](../internal/ait/shell/builtin/registry.go) map | Add name to `builtin/constants.go` + handler in registry map |
+| **SSH meta / AI REPL** | [`meta/exec.go`](../internal/ait/meta/exec.go), [`ai/mode/exec.go`](../internal/ait/ai/mode/exec.go) | Meta: delegate to Cobra or block; AI REPL: meta verbs in `mode` |
+
+**Special case — `ait ai model list`:** handled as a **parent positional** routed into the AI REPL meta path (R15), not as a Cobra child under `ai/model`. See [design.md](design.md) § AI CLI.
+
+Shell builtins (`list`, `load`, `login`, …) are **not** Cobra children of `ait shell`; SSH `!ait <subcmd>` reuses top-level Cobra via [`meta.Execute`](../internal/ait/meta/exec.go) except `ai` / `!!` which enter AI mode.
+
+**Try-block SSOT:** shared `ait session …` / `ait login …` example lines for errhint live in [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go); `internal/pkg/session` re-exports them for convenience.
+
+---
+
 ## Extending top-level commands (Open-Closed)
 
 Use **`internal/ait/registry`**: each top-level command implements `registry.TopLevel` and calls `registry.Register` from `init()` in `register.go`.
 
 - **Do not** add names to `cli/root.go` `AddCommand` lists; root help comes from `registry.RootHelpEntries()` / [`registry/root_help.go`](../internal/ait/registry/root_help.go).
 - **Do** add package `internal/ait/<cmd>/` with `register.go` + command closure files.
-- **Wire imports**: add `_ "github.com/os-artificer/AiT/internal/ait/<cmd>"` to `registry/all/imports.go`, or run `go generate` if registrygen is enabled.
+- **Wire imports**: add `_ "github.com/os-artificer/AiT/internal/ait/<cmd>"` to [`registry/all/imports.go`](../internal/ait/registry/all/imports.go) manually, or run `go generate ./internal/ait/registry/...` to regenerate top-level blank imports (nested subregistry imports remain manual).
 
 Adding a command must not require editing other subcommand packages.
 
