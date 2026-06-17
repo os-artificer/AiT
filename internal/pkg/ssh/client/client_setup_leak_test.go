@@ -29,13 +29,13 @@ import (
 
 // TestStripSetupLeakLines_WrappedFragments (N19) drops wrapped PS1/probe echo lines from recorded data.
 func TestStripSetupLeakLines_WrappedFragments(t *testing.T) {
-	user, host := "root", "ylgeeker.com"
+	user, host := testSSHUser, testPrimaryHostFQDN
 	data := strings.Join([]string{
 		"Welcome to TencentOS Server 3 x86_64",
 		`"${PWD:-/}" 2>/dev/null); printf '%s' "${d:-/}")$(b=$( 2>/dev/null) && [ -n "$b" ] && printf ":%s" "$b")> \[\]'; [ -n`,
 		"hello world",
 		"AITPWDEND__.';  printf '';  stty echo 2>/dev/null",
-		"AiT root@ylgeeker.com:/tmp> ",
+		"AiT root@remote.example.com:/tmp> ",
 	}, "\r\n")
 
 	got := StripSetupLeakLines(data, user, host)
@@ -45,7 +45,7 @@ func TestStripSetupLeakLines_WrappedFragments(t *testing.T) {
 			t.Errorf("leak %q should be stripped, got %q", leak, got)
 		}
 	}
-	for _, keep := range []string{"Welcome to TencentOS", "hello world", "AiT root@ylgeeker.com:/tmp>"} {
+	for _, keep := range []string{"Welcome to TencentOS", "hello world", "AiT root@remote.example.com:/tmp>"} {
 		if !strings.Contains(got, keep) {
 			t.Errorf("normal line %q should be kept, got %q", keep, got)
 		}
@@ -199,7 +199,7 @@ func TestGraceStripper_FlushesNonLeakPending(t *testing.T) {
 	var s setupStdoutStripper
 	user, host := "u", "h"
 
-	native := []byte("root@ylgeeker [~] \u2192 ")
+	native := []byte("root@" + testPrimaryHostShort + " [~] \u2192")
 	if got := s.filterChunk(native, user, host, true); !bytes.Equal(got, native) {
 		t.Fatalf("native prompt should flush immediately, got %q", got)
 	}
@@ -355,12 +355,12 @@ func TestSetupGraceStripper_EndGraceDiscardsPending(t *testing.T) {
 
 // TestStripSetupLeakLines_DropsIncompletePrompt (P2) removes partial AiT prompt prefix lines.
 func TestStripSetupLeakLines_DropsIncompletePrompt(t *testing.T) {
-	user, host := "root", "ylgeeker.com"
+	user, host := testSSHUser, testPrimaryHostFQDN
 	data := strings.Join([]string{
 		"Welcome to TencentOS Server 3 x86_64",
-		"partial AiT root@ylgeeker.com: without closing",
+		"partial AiT root@remote.example.com: without closing",
 		"hello world",
-		"AiT root@ylgeeker.com:/tmp> ",
+		"AiT root@remote.example.com:/tmp> ",
 	}, "\r\n")
 
 	got := StripSetupLeakLines(data, user, host)
@@ -368,7 +368,7 @@ func TestStripSetupLeakLines_DropsIncompletePrompt(t *testing.T) {
 	if strings.Contains(got, "without closing") {
 		t.Fatalf("incomplete prompt fragment should be stripped, got %q", got)
 	}
-	if !strings.Contains(got, "AiT root@ylgeeker.com:/tmp>") {
+	if !strings.Contains(got, "AiT root@remote.example.com:/tmp>") {
 		t.Fatalf("real prompt line should be kept, got %q", got)
 	}
 }
@@ -399,20 +399,32 @@ func TestHandleRemoteOutput_FirstKeyStillFiltersLeak(t *testing.T) {
 	}
 }
 
+// TestApplySetupGrace_FirstKeyPreservesClearTokens keeps Ctrl+L clear output visible after first keystroke.
+func TestApplySetupGrace_FirstKeyPreservesClearTokens(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	c.setupLeakGraceUntil.Store(time.Now().Add(setupLeakGraceMax).UnixNano())
+	c.setupKeystrokeGraceUntil.Store(0)
+
+	clearChunk := []byte("\x1b[2J\x1b[HAiT u@h:/tmp> ")
+	if got := c.applySetupGrace(clearChunk, "u", "h"); !bytes.Equal(got, clearChunk) {
+		t.Fatalf("clear-token chunk should pass through, got %q", got)
+	}
+}
+
 // TestSanitizeReplayScrollback_StripsPromptLines (P2j) removes AiT and native prompts from seed data.
 func TestSanitizeReplayScrollback_StripsPromptLines(t *testing.T) {
-	user, host := "root", "ylgeeker.com"
+	user, host := testSSHUser, testPrimaryHostFQDN
 	data := strings.Join([]string{
 		"output line",
-		"AiT root@ylgeeker.com:/tmp> ",
-		"root@ylgeeker [~] ->",
+		"AiT root@remote.example.com:/tmp> ",
+		"root@remote [~] ->",
 		"more output",
 	}, "\n")
 	got := SanitizeReplayScrollback(data, user, host)
-	if strings.Contains(got, "AiT root@ylgeeker.com:") {
+	if strings.Contains(got, "AiT root@remote.example.com:") {
 		t.Fatalf("sanitized seed should drop AiT prompt, got %q", got)
 	}
-	if strings.Contains(got, "root@ylgeeker [~]") {
+	if strings.Contains(got, "root@remote [~]") {
 		t.Fatalf("sanitized seed should drop native prompt, got %q", got)
 	}
 	if !strings.Contains(got, "output line") || !strings.Contains(got, "more output") {

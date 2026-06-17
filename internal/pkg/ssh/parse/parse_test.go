@@ -32,11 +32,11 @@ func TestParseSSHStyle(t *testing.T) {
 }
 
 func TestParseFlagsAfterDestination(t *testing.T) {
-	spec, err := Parse([]string{"-p", "22", "root@ylgeeker.com", "-i", "~/.ssh/id_ed25519"})
+	spec, err := Parse([]string{"-p", "22", "root@remote.example.com", "-i", "~/.ssh/id_ed25519"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if spec.Port != 22 || spec.Identity != "~/.ssh/id_ed25519" || spec.Destination != "root@ylgeeker.com" {
+	if spec.Port != 22 || spec.Identity != "~/.ssh/id_ed25519" || spec.Destination != "root@remote.example.com" {
 		t.Fatalf("spec=%+v", spec)
 	}
 	if len(spec.RemoteCommand) != 0 {

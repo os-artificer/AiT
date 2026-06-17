@@ -16,10 +16,16 @@
 
 package client
 
-import "io"
+import (
+	"io"
+)
 
 // beginRemotePromptSetup arms pause/suppress state shared by login/load and nested SSH setup.
 func (c *Client) beginRemotePromptSetup(dirAbsolute bool, initialCwd string) {
+	if UseRemoteSystemPrompt() {
+		return
+	}
+
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 	c.setupInjectDone.Store(false)
@@ -34,5 +40,9 @@ func (c *Client) beginRemotePromptSetup(dirAbsolute bool, initialCwd string) {
 
 // runRemotePromptSetup finishes remote PS1 setup and makes the first prompt visible before unpause.
 func (c *Client) runRemotePromptSetup(stdin io.Writer, user, host string, tmuxEnabled bool) {
+	if UseRemoteSystemPrompt() {
+		return
+	}
+
 	c.finishRemoteSetup(stdin, user, host, tmuxEnabled)
 }

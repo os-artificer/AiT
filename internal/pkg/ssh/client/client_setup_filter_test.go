@@ -47,7 +47,7 @@ func TestStripSetupLeakStdout_PreservesLoneLF(t *testing.T) {
 }
 
 func TestIsSetupLeakLine(t *testing.T) {
-	user, host := "root", "ylgeeker.com"
+	user, host := testSSHUser, testPrimaryHostFQDN
 	leaks := []string{
 		"stty -echo 2>/dev/null",
 		"stty echo 2>/dev/null",
@@ -56,7 +56,7 @@ func TestIsSetupLeakLine(t *testing.T) {
 		`$(d=$(basename "${PWD:-/}" 2>/dev/null); printf '%s' "${d:-/}")`,
 		"set +o history 2>/dev/null",
 		"[ -n \"$ZSH_VERSION\" ] && _AIT_HIST=$HISTFILE HISTFILE=/dev/null",
-		"export PS1='\\[\\]AiT root@ylgeeker.com:${PWD/#$HOME/\\~}$(b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && [ -n \"$b\" ] && printf \":%s\" \"$b\")> \\[\\] '",
+		"export PS1='\\[\\]AiT root@remote.example.com:${PWD/#$HOME/\\~}$(b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && [ -n \"$b\" ] && printf \":%s\" \"$b\")> \\[\\] '",
 		// Wrapped/redrawn PS1 fragments (line-wrap can cut off the basename prefix).
 		`"${PWD:-/}" 2>/dev/null); printf '%s' "${d:-/}")$(b=$( 2>/dev/null) && [ -n "$b" ] && printf ":%s" "$b")> \[\]'; [ -n`,
 		`printf '%s' "${d:-/}")`,
@@ -69,7 +69,7 @@ func TestIsSetupLeakLine(t *testing.T) {
 			t.Errorf("expected leak: %q", line)
 		}
 	}
-	keep := "AiT root@ylgeeker.com:/data/workspace/AiT:main> "
+	keep := "AiT root@remote.example.com:/data/workspace/AiT:main> "
 	if isSetupLeakLine(keep, user, host) {
 		t.Errorf("live prompt should not be leak: %q", keep)
 	}
@@ -146,7 +146,7 @@ func TestDuplicatePromptOutput_PrefixMatch(t *testing.T) {
 
 // TestSetupGraceStripper_PartialChunk (N16) keeps incomplete setup lines across stdout chunks during grace.
 func TestSetupGraceStripper_PartialChunk(t *testing.T) {
-	user, host := "root", "ylgeeker.com"
+	user, host := testSSHUser, testPrimaryHostFQDN
 	var s setupStdoutStripper
 
 	out1 := s.filterChunk([]byte("stty echo 2>/dev/null"), user, host, true)
@@ -154,21 +154,21 @@ func TestSetupGraceStripper_PartialChunk(t *testing.T) {
 		t.Fatalf("partial leak chunk1 = %q", out1)
 	}
 
-	out2 := s.filterChunk([]byte("\r\nAiT root@ylgeeker.com:/tmp> \r\n"), user, host, true)
+	out2 := s.filterChunk([]byte("\r\nAiT root@remote.example.com:/tmp> \r\n"), user, host, true)
 	if strings.Contains(string(out2), "stty echo") {
 		t.Fatalf("leak in chunk2: %q", out2)
 	}
-	if !strings.Contains(string(out2), "AiT root@ylgeeker.com:/tmp>") {
+	if !strings.Contains(string(out2), "AiT root@remote.example.com:/tmp>") {
 		t.Fatalf("prompt missing: %q", out2)
 	}
 }
 
 // TestSetupOutputFilter_HoldsNativePendingWithoutNewline (P1c) keeps native prompts out of scrollback during setup.
 func TestSetupOutputFilter_HoldsNativePendingWithoutNewline(t *testing.T) {
-	user, host := "root", "ylgeeker.com"
+	user, host := testSSHUser, testPrimaryHostFQDN
 	var f setupOutputFilter
 
-	native := "root@ylgeeker [~] ➜"
+	native := "root@remote [~] ➜"
 	out := f.filter([]byte(native), user, host)
 	if len(out) != 0 {
 		t.Fatalf("native pending should stay buffered, filter = %q", out)

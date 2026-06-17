@@ -330,8 +330,12 @@ func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error
 		c.setupInjectDone.Store(true)
 	}
 
-	if setupNeeded {
+	if setupNeeded && !UseRemoteSystemPrompt() {
 		c.runRemotePromptSetup(stdin, c.opts.User, c.opts.Host, opts.TmuxEnabled)
+	}
+
+	if UseRemoteSystemPrompt() && !c.remotePromptShown.Load() {
+		c.finishNativePromptAfterAttach()
 	}
 
 	if pendingReplay != "" {
@@ -371,6 +375,11 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 	if len(cmds) == 0 {
 		return nil
 	}
+
+	graceEnd := time.Now().Add(setupLeakGraceMax)
+	c.setupLeakGraceUntil.Store(graceEnd.UnixNano())
+	c.setupKeystrokeGraceUntil.Store(graceEnd.UnixNano())
+	c.setupGraceStripper.reset()
 
 	injectAt := time.Now()
 
@@ -518,8 +527,7 @@ func (c *Client) exitLocalMode() error {
 	if c.localShell.Running() {
 		c.localShell.Stop()
 		c.pauseRemoteOut.Store(false)
-		remote := RemotePrompt(c.opts.User, c.opts.Host)
-		aitModeNotice("remote mode — prompt " + remote)
+		aitModeNotice("remote mode restored.")
 		return nil
 	}
 
