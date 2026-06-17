@@ -1,0 +1,5 @@
+pytest>=8.0,<9
+pytest-timeout>=2.3,<3
+pytest-order>=1.2,<2
+pexpect>=4.9,<5
+PyYAML>=6.0,<7

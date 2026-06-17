@@ -107,13 +107,31 @@ login 专有（`--alias`、`--save`、`--tmux`）与 get/put 专有（`--session
 
 ---
 
+## 命令入口（三入口模型）
+
+AiT 有三条**独立**的命令注册路径。新增用户可见动词须落在正确层级，三者不可混用。
+
+| 入口 | 机制 | 扩展方式 |
+|------|------|----------|
+| **Cobra 子命令** | `registry` / `subregistry` + 各包 `register.go` | 在 `internal/ait/<cmd>/`（或嵌套）新建包 + 在 `registry/all/imports.go` 增加 blank import |
+| **`ait shell` 内置** | [`shell/builtin/registry.go`](../internal/ait/shell/builtin/registry.go) map | 在 `builtin/constants.go` 增名 + 在 registry map 注册处理函数 |
+| **SSH meta / AI REPL** | [`meta/exec.go`](../internal/ait/meta/exec.go)、[`ai/mode/exec.go`](../internal/ait/ai/mode/exec.go) | Meta：委托 Cobra 或阻断；AI REPL：在 `mode` 增加 meta 动词 |
+
+**特例 — `ait ai model list`：** 作为**父命令 positional** 进入 AI REPL meta 路径（R15），**不是** `ai/model` 下的 Cobra 子树。见 [design.zh-CN.md](design.zh-CN.md) AI CLI 小节。
+
+Shell 内置（`list`、`load`、`login` 等）**不是** `ait shell` 的 Cobra 子命令；SSH 内 `!ait <subcmd>` 经 [`meta.Execute`](../internal/ait/meta/exec.go) 复用顶层 Cobra（`ai` / `!!` 除外，进入 AI 模式）。
+
+**Try 块 SSOT：** errhint 中 `ait session …` / `ait login …` 示例行集中在 [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go)；`internal/pkg/session` 再导出以便引用。
+
+---
+
 ## 扩展顶层子命令（开闭原则）
 
 使用 **`internal/ait/registry`**：各顶层命令实现 `registry.TopLevel`，在 `register.go` 的 `init()` 中调用 `registry.Register`。
 
 - **不要**在 `cli/root.go` 的 `AddCommand` 手写命令清单；根 `--help` 由 `registry.RootHelpEntries()` / [`registry/root_help.go`](../internal/ait/registry/root_help.go) 聚合。
 - **要**新增 `internal/ait/<cmd>/` 包（含 `register.go` 与业务文件）。
-- **链接**：在 `registry/imports.go` 增加 blank import，或启用 `go generate` 自动生成（见执行计划）。
+- **链接**：在 [`registry/all/imports.go`](../internal/ait/registry/all/imports.go) **手动**增加 blank import，或运行 `go generate ./internal/ait/registry/...` 重新生成顶层 import（嵌套 subregistry 的 imports 仍手动维护）。
 
 新增命令不得要求修改其他子命令包。
 

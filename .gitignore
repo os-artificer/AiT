@@ -1,5 +1,4 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+# Go — https://github.com/github/gitignore/blob/main/Go.gitignore
 #
 # Binaries for programs and plugins
 *.exe
@@ -7,7 +6,6 @@
 *.dll
 *.so
 *.dylib
-.codebuddy
 
 # Test binary, built with `go test -c`
 *.test
@@ -25,13 +23,58 @@ profile.cov
 go.work
 go.work.sum
 
-# env file
-.env
-
-# Build output
+# Build output (make build / make build-cross)
 /bin/
 /dist/
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Accidental root-level builds (use bin/ait per CONTRIBUTING)
+/ait
+/ait.exe
+
+# Local Go tool caches (when GOMODCACHE/GOCACHE/TMPDIR point at repo)
+.gocache/
+.test-fresh-gomodcache/
+.tmp/
+
+# Python bytecode, caches, and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+.venv/
+venv/
+ENV/
+env/
+
+# Python E2E tests (local secrets and temp)
+tests/config.local.yaml
+tests/.env
+tests/.tmp/
+tests/.venv/
+
+# Secrets and local runtime (dev with AIT_HOME in repo)
+.env
+/config.yaml
+/*.log
+ait.db
+*.db-journal
+repl_history
+keyring/
+
+# Editor / IDE ( .cursor/rules/ is tracked intentionally )
+.vscode/
+.idea/
+.codebuddy
+
+# OS junk
+.DS_Store
+Thumbs.db

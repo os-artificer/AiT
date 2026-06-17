@@ -21,9 +21,12 @@ import (
 	"io"
 	"strings"
 
+	ollamasub "github.com/os-artificer/AiT/internal/ait/ai/ollama/subregistry"
+	providersub "github.com/os-artificer/AiT/internal/ait/ai/provider/subregistry"
 	"github.com/os-artificer/AiT/internal/ait/ai/subregistry"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	pkgsubregistry "github.com/os-artificer/AiT/internal/pkg/subregistry"
 )
 
 const aiNote = "Requires ai.<provider>.api_key for cloud providers. " +
@@ -76,15 +79,18 @@ func WriteAIHelp(w io.Writer) error {
 }
 
 func formatAISubcommands() string {
+	providerChildren := pkgsubregistry.JoinChildNames(providersub.Entries(), "|")
+	ollamaChildren := pkgsubregistry.JoinChildNames(ollamasub.Entries(), "|")
+
 	var b strings.Builder
 	for _, e := range subregistry.Entries() {
 		switch e.Name {
 		case "ask", "agent":
 			fmt.Fprintf(&b, "  %s [message...]     %s\n", e.Name, e.Short)
 		case "provider":
-			fmt.Fprintf(&b, "  %s enable|disable <id>\n", e.Name)
+			fmt.Fprintf(&b, "  %s %s <id>\n", e.Name, providerChildren)
 		case "ollama":
-			fmt.Fprintf(&b, "  %s status|setup|start|stop|disable\n", e.Name)
+			fmt.Fprintf(&b, "  %s %s\n", e.Name, ollamaChildren)
 		default:
 			fmt.Fprintf(&b, "  %s   %s\n", e.Name, e.Short)
 		}

@@ -51,8 +51,8 @@ func pickCancelledErr() error {
 func TmuxRequiresTTYErr() error {
 	return errhint.WithTryMsg(errTmuxRequiresTTY,
 		hintTmuxTTYExplain,
-		"ait login --tmux user@host",
-		"ait login --tmux devhost",
+		TryLoginTmuxUserHost,
+		TryLoginTmuxDevhost,
 		tryLoginHelp,
 	)
 }

@@ -274,6 +274,33 @@ CREATE TABLE app_meta (
 | SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ait login -J jump,final` 一次登录到最终主机 |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
+### 远程提示符管线（Remote prompt pipeline）
+
+PTY 输出与 meta 结束共用一条路径，避免 oh-my-zsh 等原生提示符在 `!ait` 命令后覆盖 AiT 提示符。
+
+```mermaid
+sequenceDiagram
+  participant PTY as RemotePTY
+  participant HRO as handleRemoteOutput
+  participant Filt as filterRemoteOutputChunkRepaint
+  participant Grace as applySetupGrace
+  participant Meta as finishMetaInteraction
+  PTY->>HRO: chunk
+  HRO->>Filt: strip_native_duplicate
+  Filt->>Grace: setup_leak_meta_window
+  Grace->>Stdout: CRLF_write
+  Meta->>PTY: resyncRemotePS1AfterMeta
+  Meta->>Stdout: repaintInteractivePrompt
+```
+
+| 阶段 | 作用 | 关键符号 |
+|------|------|----------|
+| 登录 / load setup | 注入 PS1、等待 ready 哨兵、首次绘制 | [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go)、[`syncRemotePromptBeforeUnpause`](../internal/pkg/ssh/client/client_init_helpers.go) |
+| 流式过滤 | 从 PTY stdout 剔除原生 / 重复提示符行 | [`filterRemoteOutputChunkRepaint`](../internal/pkg/ssh/client/client_prompt_filter_helpers.go)、[`client_setup_filter_helpers.go`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) |
+| Meta 结束 | 重同步远程 readline、重绘 AiT 提示符（托管会话不回退原生） | [`finishMetaInteraction`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go)、[`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go)、[`resyncRemotePS1AfterMeta`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) |
+
+当 `remotePromptShown` 已设置时，[`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) 优先使用 scrollback 中的 AiT 行或客户端绘制（`setupSucceeded` 或 `remotePromptReadySeen`），**不会**回退到原生 shell 提示符（P11）。
+
 **`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
 
 **内置 `ll`**（仅 shell REPL，非 `ait ai` / `!ait`）：本机目录长列表（纯 Go [`dirlist`](../internal/pkg/dirlist/)，对齐 `ls -la`）；可选一个路径参数，默认 cwd。
@@ -583,7 +610,7 @@ flowchart LR
 | `ait` | REPL、shell 行解析、login help |
 | `terminal`, `ai`, `config`, `transfer`, `platform`, `pathsafe` | 单元测试 |
 
-门禁：`make test`、`make vet`；`make test-cross` 对 windows/darwin `go build`。
+门禁：`make test`、`make vet`；`make test-cross` 对五平台（linux/darwin/windows × amd64/arm64）`go build ./...`。
 
 ## 实现状态
 

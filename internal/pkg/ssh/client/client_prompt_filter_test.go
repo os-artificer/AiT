@@ -110,7 +110,7 @@ func TestStripUnwantedPromptLines_KeepsTableDropsPrompt(t *testing.T) {
 
 	out, nativeRemoved := stripUnwantedPromptLines(chunk, "root", "ylgeeker.com", true, true)
 	if !nativeRemoved {
-		t.Fatal("expected native prompt line removal")
+		t.Fatal("expected prompt line removal")
 	}
 	if !strings.Contains(string(out), "abc12345") {
 		t.Fatalf("session table should remain, got %q", out)
@@ -120,10 +120,94 @@ func TestStripUnwantedPromptLines_KeepsTableDropsPrompt(t *testing.T) {
 	}
 }
 
+// TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip (P11) repaints when
+// a remote AiT prompt echo is dropped as duplicate after command output.
+func TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	c.remotePromptShown.Store(true)
+	c.remotePromptReadySeen.Store(true)
+
+	aitLine := prompt.RemoteFormat("root", "ylgeeker.com", "~", "")
+	chunk := []byte("go  ips  snap\r\n" + aitLine)
+	out, repaint := c.filterRemoteOutputChunkRepaint(chunk, "root", "ylgeeker.com")
+	if out == nil || !strings.Contains(string(out), "go") {
+		t.Fatalf("command output should remain, got %q", out)
+	}
+	if strings.Contains(string(out), "AiT root@ylgeeker.com:") {
+		t.Fatalf("duplicate AiT prompt should be stripped, got %q", out)
+	}
+	if !repaint {
+		t.Fatal("expected repaint after duplicate AiT prompt strip")
+	}
+
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+	c.repaintInteractivePrompt("root", "ylgeeker.com")
+	if !strings.Contains(buf.String(), "AiT root@ylgeeker.com:") {
+		t.Fatalf("repaint should show AiT prompt, got %q", buf.String())
+	}
+}
+
 // TestIsDuplicatePromptLine_AIT (P8) still recognizes AiT prompt lines with ANSI stripped.
 func TestIsDuplicatePromptLine_AIT(t *testing.T) {
 	line := prompt.RemoteFormat("root", "ylgeeker.com", "~", "")
 	if !isDuplicatePromptLine(line, "root", "ylgeeker.com") {
 		t.Fatalf("AiT prompt line should be duplicate: %q", line)
+	}
+}
+
+// TestLastNativePromptLineForHost_SkipsMismatchedHost (N7a) ignores inner native prompts
+// when the active host is the outer dial target.
+func TestLastNativePromptLineForHost_SkipsMismatchedHost(t *testing.T) {
+	scroll := "motd\nroot@ylgeeker [~] ->\n"
+	if got := lastNativePromptLineForHost(scroll, "dev.ylgeeker.com"); got != "" {
+		t.Fatalf("inner native prompt should not match dial host, got %q", got)
+	}
+	if got := lastNativePromptLineForHost(scroll, "ylgeeker.com"); got != "root@ylgeeker [~] ->" {
+		t.Fatalf("inner native prompt should match inner host, got %q", got)
+	}
+}
+
+// TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose (N7b) paints dial AiT prompt
+// instead of re-emitting a stale inner native prompt from scrollback.
+func TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose(t *testing.T) {
+	c := testClientWithPrompt("root", "dev.ylgeeker.com")
+	c.remotePromptShown.Store(true)
+	c.remotePromptReadySeen.Store(true)
+	_, _ = c.scroll.Write([]byte("Connection to ylgeeker.com closed.\r\nroot@ylgeeker [~] ->\r\n"))
+
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+	if !c.emitMetaPromptStdout("root", "dev.ylgeeker.com") {
+		t.Fatal("expected prompt emit")
+	}
+	got := buf.String()
+	if strings.Contains(got, "root@ylgeeker") {
+		t.Fatalf("should not repaint inner native prompt, got %q", got)
+	}
+	if !strings.Contains(got, "AiT root@dev.ylgeeker.com:") {
+		t.Fatalf("expected dial AiT prompt, got %q", got)
+	}
+}
+
+// TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown (P11) never repaints a native
+// oh-my-zsh prompt after meta when AiT already owns the interactive prompt.
+func TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown(t *testing.T) {
+	c := testClientWithPrompt("root", "ylgeeker.com")
+	c.remotePromptShown.Store(true)
+	c.remotePromptReadySeen.Store(true)
+	_, _ = c.scroll.Write([]byte("root@ylgeeker [~] ➜ \r\n"))
+
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+	if !c.emitMetaPromptStdout("root", "ylgeeker.com") {
+		t.Fatal("expected prompt emit")
+	}
+	got := buf.String()
+	if strings.Contains(got, "➜") || strings.Contains(got, "root@ylgeeker [") {
+		t.Fatalf("native prompt fallback after meta, got %q", got)
+	}
+	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
+		t.Fatalf("expected AiT prompt paint, got %q", got)
 	}
 }

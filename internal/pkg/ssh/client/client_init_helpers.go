@@ -291,6 +291,10 @@ func (c *Client) finishRemoteSetup(stdin io.Writer, _, _ string, tmuxEnabled boo
 		c.syncRemotePromptBeforeUnpause(stdin, user, host)
 	}
 
+	if c.setupSucceeded() && !containsRemotePromptLine(c.scroll.String(), user, host) {
+		c.paintClientRemotePrompt(user, host)
+	}
+
 	c.remoteSetupSuppress.Store(false)
 	graceEnd := time.Now().Add(setupLeakGraceMax)
 	c.setupLeakGraceUntil.Store(graceEnd.UnixNano())

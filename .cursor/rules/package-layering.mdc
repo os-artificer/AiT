@@ -33,6 +33,11 @@ Directory/package = Cobra name (`login`, `ai/ask`, `config/set`). No `*cmd` pack
 
 - Shared: `internal/pkg/helpdoc`. Per-command: `internal/ait/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`).
 
+## `clihints` (Try SSOT)
+
+- Shared errhint Try example lines: [`internal/pkg/clihints`](internal/pkg/clihints/try_lines.go).
+- `internal/ait` and `internal/pkg/ssh/*` reference `clihints` constants; do not duplicate literals such as `ait session --list`.
+
 ## `internal/pkg`
 
 - Shared OpenSSH argv: `internal/pkg/ssh/openssh`.

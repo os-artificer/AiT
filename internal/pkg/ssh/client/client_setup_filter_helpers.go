@@ -47,8 +47,10 @@ var setupLeakFragments = []string{
 	"setopt HIST_IGNORE_SPACE",
 	"PROMPT_SUBST",
 	"printf '\\033[1A",
-	"__ait_p=${PS1@P}",
-	`printf '%b' "$PS1"`,
+	`[ -z "$ZSH_VERSION" ] && true`,
+	`print -Pn "$PROMPT"`,
+	"ait_prompt_command()",
+	"export PROMPT_COMMAND=ait_prompt_command",
 	`print -Pn "$PROMPT"`,
 	"ait_precmd()",
 	"precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)",
@@ -398,6 +400,37 @@ func isNativePromptLike(line string) bool {
 		}
 	}
 	return false
+}
+
+// nativePromptHostInLine extracts the host label from a native prompt like "root@host [~] ->".
+func nativePromptHostInLine(line string) string {
+	plain := strings.TrimSpace(stripANSIForPromptMatch(line))
+	at := strings.Index(plain, "@")
+	if at < 0 {
+		return ""
+	}
+	rest := plain[at+1:]
+	end := len(rest)
+	for i, r := range rest {
+		if r == ' ' || r == '[' || r == ':' {
+			end = i
+			break
+		}
+	}
+	return strings.TrimSpace(rest[:end])
+}
+
+// nativePromptMatchesActiveHost reports whether line's user@host matches activeHost.
+// When activeHost is empty, any native prompt line matches.
+func nativePromptMatchesActiveHost(line, activeHost string) bool {
+	if activeHost == "" {
+		return true
+	}
+	h := nativePromptHostInLine(line)
+	if h == "" {
+		return false
+	}
+	return hostsEquivalent(h, activeHost)
 }
 
 // isScrollNoiseLine reports whether line is a setup-echo fragment too short to

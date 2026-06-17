@@ -55,16 +55,19 @@ func (c *Client) syncRemoteShellAfterMeta(stdin io.Writer) {
 // emitMetaPromptStdout writes the active remote prompt to stdout without a trailing newline.
 // Remote redraw echo is dropped as a duplicate once remotePromptShown is set.
 func (c *Client) emitMetaPromptStdout(user, host string) bool {
-	if c != nil && c.scroll != nil && c.emitBufferedRemotePrompt(user, host) {
+	if c == nil {
+		return false
+	}
+	if c.scroll != nil && c.emitBufferedRemotePrompt(user, host) {
 		return true
 	}
-	if c != nil && c.emitBufferedNativePrompt() {
+	if (c.setupSucceeded() || c.remotePromptReadySeen.Load()) && c.paintClientRemotePrompt(user, host) {
 		return true
 	}
-	if c != nil && c.setupSucceeded() {
-		return c.paintClientRemotePrompt(user, host)
+	if c.shouldStripNativePrompt() {
+		return false
 	}
-	return false
+	return c.emitBufferedNativePrompt()
 }
 
 // finishMetaInteraction ends local meta output and repaints the remote shell prompt.

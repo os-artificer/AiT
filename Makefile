@@ -1,4 +1,4 @@
-.PHONY: all build build-cross install test vet fmt clean test-cross dupl
+.PHONY: all build build-cross install test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
 BINARY_NAME := ait
 BUILD_DIR   := bin
@@ -45,8 +45,29 @@ test:
 	go test ./...
 
 test-cross:
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" ./...
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" ./...
+	@set -e; \
+	for platform in $(CROSS_PLATFORMS); do \
+		os=$${platform%%/*}; arch=$${platform#*/}; \
+		echo ">> test-cross $$os/$$arch"; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch \
+			go build -ldflags "$(LDFLAGS)" ./...; \
+	done
+
+check-generate:
+	go generate ./internal/ait/registry/...
+	git diff --exit-code -- internal/ait/registry/all/imports.go
+
+test-e2e:
+	@test -x bin/ait || $(MAKE) build
+	@python3 -m venv tests/.venv 2>/dev/null || true
+	tests/.venv/bin/pip install -r tests/requirements.txt -q
+	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
+
+test-e2e-smoke:
+	@test -x bin/ait || $(MAKE) build
+	@python3 -m venv tests/.venv 2>/dev/null || true
+	tests/.venv/bin/pip install -r tests/requirements.txt -q
+	cd tests && ../tests/.venv/bin/pytest e2e -v -m smoke
 
 vet:
 	go vet ./...
@@ -58,4 +79,4 @@ dupl:
 	go run github.com/mibk/dupl@latest -threshold 15 $$(find . -name '*.go' ! -name '*_test.go' ! -path './vendor/*')
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) .gocache .tmp .test-fresh-gomodcache

@@ -92,6 +92,7 @@ func (c *Client) onInteractiveLineSubmitted(line string) {
 
 	c.pendingNestedUser = user
 	c.pendingNestedHost = host
+	c.nestedRemoteHost = host
 	c.nestedState = nestedPromptAwaitingShell
 	c.nestedAwaitingSince = time.Now()
 	c.nestedMOTDSeen = false
@@ -197,4 +198,39 @@ func (c *Client) runNestedPromptInjectLocked() {
 	}
 
 	c.runRemotePromptSetup(stdin, user, host, false)
+}
+
+// onNestedSSHSessionClosed restores dial prompt identity after a manual nested ssh exits.
+// Returns true when the outer-shell prompt should be repainted locally.
+func (c *Client) onNestedSSHSessionClosed(closedHost string) bool {
+	if c == nil || closedHost == "" {
+		return false
+	}
+
+	c.nestedMu.Lock()
+	defer c.nestedMu.Unlock()
+
+	nested := c.nestedRemoteHost
+	if nested == "" {
+		nested = c.pendingNestedHost
+	}
+	if nested != "" && !hostsEquivalent(nested, closedHost) && !hostsEquivalent(c.activePromptHost, closedHost) {
+		return false
+	}
+
+	c.activePromptUser = c.opts.User
+	c.activePromptHost = c.opts.Host
+	c.pendingNestedUser = ""
+	c.pendingNestedHost = ""
+	c.nestedRemoteHost = ""
+	c.nestedState = nestedPromptIdle
+	c.nestedPasswordPending = false
+	c.nestedMOTDSeen = false
+	c.nestedShellReadySeen = false
+	c.nestedAwaitingSince = time.Time{}
+	c.nestedMOTDAt = time.Time{}
+	if c.ChainMode() {
+		c.SetChainMode(false)
+	}
+	return true
 }
