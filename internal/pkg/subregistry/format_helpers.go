@@ -14,14 +14,27 @@
  * limitations under the License.
 **/
 
-package openssh
+package subregistry
 
-const (
-	tryLoginHelp    = "ait login --help"
-	tryLoginExample = "ait login user@host"
-	tryLoginSave    = "ait login --save user@host"
-	tryGetHelp      = "ait get --help"
-	tryPutHelp      = "ait put --help"
-	tryGetExample   = "ait get user@host:/remote/path ./local"
-	tryPutExample   = "ait put ./local user@host:/remote/path"
+import (
+	"fmt"
+	"strings"
 )
+
+// FormatSubcommandLines renders registry entries as helpdoc subcommand section lines.
+func FormatSubcommandLines(entries []Entry) string {
+	var b strings.Builder
+	for _, e := range entries {
+		fmt.Fprintf(&b, "  %s   %s\n", e.Name, e.Short)
+	}
+	return b.String()
+}
+
+// JoinChildNames returns child subcommand names joined with sep (e.g. "enable|disable").
+func JoinChildNames(entries []Entry, sep string) string {
+	names := make([]string, len(entries))
+	for i, e := range entries {
+		names[i] = e.Name
+	}
+	return strings.Join(names, sep)
+}

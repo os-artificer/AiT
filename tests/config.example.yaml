@@ -1,0 +1,35 @@
+# Copy to config.local.yaml and fill in your test environment.
+# config.local.yaml is gitignored; never commit secrets.
+
+ait:
+  binary: ../bin/ait
+
+ssh:
+  primary:
+    host: dev.example.com
+    port: 22
+    user: root
+    # identity: ~/.ssh/id_ed25519
+    # password: ""   # prefer key auth; password appears in process list
+  inner:
+    host: inner.example.com
+    port: 22
+    user: root
+  jump:
+    hosts: []   # e.g. ["jump.example.com"]
+
+ai:
+  deepseek_key: ""      # or set AIT_TEST_DEEPSEEK_KEY
+  minimax_key: ""
+  require_ollama: false # set true to require local Ollama for ai-marked tests
+
+features:
+  insecure_ssh: false   # set true to export AIT_SSH_INSECURE=1 for tests
+  nested_ssh: true
+  tmux: false
+  lrzsz: false
+  zmodem_chain: false
+
+env:
+  keyring_password: ait-e2e-test
+  lang: en_US.UTF-8

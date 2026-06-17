@@ -108,9 +108,9 @@ func resolveLoadTarget(loadTarget string, args []string) (string, error) {
 	if len(args) > 1 {
 		return "", errhint.WithTryMsg("unexpected arguments with --load",
 			"Pass the session id or alias as the --load value or as a single positional argument.",
-			"ait session --load <alias>",
-			"ait session --load",
-			"ait session --help",
+			pkgsession.TrySessionLoadAlias,
+			pkgsession.TrySessionLoad,
+			pkgsession.TrySessionHelp,
 		)
 	}
 	return "", nil
@@ -132,26 +132,26 @@ func resolveSwitchTarget(cmd *cobra.Command, switchTarget string, args []string)
 func sessionActionRequiredErr() error {
 	return errhint.WithTryMsg(errSessionActionRequired,
 		"Specify exactly one session action.",
-		"ait session --list",
-		"ait session --load [<id|alias>]",
-		"ait session --switch [id|alias]",
-		"ait session --help",
+		pkgsession.TrySessionList,
+		pkgsession.TrySessionLoadOptional,
+		pkgsession.TrySessionSwitchID,
+		pkgsession.TrySessionHelp,
 	)
 }
 
 func sessionActionExclusiveErr() error {
 	return errhint.WithTryMsg(errSessionActionExclusive,
 		"Use only one of --list, --load, --switch, --suspend, or --delete per invocation.",
-		"ait session --help",
+		pkgsession.TrySessionHelp,
 	)
 }
 
 func unexpectedSwitchArgsErr() error {
 	return errhint.WithTryMsg("unexpected arguments with --switch",
 		"Pass the session id or alias as the --switch value or as a single positional argument.",
-		"ait session --switch <id|alias>",
-		"ait session --switch",
-		"ait session --help",
+		pkgsession.TrySessionSwitchID,
+		pkgsession.TrySessionSwitch,
+		pkgsession.TrySessionHelp,
 	)
 }
 

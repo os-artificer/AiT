@@ -304,10 +304,24 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 	user := c.promptUser()
 	host := c.promptHost()
 
+	chunkStr := string(buf)
+	closedHost := parseSSHConnectionClosedHost(chunkStr)
+
 	chunk, repaintPrompt := c.filterRemoteOutputChunkRepaint(buf, user, host)
+	nestedClosed := false
+	if closedHost != "" && c.onNestedSSHSessionClosed(closedHost) {
+		nestedClosed = true
+		repaintPrompt = true
+		user = c.promptUser()
+		host = c.promptHost()
+	}
 	if chunk == nil {
 		if repaintPrompt {
-			c.repaintInteractivePrompt(user, host)
+			if nestedClosed {
+				c.repaintAfterNestedSSHClose(user, host)
+			} else {
+				c.repaintInteractivePrompt(user, host)
+			}
 		}
 		return
 	}
@@ -326,6 +340,13 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 	// never reaches the saved scrollback either (replayed on next load/switch).
 	stdoutChunk := c.applySetupGrace(chunk, user, host)
 	if len(stdoutChunk) == 0 {
+		if repaintPrompt {
+			if nestedClosed {
+				c.repaintAfterNestedSSHClose(user, host)
+			} else {
+				c.repaintInteractivePrompt(user, host)
+			}
+		}
 		return
 	}
 	if c.metaRecoverWhitespaceUntil.Load() > time.Now().UnixNano() && isWhitespaceOnlyPTYOutput(stdoutChunk) {
@@ -337,7 +358,11 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 		c.remotePromptShown.Store(true)
 	}
 	if repaintPrompt {
-		c.repaintInteractivePrompt(user, host)
+		if nestedClosed {
+			c.repaintAfterNestedSSHClose(user, host)
+		} else {
+			c.repaintInteractivePrompt(user, host)
+		}
 	}
 }
 

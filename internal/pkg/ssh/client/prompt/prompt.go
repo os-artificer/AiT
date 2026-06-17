@@ -45,12 +45,19 @@ const RemotePromptReadySentinel = ".__AIT_PROMPT_READY__"
 
 const remotePromptReadyCmd = `; printf '%s\n' '` + RemotePromptReadySentinel + `'`
 
-// remotePromptPrintCmd writes the expanded PS1/PROMPT to the PTY so local emit can
-// show the prompt without waiting for user input. Bash 4.4+ uses ${PS1@P}; older
-// bash falls back to printf '%b'. Zsh uses print -Pn and zle reset-prompt when available.
-const remotePromptPrintCmd = `[ -z "$ZSH_VERSION" ] && { __ait_p=${PS1@P}; [ -n "$__ait_p" ] && printf '%s' "$__ait_p" || printf '%b' "$PS1"; }` +
-	`; [ -n "$ZSH_VERSION" ] && print -Pn "$PROMPT"` +
+// remoteZshPromptPrintCmd redraws zsh PROMPT and resets the line editor. Bash must not
+// manually print PS1 during setup—that leaves readline without an active prompt.
+const remoteZshPromptPrintCmd = `[ -n "$ZSH_VERSION" ] && print -Pn "$PROMPT"` +
 	`; [ -n "$ZSH_VERSION" ] && { zle 2>/dev/null && zle reset-prompt 2>/dev/null; }`
+
+// remoteBashPromptRefreshCmd is a no-op that lets bash redraw PS1 after inject completes.
+const remoteBashPromptRefreshCmd = `[ -z "$ZSH_VERSION" ] && true`
+
+// RemotePromptRedrawCmd returns a shell one-liner that refreshes the remote prompt.
+// Bash redraws via a completing no-op; zsh uses print -Pn and zle reset-prompt.
+func RemotePromptRedrawCmd() string {
+	return remoteBashPromptRefreshCmd + "; " + remoteZshPromptPrintCmd
+}
 
 // RemotePrefix returns the fixed AiT remote prompt prefix (e.g. "AiT user@host:").
 func RemotePrefix(user, host string) string {
@@ -131,18 +138,18 @@ func RemotePS1(user, host string, dirAbsolute bool) string {
 	return RemotePS1Dynamic(user, host, dirAbsolute)
 }
 
-// RemotePromptRedrawCmd returns a shell one-liner that prints the current expanded
-// remote prompt to the PTY. Used after setup and as a refresh fallback.
-func RemotePromptRedrawCmd() string {
-	return remotePromptPrintCmd
-}
-
-// RemoteSetupLine sets PS1/PROMPT and HISTCONTROL while history is off, then clears
-// the default prompt line and prints the expanded prompt to the PTY. Echo suppression
-// is provided by Client.Inject; local filter suppresses any leaked echo.
+// RemoteSetupLine sets PS1/PROMPT and HISTCONTROL while history is off. Zsh clears the
+// default prompt line and redraws via zle; bash only exports PS1 and lets readline
+// redraw when the injected compound command completes. Echo suppression is provided
+// by Client.Inject; local filter suppresses any leaked echo.
 func remoteZshPrecmdHook(prompt string) string {
 	return `[ -n "$ZSH_VERSION" ] && ait_precmd() { PROMPT='` + prompt + `'; RPROMPT=; }` +
 		`; [ -n "$ZSH_VERSION" ] && precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)`
+}
+
+func remoteBashPromptCommandHook(ps1 string) string {
+	return `[ -z "$ZSH_VERSION" ] && ait_prompt_command() { export PS1='` + ps1 + `'; }` +
+		`; [ -z "$ZSH_VERSION" ] && export PROMPT_COMMAND=ait_prompt_command`
 }
 
 func RemoteSetupLine(user, host string, dirAbsolute bool) string {
@@ -151,10 +158,11 @@ func RemoteSetupLine(user, host string, dirAbsolute bool) string {
 	body := "export HISTCONTROL=ignorespace:erasedups" +
 		"; [ -n \"$ZSH_VERSION\" ] && setopt HIST_IGNORE_SPACE PROMPT_SUBST" +
 		"; export PS1='" + ps1 + "'" +
+		"; " + remoteBashPromptCommandHook(ps1) +
 		"; [ -n \"$ZSH_VERSION\" ] && export PROMPT='" + prompt + "'" +
 		"; " + remoteZshPrecmdHook(prompt) +
-		"; printf '\\033[1A\\033[2K\\r' 2>/dev/null" +
-		"; " + remotePromptPrintCmd +
+		"; [ -n \"$ZSH_VERSION\" ] && printf '\\033[1A\\033[2K\\r' 2>/dev/null" +
+		"; " + remoteZshPromptPrintCmd +
 		remotePromptReadyCmd
 	return wrapHistoryOff(body)
 }
@@ -182,12 +190,13 @@ func RemoteSetupStripFragments(user, host string, dirAbsolute bool) []string {
 		"AIT_CAPTURE_E_",
 		"export PS1='" + RemotePS1Dynamic(user, host, dirAbsolute) + "'",
 		"export PROMPT='" + RemotePROMPTDynamic(user, host, dirAbsolute) + "'",
-		remotePromptPrintCmd,
-		"__ait_p=${PS1@P}",
-		`printf '%b' "$PS1"`,
-		`print -Pn "$PROMPT"`,
+		remoteZshPromptPrintCmd,
+		remoteBashPromptRefreshCmd,
+		RemotePromptRedrawCmd(),
 		"ait_precmd()",
 		"precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)",
+		"ait_prompt_command()",
+		"export PROMPT_COMMAND=ait_prompt_command",
 		"zle reset-prompt",
 		RemotePromptReadySentinel,
 	}

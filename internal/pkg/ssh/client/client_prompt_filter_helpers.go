@@ -49,8 +49,8 @@ func (c *Client) shouldStripNativePrompt() bool {
 
 // stripUnwantedPromptLines removes prompt-echo lines from a PTY chunk without dropping
 // unrelated output on other lines. managed drops native shell prompts; dropEcho also
-// removes duplicate AiT prompt lines already shown locally. The bool is true only when
-// a native prompt line was removed (caller should repaint the AiT prompt locally).
+// removes duplicate AiT prompt lines already shown locally. The bool is true when any
+// prompt line was removed (caller should repaint the AiT prompt locally).
 func stripUnwantedPromptLines(p []byte, user, host string, managed, dropEcho bool) ([]byte, bool) {
 	if len(p) == 0 {
 		return p, false
@@ -60,22 +60,21 @@ func stripUnwantedPromptLines(p []byte, user, host string, managed, dropEcho boo
 	normalized = strings.ReplaceAll(normalized, "\r", "\n")
 	lines := strings.Split(normalized, "\n")
 
-	var nativeRemoved bool
-	var echoRemoved bool
+	var promptRemoved bool
 	var kept []string
 	for _, line := range lines {
 		plain := stripANSIForPromptMatch(line)
 		if managed && isNativePromptLike(plain) {
-			nativeRemoved = true
+			promptRemoved = true
 			continue
 		}
 		if dropEcho && isDuplicatePromptLine(line, user, host) {
-			echoRemoved = true
+			promptRemoved = true
 			continue
 		}
 		kept = append(kept, line)
 	}
-	if !nativeRemoved && !echoRemoved {
+	if !promptRemoved {
 		return p, false
 	}
 
@@ -83,7 +82,7 @@ func stripUnwantedPromptLines(p []byte, user, host string, managed, dropEcho boo
 		kept = kept[:len(kept)-1]
 	}
 	if len(kept) == 0 {
-		return nil, nativeRemoved
+		return nil, true
 	}
 
 	out := strings.Join(kept, "\n")
@@ -92,7 +91,7 @@ func stripUnwantedPromptLines(p []byte, user, host string, managed, dropEcho boo
 	} else if strings.HasSuffix(string(p), "\n") && !strings.HasSuffix(out, "\n") && !strings.HasSuffix(out, "\r\n") {
 		out += "\n"
 	}
-	return []byte(out), nativeRemoved
+	return []byte(out), true
 }
 
 // removeManagedNativePromptLines drops native shell prompt lines from PTY output when
@@ -108,6 +107,22 @@ func (c *Client) repaintInteractivePrompt(user, host string) {
 		return
 	}
 	_ = c.emitMetaPromptStdout(user, host)
+}
+
+// repaintAfterNestedSSHClose restores the outer-shell prompt after a nested ssh exits.
+func (c *Client) repaintAfterNestedSSHClose(user, host string) {
+	if c == nil || user == "" || host == "" {
+		return
+	}
+
+	if stdin := c.interactiveStdin; stdin != nil && !c.localShell.Active() {
+		c.triggerRemotePrecmd(stdin)
+		c.refreshRemotePrompt(stdin)
+	}
+
+	if c.emitMetaPromptStdout(user, host) {
+		c.remotePromptShown.Store(true)
+	}
 }
 
 // filterRemoteOutputChunkRepaint applies setup suppression, managed-native stripping, and
@@ -127,11 +142,11 @@ func (c *Client) filterRemoteOutputChunkRepaint(chunk []byte, user, host string)
 	}
 
 	if c.shouldStripNativePrompt() || c.remotePromptShown.Load() {
-		var nativeStripped bool
-		chunk, nativeStripped = stripUnwantedPromptLines(
+		var promptStripped bool
+		chunk, promptStripped = stripUnwantedPromptLines(
 			chunk, user, host, c.shouldStripNativePrompt(), c.remotePromptShown.Load(),
 		)
-		if nativeStripped {
+		if promptStripped {
 			repaint = true
 		}
 		if len(chunk) == 0 {

@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 )
 
 // RootCommandEntry is one line in the root ait --help command list.
@@ -55,7 +57,7 @@ func WriteRootHelp(w io.Writer, entries []RootCommandEntry) error {
 	if err := b.WriteExamples(
 		"ait shell",
 		"ait login myserver",
-		"ait session --list",
+		clihints.TrySessionList,
 	); err != nil {
 		return err
 	}

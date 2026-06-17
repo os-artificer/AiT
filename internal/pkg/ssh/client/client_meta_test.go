@@ -114,6 +114,7 @@ func TestRunMetaCLIFinishesStdout(t *testing.T) {
 
 	var stdin bytes.Buffer
 	c := testClientWithPrompt("u", "h")
+	c.remotePromptReadySeen.Store(true)
 	err = c.runMetaCLI(&stdin, InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			if len(args) != 1 || args[0] != "list" {
@@ -155,6 +156,7 @@ func TestHandleMetaLineListFinishesStdout(t *testing.T) {
 
 	var stdin bytes.Buffer
 	c := testClientWithPrompt("u", "h")
+	c.remotePromptReadySeen.Store(true)
 	err = c.handleMetaLine(context.Background(), &stdin, "!ait list", InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			_, err := io.WriteString(os.Stdout, "row1")
@@ -252,16 +254,20 @@ func TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive(t *testin
 		t.Fatalf("repainted prompt must not end with newline, got %q", got)
 	}
 
-	before := buf.Len()
+	before := buf.String()
 	c.handleRemoteOutput([]byte(promptLine + "\r\n"))
-	if buf.Len() != before {
-		t.Fatalf("duplicate remote redraw should still be filtered, got %q", buf.String())
+	got = buf.String()
+	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
+		t.Fatalf("prompt should remain visible after duplicate strip, got %q", got)
+	}
+	if strings.Count(got, "AiT root@ylgeeker.com:") > strings.Count(before, "AiT root@ylgeeker.com:")+1 {
+		t.Fatalf("duplicate remote echo should not stack prompts, got %q", got)
 	}
 }
 
-// TestFinishMetaInteraction_EmitsNativePromptFromScrollback (M7) repaints the user's native
-// shell prompt after meta when scrollback holds native output but no AiT line (oh-my-zsh hosts).
-func TestFinishMetaInteraction_EmitsNativePromptFromScrollback(t *testing.T) {
+// TestFinishMetaInteraction_PaintsAITWhenManaged (M7/P11) paints the AiT prompt after meta when
+// remotePromptShown is set, even if scrollback only holds native oh-my-zsh lines.
+func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
 	c := testClientWithPrompt("root", "ylgeeker.com")
 	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
@@ -277,11 +283,11 @@ func TestFinishMetaInteraction_EmitsNativePromptFromScrollback(t *testing.T) {
 	c.finishMetaInteraction(&stdin)
 
 	got := buf.String()
-	if strings.Contains(got, "AiT root@ylgeeker.com:") {
-		t.Fatalf("stdout should not client-paint AiT when native prompt is buffered, got %q", got)
+	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
+		t.Fatalf("expected AiT client paint when managed, got %q", got)
 	}
-	if !strings.Contains(got, nativeLine) {
-		t.Fatalf("stdout should emit native prompt from scrollback, got %q", got)
+	if strings.Contains(got, nativeLine) {
+		t.Fatalf("should not emit native prompt when managed, got %q", got)
 	}
 }
 

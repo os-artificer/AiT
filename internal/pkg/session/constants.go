@@ -47,17 +47,7 @@ const (
 )
 
 // Try block lines (shared by load and interactive pick errors).
-const (
-	tryLoadByAlias     = "ait session --load <alias>"
-	tryLoadByFullID    = "ait session --list -v    then ait session --load <FULL_ID>"
-	tryLoadInteractive = "ait session --load       pick by # interactively"
-	trySessionHelp     = "ait session --help"
-	tryLoadFromLocal   = "ait session --load [<id|alias>]"
-	trySwitchForce     = "ait session --switch <id|alias> --force"
-	tryLoginSave       = "ait login --save <destination>"
-	tryLoginAlias      = "ait login --alias <name> <destination>"
-	tryLoginHelp       = "ait login --help"
-)
+// Exported names live in try_lines.go; keep this block removed — use Try* constants.
 
 // Interactive password prompts (format strings).
 const (

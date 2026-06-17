@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
 
@@ -39,10 +40,10 @@ const (
 
 func tmuxAttachTryLines(tmuxName string) []string {
 	return []string{
-		"ait login --tmux user@host",
-		"ait login --tmux devhost",
+		clihints.TryLoginTmuxUserHost,
+		clihints.TryLoginTmuxDevhost,
 		fmt.Sprintf("ssh user@host 'tmux list-sessions | grep %s'", tmuxName),
-		"ait session --list",
+		clihints.TrySessionList,
 	}
 }
 
@@ -67,7 +68,7 @@ func wrapTmuxSessionNotFoundErr(tmuxName string, cause error) error {
 	}
 	return errhint.WithTry(wrapped,
 		hintTmuxSessionNotFoundExplain,
-		append(tmuxAttachTryLines(tmuxName), "ait login --tmux --save devhost")...,
+		append(tmuxAttachTryLines(tmuxName), clihints.TryLoginTmuxSaveDevhost)...,
 	)
 }
 

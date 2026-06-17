@@ -20,6 +20,7 @@ import (
 	"github.com/os-artificer/AiT/internal/ait/login"
 	"github.com/os-artificer/AiT/internal/ait/session"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	pkgsession "github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 )
 
@@ -49,8 +50,8 @@ func loginBlockedWhenActiveErr() error {
 	return errhint.WithTryMsg(errLoginBlockedActive,
 		hintLoginBlockedExplain,
 		meta.LineSuspend,
-		"ait session --switch <id|alias>",
-		"ait session --help",
+		pkgsession.TrySessionSwitchID,
+		pkgsession.TrySessionHelp,
 	)
 }
 
@@ -58,7 +59,7 @@ func loadBlockedWhenActiveErr() error {
 	return errhint.WithTryMsg(errLoadBlockedActive,
 		hintLoadBlockedExplain,
 		meta.LineSuspend,
-		"ait session --switch <id|alias>",
-		"ait session --help",
+		pkgsession.TrySessionSwitchID,
+		pkgsession.TrySessionHelp,
 	)
 }

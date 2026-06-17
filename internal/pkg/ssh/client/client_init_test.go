@@ -29,7 +29,8 @@ import (
 )
 
 func stdinHasPromptRedraw(s string) bool {
-	return strings.Contains(s, "__ait_p=${PS1@P}") || strings.Contains(s, `print -Pn "$PROMPT"`)
+	return strings.Contains(s, `[ -z "$ZSH_VERSION" ] && true`) ||
+		strings.Contains(s, `print -Pn "$PROMPT"`)
 }
 
 func testClientWithPrompt(user, host string) *Client {
@@ -625,7 +626,10 @@ func TestFormatActivePromptStdout_NoTrailingNewline(t *testing.T) {
 	if !strings.HasPrefix(out, "\r") {
 		t.Fatalf("active prompt should start with carriage return, got %q", out)
 	}
-	if !strings.HasSuffix(out, "> ") {
+	if !strings.HasSuffix(out, promptClearToEOL) {
+		t.Fatalf("active prompt should clear to EOL, got %q", out)
+	}
+	if !strings.HasSuffix(strings.TrimSuffix(out, promptClearToEOL), "> ") {
 		t.Fatalf("active prompt should end at prompt suffix, got %q", out)
 	}
 }

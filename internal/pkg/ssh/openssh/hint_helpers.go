@@ -19,13 +19,14 @@ package openssh
 import (
 	"fmt"
 
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
 func destinationRequiredErr() error {
 	return errhint.WithTryMsg("destination required (e.g. user@host or ssh config Host alias)",
 		"Add a host destination after login options.",
-		tryLoginExample, tryLoginSave, tryLoginHelp,
+		clihints.TryLoginExample, clihints.TryLoginSaveUserHost, clihints.TryLoginHelp,
 	)
 }
 
@@ -33,17 +34,17 @@ func destinationRequiredErr() error {
 func TmuxWithRemoteCommandErr() error {
 	return errhint.WithTryMsg("cannot use --tmux with a remote command",
 		"Tmux keeps an interactive shell; one-shot commands cannot use --tmux.",
-		tryLoginExample,
-		"ait login user@host uptime",
-		tryLoginHelp,
+		clihints.TryLoginExample,
+		clihints.TryLoginRemoteCmd,
+		clihints.TryLoginHelp,
 	)
 }
 
 func transferPathCountErr(cmdLabel string) error {
-	tries := []string{tryGetExample, tryGetHelp}
+	tries := []string{clihints.TryGetExample, clihints.TryGetHelp}
 	msg := "need 1 to 3 path arguments for ait get (remote path required; local optional)"
 	if cmdLabel == "put" {
-		tries = []string{tryPutExample, tryPutHelp}
+		tries = []string{clihints.TryPutExample, clihints.TryPutHelp}
 		msg = "need 1 to 3 path arguments for ait put (local path required; remote optional)"
 	}
 	return errhint.WithTryMsg(msg,
@@ -55,9 +56,9 @@ func transferPathCountErr(cmdLabel string) error {
 func sessionFlagRequiresValueErr() error {
 	return errhint.WithTryMsg("--session requires a value",
 		"Pass a saved session id or alias.",
-		"ait session --list",
-		"ait get --session prod <paths...>",
-		tryGetHelp,
+		clihints.TrySessionList,
+		clihints.TryGetSessionProd,
+		clihints.TryGetHelp,
 	)
 }
 

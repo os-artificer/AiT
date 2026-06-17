@@ -24,16 +24,11 @@ import (
 	"github.com/os-artificer/AiT/internal/ait/ai/ollama/start"
 	"github.com/os-artificer/AiT/internal/ait/ai/ollama/status"
 	"github.com/os-artificer/AiT/internal/ait/ai/ollama/stop"
+	"github.com/os-artificer/AiT/internal/ait/ai/ollama/subregistry"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	pkgsubregistry "github.com/os-artificer/AiT/internal/pkg/subregistry"
 )
-
-const ollamaSubcommands = `  status            show tiered/enable flags and API reachability
-  setup [flags]     enable tiered routing; install/start/pull Ollama
-  start [flags]     start ollama serve in the background
-  stop              stop local ollama serve
-  disable [flags]   set ai.providers.ollama.enabled false (optional --stop)
-`
 
 const (
 	ollamaIntroMain       = "Manage local Ollama for tiered AI routing (under ait ai)."
@@ -51,7 +46,7 @@ func WriteAIOllamaHelp(w io.Writer) error {
 	if err := b.WriteUsage(ollamaUsageMain); err != nil {
 		return err
 	}
-	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, ollamaSubcommands); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, pkgsubregistry.FormatSubcommandLines(subregistry.Entries())); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
