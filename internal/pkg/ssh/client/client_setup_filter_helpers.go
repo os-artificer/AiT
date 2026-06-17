@@ -207,21 +207,36 @@ func (s *setupStdoutStripper) flushPendingPrompt(user, host string) []byte {
 	return out
 }
 
+// pendingNativePromptCandidate returns the last native prompt line held in pending,
+// including when MOTD or other earlier lines share the buffer.
+func (s *setupStdoutStripper) pendingNativePromptCandidate(user, host string) string {
+	if len(s.pending) == 0 {
+		return ""
+	}
+	line := lastPromptCandidateLine(string(s.pending))
+	if line == "" {
+		return ""
+	}
+	if isSetupLeakLine(line, user, host) {
+		return ""
+	}
+	if extractNativePromptForEmit(line) == "" {
+		return ""
+	}
+	return line
+}
+
 // flushPendingNativePrompt emits pending bytes when they form a complete native
 // shell prompt (e.g. "root@host [~] →" without a trailing newline), so the user
 // is never left without a prompt during the grace window. Single characters and
 // other wrapped setup-echo fragments never match and stay held.
 func (s *setupStdoutStripper) flushPendingNativePrompt(user, host string) []byte {
-	if len(s.pending) == 0 {
+	line := s.pendingNativePromptCandidate(user, host)
+	if line == "" {
 		return nil
 	}
-	line := strings.TrimRight(string(s.pending), "\r\n")
-	if isSetupLeakLine(line, user, host) || !isNativePromptLike(line) {
-		return nil
-	}
-	out := append([]byte(nil), s.pending...)
 	s.pending = nil
-	return out
+	return []byte(line)
 }
 
 // filterChunk appends p and returns stdout-safe bytes for complete non-leak lines.
@@ -246,13 +261,22 @@ func (s *setupStdoutStripper) filterChunk(p []byte, user, host string, allowNati
 	return out
 }
 
+// peekPendingNativePrompt reports whether pending holds a complete native shell prompt.
+func (s *setupStdoutStripper) peekPendingNativePrompt(user, host string) bool {
+	return s.pendingNativePromptCandidate(user, host) != ""
+}
+
 func (s *setupStdoutStripper) reset() {
 	s.pending = nil
 }
 
-// endGrace drops any trailing pending bytes when the grace window ends.
-// Incomplete setup-echo fragments must not be flushed to stdout on load/switch.
+// endGrace drops incomplete setup-echo fragments when the grace window ends.
+// A complete native shell prompt in pending is flushed so load/switch never
+// leaves the user without a visible prompt.
 func (s *setupStdoutStripper) endGrace(user, host string) []byte {
+	if native := s.flushPendingNativePrompt(user, host); len(native) > 0 {
+		return native
+	}
 	s.pending = nil
 	return nil
 }
@@ -383,11 +407,11 @@ func isSetupLeakFragment(s string) bool {
 }
 
 // isNativePromptLike reports whether line looks like a complete native shell
-// prompt (e.g. "root@ylgeeker [~] →" or "user@host:~$"). It requires a
+// prompt (e.g. "root@remote [~] →" or "user@host:~$"). It requires a
 // user@host marker, a minimum length, and a trailing prompt terminator so
 // wrapped setup-echo fragments and single characters never match.
 func isNativePromptLike(line string) bool {
-	line = strings.TrimSpace(stripANSIForPromptMatch(line))
+	line = strings.TrimSpace(trimRightPromptSegments(stripANSIForPromptMatch(line)))
 	if len(line) < nativePromptMinLen || !strings.Contains(line, "@") {
 		return false
 	}
@@ -400,6 +424,30 @@ func isNativePromptLike(line string) bool {
 		}
 	}
 	return false
+}
+
+// isLikelyShellPromptLine is a relaxed native-prompt heuristic for bash PS1 variants
+// that isNativePromptLike rejects (short prompts, bracketed styles, ANSI-heavy lines).
+func isLikelyShellPromptLine(line string) bool {
+	if isNativePromptLike(line) {
+		return true
+	}
+	plain := strings.TrimSpace(stripANSIForPromptMatch(line))
+	if len(plain) < 5 || strings.HasPrefix(plain, "AiT ") || !strings.Contains(plain, "@") {
+		return false
+	}
+	for _, suffix := range nativePromptSuffixes {
+		if strings.HasSuffix(plain, suffix) {
+			return true
+		}
+	}
+	runes := []rune(plain)
+	switch runes[len(runes)-1] {
+	case '#', '$', '>', '%':
+		return true
+	default:
+		return false
+	}
 }
 
 // nativePromptHostInLine extracts the host label from a native prompt like "root@host [~] ->".

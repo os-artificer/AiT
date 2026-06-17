@@ -277,9 +277,10 @@ func TestFinishRemoteSetup_RefreshPromptReachStdout(t *testing.T) {
 	if !strings.Contains(got, "AiT u@h:") {
 		t.Fatalf("stdout should contain client-painted prompt, got %q", got)
 	}
+	// Native prompt mode (UseRemoteSystemPrompt) does not strip/drop AiT-style prompts.
 	promptLine := "AiT u@h:/data> "
-	if got := c.filterRemoteOutputChunk([]byte(promptLine), "u", "h"); got != nil {
-		t.Fatal("duplicate prompt should be dropped after shown")
+	if got := c.filterRemoteOutputChunk([]byte(promptLine), "u", "h"); got == nil {
+		t.Fatal("native prompt mode should not drop prompt chunk")
 	}
 }
 
@@ -302,13 +303,15 @@ func TestFinishRemoteSetup_EmitFailFallsBackRefresh(t *testing.T) {
 	}
 }
 
+// TestCopyOutDropsDuplicatePromptAfterShown: native prompt mode (UseRemoteSystemPrompt)
+// does not drop duplicate AiT prompts — it never paints them — so chunks pass through.
 func TestCopyOutDropsDuplicatePromptAfterShown(t *testing.T) {
 	c := &Client{}
 	c.remotePromptShown.Store(true)
 	user, host := "u", "h"
 
-	if got := c.filterRemoteOutputChunk([]byte("AiT u@h:/tmp:main> "), user, host); got != nil {
-		t.Fatalf("duplicate prompt should be dropped, got %q", got)
+	if got := c.filterRemoteOutputChunk([]byte("AiT u@h:/tmp:main> "), user, host); got == nil {
+		t.Fatal("native prompt mode should not drop prompt chunk")
 	}
 	if got := c.filterRemoteOutputChunk([]byte("ls\r\n"), user, host); got == nil {
 		t.Fatal("normal command output should pass through")
@@ -371,7 +374,7 @@ func TestFinishRemoteSetup_RequiresVisiblePromptBeforeUnpause(t *testing.T) {
 
 // TestSeedReplayScrollback_FiltersDevNullFragments (P2h) seeds sanitized scroll without stdout.
 func TestSeedReplayScrollback_FiltersDevNullFragments(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	var buf bytes.Buffer
 	c.interactiveOut = terminal.NewCRLFWriter(&buf)
 
@@ -383,7 +386,7 @@ func TestSeedReplayScrollback_FiltersDevNullFragments(t *testing.T) {
 		"dev/null",
 		"hello world",
 	}, "\n")
-	c.seedReplayScrollback(data, "root", "ylgeeker.com")
+	c.seedReplayScrollback(data, testSSHUser, testPrimaryHostFQDN)
 
 	if buf.Len() != 0 {
 		t.Fatalf("seed replay must not write stdout, got %q", buf.String())
@@ -457,14 +460,14 @@ func TestWaitForRemoteAITPrompt(t *testing.T) {
 
 // TestWaitForShellReadyBeforeInject_NativePrompt (P1e) returns quickly when scroll has a native prompt and output is quiet.
 func TestWaitForShellReadyBeforeInject_NativePrompt(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	attachAt := time.Now().Add(-500 * time.Millisecond)
-	_, _ = c.scroll.Write([]byte("motd\nroot@ylgeeker [~] ➜"))
+	_, _ = c.scroll.Write([]byte("motd\nroot@remote [~] ➜"))
 	c.touchRemoteOut()
 	time.Sleep(remoteOutputQuietPeriod + 30*time.Millisecond)
 
 	start := time.Now()
-	c.waitForShellReadyBeforeInject(attachAt, "root", "ylgeeker.com", shellReadyMaxWait)
+	c.waitForShellReadyBeforeInject(attachAt, testSSHUser, testPrimaryHostFQDN, shellReadyMaxWait)
 	if time.Since(start) > 500*time.Millisecond {
 		t.Fatalf("should return quickly when native prompt present and quiet: %v", time.Since(start))
 	}
@@ -482,11 +485,11 @@ func TestTriggerRemotePrecmd_WritesSpaceNewline(t *testing.T) {
 
 // TestEmitBufferedRemotePromptIfReady_NoPrecmd (P1g) does not trigger precmd from emit helper.
 func TestEmitBufferedRemotePromptIfReady_NoPrecmd(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.pauseRemoteOut.Store(true)
 	stdin := &bytes.Buffer{}
 
-	c.emitBufferedRemotePromptIfReady(stdin, "root", "ylgeeker.com")
+	c.emitBufferedRemotePromptIfReady(stdin, testSSHUser, testPrimaryHostFQDN)
 
 	if strings.HasPrefix(stdin.String(), " \n") {
 		t.Fatalf("emit helper should not trigger precmd, got %q", stdin.String())
@@ -512,12 +515,12 @@ func TestWaitRemoteOutputQuietSince_BeforeShellInject(t *testing.T) {
 
 // TestFinishRemoteSetup_EmitsNativePromptFallback (P1c) writes native prompt only when setup sentinel is absent.
 func TestFinishRemoteSetup_EmitsNativePromptFallback(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 
-	nativeLine := "root@ylgeeker [~] ➜"
+	nativeLine := "root@remote [~] ➜"
 	_, _ = c.scroll.Write([]byte("motd\n" + nativeLine))
 	// No RemotePromptReadySentinel — native fallback is allowed.
 
@@ -535,7 +538,7 @@ func TestFinishRemoteSetup_EmitsNativePromptFallback(t *testing.T) {
 		done <- buf.Bytes()
 	}()
 
-	c.finishRemoteSetup(stdin, "root", "ylgeeker.com", false)
+	c.finishRemoteSetup(stdin, testSSHUser, testPrimaryHostFQDN, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -550,8 +553,8 @@ func TestFinishRemoteSetup_EmitsNativePromptFallback(t *testing.T) {
 }
 
 func TestLastNativePromptLine(t *testing.T) {
-	scroll := "motd\nroot@ylgeeker [~] ➜\n"
-	if got := lastNativePromptLine(scroll); got != "root@ylgeeker [~] ➜" {
+	scroll := "motd\nroot@remote [~] ➜\n"
+	if got := lastNativePromptLine(scroll); got != "root@remote [~] ➜" {
 		t.Fatalf("got %q", got)
 	}
 	if got := lastNativePromptLine("AiT u@h:/tmp> "); got != "" {
@@ -561,12 +564,12 @@ func TestLastNativePromptLine(t *testing.T) {
 
 // TestFinishRemoteSetup_ClientPaintWhenSentinelOnlyNative (P1i) paints AiT prompt instead of native fallback.
 func TestFinishRemoteSetup_ClientPaintWhenSentinelOnlyNative(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 
-	nativeLine := "root@ylgeeker [~] ->"
+	nativeLine := "root@remote [~] ->"
 	_, _ = c.scroll.Write([]byte(nativeLine + "\n" + prompt.RemotePromptReadySentinel + "\n"))
 	c.remotePromptReadySeen.Store(true)
 
@@ -584,7 +587,7 @@ func TestFinishRemoteSetup_ClientPaintWhenSentinelOnlyNative(t *testing.T) {
 		done <- buf.Bytes()
 	}()
 
-	c.finishRemoteSetup(stdin, "root", "ylgeeker.com", false)
+	c.finishRemoteSetup(stdin, testSSHUser, testPrimaryHostFQDN, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -593,19 +596,19 @@ func TestFinishRemoteSetup_ClientPaintWhenSentinelOnlyNative(t *testing.T) {
 	if strings.Contains(got, nativeLine) {
 		t.Fatalf("stdout should not contain native prompt %q, got %q", nativeLine, got)
 	}
-	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
+	if !strings.Contains(got, "AiT root@"+testPrimaryHostFQDN+":") {
 		t.Fatalf("stdout should contain client-painted AiT prompt, got %q", got)
 	}
 }
 
 // TestEnsureFirstPromptVisible_NoPrecmdWhenSetupSucceeded (P1n) paints without precmd when sentinel is ready.
 func TestEnsureFirstPromptVisible_NoPrecmdWhenSetupSucceeded(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.pauseRemoteOut.Store(true)
 	c.remotePromptReadySeen.Store(true)
 	stdin := &bytes.Buffer{}
 
-	if !c.ensureFirstPromptVisible(stdin, "root", "ylgeeker.com") {
+	if !c.ensureFirstPromptVisible(stdin, testSSHUser, testPrimaryHostFQDN) {
 		t.Fatal("expected prompt visible")
 	}
 	if strings.Contains(stdin.String(), " \n") {
@@ -618,7 +621,7 @@ func TestEnsureFirstPromptVisible_NoPrecmdWhenSetupSucceeded(t *testing.T) {
 
 // TestFormatActivePromptStdout_NoTrailingNewline (P1m) keeps the cursor on the prompt line.
 func TestFormatActivePromptStdout_NoTrailingNewline(t *testing.T) {
-	line := "AiT root@ylgeeker.com:~> "
+	line := "AiT root@" + testPrimaryHostFQDN + ":~> "
 	out := formatActivePromptStdout(line)
 	if strings.HasSuffix(out, "\n") || strings.HasSuffix(out, "\r\n") {
 		t.Fatalf("active prompt must not end with newline, got %q", out)
@@ -636,12 +639,12 @@ func TestFormatActivePromptStdout_NoTrailingNewline(t *testing.T) {
 
 // TestFinishRemoteSetup_SinglePrecmdTrigger (P1k) sends at most one precmd blank line during setup finish.
 func TestFinishRemoteSetup_SinglePrecmdTrigger(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	stdin := &bytes.Buffer{}
 	c.pauseRemoteOut.Store(true)
 	c.remoteSetupSuppress.Store(true)
 
-	c.finishRemoteSetup(stdin, "root", "ylgeeker.com", false)
+	c.finishRemoteSetup(stdin, testSSHUser, testPrimaryHostFQDN, false)
 
 	if strings.Count(stdin.String(), " \n") != 1 {
 		t.Fatalf("want exactly one precmd trigger, stdin=%q", stdin.String())

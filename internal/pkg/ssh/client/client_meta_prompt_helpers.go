@@ -58,6 +58,9 @@ func (c *Client) emitMetaPromptStdout(user, host string) bool {
 	if c == nil {
 		return false
 	}
+	if UseRemoteSystemPrompt() {
+		return c.emitBufferedNativePrompt()
+	}
 	if c.scroll != nil && c.emitBufferedRemotePrompt(user, host) {
 		return true
 	}
@@ -81,6 +84,14 @@ func (c *Client) finishMetaInteraction(stdin io.Writer) {
 	c.setupKeystrokeGraceUntil.Store(recoverUntil.UnixNano())
 	c.setupLeakGraceUntil.Store(recoverUntil.UnixNano())
 
+	// Native prompt mode: prefer scrollback re-emit (no remote poke). When scrollback
+	// lacks a recognizable prompt (host mismatch, bash PS1 variant, fresh login),
+	// fall back to a silent remote redraw captured while stdout stays paused.
+	if UseRemoteSystemPrompt() {
+		c.finishNativePromptAfterMeta(stdin)
+		return
+	}
+
 	if c.remotePromptShown.Load() {
 		if stdin != nil && !c.localShell.Active() {
 			wasPaused := c.pauseRemoteOut.Load()
@@ -99,4 +110,25 @@ func (c *Client) finishMetaInteraction(stdin io.Writer) {
 	c.syncRemoteShellAfterMeta(stdin)
 	c.waitForRemoteAITPrompt(user, host, remoteAITPromptRefreshWait)
 	c.repaintInteractivePrompt(user, host)
+}
+
+// finishNativePromptAfterMeta re-shows the remote shell prompt after local-only meta output.
+// It tries scrollback re-emit first, then a silent remote redraw when no prompt is found.
+func (c *Client) finishNativePromptAfterMeta(stdin io.Writer) bool {
+	if c.emitBufferedNativePrompt() {
+		return true
+	}
+	if stdin == nil || c.localShell.Active() {
+		return false
+	}
+
+	beforeLen := 0
+	if c.scroll != nil {
+		beforeLen = len(c.scroll.String())
+	}
+	c.syncNativeRemoteShellAfterMeta(stdin)
+	if c.emitBufferedNativePrompt() {
+		return true
+	}
+	return c.emitScrollDeltaPrompt(beforeLen)
 }
