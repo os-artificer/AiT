@@ -253,7 +253,7 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 | [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode, silent injection, remote prompt emit | `client.go`, `client_dial.go`, `client_init_helpers.go`, `client_init_prompt_emit_helpers.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback/delta.go`, `terminal/path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go`, `remote_pty.go` |
-| [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
+| [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider AI (Eino ChatModel + specialized Anthropic/Ollama Agent legacy), tiered Ollama, model list | `client/`, `eino/`, `apitypes/`, `router/` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file); default path helpers | `transfer.go`, `parse.go`, `path_defaults.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, editor | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML config, init, validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
@@ -591,7 +591,7 @@ Direct dependencies:
 - `github.com/99designs/keyring` — secret/password cache
 - `github.com/google/uuid` — session IDs
 - `github.com/pkg/sftp` — file transfer (get/put)
-- `github.com/sashabaranov/go-openai` — Deepseek (OpenAI-compatible)
+- `github.com/cloudwego/eino`, `github.com/cloudwego/eino-ext/components/model/openai` — multi-provider ChatModel (OpenAI-compatible + failover)
 - `gopkg.in/yaml.v3` — configuration
 
 Indirect: `github.com/creack/pty` (Unix local mode `!ait local`).

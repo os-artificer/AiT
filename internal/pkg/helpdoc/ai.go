@@ -35,7 +35,7 @@ const (
 		"longer or complex prompts use cloud providers. Setup: ait ai ollama setup. List: ait ai model list\n"
 	AIHelpInSSHBody = "Use !ait ai or !! for interactive AI; " +
 		"!ait ai ask <msg> or !! ask <msg> for one-shot; " +
-		"!ait ai agent <msg> or !! agent <msg> for one-shot agent. " +
+		"!ait ai agent for interactive Agent REPL, or !ait ai agent <msg> / !! agent <msg> for one-shot agent. " +
 		"!ait ai as a meta subcommand is blocked."
 
 	AIIntroLocal  = "Interactive AI mode on this machine (outside SSH). Commands run locally only after you confirm."

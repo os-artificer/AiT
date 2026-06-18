@@ -135,7 +135,7 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 - **Formatting**: tabs for Go; run `make fmt` before finishing Go changes.
 - **Tests**: `*_test.go` beside implementation; `make test` must pass. Store tests use `:memory:` SQLite.
 - **`internal/`**: module-private — do not import from outside this module.
-- **Dependencies**: add only when needed; see `go.mod` (cobra, modernc sqlite, x/crypto/ssh, x/term, keyring, uuid, sftp, go-openai, yaml).
+- **Dependencies**: add only when needed; see `go.mod` (cobra, modernc sqlite, x/crypto/ssh, x/term, keyring, uuid, sftp, cloudwego/eino, yaml).
 - **Secrets**: API keys and SSH passwords in OS keyring (`creds`); never commit or log them. Do not store passwords in SQLite.
 - **Commits**: only when the user explicitly asks; never change git config or commit secrets (`.env`).
 

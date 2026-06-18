@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -204,6 +205,22 @@ func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQ
 	})
 
 	c.finishMetaInteraction(stdin)
+	return swallowAIMetaREPLRecoverable(err)
+}
+
+// swallowAIMetaREPLRecoverable prints user-recoverable AI REPL errors and returns
+// nil so SSH forwardStdin continues. API/terminal failures still propagate.
+func swallowAIMetaREPLRecoverable(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ai.ErrChatMessageRequired) ||
+		errors.Is(err, ai.ErrNotConfigured) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
+		return nil
+	}
 	return err
 }
 

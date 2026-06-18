@@ -21,27 +21,19 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai/eino"
 	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 	"github.com/os-artificer/AiT/internal/pkg/ai/router"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
-
-	openai "github.com/sashabaranov/go-openai"
 )
-
-// PromptMeta carries factual provider routing fields injected into the system prompt.
-type PromptMeta struct {
-	Provider ProviderID
-	Model    string
-	Mode     string
-}
 
 // Client routes chat requests across configured AI providers with failover.
 type Client struct {
 	cfg             *config.Config
-	endpoints       map[ProviderID]*endpoint
+	slots           map[ProviderID]*providerSlot
 	sessionProvider ProviderID
 	initOverride    ProviderID
 	skipTiered      bool
@@ -77,7 +69,7 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 		fn(&o)
 	}
 
-	eps := make(map[ProviderID]*endpoint)
+	slots := make(map[ProviderID]*providerSlot)
 
 	for _, id := range config.CloudProviderIDs() {
 		if !cfg.ProviderEnabled(id) {
@@ -91,19 +83,19 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 		if !ok {
 			pc = config.ProviderConfig{}
 		}
-		eps[id] = newEndpoint(id, pc, key, o.httpClient)
+		slots[id] = newProviderSlot(id, pc, key, o.httpClient)
 	}
 
 	if cfg.TieredEnabled() {
 		localID := cfg.LocalProviderID()
 		if cfg.ProviderEnabled(localID) {
-			if ep := initTieredEndpoint(cfg, localID, o.httpClient); ep != nil {
-				eps[localID] = ep
+			if slot := initTieredSlot(cfg, localID, o.httpClient); slot != nil {
+				slots[localID] = slot
 			}
 		}
 	}
 
-	if len(eps) == 0 {
+	if len(slots) == 0 {
 		return nil, errhint.WithTryMsg("no enabled AI providers configured",
 			hintNoProvidersConfigured,
 			provider.ConfigSetAPIKeyCmd(ProviderDeepseek),
@@ -112,7 +104,7 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 		)
 	}
 
-	if !hasCloudEndpoint(eps) && !cfg.TieredEnabled() {
+	if !hasCloudSlot(slots) && !cfg.TieredEnabled() {
 		return nil, errhint.WithTryMsg("no cloud AI API keys configured",
 			provider.HintSetCloudAPIKey,
 			provider.ConfigSetAPIKeyCmd(cfg.DefaultProviderID()),
@@ -128,22 +120,22 @@ func NewClient(cfg *config.Config, opts ...ClientOption) (*Client, error) {
 		if !cfg.ProviderEnabled(o.providerOverride) {
 			return nil, ProviderDisabledErr(string(o.providerOverride))
 		}
-		if _, ok := eps[o.providerOverride]; !ok {
+		if _, ok := slots[o.providerOverride]; !ok {
 			return nil, errhint.WithTryMsg(fmt.Sprintf(errAPIKeyNotSetFmt, o.providerOverride),
 				provider.HintStoreAPIKeyInKeyring,
 				provider.ConfigSetAPIKeyCmd(string(o.providerOverride)),
 				provider.ConfigGetAPIKeyCmd(string(o.providerOverride)),
 			)
 		}
-	} else if cloud := cfg.DefaultProviderID(); hasCloudEndpoint(eps) {
-		if _, ok := eps[cloud]; !ok {
+	} else if cloud := cfg.DefaultProviderID(); hasCloudSlot(slots) {
+		if _, ok := slots[cloud]; !ok {
 			return nil, fmt.Errorf(errAPIKeyNotSetWithHintFmt, cloud, router.APIKeyHint(cloud))
 		}
 	}
 
 	return &Client{
 		cfg:             cfg,
-		endpoints:       eps,
+		slots:           slots,
 		initOverride:    o.providerOverride,
 		sessionProvider: o.providerOverride,
 		skipTiered:      o.providerOverride != "",
@@ -167,7 +159,7 @@ func (c *Client) SetSessionProvider(id ProviderID) error {
 	if !c.cfg.ProviderEnabled(id) {
 		return fmt.Errorf(errProviderDisabledFmt, id, id)
 	}
-	if _, ok := c.endpoints[id]; !ok {
+	if _, ok := c.slots[id]; !ok {
 		return fmt.Errorf(errProviderNoAPIKeyFmt, id, router.APIKeyHint(id))
 	}
 	c.sessionProvider = id
@@ -185,63 +177,69 @@ func (c *Client) DefaultProviderID() ProviderID {
 	return c.cfg.DefaultProviderID()
 }
 
-// TieredEnabled reports whether tiered local routing is on and Ollama endpoint exists.
+// TieredEnabled reports whether tiered local routing is on and Ollama slot exists.
 func (c *Client) TieredEnabled() bool {
 	if c == nil || !c.cfg.TieredEnabled() {
 		return false
 	}
-	_, ok := c.endpoints[c.cfg.LocalProviderID()]
+	_, ok := c.slots[c.cfg.LocalProviderID()]
 	return ok
 }
 
+type slotCompleter func(ctx context.Context, slot *providerSlot, messages []completionMessage) (string, string, error)
+
 func (c *Client) completion(
 	ctx context.Context, user string, historyLen int,
-	build func(PromptMeta) []openai.ChatCompletionMessage,
+	build func(PromptMeta) []completionMessage,
 ) (string, string, error) {
-	useLocal := router.ClassifyPrompt(c.cfg, user, historyLen, c.sessionProvider, c.skipTiered)
-	localID := c.cfg.LocalProviderID()
-
-	if useLocal {
-		if ep, ok := c.endpoints[localID]; ok {
-			meta := PromptMeta{Provider: localID, Model: ep.model, Mode: aiModeLocalFirst}
-			reply, thinking, err := c.complete(ctx, ep, build(meta))
-			if err == nil {
-				return reply, thinking, nil
-			}
-			if order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints)); len(order) > 0 {
-				router.LogFailover(nil, localID, order[0], err)
-			}
-		}
-	}
-
-	return c.chatWithFailover(ctx, build)
+	return c.completionWith(ctx, user, historyLen, build, c.complete)
 }
 
 func (c *Client) completionAgent(
 	ctx context.Context, user string, historyLen int,
-	build func(PromptMeta) []openai.ChatCompletionMessage,
+	build func(PromptMeta) []completionMessage,
+) (string, string, error) {
+	return c.completionWith(ctx, user, historyLen, build, c.completeAgent)
+}
+
+func (c *Client) completionWith(
+	ctx context.Context, user string, historyLen int,
+	build func(PromptMeta) []completionMessage,
+	complete slotCompleter,
 ) (string, string, error) {
 	useLocal := router.ClassifyPrompt(c.cfg, user, historyLen, c.sessionProvider, c.skipTiered)
 	localID := c.cfg.LocalProviderID()
 
 	if useLocal {
-		if ep, ok := c.endpoints[localID]; ok {
-			meta := PromptMeta{Provider: localID, Model: ep.model, Mode: aiModeLocalFirst}
-			reply, thinking, err := c.completeAgent(ctx, ep, build(meta))
+		if slot, ok := c.slots[localID]; ok {
+			meta := PromptMeta{Provider: localID, Model: slot.model, Mode: aiModeLocalFirst}
+			reply, thinking, err := complete(ctx, slot, build(meta))
 			if err == nil {
 				return reply, thinking, nil
 			}
-			if order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints)); len(order) > 0 {
+			if order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.slots)); len(order) > 0 {
 				router.LogFailover(nil, localID, order[0], err)
 			}
 		}
 	}
 
-	return c.chatWithFailoverAgent(ctx, build)
+	return c.chatWithFailoverUsing(ctx, build, complete)
 }
 
-func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
-	order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
+func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMeta) []completionMessage) (string, string, error) {
+	return c.chatWithFailoverUsing(ctx, build, c.completeAgent)
+}
+
+func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []completionMessage) (string, string, error) {
+	return c.chatWithFailoverUsing(ctx, build, c.complete)
+}
+
+func (c *Client) chatWithFailoverUsing(
+	ctx context.Context,
+	build func(PromptMeta) []completionMessage,
+	complete slotCompleter,
+) (string, string, error) {
+	order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.slots))
 	if len(order) == 0 {
 		return "", "", fmt.Errorf("%s", errNoCloudProvidersWithKeys)
 	}
@@ -250,9 +248,9 @@ func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMet
 	var lastID ProviderID
 	for i, id := range order {
 		lastID = id
-		ep := c.endpoints[id]
-		meta := PromptMeta{Provider: id, Model: ep.model, Mode: aiModeCloudOnly}
-		reply, thinking, err := c.completeAgent(ctx, ep, build(meta))
+		slot := c.slots[id]
+		meta := PromptMeta{Provider: id, Model: slot.model, Mode: aiModeCloudOnly}
+		reply, thinking, err := complete(ctx, slot, build(meta))
 		if err == nil {
 			return reply, thinking, nil
 		}
@@ -264,47 +262,29 @@ func (c *Client) chatWithFailoverAgent(ctx context.Context, build func(PromptMet
 	return "", "", router.AggregateErrors(lastID, errs)
 }
 
-func (c *Client) chatWithFailover(ctx context.Context, build func(PromptMeta) []openai.ChatCompletionMessage) (string, string, error) {
-	order := router.ResolveTryOrder(c.cfg, c.sessionProvider, cloudKeyedSet(c.endpoints))
-	if len(order) == 0 {
-		return "", "", fmt.Errorf("%s", errNoCloudProvidersWithKeys)
+func (c *Client) complete(ctx context.Context, slot *providerSlot, messages []completionMessage) (string, string, error) {
+	meta := PromptMeta{Provider: slot.id, Model: slot.model}
+	if eino.ShouldLegacyChat(meta, slot.apiStyle) {
+		return specializedChatAnthropic(ctx, slot, messages)
 	}
-
-	var errs []error
-	var lastID ProviderID
-	for i, id := range order {
-		lastID = id
-		ep := c.endpoints[id]
-		meta := PromptMeta{Provider: id, Model: ep.model, Mode: aiModeCloudOnly}
-		reply, thinking, err := c.complete(ctx, ep, build(meta))
-		if err == nil {
-			return reply, thinking, nil
-		}
-		errs = append(errs, fmt.Errorf("%s: %w", id, err))
-		if i+1 < len(order) {
-			router.LogFailover(nil, id, order[i+1], err)
-		}
-	}
-	return "", "", router.AggregateErrors(lastID, errs)
+	return c.completeEino(ctx, slot, messages, false)
 }
 
-func (c *Client) complete(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, string, error) {
-	if ep.apiStyle == config.APIStyleAnthropic {
-		return ep.chatAnthropic(ctx, messages, false)
+func (c *Client) completeAgent(ctx context.Context, slot *providerSlot, messages []completionMessage) (string, string, error) {
+	meta := PromptMeta{Provider: slot.id, Model: slot.model}
+	useLocalOllama := slot.id == ProviderOllama
+	if eino.ShouldLegacyAgent(meta, slot.apiStyle, useLocalOllama) {
+		if slot.apiStyle == config.APIStyleAnthropic {
+			return specializedAgentAnthropic(ctx, slot, messages)
+		}
+		return specializedAgentOpenAI(ctx, slot, messages)
 	}
-	return ep.chatOpenAI(ctx, messages)
-}
-
-func (c *Client) completeAgent(ctx context.Context, ep *endpoint, messages []openai.ChatCompletionMessage) (string, string, error) {
-	if ep.apiStyle == config.APIStyleAnthropic {
-		return ep.chatAnthropic(ctx, messages, true)
-	}
-	return ep.chatOpenAIAgent(ctx, messages)
+	return c.completeEino(ctx, slot, messages, true)
 }
 
 // Assist sends userPrompt with optional scrollback and remoteCwd context via cloud providers only.
 func (c *Client) Assist(ctx context.Context, userPrompt, scrollback, remoteCwd string) (string, error) {
-	reply, _, err := c.chatWithFailover(ctx, func(meta PromptMeta) []openai.ChatCompletionMessage {
+	reply, _, err := c.chatWithFailover(ctx, func(meta PromptMeta) []completionMessage {
 		return assistMessages(userPrompt, scrollback, remoteCwd, meta)
 	})
 	return reply, err
@@ -338,15 +318,22 @@ func (c *Client) StatusLine() string {
 
 func (c *Client) promptMetaForStatus() PromptMeta {
 	if c.sessionProvider != "" {
-		ep := c.endpoints[c.sessionProvider]
-		return PromptMeta{Provider: c.sessionProvider, Model: ep.model, Mode: aiModeCloudOnly}
+		return PromptMeta{Provider: c.sessionProvider, Model: c.modelName(c.sessionProvider), Mode: aiModeCloudOnly}
 	}
 	if c.TieredEnabled() {
 		localID := c.cfg.LocalProviderID()
-		ep := c.endpoints[localID]
-		return PromptMeta{Provider: localID, Model: ep.model, Mode: aiModeTieredLabel}
+		return PromptMeta{Provider: localID, Model: c.modelName(localID), Mode: aiModeTieredLabel}
 	}
 	id := c.cfg.DefaultProviderID()
-	ep := c.endpoints[id]
-	return PromptMeta{Provider: id, Model: ep.model, Mode: aiModeCloudOnly}
+	return PromptMeta{Provider: id, Model: c.modelName(id), Mode: aiModeCloudOnly}
+}
+
+func (c *Client) modelName(id ProviderID) string {
+	if pc, ok := c.cfg.Provider(id); ok && pc.Model != "" {
+		return pc.Model
+	}
+	if slot := c.slots[id]; slot != nil {
+		return slot.model
+	}
+	return ""
 }

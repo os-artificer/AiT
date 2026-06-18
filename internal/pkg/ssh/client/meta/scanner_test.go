@@ -132,6 +132,21 @@ func TestMetaScanner_AitAIAsk(t *testing.T) {
 	}
 }
 
+// RA6: bare !ait ai line is captured as meta and yields empty initial prompt.
+func TestMetaScanner_AitAIBareLine(t *testing.T) {
+	fwd, _, meta := drive("!ait ai\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait ai" {
+		t.Errorf("meta=%v", meta)
+	}
+	prompt, ok := AIPromptFromLine(meta[0])
+	if !ok || prompt != "" {
+		t.Errorf("prompt=%q ok=%v", prompt, ok)
+	}
+}
+
 func TestMetaScanner_BangBangAsk(t *testing.T) {
 	fwd, _, meta := drive("!! ask ping\n", true)
 	if fwd != "" {

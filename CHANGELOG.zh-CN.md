@@ -5,6 +5,10 @@
 本文仅记录 **产品与 CLI** 的功能性变更，不包含纯文档类更新。
 发版后请将 `[未发布]` 中的条目移至带日期的版本段。
 
+## [Unreleased]
+
+- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `ait ai agent` one-shot now wires Capture/CLI/MaxSteps like REPL.
+
 ## [v1.0.0-beta.2]
 
 - 【新增】SHELL模式支持完整命令行交互，命令搜索路径为：内置命令，其次扩展命令与PATH环境变量。

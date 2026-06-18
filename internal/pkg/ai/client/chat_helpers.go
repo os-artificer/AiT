@@ -17,105 +17,23 @@
 package client
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/os-artificer/AiT/internal/pkg/ai/agent"
-	"github.com/os-artificer/AiT/internal/pkg/platform"
-
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/os-artificer/AiT/internal/pkg/ai/eino"
 )
 
-// buildChatMessages constructs the full message list for a chat round: system prompt, history, and user message.
-func buildChatMessages(scope Scope, history []ChatMessage, user string, env AssistEnv, meta PromptMeta) []openai.ChatCompletionMessage {
-	out := []openai.ChatCompletionMessage{{Role: openai.ChatMessageRoleSystem, Content: systemPrompt(scope, env, meta)}}
-	for _, m := range history {
-		out = append(out, openai.ChatCompletionMessage{Role: m.Role, Content: m.Content})
-	}
+// buildChatMessages constructs the full message list for a chat round via eino prompt_builder.
+func buildChatMessages(scope Scope, history []ChatMessage, user string, env AssistEnv, meta PromptMeta) []completionMessage {
+	return plainToCompletion(eino.BuildPlainChatMessages(scope, history, user, env, meta))
+}
 
-	userContent := user
-	if len(history) == 0 {
-		userContent = prependEnvContext(user, env)
+// assistMessages builds a minimal message pair for assist-style prompts via eino.
+func assistMessages(userPrompt, scrollback, remoteCwd string, meta PromptMeta) []completionMessage {
+	return plainToCompletion(eino.PlainFromSchema(eino.AssistMessages(userPrompt, scrollback, remoteCwd, meta)))
+}
+
+func plainToCompletion(msgs []eino.PlainMessage) []completionMessage {
+	out := make([]completionMessage, len(msgs))
+	for i, m := range msgs {
+		out[i] = completionMessage{Role: m.Role, Content: m.Content}
 	}
-	out = append(out, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: userContent})
 	return out
-}
-
-// assistMessages builds a minimal message pair for assist-style prompts.
-func assistMessages(userPrompt, scrollback, remoteCwd string, meta PromptMeta) []openai.ChatCompletionMessage {
-	env := AssistEnv{Scope: ScopeLocal, Scrollback: scrollback, RemoteCwd: remoteCwd}
-	user := prependEnvContext(userPrompt, env)
-	return []openai.ChatCompletionMessage{
-		{Role: openai.ChatMessageRoleSystem, Content: systemPrompt(ScopeLocal, env, meta)},
-		{Role: openai.ChatMessageRoleUser, Content: user},
-	}
-}
-
-// systemPrompt returns the system prompt for the given scope and mode.
-func systemPrompt(scope Scope, env AssistEnv, meta PromptMeta) string {
-	if env.AgentMode {
-		return agentSystemPrompt(scope, env, meta)
-	}
-	base := fmt.Sprintf(`You are AiT, an AI assistant inside an SSH terminal client.
-Suggest shell commands but do NOT claim you executed them.
-Be concise. For security, never ask the user to paste secrets.
-
-Routing facts (authoritative; do not guess):
-%s %s
-%s %s
-%s %s
-When asked which provider or model you use, answer only from these fields.`,
-		promptKeyProvider, meta.Provider, promptKeyModel, meta.Model, promptKeyMode, meta.Mode)
-	if scope == ScopeRemote {
-		return base + `
-The user is in remote AI mode (ask): suggested shell commands run on the remote host after they type "run <command>" and confirm.
-Do not suggest running ait login from inside SSH; use run for remote shell work.`
-	}
-	return base + `
-The user is in local AI mode (ask): use "run <command>" for local shell work or "ait <subcmd>" for AiT CLI after they confirm.`
-}
-
-// agentSystemPrompt returns the system prompt for Agent mode on the given scope.
-func agentSystemPrompt(scope Scope, env AssistEnv, meta PromptMeta) string {
-	scopeHint := "local machine"
-	runTarget := "local shell"
-	if scope == ScopeRemote {
-		scopeHint = "remote SSH host"
-		runTarget = "remote shell"
-	}
-	return fmt.Sprintf(`You are AiT in Agent mode on the %s.
-Respond with a single JSON object only (no markdown), one of:
-{"%s":"%s","%s":"<shell command>"}
-{"%s":"%s","%s":"<ait subcommand args without leading ait>"}
-{"%s":"%s","%s":"<final reply to user>"}
-Commands run on %s. Read-only commands (ls, cat, grep, ps, etc.) are auto-approved;
-write/destructive commands require user confirmation. Do not run vim/less/top or other interactive TUI programs.
-Never ask for secrets. Provider: %s, model: %s.`,
-		scopeHint,
-		agent.JSONFieldAction, agent.ToolRunShell, agent.JSONFieldCommand,
-		agent.JSONFieldAction, agent.ToolAitCLI, agent.JSONFieldArgs,
-		agent.JSONFieldAction, agent.ToolAnswer, agent.JSONFieldText,
-		runTarget, meta.Provider, meta.Model)
-}
-
-// prependEnvContext prepends terminal environment context (host, cwd, scrollback, OS) before the user message.
-func prependEnvContext(user string, env AssistEnv) string {
-	var parts []string
-	if env.Scope == ScopeRemote {
-		if env.HostLabel != "" {
-			parts = append(parts, envKeyRemoteHost+" "+env.HostLabel)
-		}
-		if env.RemoteCwd != "" {
-			parts = append(parts, envKeyRemoteCwd+" "+env.RemoteCwd)
-		}
-	}
-	parts = append(parts, envKeyLocalOS+" "+platform.OSDescription())
-	if env.Scrollback != "" {
-		parts = append(parts, envKeyScrollback+truncate(env.Scrollback, scrollbackContextMax))
-	}
-
-	if len(parts) == 0 {
-		return user
-	}
-	return strings.Join(parts, "\n\n") + envContextSep + user
 }

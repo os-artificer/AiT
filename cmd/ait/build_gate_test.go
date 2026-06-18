@@ -25,6 +25,7 @@ import (
 )
 
 const externalXiwhZmodem = "github.com/xiwh/zmodem"
+const externalGoOpenAI = "github.com/sashabaranov/go-openai"
 
 // TestGoMod_NoExternalXiwhZmodem (M1) ensures zmodem is vendored under pkg/third-party only.
 func TestGoMod_NoExternalXiwhZmodem(t *testing.T) {
@@ -36,6 +37,18 @@ func TestGoMod_NoExternalXiwhZmodem(t *testing.T) {
 	content := string(data)
 	if strings.Contains(content, externalXiwhZmodem) {
 		t.Fatalf("go.mod must not require external %s; use pkg/third-party", externalXiwhZmodem)
+	}
+}
+
+// TestGoMod_NoGoOpenAI (E6) ensures AI routing no longer depends on sashabaranov/go-openai.
+func TestGoMod_NoGoOpenAI(t *testing.T) {
+	modPath := filepath.Join("..", "..", "go.mod")
+	data, err := os.ReadFile(modPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), externalGoOpenAI) {
+		t.Fatalf("go.mod must not require %s; use cloudwego/eino", externalGoOpenAI)
 	}
 }
 

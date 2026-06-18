@@ -18,13 +18,11 @@ package agent
 
 import (
 	"context"
-	"os"
 
 	"github.com/os-artificer/AiT/internal/ait/ai/deps"
 	"github.com/os-artificer/AiT/internal/ait/ai/mode"
 	"github.com/os-artificer/AiT/internal/ait/ai/mode/chat"
 	"github.com/os-artificer/AiT/internal/ait/ai/runner"
-	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
@@ -52,13 +50,7 @@ func New(d deps.Deps) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return mode.RunAgentOnce(ctx, mode.Options{
-					AI:     aiClient,
-					Scope:  pkgai.ScopeLocal,
-					Out:    os.Stdout,
-					ErrOut: os.Stderr,
-					Local:  mode.DefaultLocalRunner(),
-				}, msg)
+				return mode.RunAgentOnce(ctx, runner.LocalAIModeOptions(aiClient, mgr.Config.AgentMaxSteps(), d.Exec), msg)
 			})
 		},
 	}

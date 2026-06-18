@@ -132,7 +132,7 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 - **格式化**：Go 使用 tab；完成修改后运行 `make fmt`。
 - **测试**：`*_test.go` 与实现同目录；`make test` 必须通过；store 测试使用 `:memory:` SQLite。
 - **`internal/`**：模块私有，禁止被本模块外代码 import。
-- **依赖**：按需添加；见 `go.mod`。
+- **依赖**：按需添加；见 `go.mod`（含 `cloudwego/eino` 多 provider ChatModel；已移除 `go-openai`）。
 - **密钥**：API Key 与 SSH 密码存于操作系统密钥环（`creds`）；禁止提交或记录于日志；禁止将密码写入 SQLite。
 
 ## CLI 速查

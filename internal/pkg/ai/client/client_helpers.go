@@ -19,12 +19,13 @@ package client
 import (
 	"context"
 	"net/http"
-	"unicode/utf8"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai/models"
 	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 	"github.com/os-artificer/AiT/internal/pkg/config"
+	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/ollama"
+	"github.com/os-artificer/AiT/internal/pkg/utf8tail"
 )
 
 // ProviderDisabledErr returns a user-visible error for a disabled provider override.
@@ -33,44 +34,28 @@ func ProviderDisabledErr(id string) error {
 }
 
 func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	i := len(s) - max
-	for i < len(s) && !utf8.RuneStart(s[i]) {
-		i++
-	}
-	return s[i:]
+	return utf8tail.Truncate(s, max)
 }
 
-// cloudKeyedSet returns the set of provider IDs that have a configured cloud endpoint.
-func cloudKeyedSet(endpoints map[ProviderID]*endpoint) map[ProviderID]struct{} {
+// cloudKeyedSet returns the set of cloud provider IDs with configured slots.
+func cloudKeyedSet(slots map[ProviderID]*providerSlot) map[ProviderID]struct{} {
 	out := make(map[ProviderID]struct{})
 	for _, id := range config.CloudProviderIDs() {
-		if _, ok := endpoints[id]; ok {
+		if _, ok := slots[id]; ok {
 			out[id] = struct{}{}
 		}
 	}
 	return out
 }
 
-// hasCloudEndpoint reports whether at least one cloud provider has a configured endpoint.
-func hasCloudEndpoint(endpoints map[ProviderID]*endpoint) bool {
+// hasCloudSlot reports whether at least one cloud provider has a configured slot.
+func hasCloudSlot(slots map[ProviderID]*providerSlot) bool {
 	for _, id := range config.CloudProviderIDs() {
-		if _, ok := endpoints[id]; ok {
+		if _, ok := slots[id]; ok {
 			return true
 		}
 	}
 	return false
-}
-
-// initTieredEndpoint creates a local-tiered endpoint when the provider config exists.
-func initTieredEndpoint(cfg *config.Config, localID string, httpClient *http.Client) *endpoint {
-	pc, ok := cfg.Provider(localID)
-	if !ok {
-		return nil
-	}
-	return newEndpoint(localID, pc, ollamaPlaceholderKey, httpClient)
 }
 
 // providerReachable returns a display label for whether the provider is reachable.
@@ -78,15 +63,18 @@ func (c *Client) providerReachable(ctx context.Context, httpClient *http.Client,
 	if !enabled {
 		return models.KeyNo
 	}
-	ep, ok := c.endpoints[id]
+	pc, ok := c.cfg.Provider(id)
 	if !ok {
 		return models.KeyNo
 	}
 	if id == ProviderOllama {
-		_, note, err := ollama.FetchTags(ctx, httpClient, ep.baseURL, ep.model)
+		_, note, err := ollama.FetchTags(ctx, httpClient, pc.BaseURL, pc.Model)
 		if err == nil && note == "" {
 			return models.KeyYes
 		}
+		return models.KeyNo
+	}
+	if _, err := creds.GetProviderAPIKey(id); err != nil {
 		return models.KeyNo
 	}
 	return models.KeyYes

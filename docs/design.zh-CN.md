@@ -253,7 +253,7 @@ CREATE TABLE app_meta (
 | [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入、远程提示符 emit | `client.go`, `client_dial.go`, `client_init_helpers.go`, `client_init_prompt_emit_helpers.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback/delta.go`、`terminal/path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go`, `remote_pty.go` |
-| [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider 路由、tiered Ollama、模型列表 | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
+| [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider AI（Eino ChatModel + Anthropic/Ollama Agent 专用路径）、tiered Ollama、模型列表 | `client/`、`eino/`、`apitypes/`、`router/` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put（单文件）、路径默认 | `transfer.go`、`parse.go`、`path_defaults.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`、数据目录、OpenSSH、编辑器 | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML 配置、init、validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
@@ -592,7 +592,7 @@ flowchart LR
 - `github.com/99designs/keyring` — 密钥/密码缓存
 - `github.com/google/uuid` — 会话 ID
 - `github.com/pkg/sftp` — 文件传输（get/put）
-- `github.com/sashabaranov/go-openai` — Deepseek（OpenAI 兼容）
+- `github.com/cloudwego/eino`、`github.com/cloudwego/eino-ext/components/model/openai` — 多 provider ChatModel（OpenAI 兼容 + failover）
 - `gopkg.in/yaml.v3` — 配置
 
 间接：`github.com/creack/pty`（Unix 本地模式 `!ait local`）。

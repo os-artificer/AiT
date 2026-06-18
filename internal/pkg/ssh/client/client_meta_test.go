@@ -19,6 +19,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"reflect"
@@ -26,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -355,6 +357,37 @@ func TestFinishMetaInteraction_ShortBashPrompt(t *testing.T) {
 
 	if !strings.Contains(buf.String(), "u@h:#") {
 		t.Fatalf("stdout = %q, want short bash prompt re-emit", buf.String())
+	}
+}
+
+// RA3: recoverable AI input errors print hint and return nil so SSH forwardStdin continues.
+func TestHandleAIMetaLine_ErrHintNoDisconnect(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	var stdin bytes.Buffer
+	err := c.handleAIMetaLine(context.Background(), &stdin, "ask", InteractiveOpts{
+		AI: &ai.Client{},
+		OnRemoteAI: func(_ RemoteAIParams) error {
+			return ai.ChatMessageRequiredErr()
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected nil (SSH continues), got %v", err)
+	}
+}
+
+// RA3: non-recoverable AI errors still propagate to caller.
+func TestHandleAIMetaLine_APIErrorPropagates(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	var stdin bytes.Buffer
+	want := errors.New("network down")
+	err := c.handleAIMetaLine(context.Background(), &stdin, "hello", InteractiveOpts{
+		AI: &ai.Client{},
+		OnRemoteAI: func(_ RemoteAIParams) error {
+			return want
+		},
+	})
+	if !errors.Is(err, want) {
+		t.Fatalf("got %v, want %v", err, want)
 	}
 }
 

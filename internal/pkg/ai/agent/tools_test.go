@@ -19,17 +19,12 @@ package agent
 import (
 	"strings"
 	"testing"
-
-	openai "github.com/sashabaranov/go-openai"
 )
 
 func TestToolCallToAgentJSON_RunShell(t *testing.T) {
-	tc := openai.ToolCall{
-		Type: openai.ToolTypeFunction,
-		Function: openai.FunctionCall{
-			Name:      ToolRunShell,
-			Arguments: `{"command":"hostname -I"}`,
-		},
+	tc := FCCall{
+		Name:      ToolRunShell,
+		Arguments: `{"command":"hostname -I"}`,
 	}
 	got, err := ToolCallToJSON(tc)
 	if err != nil {
@@ -41,12 +36,9 @@ func TestToolCallToAgentJSON_RunShell(t *testing.T) {
 }
 
 func TestChatAgent_ToolCall(t *testing.T) {
-	tc := openai.ToolCall{
-		Type: openai.ToolTypeFunction,
-		Function: openai.FunctionCall{
-			Name:      ToolAnswer,
-			Arguments: `{"text":"ok"}`,
-		},
+	tc := FCCall{
+		Name:      ToolAnswer,
+		Arguments: `{"text":"ok"}`,
 	}
 	got, err := ToolCallToJSON(tc)
 	if err != nil {

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
@@ -85,6 +86,76 @@ func TestTiered_SimpleUsesOllamaT1(t *testing.T) {
 	}
 	if cloud.calls.Load() != 0 {
 		t.Fatalf("cloud calls=%d", cloud.calls.Load())
+	}
+}
+
+func TestTiered_AgentLegacy(t *testing.T) {
+	agentReply := `{"action":"answer","text":"local-agent"}`
+	client, ollama, cloud := setupTieredClient(t, 200, 200, agentReply, "cloud-agent")
+
+	reply, _, _, err := client.ChatAgent(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
+	if err != nil || reply != agentReply {
+		t.Fatalf("reply=%q err=%v", reply, err)
+	}
+	if ollama.calls.Load() != 1 {
+		t.Fatalf("ollama calls=%d", ollama.calls.Load())
+	}
+	if cloud.calls.Load() != 0 {
+		t.Fatalf("cloud calls=%d", cloud.calls.Load())
+	}
+}
+
+func TestTiered_AgentLegacy_RequestIncludesTools(t *testing.T) {
+	testAIEnv(t)
+	agentReply := `{"action":"answer","text":"local-agent"}`
+	var lastBody atomic.Pointer[string]
+
+	ollamaSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body: %v", err)
+			return
+		}
+		s := string(body)
+		lastBody.Store(&s)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = io.WriteString(w, openAISuccessBody(agentReply))
+	}))
+	t.Cleanup(ollamaSrv.Close)
+
+	cloud := newMockOpenAIServer(t, 200, "cloud-agent")
+
+	cfg := testCfgDefaultDeepseek()
+	cfg.AI.Tiered.Enabled = true
+	cfg.AI.Tiered.MaxPromptChars = config.DefaultTieredMaxPromptChars
+	cfg.AI.Tiered.MaxHistoryTurns = config.DefaultTieredMaxHistoryTurns
+	cfg.AI.Providers[config.ProviderOllama] = config.ProviderConfig{
+		APIStyle: config.APIStyleOpenAI,
+		BaseURL:  ollamaSrv.URL + "/v1",
+		Model:    "llama3.2",
+	}
+	cfg.AI.Providers[config.ProviderDeepseek] = config.ProviderConfig{
+		APIStyle: config.APIStyleOpenAI,
+		BaseURL:  cloud.srv.URL + "/v1",
+		Model:    "deepseek-chat",
+	}
+	if err := creds.SetProviderAPIKey(config.ProviderDeepseek, "k"); err != nil {
+		t.Fatal(err)
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reply, _, _, err := client.ChatAgent(context.Background(), nil, "hi", AssistEnv{Scope: ScopeLocal})
+	if err != nil || reply != agentReply {
+		t.Fatalf("reply=%q err=%v", reply, err)
+	}
+	bodyPtr := lastBody.Load()
+	if bodyPtr == nil || !strings.Contains(*bodyPtr, `"tools"`) {
+		t.Fatalf("agent request body missing tools: %v", bodyPtr)
 	}
 }
 

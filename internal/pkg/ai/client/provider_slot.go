@@ -20,27 +20,23 @@ import (
 	"net/http"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
-
-	openai "github.com/sashabaranov/go-openai"
 )
 
-type endpoint struct {
+type providerSlot struct {
 	id       ProviderID
 	apiStyle string
 	baseURL  string
 	model    string
 	key      string
-	openai   *openai.Client
 	http     *http.Client
 }
 
-func newEndpoint(id ProviderID, pc config.ProviderConfig, key string, httpClient *http.Client) *endpoint {
+func newProviderSlot(id ProviderID, pc config.ProviderConfig, key string, httpClient *http.Client) *providerSlot {
 	style := pc.APIStyle
 	if style == "" {
 		style = config.APIStyleOpenAI
 	}
-
-	ep := &endpoint{
+	slot := &providerSlot{
 		id:       id,
 		apiStyle: style,
 		baseURL:  pc.BaseURL,
@@ -48,18 +44,16 @@ func newEndpoint(id ProviderID, pc config.ProviderConfig, key string, httpClient
 		key:      key,
 		http:     httpClient,
 	}
-	if style == config.APIStyleAnthropic {
-		if ep.http == nil {
-			ep.http = http.DefaultClient
-		}
-		return ep
+	if slot.http == nil && style == config.APIStyleAnthropic {
+		slot.http = http.DefaultClient
 	}
+	return slot
+}
 
-	ocfg := openai.DefaultConfig(key)
-	ocfg.BaseURL = pc.BaseURL
-	if httpClient != nil {
-		ocfg.HTTPClient = httpClient
+func initTieredSlot(cfg *config.Config, localID string, httpClient *http.Client) *providerSlot {
+	pc, ok := cfg.Provider(localID)
+	if !ok {
+		return nil
 	}
-	ep.openai = openai.NewClientWithConfig(ocfg)
-	return ep
+	return newProviderSlot(localID, pc, ollamaPlaceholderKey, httpClient)
 }

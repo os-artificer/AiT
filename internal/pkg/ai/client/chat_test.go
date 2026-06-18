@@ -19,30 +19,25 @@ package client
 import (
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/ai/eino"
+	"github.com/os-artificer/AiT/internal/pkg/config"
+	"github.com/os-artificer/AiT/internal/pkg/creds"
 )
 
 func TestSystemPrompt_Scopes(t *testing.T) {
 	meta := PromptMeta{Provider: ProviderMinimax, Model: "MiniMax-M2.5", Mode: aiModeCloudOnly}
-	local := systemPrompt(ScopeLocal, AssistEnv{}, meta)
+	local := eino.SystemPrompt(ScopeLocal, AssistEnv{}, meta)
 	if !strings.Contains(local, "local AI mode") || !strings.Contains(local, "ai_provider: minimax") {
 		t.Fatalf("local: %q", local)
 	}
-	remote := systemPrompt(ScopeRemote, AssistEnv{}, meta)
+	remote := eino.SystemPrompt(ScopeRemote, AssistEnv{}, meta)
 	if !strings.Contains(remote, "remote AI mode") {
 		t.Fatalf("remote: %q", remote)
 	}
-	agent := systemPrompt(ScopeLocal, AssistEnv{AgentMode: true}, meta)
+	agent := eino.SystemPrompt(ScopeLocal, AssistEnv{AgentMode: true}, meta)
 	if !strings.Contains(agent, "run_shell") {
 		t.Fatalf("agent prompt: %q", agent)
-	}
-}
-
-func TestPrependEnvContext_RemoteHost(t *testing.T) {
-	got := prependEnvContext("question", AssistEnv{Scope: ScopeRemote, HostLabel: "u@h", RemoteCwd: "/tmp"})
-	for _, want := range []string{"remote_host: u@h", "remote_cwd: /tmp", "question"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in %q", want, got)
-		}
 	}
 }
 
@@ -54,5 +49,38 @@ func TestBuildChatMessages_History(t *testing.T) {
 	}
 	if msgs[3].Content != "c" {
 		t.Fatalf("user=%q", msgs[3].Content)
+	}
+}
+
+func TestBuildChatMessages_FirstTurnPrependsEnv(t *testing.T) {
+	msgs := buildChatMessages(ScopeRemote, nil, "question", AssistEnv{
+		Scope: ScopeRemote, HostLabel: "u@h", RemoteCwd: "/tmp",
+	}, PromptMeta{Provider: ProviderDeepseek, Model: "m", Mode: aiModeCloudOnly})
+	if len(msgs) != 2 {
+		t.Fatalf("len=%d", len(msgs))
+	}
+	user := msgs[1].Content
+	for _, want := range []string{"remote_host: u@h", "remote_cwd: /tmp", "question"} {
+		if !strings.Contains(user, want) {
+			t.Fatalf("missing %q in %q", want, user)
+		}
+	}
+}
+
+func TestClient_StatusLine(t *testing.T) {
+	testAIEnv(t)
+	if err := creds.SetProviderAPIKey(config.ProviderDeepseek, "k"); err != nil {
+		t.Fatal(err)
+	}
+	cfg := testCfgDefaultDeepseek()
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := client.StatusLine()
+	for _, want := range []string{"AI provider: deepseek", "model: deepseek-chat", "mode: cloud_only", "config default: deepseek"} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("line=%q missing %q", line, want)
+		}
 	}
 }

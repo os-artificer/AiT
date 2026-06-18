@@ -247,6 +247,50 @@ func TestRunREPL_InitialChatEmptyMessage(t *testing.T) {
 	}
 }
 
+// RA1/RA2: bare meta "agent" enters Agent REPL (ScopeRemote) without ChatMessageRequired.
+func TestRunREPL_InitialEmptyAgentEntersREPL(t *testing.T) {
+	t.Setenv("AIT_KEYRING_BACKEND", "file")
+	t.Setenv("AIT_KEYRING_DIR", t.TempDir())
+	t.Setenv("AIT_ALLOW_CUSTOM_AI_URL", "1")
+
+	if err := creds.SetProviderAPIKey(config.ProviderDeepseek, "k"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{}
+	cfg.AI.Default = config.ProviderDeepseek
+	cfg.AI.Providers = map[string]config.ProviderConfig{
+		config.ProviderDeepseek: {
+			APIStyle: config.APIStyleOpenAI,
+			BaseURL:  "http://127.0.0.1:9/v1",
+			Model:    "deepseek-chat",
+		},
+	}
+	client, err := ai.NewClient(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	err = RunREPL(context.Background(), Options{
+		Scope:     ai.ScopeRemote,
+		HostLabel: "u@h",
+		AI:        client,
+		In:        strings.NewReader("exit\n"),
+		Out:       &out,
+		ErrOut:    io.Discard,
+	}, "agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "ask requires a message") {
+		t.Fatal("bare agent must not trigger ask-required hint")
+	}
+	if !strings.Contains(out.String(), "AiT AI(Agent) u@h>") {
+		t.Fatalf("expected remote Agent REPL prompt, got %q", out.String())
+	}
+}
+
 func TestRunREPL_InitialNonChatShowsPrompt(t *testing.T) {
 	t.Setenv("AIT_KEYRING_BACKEND", "file")
 	t.Setenv("AIT_KEYRING_DIR", t.TempDir())
