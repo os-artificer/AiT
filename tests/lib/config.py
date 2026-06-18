@@ -160,6 +160,8 @@ def load_config(path: Path | None = None) -> TestConfig:
         cfg.primary.host = os.environ["AIT_TEST_SSH_HOST"].strip()
     if os.environ.get("AIT_TEST_SSH_PORT"):
         cfg.primary.port = int(os.environ["AIT_TEST_SSH_PORT"])
+    if os.environ.get("AIT_TEST_SSH_INNER_HOST"):
+        cfg.inner.host = os.environ["AIT_TEST_SSH_INNER_HOST"].strip()
     if os.environ.get("AIT_TEST_DEEPSEEK_KEY"):
         cfg.ai.deepseek_key = os.environ["AIT_TEST_DEEPSEEK_KEY"].strip()
 

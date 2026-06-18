@@ -24,10 +24,27 @@ import (
 )
 
 var ansiPromptEscapeRE = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+var ansiOSCEscapeBELRE = regexp.MustCompile(`\x1b\][^\x07]*\x07`)
+var ansiOSCEscapeSTRE = regexp.MustCompile(`\x1b\][^\x1b]*\x1b\\`)
+var trailingRightPromptRE = regexp.MustCompile(`\s+\[[^\]]+\]\s*$`)
 
 // stripANSIForPromptMatch removes CSI color/style sequences before prompt heuristics.
 func stripANSIForPromptMatch(s string) string {
-	return ansiPromptEscapeRE.ReplaceAllString(s, "")
+	s = ansiPromptEscapeRE.ReplaceAllString(s, "")
+	s = ansiOSCEscapeBELRE.ReplaceAllString(s, "")
+	s = ansiOSCEscapeSTRE.ReplaceAllString(s, "")
+	return s
+}
+
+func trimRightPromptSegments(s string) string {
+	s = strings.TrimSpace(s)
+	for {
+		next := trailingRightPromptRE.ReplaceAllString(s, "")
+		if next == s {
+			return s
+		}
+		s = strings.TrimSpace(next)
+	}
 }
 
 // aitPromptManaged reports whether AiT PS1 setup completed and should own the prompt.
@@ -41,6 +58,10 @@ func (c *Client) aitPromptManaged() bool {
 // shouldStripNativePrompt reports whether native shell prompt lines should be removed
 // from PTY stdout. True after setup sentinel or once an AiT prompt was painted locally.
 func (c *Client) shouldStripNativePrompt() bool {
+	if UseRemoteSystemPrompt() {
+		return false
+	}
+
 	if c == nil {
 		return false
 	}
@@ -64,6 +85,10 @@ func stripUnwantedPromptLines(p []byte, user, host string, managed, dropEcho boo
 	var kept []string
 	for _, line := range lines {
 		plain := stripANSIForPromptMatch(line)
+		if containsClearTokens(line) {
+			kept = append(kept, line)
+			continue
+		}
 		if managed && isNativePromptLike(plain) {
 			promptRemoved = true
 			continue
@@ -115,6 +140,13 @@ func (c *Client) repaintAfterNestedSSHClose(user, host string) {
 		return
 	}
 
+	if UseRemoteSystemPrompt() {
+		if c.emitBufferedNativePrompt() {
+			c.remotePromptShown.Store(true)
+		}
+		return
+	}
+
 	if stdin := c.interactiveStdin; stdin != nil && !c.localShell.Active() {
 		c.triggerRemotePrecmd(stdin)
 		c.refreshRemotePrompt(stdin)
@@ -141,7 +173,7 @@ func (c *Client) filterRemoteOutputChunkRepaint(chunk []byte, user, host string)
 		return nil, false
 	}
 
-	if c.shouldStripNativePrompt() || c.remotePromptShown.Load() {
+	if c.shouldStripNativePrompt() {
 		var promptStripped bool
 		chunk, promptStripped = stripUnwantedPromptLines(
 			chunk, user, host, c.shouldStripNativePrompt(), c.remotePromptShown.Load(),
@@ -154,6 +186,10 @@ func (c *Client) filterRemoteOutputChunkRepaint(chunk []byte, user, host string)
 		}
 	}
 	return chunk, repaint
+}
+
+func containsClearTokens(s string) bool {
+	return strings.Contains(s, "\x0c") || strings.Contains(s, "\x1b[2J") || strings.Contains(s, "\x1b[H")
 }
 
 // isDuplicatePromptLine reports whether a single line is a duplicate prompt echo.

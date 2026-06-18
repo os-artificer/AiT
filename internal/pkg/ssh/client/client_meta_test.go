@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
@@ -55,6 +56,7 @@ func TestHandleMetaLineCLI(t *testing.T) {
 	var got []string
 	var stdin bytes.Buffer
 	c := testClientWithPrompt("u", "h")
+	_, _ = c.scroll.Write([]byte("u@h [~] ➜ \r\n"))
 	err := c.handleMetaLine(context.Background(), &stdin, "!ait list", InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			got = args
@@ -67,8 +69,10 @@ func TestHandleMetaLineCLI(t *testing.T) {
 	if !reflect.DeepEqual(got, []string{"list"}) {
 		t.Errorf("OnMetaCLI args = %v, want [list]", got)
 	}
-	if !stdinHasPromptRedraw(stdin.String()) {
-		t.Errorf("stdin = %q, want prompt redraw inject", stdin.String())
+	// Native prompt mode (UseRemoteSystemPrompt): meta must not poke the remote
+	// shell with a prompt redraw — the native prompt is re-emitted from scrollback.
+	if stdinHasPromptRedraw(stdin.String()) {
+		t.Errorf("native prompt mode should not inject prompt redraw, stdin = %q", stdin.String())
 	}
 }
 
@@ -92,15 +96,18 @@ func TestHandleMetaLineHelp(t *testing.T) {
 	}
 }
 
+// TestHandleMetaLineUnknownRefreshesPrompt: native prompt mode re-emits from scrollback
+// without injecting a remote redraw when a prompt line is already buffered.
 func TestHandleMetaLineUnknownRefreshesPrompt(t *testing.T) {
-	c := &Client{}
+	c := testClientWithPrompt("u", "h")
+	_, _ = c.scroll.Write([]byte("u@h:~$ \r\n"))
 	var stdin bytes.Buffer
-	err := c.handleMetaLine(context.Background(), &stdin, "not-a-meta-line", InteractiveOpts{})
+	err := c.handleMetaLine(context.Background(), &stdin, "!ait nosuch", InteractiveOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !stdinHasPromptRedraw(stdin.String()) {
-		t.Errorf("unknown meta should refresh remote prompt, stdin = %q", stdin.String())
+	if stdin.Len() != 0 {
+		t.Errorf("native prompt mode should not inject remote redraw, stdin = %q", stdin.String())
 	}
 }
 
@@ -114,7 +121,9 @@ func TestRunMetaCLIFinishesStdout(t *testing.T) {
 
 	var stdin bytes.Buffer
 	c := testClientWithPrompt("u", "h")
+	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
+	_, _ = c.scroll.Write([]byte("u@h [~] ➜ \r\n"))
 	err = c.runMetaCLI(&stdin, InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			if len(args) != 1 || args[0] != "list" {
@@ -138,11 +147,12 @@ func TestRunMetaCLIFinishesStdout(t *testing.T) {
 	if !strings.Contains(got, "no trailing newline") {
 		t.Fatalf("stdout = %q, want meta output", got)
 	}
-	if !strings.Contains(got, "AiT u@h:") {
-		t.Fatalf("stdout = %q, want repainted prompt", got)
+	// Native prompt mode: the buffered native prompt is re-emitted from scrollback.
+	if !strings.Contains(got, "u@h [~] ➜") {
+		t.Fatalf("stdout = %q, want native prompt re-emit", got)
 	}
-	if !stdinHasPromptRedraw(stdin.String()) {
-		t.Fatalf("stdin = %q, want prompt redraw inject", stdin.String())
+	if stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("native prompt mode should not inject prompt redraw, stdin = %q", stdin.String())
 	}
 }
 
@@ -156,7 +166,9 @@ func TestHandleMetaLineListFinishesStdout(t *testing.T) {
 
 	var stdin bytes.Buffer
 	c := testClientWithPrompt("u", "h")
+	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
+	_, _ = c.scroll.Write([]byte("u@h [~] ➜ \r\n"))
 	err = c.handleMetaLine(context.Background(), &stdin, "!ait list", InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			_, err := io.WriteString(os.Stdout, "row1")
@@ -177,21 +189,25 @@ func TestHandleMetaLineListFinishesStdout(t *testing.T) {
 	if !strings.Contains(got, "row1") {
 		t.Fatalf("stdout = %q, want meta output", got)
 	}
-	if !strings.Contains(got, "AiT u@h:") {
-		t.Fatalf("stdout = %q, want repainted prompt", got)
+	// Native prompt mode: the buffered native prompt is re-emitted from scrollback.
+	if !strings.Contains(got, "u@h [~] ➜") {
+		t.Fatalf("stdout = %q, want native prompt re-emit", got)
 	}
-	if !stdinHasPromptRedraw(stdin.String()) {
-		t.Fatalf("stdin = %q, want prompt redraw inject", stdin.String())
+	if stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("native prompt mode should not inject prompt redraw, stdin = %q", stdin.String())
 	}
 }
 
-// TestFinishMetaInteraction_ResyncsWhenPromptShown (M5) injects remote redraw whenever the
-// AiT prompt was already shown, even when the setup sentinel was never recorded.
+// TestFinishMetaInteraction_ResyncsWhenPromptShown: native prompt mode re-emits the
+// native prompt from scrollback after meta, without injecting a remote redraw.
 func TestFinishMetaInteraction_ResyncsWhenPromptShown(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
 	c.pauseRemoteOut.Store(true)
+
+	nativeLine := "root@remote [~] ➜ "
+	_, _ = c.scroll.Write([]byte(nativeLine))
 
 	var stdin bytes.Buffer
 	var buf bytes.Buffer
@@ -199,24 +215,24 @@ func TestFinishMetaInteraction_ResyncsWhenPromptShown(t *testing.T) {
 
 	c.finishMetaInteraction(&stdin)
 
-	if !stdinHasPromptRedraw(stdin.String()) {
-		t.Fatalf("stdin = %q, want prompt redraw inject when prompt shown", stdin.String())
+	if stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("native prompt mode should not inject prompt redraw, stdin = %q", stdin.String())
 	}
-	if !strings.Contains(buf.String(), "AiT root@ylgeeker.com:") {
-		t.Fatalf("stdout should repaint AiT prompt, got %q", buf.String())
+	if !strings.Contains(buf.String(), "root@remote [~] ➜") {
+		t.Fatalf("stdout should re-emit native prompt, got %q", buf.String())
 	}
 }
 
-// TestFinishMetaInteraction_SyncsRemotePS1WhenSetupSucceeded (M6) wakes remote PS1 even when
-// scroll already holds a stale AiT prompt line (meta must not skip precmd).
+// TestFinishMetaInteraction_SyncsRemotePS1WhenSetupSucceeded: native prompt mode re-emits
+// the buffered native prompt and never injects PS1 redraw into the remote shell.
 func TestFinishMetaInteraction_SyncsRemotePS1WhenSetupSucceeded(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
 	c.pauseRemoteOut.Store(true)
 
-	promptLine := "AiT root@ylgeeker.com:~> "
-	_, _ = c.scroll.Write([]byte(promptLine))
+	nativeLine := "root@remote [~] ➜ "
+	_, _ = c.scroll.Write([]byte(nativeLine))
 
 	var stdin bytes.Buffer
 	var buf bytes.Buffer
@@ -224,56 +240,20 @@ func TestFinishMetaInteraction_SyncsRemotePS1WhenSetupSucceeded(t *testing.T) {
 
 	c.finishMetaInteraction(&stdin)
 
-	if !stdinHasPromptRedraw(stdin.String()) {
-		t.Fatalf("stdin = %q, want prompt redraw inject when setup succeeded", stdin.String())
+	if stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("native prompt mode should not inject prompt redraw, stdin = %q", stdin.String())
 	}
-	if !strings.Contains(buf.String(), "AiT root@ylgeeker.com:") {
-		t.Fatalf("stdout should repaint AiT prompt, got %q", buf.String())
+	if !strings.Contains(buf.String(), "root@remote [~] ➜") {
+		t.Fatalf("stdout should re-emit native prompt, got %q", buf.String())
 	}
 }
 
-// TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive (M4) repaints the
-// prompt locally after meta output because remote redraw is dropped as duplicate.
+// TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive: native prompt mode
+// re-emits the native prompt from scrollback after meta output, without a trailing newline.
 func TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
-	promptLine := "AiT root@ylgeeker.com:~> "
-	_, _ = c.scroll.Write([]byte(promptLine))
-
-	var stdin bytes.Buffer
-	var buf bytes.Buffer
-	c.interactiveOut = terminal.NewCRLFWriter(&buf)
-
-	c.finishMetaInteraction(&stdin)
-
-	got := buf.String()
-	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
-		t.Fatalf("stdout should repaint prompt, got %q", got)
-	}
-	if strings.HasSuffix(got, "\n") || strings.HasSuffix(got, "\r\n") {
-		t.Fatalf("repainted prompt must not end with newline, got %q", got)
-	}
-
-	before := buf.String()
-	c.handleRemoteOutput([]byte(promptLine + "\r\n"))
-	got = buf.String()
-	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
-		t.Fatalf("prompt should remain visible after duplicate strip, got %q", got)
-	}
-	if strings.Count(got, "AiT root@ylgeeker.com:") > strings.Count(before, "AiT root@ylgeeker.com:")+1 {
-		t.Fatalf("duplicate remote echo should not stack prompts, got %q", got)
-	}
-}
-
-// TestFinishMetaInteraction_PaintsAITWhenManaged (M7/P11) paints the AiT prompt after meta when
-// remotePromptShown is set, even if scrollback only holds native oh-my-zsh lines.
-func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
-	c := testClientWithPrompt("root", "ylgeeker.com")
-	c.remotePromptShown.Store(true)
-	c.remotePromptReadySeen.Store(true)
-	c.pauseRemoteOut.Store(true)
-
-	nativeLine := "root@ylgeeker [~] ➜"
+	nativeLine := "root@remote [~] ➜ "
 	_, _ = c.scroll.Write([]byte(nativeLine))
 
 	var stdin bytes.Buffer
@@ -283,11 +263,98 @@ func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
 	c.finishMetaInteraction(&stdin)
 
 	got := buf.String()
-	if !strings.Contains(got, "AiT root@ylgeeker.com:") {
-		t.Fatalf("expected AiT client paint when managed, got %q", got)
+	if !strings.Contains(got, "root@remote [~] ➜") {
+		t.Fatalf("stdout should re-emit native prompt, got %q", got)
 	}
-	if strings.Contains(got, nativeLine) {
-		t.Fatalf("should not emit native prompt when managed, got %q", got)
+	if strings.HasSuffix(got, "\n") || strings.HasSuffix(got, "\r\n") {
+		t.Fatalf("re-emitted prompt must not end with newline, got %q", got)
+	}
+}
+
+// TestFinishMetaInteraction_PaintsAITWhenManaged: native prompt mode re-emits the native
+// oh-my-zsh prompt after meta and never paints an AiT-managed prompt.
+func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
+	c.remotePromptShown.Store(true)
+	c.remotePromptReadySeen.Store(true)
+	c.pauseRemoteOut.Store(true)
+
+	nativeLine := "root@remote [~] ➜"
+	_, _ = c.scroll.Write([]byte(nativeLine))
+
+	var stdin bytes.Buffer
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+
+	c.finishMetaInteraction(&stdin)
+
+	got := buf.String()
+	if !strings.Contains(got, nativeLine) {
+		t.Fatalf("expected native prompt re-emit, got %q", got)
+	}
+	if strings.Contains(got, "AiT ") {
+		t.Fatalf("should not paint AiT prompt in native mode, got %q", got)
+	}
+}
+
+// TestFinishMetaInteraction_NativePromptDialHostMismatch: when the remote PS1 hostname
+// differs from the SSH dial target (e.g. root@devhost:~# via testPrimaryHostFQDN), meta must still
+// re-emit the buffered native prompt without waiting for Enter.
+func TestFinishMetaInteraction_NativePromptDialHostMismatch(t *testing.T) {
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
+	nativeLine := "root@devhost:~# "
+	_, _ = c.scroll.Write([]byte(nativeLine))
+
+	var stdin bytes.Buffer
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+
+	c.finishMetaInteraction(&stdin)
+
+	got := buf.String()
+	if !strings.Contains(got, "root@devhost:~#") {
+		t.Fatalf("stdout should re-emit native prompt despite dial host mismatch, got %q", got)
+	}
+	if stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("native prompt mode should not inject prompt redraw, stdin = %q", stdin.String())
+	}
+}
+
+// TestFinishNativePromptAfterMeta_SyncFallback: when scrollback has no prompt, meta falls
+// back to a silent remote redraw and re-emits the prompt captured while stdout is paused.
+func TestFinishNativePromptAfterMeta_SyncFallback(t *testing.T) {
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
+	var stdin bytes.Buffer
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		_, _ = c.scroll.Write([]byte("root@tencentos:~# "))
+		c.touchRemoteOut()
+	}()
+
+	if !c.finishNativePromptAfterMeta(&stdin) {
+		t.Fatal("expected prompt after sync fallback")
+	}
+	got := buf.String()
+	if !strings.Contains(got, "root@tencentos:~#") {
+		t.Fatalf("stdout = %q, want remote prompt after sync", got)
+	}
+}
+
+// TestFinishMetaInteraction_ShortBashPrompt: relaxed heuristics match short bash PS1 lines.
+func TestFinishMetaInteraction_ShortBashPrompt(t *testing.T) {
+	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
+	_, _ = c.scroll.Write([]byte("u@h:# "))
+
+	var buf bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&buf)
+
+	c.finishMetaInteraction(&bytes.Buffer{})
+
+	if !strings.Contains(buf.String(), "u@h:#") {
+		t.Fatalf("stdout = %q, want short bash prompt re-emit", buf.String())
 	}
 }
 

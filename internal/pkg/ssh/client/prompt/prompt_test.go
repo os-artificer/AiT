@@ -160,7 +160,7 @@ func TestRemoteSetupLine_HistoryOffWrapper(t *testing.T) {
 
 // TestRemoteSetupLine_PrintsExpandedPrompt (P1) verifies setup ends with zsh redraw and sentinel.
 func TestRemoteSetupLine_PrintsExpandedPrompt(t *testing.T) {
-	line := RemoteSetupLine("root", "ylgeeker.com", false)
+	line := RemoteSetupLine(testSSHUser, testPrimaryHostFQDN, false)
 	for _, part := range []string{
 		`print -Pn "$PROMPT"`,
 		"zle reset-prompt",
@@ -185,7 +185,7 @@ func TestRemotePromptRedrawCmd_BashNoOp(t *testing.T) {
 
 // TestRemoteSetupLine_ZshPrecmdHook (P1b) verifies zsh setup installs a precmd hook after theme init.
 func TestRemoteSetupLine_ZshPrecmdHook(t *testing.T) {
-	line := RemoteSetupLine("root", "ylgeeker.com", false)
+	line := RemoteSetupLine(testSSHUser, testPrimaryHostFQDN, false)
 	for _, part := range []string{
 		"ait_precmd()",
 		"precmd_functions=(${precmd_functions:#ait_precmd} ait_precmd)",
@@ -198,7 +198,7 @@ func TestRemoteSetupLine_ZshPrecmdHook(t *testing.T) {
 
 // TestRemoteSetupLine_BashPromptCommandHook (P3) verifies bash setup installs PROMPT_COMMAND persistence.
 func TestRemoteSetupLine_BashPromptCommandHook(t *testing.T) {
-	line := RemoteSetupLine("root", "ylgeeker.com", false)
+	line := RemoteSetupLine(testSSHUser, testPrimaryHostFQDN, false)
 	for _, part := range []string{
 		"ait_prompt_command()",
 		"export PROMPT_COMMAND=ait_prompt_command",

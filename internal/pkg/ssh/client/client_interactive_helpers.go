@@ -316,6 +316,9 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 		host = c.promptHost()
 	}
 	if chunk == nil {
+		if UseRemoteSystemPrompt() && !c.remotePromptShown.Load() {
+			c.tryEmitNativePromptIfNeeded(user, host)
+		}
 		if repaintPrompt {
 			if nestedClosed {
 				c.repaintAfterNestedSSHClose(user, host)
@@ -340,6 +343,9 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 	// never reaches the saved scrollback either (replayed on next load/switch).
 	stdoutChunk := c.applySetupGrace(chunk, user, host)
 	if len(stdoutChunk) == 0 {
+		if UseRemoteSystemPrompt() && !c.remotePromptShown.Load() {
+			c.tryEmitNativePromptIfNeeded(user, host)
+		}
 		if repaintPrompt {
 			if nestedClosed {
 				c.repaintAfterNestedSSHClose(user, host)
@@ -354,8 +360,15 @@ func (c *Client) handleRemoteOutput(buf []byte) {
 	}
 	_, _ = c.scroll.Write(stdoutChunk)
 	_, _ = c.writeInteractiveStdout(stdoutChunk)
-	if !c.remotePromptShown.Load() && isDuplicatePromptOutput(stdoutChunk, user, host) {
+	if !UseRemoteSystemPrompt() && !c.remotePromptShown.Load() && isDuplicatePromptOutput(stdoutChunk, user, host) {
 		c.remotePromptShown.Store(true)
+	}
+	if UseRemoteSystemPrompt() && !c.remotePromptShown.Load() {
+		if chunkContainsNativePrompt(stdoutChunk, user, host) {
+			c.remotePromptShown.Store(true)
+		} else {
+			c.tryEmitNativePromptIfNeeded(user, host)
+		}
 	}
 	if repaintPrompt {
 		if nestedClosed {
@@ -399,6 +412,9 @@ func (c *Client) applySetupGrace(chunk []byte, user, host string) []byte {
 
 	// After the first keystroke, pass single-byte echo through; strip leak lines from larger chunks.
 	if c.setupKeystrokeGraceUntil.Load() == 0 {
+		if containsClearTokens(string(chunk)) {
+			return chunk
+		}
 		if len(chunk) == 1 {
 			return chunk
 		}

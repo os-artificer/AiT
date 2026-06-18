@@ -142,10 +142,10 @@ func TestResolveTransferMode_AutoEnablesChain(t *testing.T) {
 	if activeShellNeedsChain("bastion.example.com", "", "bastion") {
 		t.Fatal("same host short/FQDN should not need chain")
 	}
-	if !activeShellNeedsChain("dev.ylgeeker.com", "devhost", "internal") {
+	if !activeShellNeedsChain(testDevHostFQDN, testDevHostAlias, "internal") {
 		t.Fatal("expected chain when active host differs from all identities")
 	}
-	if activeShellNeedsChain("dev.ylgeeker.com", "devhost", "devhost") {
+	if activeShellNeedsChain(testDevHostFQDN, testDevHostAlias, testDevHostAlias) {
 		t.Fatal("alias destination matching active host should not need chain")
 	}
 	if activeShellNeedsChain("bastion", "", "") {
@@ -215,10 +215,10 @@ func TestIsSFTPNotFoundErr(t *testing.T) {
 }
 
 func TestHostsMatchIdentities_AliasHostname(t *testing.T) {
-	if !hostsMatchIdentities("dev.ylgeeker.com", "devhost", "devhost") {
+	if !hostsMatchIdentities(testDevHostFQDN, testDevHostAlias, testDevHostAlias) {
 		t.Fatal("devhost active shell should match login destination alias")
 	}
-	if hostsMatchIdentities("dev.ylgeeker.com", "devhost", "internal") {
+	if hostsMatchIdentities(testDevHostFQDN, testDevHostAlias, "internal") {
 		t.Fatal("unrelated active host should not match")
 	}
 }
@@ -309,7 +309,7 @@ func TestHandleTransfer_ChainNoSFTpfFallback(t *testing.T) {
 
 func TestResolveTransferMode_SFTPWhenIdentitiesMatch(t *testing.T) {
 	c := &Client{
-		opts:   Options{Host: "dev.ylgeeker.com", LoginDestination: "devhost"},
+		opts:   Options{Host: testDevHostFQDN, LoginDestination: testDevHostAlias},
 		scroll: &terminal.Buffer{},
 	}
 	orig := injectCaptureForRetry

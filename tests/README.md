@@ -36,6 +36,7 @@ Optional environment overrides:
 | `AIT_TEST_CONFIG` | Path to YAML config (default: `tests/config.local.yaml`) |
 | `AIT_TEST_SSH_HOST` | Override `ssh.primary.host` |
 | `AIT_TEST_SSH_PORT` | Override `ssh.primary.port` |
+| `AIT_TEST_SSH_INNER_HOST` | Override `ssh.inner.host` |
 | `AIT_TEST_DEEPSEEK_KEY` | Override `ai.deepseek_key` |
 | `AIT_KEYRING_FILE_PASSWORD` | Keyring file backend password |
 
