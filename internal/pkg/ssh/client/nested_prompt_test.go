@@ -59,16 +59,16 @@ func TestDuplicatePromptOutput_ActiveHostAfterNested(t *testing.T) {
 
 // TestParseSSHCommandLine_PortAndUserHost (W13) parses ssh -p PORT user@host.
 func TestParseSSHCommandLine_PortAndUserHost(t *testing.T) {
-	user, host, ok := parseSSHCommandLine("ssh -p 60528 root@ylgeeker.com", "root")
+	user, host, ok := parseSSHCommandLine("ssh -p 60528 root@"+testInnerHostFQDN, testSSHUser)
 	if !ok {
 		t.Fatal("expected ok")
 	}
-	if user != "root" || host != "ylgeeker.com" {
+	if user != testSSHUser || host != testInnerHostFQDN {
 		t.Fatalf("got %s@%s", user, host)
 	}
 
-	user, host, ok = parseSSHCommandLine("ssh -p60528 root@ylgeeker.com", "root")
-	if !ok || user != "root" || host != "ylgeeker.com" {
+	user, host, ok = parseSSHCommandLine("ssh -p60528 root@"+testInnerHostFQDN, testSSHUser)
+	if !ok || user != testSSHUser || host != testInnerHostFQDN {
 		t.Fatalf("combined -p: %s@%s ok=%v", user, host, ok)
 	}
 }
@@ -205,8 +205,8 @@ func TestNestedPrompt_NoMOTDFallbackInject(t *testing.T) {
 
 // TestParseSSHConnectionClosedHost (N6) parses OpenSSH client disconnect banners.
 func TestParseSSHConnectionClosedHost(t *testing.T) {
-	got := parseSSHConnectionClosedHost("Connection to ylgeeker.com closed.\r\n")
-	if got != "ylgeeker.com" {
+	got := parseSSHConnectionClosedHost("Connection to " + testInnerHostFQDN + " closed.\r\n")
+	if got != testInnerHostFQDN {
 		t.Fatalf("host = %q", got)
 	}
 	if parseSSHConnectionClosedHost("logout\r\n") != "" {
@@ -216,16 +216,16 @@ func TestParseSSHConnectionClosedHost(t *testing.T) {
 
 // TestOnNestedSSHSessionClosed_RestoresDial (N6) resets active prompt after nested exit.
 func TestOnNestedSSHSessionClosed_RestoresDial(t *testing.T) {
-	c := &Client{opts: Options{User: "root", Host: "dev.ylgeeker.com"}}
+	c := &Client{opts: Options{User: testSSHUser, Host: testDevHostFQDN}}
 	c.initActivePrompt()
-	c.activePromptHost = "ylgeeker.com"
-	c.nestedRemoteHost = "ylgeeker.com"
+	c.activePromptHost = testInnerHostFQDN
+	c.nestedRemoteHost = testInnerHostFQDN
 	c.SetChainMode(true)
 
-	if !c.onNestedSSHSessionClosed("ylgeeker.com") {
+	if !c.onNestedSSHSessionClosed(testInnerHostFQDN) {
 		t.Fatal("expected nested close handling")
 	}
-	if c.promptHost() != "dev.ylgeeker.com" {
+	if c.promptHost() != testDevHostFQDN {
 		t.Fatalf("active host = %q", c.promptHost())
 	}
 	if c.ChainMode() {
@@ -236,12 +236,48 @@ func TestOnNestedSSHSessionClosed_RestoresDial(t *testing.T) {
 	}
 }
 
+// TestHandleRemoteOutput_NestedCloseNoRemoteInject (N6b) native prompt mode re-emits
+// from scrollback without injecting stty/print -Pn after nested ssh exit.
+func TestHandleRemoteOutput_NestedCloseNoRemoteInject(t *testing.T) {
+	c := testClientWithPrompt(testSSHUser, testDevHostFQDN)
+	c.activePromptHost = testInnerHostFQDN
+	c.nestedRemoteHost = testInnerHostFQDN
+	c.SetChainMode(true)
+	var stdin bytes.Buffer
+	c.interactiveStdin = &stdin
+	_, _ = c.scroll.Write([]byte("root@" + testDevHostShort + ":~# \r\n"))
+
+	c.handleRemoteOutput([]byte("Connection to " + testInnerHostFQDN + " closed.\r\nroot@" + testDevHostShort + ":~# "))
+
+	if stdinHasPromptRedraw(stdin.String()) {
+		t.Fatalf("nested close must not inject prompt redraw, stdin = %q", stdin.String())
+	}
+	if c.promptHost() != testDevHostFQDN {
+		t.Fatalf("active host = %q", c.promptHost())
+	}
+}
+
+// TestRepaintAfterNestedSSHClose_NoSyncWhenScrollbackEmpty (N6c) does not inject a
+// remote redraw when scrollback lacks an outer prompt yet.
+func TestRepaintAfterNestedSSHClose_NoSyncWhenScrollbackEmpty(t *testing.T) {
+	c := testClientWithPrompt(testSSHUser, testDevHostFQDN)
+	var stdin bytes.Buffer
+	c.interactiveStdin = &stdin
+	_, _ = c.scroll.Write([]byte("Connection to " + testInnerHostFQDN + " closed.\r\n"))
+
+	c.repaintAfterNestedSSHClose(testSSHUser, testDevHostFQDN)
+
+	if stdin.Len() != 0 {
+		t.Fatalf("must not inject remote sync when scrollback has no prompt, stdin = %q", stdin.String())
+	}
+}
+
 // TestScrollChunkLooksLikeShellPrompt detects common inner-shell prompt lines.
 func TestScrollChunkLooksLikeShellPrompt(t *testing.T) {
-	if !scrollChunkLooksLikeShellPrompt([]byte("root@ylgeeker.com [~] ->\n")) {
+	if !scrollChunkLooksLikeShellPrompt([]byte("root@" + testInnerHostFQDN + " [~] ->\n")) {
 		t.Fatal("expected TencentOS-style prompt")
 	}
-	if !scrollChunkLooksLikeShellPrompt([]byte("root@ylgeeker [~] ➜\n")) {
+	if !scrollChunkLooksLikeShellPrompt([]byte("root@" + testInnerHostShort + " [~] ➜\n")) {
 		t.Fatal("expected oh-my-zsh arrow prompt")
 	}
 	if scrollChunkLooksLikeShellPrompt([]byte("Last login: Thu\n")) {

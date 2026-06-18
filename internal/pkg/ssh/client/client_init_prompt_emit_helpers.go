@@ -66,21 +66,9 @@ func lastNativePromptLineForHost(scroll, activeHost string) string {
 	if scroll == "" {
 		return ""
 	}
-
-	normalized := strings.ReplaceAll(scroll, "\r\n", "\n")
-	normalized = strings.ReplaceAll(normalized, "\r", "\n")
-	lines := strings.Split(normalized, "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := lines[i]
-		if !isNativePromptLike(line) {
-			continue
-		}
-		if !nativePromptMatchesActiveHost(line, activeHost) {
-			continue
-		}
+	if line := findLastNativePromptRaw(scroll, activeHost); line != "" {
 		return line
 	}
-
 	return ""
 }
 
@@ -126,23 +114,97 @@ func formatActivePromptStdout(line string) string {
 	return "\r" + line + promptClearToEOL
 }
 
+// lastNativePromptLineFallback returns the last native prompt when dial-host filtering
+// misses the genuine shell PS1 (e.g. root@devhost:~# while dial target is remote.example.com).
+// It skips stale inner-shell prompts left in scrollback after nested ssh closes.
+func lastNativePromptLineFallback(scroll, activeHost string) string {
+	if staleInnerNativePromptAfterNestedClose(scroll, activeHost) {
+		return ""
+	}
+	for _, raw := range iterNativePromptCandidates(scroll) {
+		if cleaned := extractNativePromptForEmit(raw); cleaned != "" {
+			return raw
+		}
+	}
+	return ""
+}
+
+// staleInnerNativePromptAfterNestedClose reports scrollback that still ends with an inner
+// native prompt after a nested ssh session closed back to the outer dial target.
+func staleInnerNativePromptAfterNestedClose(scroll, activeHost string) bool {
+	if scroll == "" {
+		return false
+	}
+	normalized := strings.ReplaceAll(scroll, "\r\n", "\n")
+	if !strings.Contains(normalized, "Connection to") || !strings.Contains(normalized, "closed") {
+		return false
+	}
+	line := lastNativePromptLine(scroll)
+	if line == "" {
+		return false
+	}
+	return !nativePromptMatchesActiveHost(line, activeHost)
+}
+
 // emitBufferedNativePrompt writes the last native shell prompt from scrollback to stdout.
 // Returns true when a native prompt line was found and written.
 func (c *Client) emitBufferedNativePrompt() bool {
-	activeHost := ""
-	if c != nil {
-		activeHost = c.promptHost()
+	if c == nil || c.scroll == nil {
+		return false
 	}
-	line := lastNativePromptLineForHost(c.scroll.String(), activeHost)
+
+	activeHost := c.promptHost()
+	scroll := c.scroll.String()
+	line := lastNativePromptLineForHost(scroll, activeHost)
+	if line == "" {
+		line = lastNativePromptLineFallback(scroll, activeHost)
+	}
 	if line == "" {
 		return false
 	}
 
-	out := formatActivePromptStdout(line)
+	cleaned := extractNativePromptForEmit(line)
+	if cleaned == "" {
+		return false
+	}
+
+	out := formatActivePromptStdout(cleaned)
 	if _, err := c.writeInteractiveStdout([]byte(out)); err != nil {
 		return false
 	}
 	return true
+}
+
+// lastPromptCandidateLine returns the last prompt-like line in chunk using relaxed heuristics.
+func lastPromptCandidateLine(chunk string) string {
+	for _, raw := range iterNativePromptCandidates(chunk) {
+		if cleaned := extractNativePromptForEmit(raw); cleaned != "" {
+			return raw
+		}
+	}
+	return ""
+}
+
+// emitScrollDeltaPrompt writes a prompt line captured in scrollback since beforeLen to stdout.
+func (c *Client) emitScrollDeltaPrompt(beforeLen int) bool {
+	if c == nil || c.scroll == nil {
+		return false
+	}
+	scroll := c.scroll.String()
+	if len(scroll) <= beforeLen {
+		return false
+	}
+	line := lastPromptCandidateLine(scroll[beforeLen:])
+	if line == "" {
+		return false
+	}
+	cleaned := extractNativePromptForEmit(line)
+	if cleaned == "" {
+		return false
+	}
+	out := formatActivePromptStdout(cleaned)
+	_, err := c.writeInteractiveStdout([]byte(out))
+	return err == nil
 }
 
 // emitBufferedRemotePrompt writes the buffered remote prompt from scrollback to stdout.

@@ -45,7 +45,7 @@ func TestResolveGithub(t *testing.T) {
 
 func TestClientOptions_LoginDestination(t *testing.T) {
 	r := Resolved{
-		Host:        "dev.ylgeeker.com",
+		Host:        "dev.example.com",
 		Destination: "devhost",
 		Port:        22,
 		User:        "root",
@@ -54,7 +54,7 @@ func TestClientOptions_LoginDestination(t *testing.T) {
 	if opts.LoginDestination != "devhost" {
 		t.Fatalf("LoginDestination = %q, want devhost", opts.LoginDestination)
 	}
-	if opts.Host != "dev.ylgeeker.com" {
+	if opts.Host != "dev.example.com" {
 		t.Fatalf("Host = %q", opts.Host)
 	}
 }

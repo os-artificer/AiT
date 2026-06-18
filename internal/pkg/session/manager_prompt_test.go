@@ -17,13 +17,13 @@
 package session
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 )
 
-// TestRemotePromptInitialCommands_LoginLoadSamePath (W10) verifies login and load share one helper.
+// TestRemotePromptInitialCommands_LoginLoadSamePath (W10): native prompt mode
+// (UseRemoteSystemPrompt) injects no PS1 setup, so login and load share an empty result.
 func TestRemotePromptInitialCommands_LoginLoadSamePath(t *testing.T) {
 	m := newTestManager(t)
 	if err := m.Config.SetKey("session.remote_prompt.path", config.RemotePromptPathAbsolute); err != nil {
@@ -32,13 +32,7 @@ func TestRemotePromptInitialCommands_LoginLoadSamePath(t *testing.T) {
 
 	loginCmds := m.remotePromptInitialCommands("u", "h")
 	loadCmds := m.remotePromptInitialCommands("u", "h")
-	if len(loginCmds) != 1 || len(loadCmds) != 1 {
-		t.Fatalf("cmds login=%v load=%v", loginCmds, loadCmds)
-	}
-	if loginCmds[0] != loadCmds[0] {
-		t.Fatalf("login and load differ:\nlogin=%q\nload=%q", loginCmds[0], loadCmds[0])
-	}
-	if !strings.Contains(loginCmds[0], "${PWD/#$HOME") {
-		t.Fatalf("absolute mode should inject PWD substitution: %s", loginCmds[0])
+	if len(loginCmds) != 0 || len(loadCmds) != 0 {
+		t.Fatalf("native prompt mode should inject no PS1 setup, login=%v load=%v", loginCmds, loadCmds)
 	}
 }
