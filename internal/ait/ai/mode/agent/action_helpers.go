@@ -19,6 +19,8 @@ package agent
 import (
 	"encoding/json"
 	"strings"
+
+	pkgagent "github.com/os-artificer/AiT/internal/pkg/ai/agent"
 )
 
 // ParseAction extracts one Action from a model reply (JSON object embedded in
@@ -30,12 +32,19 @@ func ParseAction(content string) (Action, bool) {
 		return Action{}, false
 	}
 	if obj := extractJSONObject(content); obj != "" {
-		return parseJSON(obj)
+		if act, ok := parseJSON(obj); ok {
+			return act, true
+		}
+	}
+	if jsonStr, ok := pkgagent.XMLToolCallToJSON(content); ok {
+		return parseJSON(jsonStr)
 	}
 	return Action{}, false
 }
 
 func parseJSON(s string) (Action, bool) {
+	s = pkgagent.NormalizeES6UnicodeJSON(s)
+
 	var raw struct {
 		Action  string `json:"action"`
 		Command string `json:"command"`

@@ -16,72 +16,10 @@
 
 package client
 
-import (
-	"regexp"
-	"strings"
+import "github.com/os-artificer/AiT/internal/pkg/ai/eino"
 
-	"github.com/os-artificer/AiT/internal/pkg/ai/agent"
-)
-
-// Build regex patterns at init time to avoid issues with tag-like content
-// in source code being misinterpreted.
-var (
-	thinkingRe     = regexp.MustCompile(`(?s)` + thinkOpen + `(.*?)` + thinkClose)
-	xmlToolCallRe  = regexp.MustCompile(`(?s)<minimax:tool_call>.*?</minimax:tool_call>`)
-	xmlInvokeRe    = regexp.MustCompile(`(?s)<invoke\b[^>]*>.*?</invoke>`)
-	xmlParameterRe = regexp.MustCompile(`(?s)<parameter\b[^>]*>.*?</parameter>`)
-	orphanCloseRe  = regexp.MustCompile(`(?s)</(?:minimax:tool_call|invoke|parameter)>`)
-	hybridParamRe  = regexp.MustCompile(`(?s)"(?:` + agent.JSONFieldCommand + `|` + agent.JSONFieldArgs + `|` + agent.JSONFieldText + `)"\s*>\s*[^<]*</parameter>`)
-	partialJSONRe  = regexp.MustCompile(`(?s)\{"` + agent.JSONFieldAction + `":"(?:` + agent.ActionNamePattern + `)"[^}]*\z`)
-)
-
-const (
-	// Reasoning tag markers used by MiniMax M2.x models.
-	thinkOpen  = "\x3Cthink\x3E"
-	thinkClose = "\x3C/think\x3E"
-)
-
-// ExtractReply splits raw LLM response content into a clean reply and optional
-// thinking text. It strips:
-//   - Reasoning tags from MiniMax M2.x and similar providers, captured into
-//     the thinking return value (first match only; subsequent blocks are
-//     stripped from reply but not appended to thinking).
-//   - XML-style tool call blocks that providers embed in content instead of
-//     the proper tool_calls field.
-//
-// DeepSeek reasoner uses a separate reasoning_content field (handled by the
-// caller), so this function only deals with in-content tags.
-//
-// Parameters:
-//   - raw: the raw content string from the LLM response message.
-//
-// Returns:
-//   - reply: user-visible text with all non-user-facing tags removed.
-//   - thinking: captured reasoning content from the first reasoning tag, or ""
-//     when no tags are present.
-//
-// Returns ("", "") for empty input.
+// ExtractReply splits raw LLM response content into a clean reply and optional thinking text.
+// Delegates to internal/pkg/ai/eino (E9: thinking is not stored in chat history).
 func ExtractReply(raw string) (reply, thinking string) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", ""
-	}
-
-	// Extract thinking content from reasoning tags.
-	matches := thinkingRe.FindStringSubmatch(raw)
-	if len(matches) >= 2 {
-		thinking = strings.TrimSpace(matches[1])
-	}
-
-	// Strip all non-user-facing tag blocks from content.
-	cleaned := thinkingRe.ReplaceAllString(raw, "")
-	cleaned = xmlToolCallRe.ReplaceAllString(cleaned, "")
-	cleaned = xmlInvokeRe.ReplaceAllString(cleaned, "")
-	cleaned = xmlParameterRe.ReplaceAllString(cleaned, "")
-	cleaned = orphanCloseRe.ReplaceAllString(cleaned, "")
-	cleaned = hybridParamRe.ReplaceAllString(cleaned, "")
-	cleaned = partialJSONRe.ReplaceAllString(cleaned, "")
-	reply = strings.TrimSpace(cleaned)
-
-	return reply, thinking
+	return eino.ExtractReply(raw)
 }

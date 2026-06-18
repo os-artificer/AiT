@@ -61,10 +61,10 @@ func TestNewClient_SkipsDisabledCloud(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := client.endpoints[config.ProviderDeepseek]; ok {
+	if _, ok := client.slots[config.ProviderDeepseek]; ok {
 		t.Fatal("disabled deepseek should not be registered")
 	}
-	if _, ok := client.endpoints[config.ProviderMinimax]; !ok {
+	if _, ok := client.slots[config.ProviderMinimax]; !ok {
 		t.Fatal("enabled minimax should be registered")
 	}
 }

@@ -46,7 +46,10 @@ func RunREPL(ctx context.Context, opt Options, initialQuestion string) error {
 	st := newSessionState(opt)
 
 	if q := stringsTrim(initialQuestion); q != "" {
-		if chat.IsEmptyCommand(q) || chat.IsEmptyAgentCommand(q) {
+		switch {
+		case chat.IsEmptyAgentCommand(q):
+			initialQuestion = ""
+		case chat.IsEmptyCommand(q):
 			return ai.ChatMessageRequiredErr()
 		}
 	}

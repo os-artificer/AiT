@@ -72,7 +72,7 @@
 | `ait ai [--model deepseek\|minimax]` | 本机 AI REPL（TTY 为 UTF-8 输入）；可选本会话云端 provider 覆盖 |
 | `ait ai model list` | 列出 AI provider（ENABLED、可达性、Ollama tags） |
 | `ait ai ask [message...]` | 单轮提问；无参数时从 stdin 读取；SSH：`!ait ai ask` / `!! ask` |
-| `ait ai agent [message...]` | 单轮 agent（工具执行）；SSH：`!ait ai agent` / `!! agent` |
+| `ait ai agent [message...]` | 有消息时为单轮 agent；SSH 内无参 `!ait ai agent` / `!! agent` 进入 Agent REPL（同 `!ait ai` / `!!`） |
 | `ait ai provider enable <provider>` | 启用 provider；`ollama` 可选检查/安装（[y/N]）；标志 `--yes`、`--no-install`、`--no-pull` |
 | `ait ai provider disable <provider>` | 禁用 provider（不再向其发送 AI 请求） |
 | `ait ai ollama status` | 查看 tiered/启用状态、API 可达性、已拉取模型 |

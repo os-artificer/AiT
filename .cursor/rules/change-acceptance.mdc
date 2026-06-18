@@ -68,6 +68,17 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | R19d | `AiT AI user@host>` 交互输入 UTF-8 可经 `ReadLine` 提交 | `TestReplStdinReader_UTF8` | SSH：`!!` 进 AI → 输入 `帮助` → 有 AI 响应 |
 | R19e | AI 内 `exit` 后远程 shell、`!!` 仍正常 | — | SSH：AI 内 `exit` → 远程 `ls` / 再次 `!!` |
 
+### RA* 明细（SSH 远程 AI REPL 入口 / Agent 执行）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| RA1 | bare meta `agent` → 进入 Agent REPL，不 fatal | `TestRunREPL_InitialEmptyAgentEntersREPL` | SSH：`!ait ai agent` → `mode` 见 agent |
+| RA2 | `RunREPL(..., "agent")` ScopeRemote 不 `errors.Is(ChatMessageRequired)` | 同上 | — |
+| RA3 | `handleAIMetaLine` 遇 ChatMessageRequired → return nil，SSH 可继续 | `TestHandleAIMetaLine_ErrHintNoDisconnect` | SSH：`!ait ai ask` 无消息 → hint，shell 仍可用 |
+| RA4 | ScopeRemote + mock Capture：`RunAgentOnce` 执行 `run_shell` | `TestRunAgentOnce_ScopeRemote_Capture` | `!ait ai agent 列出文件` |
+| RA5 | XML 回复经 `ParseAction` 触发 run | `TestParseAction_XMLFallback` | — |
+| RA6 | meta scanner：`!ait ai` bare line | `TestMetaScanner_AitAIBareLine` | `!ait ai` → `AiT AI(Agent) user@host>` |
+
 ### A20 明细（AI REPL mode / approve / Agent）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
@@ -521,6 +532,21 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | N9 | ephemeral 会话 `!ait suspend` → auto-persist + suspended + scrollback | `TestEnsureSessionPersisted_Suspend` | ephemeral login 后 `!ait suspend` → `session --list` 可见 |
 | N10 | auto-persist 同连接键 dedupe（D1 不回退） | `TestEnsureSessionPersisted_DedupeConnectionKey` | — |
 
+### E* 明细（Eino AI 重构 E1–E12）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| E1 | Chat tiered 简单 prompt → Ollama（eino） | `TestTiered_SimpleUsesOllamaT1` |
+| E1b | Agent tiered → legacy 单步（策略 A） | `TestTiered_AgentLegacy` |
+| E2 | Ollama 失败 → 云端 failover | `TestTiered_OllamaFailoverT3` |
+| E3 | FC + OpenAI content XML + Anthropic XML | `eino/spike_test.go` M4/M6 |
+| E5 | prompt 含 provider/model/mode | `TestPromptBuilder_InjectsMeta` |
+| E6 | 无 `go-openai`；`test-cross` | `TestGoMod_NoGoOpenAI`、`make test-cross` |
+| E7 | 首条 user 含 scrollback/cwd | `TestBuildChatMessages_FirstTurnPrependsEnv`、`TestPrependEnvContext_RemoteHost` |
+| E9 | thinking 不入 history | `Chat`/`ChatAgent` 现有测试 |
+| E11 | `StatusLine` 正确 | `TestClient_StatusLine` |
+| E12 | maxSteps 超限文案 | `TestRunAgentOnce_StepLimit` |
+
 ### M* 明细（`go install` / 第三方内嵌）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
@@ -579,6 +605,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] R19c：SSH meta `!!` UTF-8 首问（`TestMetaScanner_BangBangUTF8Query`、`TestMetaScanner_BangBangAsk`）
 - [ ] R19d：ReplIn UTF-8 字节流（`TestReplStdinReader_UTF8`）；SSH 内 AI 模式中文输入
 - [ ] R19e：离开 AI 后远程 shell 正常（手动 SSH）
+- [ ] RA1–RA6：SSH 远程 AI REPL 入口 / Agent 执行（见 **RA\*** 明细）；R18d bare `ask` 不回退
 - [ ] A20a：默认 mode agent、approve each（`TestSessionState_Defaults`）
 - [ ] A20b：mode agent/ask 切换（`TestSetMode_*`）
 - [ ] A20c：Ask 不自动 RunCapture（`TestAskAI_NoRunCapture`）
@@ -644,6 +671,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] TM14a–d：`send-keys` pre-attach + 清屏；新建 `--tmux` 失败删 phantom 行（`TestTmuxPreAttachSetup_ClearPaneGolden`、`TestCleanupOnTmuxFailure_NewRowDeletes`、`TestDeleteLoginSession_RemovesRow`）
 - [ ] V1–V14：传输收尾 / 可取消 / ZEOF / ZFIN resync / send put 100% 收尾（见 **V\*** 明细）；T1–T12 / U26–U32 / Z1–Z10 / F1–F4 / R10–R11 / H2 / K23–K24 / R19 未回退
 - [ ] N1–N10：SSH 会话内 login/load/switch 链式切换 + auto-persist（见 **N\*** 明细）；R4/H4a/D1 未回退
+- [ ] E1–E12：Eino AI 重构（见 **E\*** 明细）；`TestGoMod_NoGoOpenAI` 通过
 - [ ] M1：`go install` 无外部 xiwh/zmodem（见 **M\*** 明细）
 - [ ] 相关自动化测试未删除或弱化
 
@@ -845,6 +873,7 @@ ait login hostA                    # 无 --save
 | K23–K24 | raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker） | `TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` |
 | P* | AppRoot / AIT_HOME 单目录 | `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig` |
 | G* | `ait config init/view/edit/validate` | `TestConfigEnsureFile_Creates`、`TestConfigInitCmd`、`TestConfigViewCmd`、`TestConfigEditCmd`、`TestConfigValidateCmd_*`、`TestValidate_*`、`TestOpenEditor_Unix` |
+| RA* | SSH 远程 AI REPL 入口 / Agent 执行 | `TestRunREPL_InitialEmptyAgentEntersREPL`、`TestHandleAIMetaLine_ErrHintNoDisconnect`、`TestRunAgentOnce_ScopeRemote_Capture`、`TestParseAction_XMLFallback`、`TestMetaScanner_AitAIBareLine` |
 | A20* | AI REPL Ask/Agent + approve | `TestSessionState_Defaults`、`TestSetMode_*`、`TestAgentTurn_RunActionMock`、`TestAgent_SkipsVim` |
 | A21* | AI REPL 提示符 / 确认 / y·c·s·n | `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestConfirm_PatternTrustSkipsSamePrefix` |
 | A22* | Read 风险级别 / 只读自动放行 / 默认 Agent | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |

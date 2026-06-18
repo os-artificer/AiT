@@ -72,7 +72,7 @@ Optional config template:
 | `ait ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ait ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
 | `ait ai ask [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ait ai ask` / `!! ask` |
-| `ait ai agent [message...]` | One-shot agent mode with tool execution; SSH: `!ait ai agent` / `!! agent` |
+| `ait ai agent [message...]` | One-shot agent when a message is given; in SSH, bare `!ait ai agent` / `!! agent` enters Agent REPL (same as `!ait ai` / `!!`) |
 | `ait ai provider enable <provider>` | Enable provider; for `ollama`: optional install checks ([y/N]); flags `--yes`, `--no-install`, `--no-pull` |
 | `ait ai provider disable <provider>` | Disable provider (no AI requests sent to it) |
 | `ait ai ollama status` | Ollama tiered/enabled flags, API reachability, pulled models |

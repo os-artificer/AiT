@@ -64,6 +64,18 @@ func TestParseAction_Answer(t *testing.T) {
 	}
 }
 
+// ParseAction accepts ES6 \u{XXXX} escapes inside provider JSON answer payloads.
+func TestParseAction_ES6UnicodeAnswer(t *testing.T) {
+	raw := `{"action":"answer","text":"\u2705 report \u{1F4BB} CPU"}`
+	act, ok := ParseAction(raw)
+	if !ok || !act.IsAnswer() {
+		t.Fatalf("act=%+v ok=%v", act, ok)
+	}
+	if act.Text == "" {
+		t.Fatal("expected decoded answer text")
+	}
+}
+
 // ParseAction returns false for empty or unparseable input.
 func TestParseAction_Empty(t *testing.T) {
 	for _, in := range []string{"", "   ", "not json"} {
@@ -86,5 +98,19 @@ func TestParseAction_EmbeddedJSON(t *testing.T) {
 func TestParseAction_EmptyVerb(t *testing.T) {
 	if _, ok := ParseAction(`{"action":"","text":"x"}`); ok {
 		t.Fatal("expected !ok for empty action verb")
+	}
+}
+
+// RA5: hybrid MiniMax XML fragment falls back to run_shell when JSON parse fails.
+func TestParseAction_XMLFallback(t *testing.T) {
+	raw := `{"action":"run_shell","command">whoami</parameter>` + "\n" +
+		`</invoke>` + "\n" +
+		`</minimax:tool_call>`
+	act, ok := ParseAction(raw)
+	if !ok {
+		t.Fatal("expected parse ok via XML fallback")
+	}
+	if !act.IsRun() || act.Command != "whoami" {
+		t.Fatalf("act=%+v ok=%v", act, ok)
 	}
 }

@@ -33,6 +33,22 @@ def test_remote_ai_bang_enters_repl(ai_remote_session):
     ai_remote_session.send_line("exit")
 
 
+def test_remote_ai_bare_enters_repl(ai_remote_session):
+    ai_remote_session.child.sendline("!ait ai")
+    ai_remote_session.child.expect(r"AiT AI\([^)]+\)", timeout=120)
+    ai_remote_session.child.sendline("mode")
+    ai_remote_session.child.expect(r"agent", timeout=30)
+    ai_remote_session.child.sendline("exit")
+
+
+def test_remote_ai_agent_bare_enters_repl(ai_remote_session):
+    ai_remote_session.child.sendline("!ait ai agent")
+    ai_remote_session.child.expect(r"AiT AI\([^)]+\)", timeout=120)
+    ai_remote_session.child.sendline("mode")
+    ai_remote_session.child.expect(r"agent", timeout=30)
+    ai_remote_session.child.sendline("exit")
+
+
 def test_remote_ai_utf8_query(ai_remote_session):
     out = ai_remote_session.meta('ai ask 你好')
     assert out is not None

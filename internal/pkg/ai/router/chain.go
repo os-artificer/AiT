@@ -27,8 +27,6 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 	"github.com/os-artificer/AiT/internal/pkg/config"
-
-	openai "github.com/sashabaranov/go-openai"
 )
 
 const envFailoverLog = "AIT_AI_FAILOVER_LOG"
@@ -47,16 +45,10 @@ func IsRetryable(err error) bool {
 	if errors.As(err, &netErr) {
 		return true
 	}
-	var apiErr *openai.APIError
-	if errors.As(err, &apiErr) {
-		switch apiErr.HTTPStatusCode {
-		case httpStatusTooManyRequests, httpStatusInternalError, httpStatusBadGateway, httpStatusUnavailable, httpStatusGatewayTimeout:
-			return true
-		default:
-			return apiErr.HTTPStatusCode >= 500
-		}
-	}
 	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "status 429") || strings.Contains(msg, "status 5") {
+		return true
+	}
 	if strings.Contains(msg, retrySubstrEmptyResponse) || strings.Contains(msg, retrySubstrEmptyChoices) {
 		return true
 	}
