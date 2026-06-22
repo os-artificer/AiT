@@ -34,8 +34,14 @@ func ToolDefinitions() []ToolDef {
 			ParamJSON: `{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}`,
 		},
 		{
+			Name:      ToolAISshCLI,
+			Desc:      "Run ai-ssh CLI subcommand on the local machine",
+			ParamName: "args",
+			ParamJSON: `{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`,
+		},
+		{
 			Name:      ToolAitCLI,
-			Desc:      "Run ait CLI subcommand on the local machine",
+			Desc:      "Run ai-ssh CLI subcommand on the local machine (legacy alias)",
 			ParamName: "args",
 			ParamJSON: `{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`,
 		},

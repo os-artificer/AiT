@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package models declares the data row for `ait ai model list` and the
+// Package models declares the data row for `ai-ssh ai model list` and the
 // receiver-free formatting helpers used to render it. The Client.ListModels
 // implementation stays in the parent ai package because it depends on the
 // unexported endpoint type and the Client facade.
@@ -73,7 +73,7 @@ func KeyLabel(id provider.ID, hasKey bool) string {
 	return KeyNo
 }
 
-// FormatTable renders rows as the human-readable `ait ai model list` table.
+// FormatTable renders rows as the human-readable `ai-ssh ai model list` table.
 func FormatTable(rows []Row) string {
 	var b strings.Builder
 	b.WriteString(TableHeader)

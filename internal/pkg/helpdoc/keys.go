@@ -36,7 +36,7 @@ const sectionTTYKeysCommon = `  Ctrl+A, Home     move cursor to start of line
 const sectionTTYKeysShellNote = "  clear            clear terminal screen (command)\n"
 
 const sectionTTYKeysAINote = `  clear            clear AI chat history (not the same as Ctrl+L)
-  In SSH remote shell or !ait local, line editing follows the remote shell.
+  In SSH remote shell or !ai-ssh local, line editing follows the remote shell.
 `
 
 // TTYKeysSurface selects shell vs AI key help notes.

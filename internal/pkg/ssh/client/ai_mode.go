@@ -23,7 +23,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 )
 
-// RemoteAIParams is input for entering remote AI mode from !ait ai / !!.
+// RemoteAIParams is input for entering remote AI mode from !ai-ssh ai / !!.
 type RemoteAIParams struct {
 	Ctx             context.Context
 	Stdin           io.Writer

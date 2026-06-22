@@ -16,27 +16,33 @@
 
 package helpdoc
 
-import "io"
+import (
+	"io"
 
-// AI help strings — single source for ait ai, ask, agent, ollama, and in-REPL help.
-const (
-	ExampleAIProviderEnableDeepseek  = "ait ai provider enable deepseek"
-	ExampleAIProviderEnableOllamaYes = "ait ai provider enable ollama --yes"
-	ExampleAIProviderDisableMinimax  = "ait ai provider disable minimax"
-	ExampleAIOllamaStatus            = "ait ai ollama status"
-	ExampleAIOllamaSetupYes          = "ait ai ollama setup --yes"
-	ExampleAIOllamaStartWait         = "ait ai ollama start --wait"
-	ExampleAIOllamaDisableStop       = "ait ai ollama disable --stop"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
+
+// AI help strings — single source for ai-ssh ai, ask, agent, ollama, and in-REPL help.
+var (
+	ExampleAIProviderEnableDeepseek  = toolname.CLI("ai provider enable deepseek")
+	ExampleAIProviderEnableOllamaYes = toolname.CLI("ai provider enable ollama --yes")
+	ExampleAIProviderDisableMinimax  = toolname.CLI("ai provider disable minimax")
+	ExampleAIOllamaStatus            = toolname.CLI("ai ollama status")
+	ExampleAIOllamaSetupYes          = toolname.CLI("ai ollama setup --yes")
+	ExampleAIOllamaStartWait         = toolname.CLI("ai ollama start --wait")
+	ExampleAIOllamaDisableStop       = toolname.CLI("ai ollama disable --stop")
 
 	AIHelpFlagsBody     = "  --model   Override AI provider for this session (uses provider model/base_url from config)\n"
-	AIChatHelpFlagsBody = "  --model   Override cloud provider (deepseek|minimax); inherited from ait ai\n"
+	AIChatHelpFlagsBody = "  --model   Override cloud provider (deepseek|minimax); inherited from " + toolname.CLI("ai") + "\n"
 
 	AIHelpTieredRoutingBody = "When ai.tiered.enabled in config.yaml, short first-turn prompts use local Ollama; " +
-		"longer or complex prompts use cloud providers. Setup: ait ai ollama setup. List: ait ai model list\n"
-	AIHelpInSSHBody = "Use !ait ai or !! for interactive AI; " +
-		"!ait ai ask <msg> or !! ask <msg> for one-shot; " +
-		"!ait ai agent for interactive Agent REPL, or !ait ai agent <msg> / !! agent <msg> for one-shot agent. " +
-		"!ait ai as a meta subcommand is blocked."
+		"longer or complex prompts use cloud providers. Setup: " + toolname.CLI("ai ollama setup") +
+		". List: " + toolname.CLI("ai model list") + "\n"
+	AIHelpInSSHBody = "Use " + toolname.MetaLine("ai") + " or !! for interactive AI; " +
+		toolname.MetaLine("ai ask <msg>") + " or !! ask <msg> for one-shot; " +
+		toolname.MetaLine("ai agent") + " for interactive Agent REPL, or " +
+		toolname.MetaLine("ai agent <msg>") + " / !! agent <msg> for one-shot agent. " +
+		toolname.MetaLine("ai") + " as a meta subcommand is blocked."
 
 	AIIntroLocal  = "Interactive AI mode on this machine (outside SSH). Commands run locally only after you confirm."
 	AIIntroRemote = "Interactive AI mode for the active SSH session. Shell commands run on the remote host via run after you confirm."
@@ -49,14 +55,13 @@ const (
   approve each|session   how often to confirm runs (default: each)
   trust             same as approve session
   model             show current AI routing (provider, tiered)
-  model list        list configured providers (same as ait ai model list)
+  model list        list configured providers (same as ` + toolname.CLI("ai model list") + `)
   model <provider>  set cloud provider for this session (deepseek|minimax)
   run <command>     run a shell command after confirmation
   (deprecated: policy per-cmd|once — use approve each|session)
 `
 
-	AIReplCommandsLocalExtra = `  ait <subcmd>      run an ait CLI subcommand after confirmation (local only)
-`
+	AIReplCommandsLocalExtra = "  " + toolname.AISsh + " <subcmd>      run an " + toolname.AISsh + " CLI subcommand after confirmation (local only)\n"
 )
 
 // WriteAIChatSubcommandHelp prints one-shot ask/agent --help using shared layout.

@@ -163,7 +163,7 @@ func TestTransferWrongHopHint_Format(t *testing.T) {
 	if !strings.Contains(s, "Try:") {
 		t.Fatalf("missing Try block: %q", s)
 	}
-	if !strings.Contains(s, "!ait chain on") {
+	if !strings.Contains(s, "!ai-ssh chain on") {
 		t.Fatalf("missing chain on hint: %q", s)
 	}
 	if !strings.Contains(s, "directly connected host") {
@@ -180,10 +180,10 @@ func TestPTYCaptureErrHint_Format(t *testing.T) {
 	if !strings.Contains(s, "which base64 sha256sum") {
 		t.Fatalf("missing tool hint: %q", s)
 	}
-	if !strings.Contains(s, "!ait chain off") {
+	if !strings.Contains(s, "!ai-ssh chain off") {
 		t.Fatalf("missing chain off hint: %q", s)
 	}
-	if !strings.Contains(s, "!ait put") {
+	if !strings.Contains(s, "!ai-ssh put") {
 		t.Fatalf("missing put hint: %q", s)
 	}
 }

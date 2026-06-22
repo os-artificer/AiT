@@ -68,7 +68,7 @@ func TestManualSetupInstructions(t *testing.T) {
 	var buf bytes.Buffer
 	ManualSetupInstructions(&buf, cfg)
 	out := buf.String()
-	for _, sub := range []string{"ollama serve", "ollama pull", "ait ai ollama setup", "tiered", "enabled: true"} {
+	for _, sub := range []string{"ollama serve", "ollama pull", "ai-ssh ai ollama setup", "tiered", "enabled: true"} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("missing %q in:\n%s", sub, out)
 		}

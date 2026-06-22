@@ -26,6 +26,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 // ErrAlreadyRunning is returned when StartServe finds the API already reachable.
@@ -53,7 +54,7 @@ func StartServe(ctx context.Context, client *http.Client, baseURL string, wait b
 		return ErrAlreadyRunning
 	}
 	if !avail.BinaryOK {
-		return fmt.Errorf("ollama binary not in PATH (run: ait ai ollama setup)")
+		return fmt.Errorf("ollama binary not in PATH (run: %s)", toolname.CLI("ai ollama setup"))
 	}
 	if err := StartServeDetached(modelsDir); err != nil {
 		return fmt.Errorf("start ollama serve: %w", err)

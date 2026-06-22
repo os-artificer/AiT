@@ -7,7 +7,8 @@
 
 ## [Unreleased]
 
-- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `ait ai agent` one-shot now wires Capture/CLI/MaxSteps like REPL.
+- **CLI 重命名：** 工具箱首个工具为 `ai-ssh`（`bin/ai-ssh`、会话内 `!ai-ssh` meta）；默认数据根 `~/.local/share/AiT`，自动从旧 `share/ait` 迁移；keyring 服务名 `AiT`，惰性读取旧 `ait` 条目。
+- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `ai-ssh ai agent` 单轮现已与 REPL 一样接入 Capture/CLI/MaxSteps。
 
 ## [v1.0.0-beta.2]
 
@@ -16,6 +17,6 @@
 
 ## v1.0.0-beta.1
 
-- 【新增】AI 增强 SSH 客户端，可以在SSH会话内通过 !! '问题' 、!ait ai ask 、!ait ai agent 或!ait ai激活AI能力。
-- 【新增】自带文件传输功能，在SSH会话内通过!ait get/put 实现文件下载与上传。
+- 【新增】AI 增强 SSH 客户端，可以在 SSH 会话内通过 `!! '问题'`、`!ai-ssh ai ask`、`!ai-ssh ai agent` 或 `!ai-ssh ai` 激活 AI 能力。
+- 【新增】自带文件传输功能，在 SSH 会话内通过 `!ai-ssh get`/`put` 实现文件下载与上传。
 - 【新增】在SSH会话内随时进行local与remote模式间的切换。

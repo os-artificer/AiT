@@ -40,7 +40,7 @@ func (c *Client) resyncRemotePS1AfterMeta(stdin io.Writer, user, host string) {
 }
 
 // syncRemoteShellAfterMeta wakes the remote shell and injects a prompt redraw while
-// meta output is still local-only. Used after !ait meta commands complete.
+// meta output is still local-only. Used after !ai-ssh meta commands complete.
 func (c *Client) syncRemoteShellAfterMeta(stdin io.Writer) {
 	if stdin == nil || c.localShell.Active() {
 		return

@@ -23,7 +23,7 @@ import (
 )
 
 // EnsureFileForEdit creates or merges config.yaml when missing (same as EnsureFile(false)).
-// Used by ait config view and edit before reading or opening the file.
+// Used by ai-ssh config view and edit before reading or opening the file.
 func EnsureFileForEdit() (EnsureFileResult, error) {
 	return EnsureFile(false)
 }

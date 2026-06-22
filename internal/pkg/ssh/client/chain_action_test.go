@@ -22,7 +22,7 @@ import (
 )
 
 func TestParseMetaChainLine_Login(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ait login --save user@hostB")
+	chain, ok := ParseMetaChainLine("!ai-ssh login --save user@hostB")
 	if !ok {
 		t.Fatal("expected chain login")
 	}
@@ -36,7 +36,7 @@ func TestParseMetaChainLine_Login(t *testing.T) {
 }
 
 func TestParseMetaChainLine_Load(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ait load prod --tmux")
+	chain, ok := ParseMetaChainLine("!ai-ssh load prod --tmux")
 	if !ok {
 		t.Fatal("expected chain load")
 	}
@@ -50,7 +50,7 @@ func TestParseMetaChainLine_Load(t *testing.T) {
 }
 
 func TestParseMetaChainLine_Switch(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ait session --switch prod")
+	chain, ok := ParseMetaChainLine("!ai-ssh session --switch prod")
 	if !ok {
 		t.Fatal("expected chain switch")
 	}
@@ -63,10 +63,10 @@ func TestParseMetaChainLine_Switch(t *testing.T) {
 }
 
 func TestParseMetaChainLine_NotChain(t *testing.T) {
-	if _, ok := ParseMetaChainLine("!ait list"); ok {
+	if _, ok := ParseMetaChainLine("!ai-ssh list"); ok {
 		t.Fatal("list should not be chain action")
 	}
-	if _, ok := ParseMetaChainLine("!ait session --load prod"); ok {
+	if _, ok := ParseMetaChainLine("!ai-ssh session --load prod"); ok {
 		t.Fatal("session --load should not match switch chain")
 	}
 }

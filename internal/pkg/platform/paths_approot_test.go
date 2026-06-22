@@ -119,7 +119,7 @@ func TestLegacyConfigPath_LinuxOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), appName, ConfigFileName)
+	want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), legacyAppName, ConfigFileName)
 	if legacy != want {
 		t.Fatalf("legacy=%q want %q", legacy, want)
 	}

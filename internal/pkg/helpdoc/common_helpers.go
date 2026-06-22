@@ -19,11 +19,16 @@ package helpdoc
 import (
 	"fmt"
 	"slices"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 // LongHint returns the standard one-line Cobra Long field for cmdName.
 func LongHint(cmdName string) string {
-	return fmt.Sprintf(longHint, cmdName)
+	if cmdName == toolname.AISsh {
+		return fmt.Sprintf(longHintRoot, toolname.AISsh)
+	}
+	return fmt.Sprintf(longHintSub, toolname.CLI(cmdName))
 }
 
 // HelpRequested reports whether argv is only -h, --help, or help.

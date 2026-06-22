@@ -16,14 +16,18 @@
 
 package meta
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
 
 // maxLine caps the bytes captured for a single meta line so a runaway
 // paste cannot keep the scanner in meta mode indefinitely.
 const maxLine = 4096
 
 // maxLook is the longest possible opener length; bounds the holding buf.
-const maxLook = 12 // len("!ait local ")
+const maxLook = 14 // len("!ai-ssh local ")
 
 type scannerState int
 
@@ -48,7 +52,7 @@ const (
 	csiFinalByteMax   = 0x7e
 )
 
-// Scanner is the byte-level state machine that detects !ait / !! meta
+// Scanner is the byte-level state machine that detects !ai-ssh / !! meta
 // lines. It is intentionally free of side effects so it can be unit-tested
 // in isolation from the SSH session.
 type Scanner struct {
@@ -59,14 +63,14 @@ type Scanner struct {
 	escState    escParseState
 }
 
-// New returns a Scanner. aiAvailable controls whether !! and !ait prefixes
+// New returns a Scanner. aiAvailable controls whether !! and !ai-ssh prefixes
 // fall back to a "loose" capture mode when the AI client is missing
 // (otherwise the bash !! history expansion would leak to the remote shell).
 func New(aiAvailable bool) *Scanner {
 	return &Scanner{atLineStart: true, aiAvailable: aiAvailable}
 }
 
-// Feed consumes one input byte for meta-line detection (!ait, !!).
+// Feed consumes one input byte for meta-line detection (!ai-ssh, !!).
 // forward is sent to the remote shell; echo is shown locally; when hasLine
 // is true, line is the completed meta command (with trailing CR/LF stripped).
 func (s *Scanner) Feed(b byte) (forward []byte, echo []byte, line string, hasLine bool) {
@@ -136,7 +140,7 @@ func (s *Scanner) feedOne(b byte, fwd, ech []byte) ([]byte, []byte, string, bool
 		return s.feedOne(b, fwd, ech)
 
 	default: // stateIdle
-		// Always intercept '!' for !ait / !! meta. Requiring atLineStart breaks
+		// Always intercept '!' for !ai-ssh / !! meta. Requiring atLineStart breaks
 		// when the remote prompt has no trailing newline before user input.
 		if b == '!' {
 			s.buf = append(s.buf[:0], b)
@@ -149,7 +153,7 @@ func (s *Scanner) feedOne(b byte, fwd, ech []byte) ([]byte, []byte, string, bool
 	}
 }
 
-// looseBangCapture is fail-closed mode when AI is unavailable: capture !! or !ait lines.
+// looseBangCapture is fail-closed mode when AI is unavailable: capture !! or !ai-ssh lines.
 func (s *Scanner) looseBangCapture(candidate string, b byte) bool {
 	if s.aiAvailable {
 		return false
@@ -159,7 +163,7 @@ func (s *Scanner) looseBangCapture(candidate string, b byte) bool {
 		return true
 	}
 
-	return strings.HasPrefix(candidate, "!ait")
+	return strings.HasPrefix(candidate, toolname.MetaPrefix)
 }
 
 func (s *Scanner) applyLineEdit(b byte) (echo []byte, handled bool) {

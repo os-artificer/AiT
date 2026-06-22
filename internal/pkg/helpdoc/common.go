@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	longHint              = "Run 'ait %s --help' for usage and examples."
+	longHintRoot          = "Run '%s --help' for usage and examples."
+	longHintSub           = "Run '%s --help' for usage and examples."
 	helpUsageLineFmt      = "Usage:\n  %s\n\n"
 	helpExamplesHeader    = "Examples:"
 	helpFooterFlagsPrefix = "\nFlags:\n  -h, --help      help for %s\n"

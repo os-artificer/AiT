@@ -16,27 +16,31 @@
 
 package provider
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
 
 const (
 	hintSetCloudKeysOrOllama   = "Set a cloud provider API key or enable tiered Ollama routing."
-	hintSetDeepseekAPIKey      = "ait config set ai.deepseek.api_key <key>"
-	hintSetMinimaxAPIKey       = "ait config set ai.minimax.api_key <key>"
-	hintEnableOllama           = "ait ai provider enable ollama"
-	hintAIHelp                 = "ait ai --help"
-	hintOllamaSetup            = "ait ai ollama setup"
+	hintSetDeepseekAPIKey      = "ai-ssh config set ai.deepseek.api_key <key>"
+	hintSetMinimaxAPIKey       = "ai-ssh config set ai.minimax.api_key <key>"
+	hintEnableOllama           = "ai-ssh ai provider enable ollama"
+	hintAIHelp                 = "ai-ssh ai --help"
+	hintOllamaSetup            = "ai-ssh ai ollama setup"
 	hintSetCloudAPIKey         = "Set an API key for a cloud provider."
 	hintStoreAPIKeyInKeyring   = "Store the provider API key in the OS keyring."
 	hintProvideChatMessage     = "Provide a message on the command line or via stdin."
-	hintAIAskWithMessage       = "ait ai ask <message>"
-	hintAIAskStdin             = "echo ping | ait ai ask"
-	hintMetaAIAsk              = "!ait ai ask <message>"
-	hintAIAskHelp              = "ait ai ask --help"
+	hintAIAskWithMessage       = "ai-ssh ai ask <message>"
+	hintAIAskStdin             = "echo ping | ai-ssh ai ask"
+	hintMetaAIAsk              = "!ai-ssh ai ask <message>"
+	hintAIAskHelp              = "ai-ssh ai ask --help"
 	hintEnableProviderOverride = "Enable the provider before using it as --model override."
 
-	// HintAIHelp is the standard ait ai --help Try line (shared with client).
+	// HintAIHelp is the standard ai-ssh ai --help Try line (shared with client).
 	HintAIHelp = hintAIHelp
-	// HintOllamaSetup is the ait ai ollama setup Try line.
+	// HintOllamaSetup is the ai-ssh ai ollama setup Try line.
 	HintOllamaSetup = hintOllamaSetup
 	// HintStoreAPIKeyInKeyring explains keyring storage in API key errors.
 	HintStoreAPIKeyInKeyring = hintStoreAPIKeyInKeyring
@@ -44,17 +48,17 @@ const (
 	HintSetCloudAPIKey = hintSetCloudAPIKey
 )
 
-// ConfigSetAPIKeyCmd returns the ait config set command for a provider API key.
+// ConfigSetAPIKeyCmd returns the ai-ssh config set command for a provider API key.
 func ConfigSetAPIKeyCmd(id string) string {
-	return fmt.Sprintf("ait config set ai.%s.api_key <key>", id)
+	return toolname.CLI(fmt.Sprintf("config set ai.%s.api_key <key>", id))
 }
 
-// ConfigGetAPIKeyCmd returns the ait config get command for a provider API key.
+// ConfigGetAPIKeyCmd returns the ai-ssh config get command for a provider API key.
 func ConfigGetAPIKeyCmd(id string) string {
-	return fmt.Sprintf("ait config get ai.%s.api_key", id)
+	return toolname.CLI(fmt.Sprintf("config get ai.%s.api_key", id))
 }
 
-// ProviderEnableCmd returns the ait ai provider enable command for id.
+// ProviderEnableCmd returns the ai-ssh ai provider enable command for id.
 func ProviderEnableCmd(id string) string {
-	return fmt.Sprintf("ait ai provider enable %s", id)
+	return toolname.CLI("ai provider enable " + id)
 }

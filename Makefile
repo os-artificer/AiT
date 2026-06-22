@@ -1,11 +1,12 @@
 .PHONY: all build build-cross install test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
-BINARY_NAME := ait
+TOOLS       := ai-ssh
+BINARY_NAME := ai-ssh
 BUILD_DIR   := bin
-MAIN_PKG    := ./cmd/ait
-LDFLAGS_PKG := github.com/os-artificer/AiT/internal/ait/version
+MAIN_PKG    := ./cmd/ai-ssh
+LDFLAGS_PKG := github.com/os-artificer/AiT/internal/ai-ssh/version
 
-VERSION    ?= $(shell cat internal/ait/version/VERSION 2>/dev/null | tr -d ' \n')
+VERSION    ?= $(shell cat internal/ai-ssh/version/VERSION 2>/dev/null | tr -d ' \n')
 GIT_COMMIT := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 BUILD_DATE  := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -54,17 +55,17 @@ test-cross:
 	done
 
 check-generate:
-	go generate ./internal/ait/registry/...
-	git diff --exit-code -- internal/ait/registry/all/imports.go
+	go generate ./internal/ai-ssh/registry/...
+	git diff --exit-code -- internal/ai-ssh/registry/all/imports.go
 
 test-e2e:
-	@test -x bin/ait || $(MAKE) build
+	@test -x bin/ai-ssh || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
 
 test-e2e-smoke:
-	@test -x bin/ait || $(MAKE) build
+	@test -x bin/ai-ssh || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m smoke

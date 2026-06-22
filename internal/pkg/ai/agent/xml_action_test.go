@@ -88,3 +88,15 @@ func TestXMLToolCallToJSON_AnswerInvoke(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// M4: invoke name="aish" maps to canonical aish_cli action (same as FC ToolCallToJSON).
+func TestXMLToolCallToJSON_AISshInvoke(t *testing.T) {
+	raw := `<invoke name="aish"><parameter name="args">session --list</parameter></invoke>`
+	got, ok := XMLToolCallToJSON(raw)
+	if !ok {
+		t.Fatal("expected ok")
+	}
+	if !strings.Contains(got, `"action":"`+ToolAISshCLI+`"`) || !strings.Contains(got, "session --list") {
+		t.Fatalf("got %q", got)
+	}
+}

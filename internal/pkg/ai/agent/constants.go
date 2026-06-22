@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	XMLInvokeRun = "run"
-	XMLInvokeAit = "ait"
+	XMLInvokeRun   = "run"
+	XMLInvokeAISsh = "aish"
+	XMLInvokeAit   = "ait" // legacy MiniMax XML invoke name
 
 	JSONFieldAction  = "action"
 	JSONFieldCommand = "command"
@@ -35,7 +36,7 @@ const (
 )
 
 // ActionNamePattern is the alternation of Agent JSON action names for regex use.
-const ActionNamePattern = ToolRunShell + "|" + ToolAitCLI + "|" + ToolAnswer
+const ActionNamePattern = XMLInvokeRun + "|" + ToolRunShell + "|" + XMLInvokeAISsh + "|" + ToolAISshCLI + "|" + XMLInvokeAit + "|" + ToolAitCLI + "|" + ToolAnswer
 
 // ErrUnsupportedToolCall is returned for non-function tool_call responses.
 var ErrUnsupportedToolCall = errors.New(errUnsupportedToolCall)

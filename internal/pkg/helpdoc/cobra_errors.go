@@ -16,13 +16,17 @@
 
 package helpdoc
 
-import "strings"
+import (
+	"strings"
 
-// IsUnknownCommand reports whether err is a Cobra unknown top-level subcommand error for ait.
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
+
+// IsUnknownCommand reports whether err is a Cobra unknown top-level subcommand error for ai-ssh.
 func IsUnknownCommand(err error) bool {
 	if err == nil {
 		return false
 	}
 	msg := err.Error()
-	return strings.HasPrefix(msg, `unknown command "`) && strings.Contains(msg, ` for "ait"`)
+	return strings.HasPrefix(msg, `unknown command "`) && strings.Contains(msg, ` for "`+toolname.AISsh+`"`)
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 
 	xterm "golang.org/x/term"
 )
@@ -267,10 +268,10 @@ func parsePwdMarker(full, before, begin, end string) string {
 	return strings.TrimSpace(chunk[i+len(begin) : i+len(begin)+j])
 }
 
-// handleChainMeta handles the !ait chain meta command.
-// !ait chain       — show current chain mode status
-// !ait chain on    — enable chain mode (PTY-based transfer)
-// !ait chain off   — disable chain mode (SFTP-based transfer)
+// handleChainMeta handles the !ai-ssh chain meta command.
+// !ai-ssh chain       — show current chain mode status
+// !ai-ssh chain on    — enable chain mode (PTY-based transfer)
+// !ai-ssh chain off   — disable chain mode (SFTP-based transfer)
 func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 	arg := strings.TrimPrefix(line, metaLineChain)
 	arg = strings.TrimSpace(arg)
@@ -285,17 +286,17 @@ func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 		c.SetChainMode(false)
 		aitModeNotice("chain mode disabled",
 			"File transfer and tmux will use SFTP/direct sessions.",
-			"Use !ait chain on to re-enable.",
+			"Use "+toolname.MetaLine("chain on")+" to re-enable.",
 		)
 	default:
-		// "status" or bare "!ait chain"
+		// "status" or bare "!ai-ssh chain"
 		status := "off"
 		if c.ChainMode() {
 			status = "on"
 		}
 		aitModeNotice(
 			"chain mode: "+status,
-			"Use !ait chain on to enable, !ait chain off to disable.",
+			"Use "+toolname.MetaLine("chain on")+" to enable, "+toolname.MetaLine("chain off")+" to disable.",
 			"Chain mode uses PTY-pipe injection for file transfer and tmux,",
 			"supporting any number of SSH hops without extra tools.",
 		)

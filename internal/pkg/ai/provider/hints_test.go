@@ -24,14 +24,14 @@ import (
 // TestHints_ConfigSetAPIKeyCmd (C13) keeps API key hint command format stable.
 func TestHints_ConfigSetAPIKeyCmd(t *testing.T) {
 	got := ConfigSetAPIKeyCmd(Deepseek)
-	want := "ait config set ai.deepseek.api_key <key>"
+	want := "ai-ssh config set ai.deepseek.api_key <key>"
 	if got != want {
 		t.Fatalf("ConfigSetAPIKeyCmd: got %q want %q", got, want)
 	}
-	if ConfigGetAPIKeyCmd(Minimax) != "ait config get ai.minimax.api_key" {
+	if ConfigGetAPIKeyCmd(Minimax) != "ai-ssh config get ai.minimax.api_key" {
 		t.Fatal("ConfigGetAPIKeyCmd mismatch")
 	}
-	if ProviderEnableCmd(Ollama) != "ait ai provider enable ollama" {
+	if ProviderEnableCmd(Ollama) != "ai-ssh ai provider enable ollama" {
 		t.Fatal("ProviderEnableCmd mismatch")
 	}
 }

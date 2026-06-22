@@ -22,7 +22,7 @@ import (
 )
 
 func TestIsUnknownCommand(t *testing.T) {
-	if !IsUnknownCommand(errors.New(`unknown command "foo" for "ait"`)) {
+	if !IsUnknownCommand(errors.New(`unknown command "foo" for "ai-ssh"`)) {
 		t.Fatal("expected unknown command")
 	}
 	if IsUnknownCommand(errors.New("usage: session")) {

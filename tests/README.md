@@ -1,10 +1,10 @@
 # AiT Python E2E Tests
 
-Black-box end-to-end tests for the `ait` CLI using pytest and pexpect. Complements Go unit tests (`make test`); does not replace them.
+Black-box end-to-end tests for the `ai-ssh` CLI using pytest and pexpect. Complements Go unit tests (`make test`); does not replace them.
 
 ## Prerequisites
 
-- Go 1.25+ and `make build` → `bin/ait`
+- Go 1.25+ and `make build` → `bin/ai-ssh`
 - Python 3.10+
 - OpenSSH client (`ssh`) on PATH (for `ssh -G` resolution)
 - For SSH-marked tests: reachable host and credentials in `config.local.yaml`

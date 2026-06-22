@@ -26,7 +26,7 @@ import (
 	pkgtransfer "github.com/os-artificer/AiT/internal/pkg/transfer"
 )
 
-// RunTransferCLI dials per spec and runs a standalone ait get or ait put transfer.
+// RunTransferCLI dials per spec and runs a standalone ai-ssh get or ai-ssh put transfer.
 func (m *Manager) RunTransferCLI(ctx context.Context, spec openssh.TransferSpec, op openssh.TransferOp) error {
 	client, err := dialTransferCLI(ctx, m, spec)
 	if err != nil {
