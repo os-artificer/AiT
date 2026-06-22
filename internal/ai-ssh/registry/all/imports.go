@@ -23,7 +23,6 @@ import (
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/ai"
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/config"
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/get"
-	_ "github.com/os-artificer/AiT/internal/ai-ssh/login"
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/put"
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/session"
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/shell"

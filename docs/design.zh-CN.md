@@ -10,18 +10,20 @@ CLI 入口：[`cmd/ai-ssh/main.go`](../cmd/ai-ssh/main.go) → [`internal/ai-ssh
 ## CLI 形态
 
 ```text
-ai-ssh shell                                    # AiT> REPL（login/list/load 等）
+ai-ssh shell                                    # AiT> REPL（ssh 形连接、list/load 等）
+ai-ssh                                          # 无参：root help（非 SSH 连接）
 ai-ssh ai                                       # 本机 AI 模式（AiT AI(Agent)>）；ai-ssh shell 内也可输入 ai
 ai-ssh ai model list                            # 列出已配置 AI provider（含 ENABLED 列）
 ai-ssh ai ask [message...]                      # 单轮提问（无参数读 stdin）；SSH：!ai-ssh ai ask / !! ask
 ai-ssh ai agent [message...]                    # 单轮 agent（工具执行）
 ai-ssh ai provider enable|disable <provider>    # 启用/禁用某 provider 的路由
 ai-ssh ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup：models_dir + 安装前 [y/N]）
-ai-ssh login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
+ai-ssh [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
         # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
         # 新连接须 --save（按 id 书签）或 --alias（命名保存，隐含 --save）才写入 SQLite
-        # 若匹配的无 alias 行已在 session 列表中，login 会更新该行并刷新 auth TTL（无需 --save/--alias）
+        # 若匹配的无 alias 行已在 session 列表中，重连会更新该行并刷新 auth TTL（无需 --save/--alias）
+        # 无 `login` 子命令；`ai-ssh login …` 与 REPL `login …` 硬拒绝并给出 Try
         # 带 command 时为一次性执行；新主机无 --save/--alias 时不持久化
         # 旧写法 --host/--user 仍向后兼容
 ai-ssh session --list [-v]   # # 列用于按序号选择；-v 输出 FULL_ID（完整 UUID）
@@ -45,7 +47,7 @@ ai-ssh config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VI
 | **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选将上次 suspend 的 scrollback **种子写入内存**（不在终端显示） | 不保证保活 |
 | **tmux 保活** | `login`/`load` 加 `--tmux` | SSH 后 `tmux attach -t ait-<session_id>`（不存在则 `new -s`） | 断开连接后 shell/进程仍在 |
 
-**新连接须使用 `--save`、`--alias` 或 `--tmux` 才持久化**（`--tmux` 隐含 `--save`）。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ai-ssh login user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。`login_destination` 保存 SSH config Host 名（如 `devhost`），供 `load`/`switch` 时 `ssh -G` 重解析跳板。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
+**新连接须使用 `--save`、`--alias` 或 `--tmux` 才持久化**（`--tmux` 隐含 `--save`）。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ai-ssh user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。`login_destination` 保存 SSH config Host 名（如 `devhost`），供 `load`/`switch` 时 `ssh -G` 重解析跳板。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
 
 ### login 持久化决策（连接键含 alias）
 
@@ -64,7 +66,7 @@ flowchart TD
   findEmpty -->|not found| ephemeral[plan.persist=false]
 ```
 
-同一 `user@host:port` 可并存：`ai-ssh login --save user@host`（无 alias 行）与 `ai-ssh login --alias prod user@host`（`prod` 行）为两条独立记录，各自 `session_id` 与 tmux 会话 `ait-<id>`。SQLite 对 `(username, host, port, COALESCE(alias,''))` 建唯一索引；升级时若存在同键重复行，迁移保留 `updated_at` 最新者。
+同一 `user@host:port` 可并存：`ai-ssh --save user@host`（无 alias 行）与 `ai-ssh --alias prod user@host`（`prod` 行）为两条独立记录，各自 `session_id` 与 tmux 会话 `ait-<id>`。SQLite 对 `(username, host, port, COALESCE(alias,''))` 建唯一索引；升级时若存在同键重复行，迁移保留 `updated_at` 最新者。
 
 ## 架构总览
 
@@ -172,7 +174,7 @@ ai-ssh session --switch prod         # 按 alias/id 切换
 ai-ssh session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 ```
 
-**交互 SSH 内：** 使用 `!ai-ssh login`、`!ai-ssh load`、`!ai-ssh session --switch` 链式切换会话；仅挂起用 `!ai-ssh suspend`。
+**交互 SSH 内：** 使用 `!ai-ssh [flags] dest`（ssh 形链式连接）、`!ai-ssh load`、`!ai-ssh session --switch` 链式切换会话；仅挂起用 `!ai-ssh suspend`。
 
 **与 `load` 区别：** `load` 仅连接目标；`switch` 会检查当前会话是否仍为 `active`，须先挂起（或 `--force`）再加载目标，并更新 `app_meta.current_session_id`。
 
@@ -271,7 +273,7 @@ CREATE TABLE app_meta (
 |------|--------|----------|
 | `ai-ssh shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
 | SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`（非 tmux：[`waitForShellReadyBeforeInject`](../internal/pkg/ssh/client/client_init_helpers.go) 等待 scrollback 出现原生或 AiT prompt 且输出安静，最长 10s；bash 回退为 attach 后安静）；setup 末尾输出 **`RemotePromptReadySentinel`** 握手行；zsh **去重并追加** **`precmd_functions` hook**，避免 oh-my-zsh 主题永久覆盖 `PROMPT`，并**向 PTY 打印展开后的 prompt**（`${PS1@P}` / `print -Pn "$PROMPT"`，可用时 `zle reset-prompt`）；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`。setup 期间 `pauseRemoteOut` 将远程输出缓冲进 scrollback（R1 过滤 setup 泄漏；不向 scroll pending 释放原生 prompt）。[`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) 经 [`waitForRemotePromptReady`](../internal/pkg/ssh/client/client_init_helpers.go) 等待哨兵，再由 [`ensureFirstPromptVisible`](../internal/pkg/ssh/client/client_init_helpers.go) emit scrollback AiT 行、见到哨兵时**客户端绘制**、或仅在 setup 未成功时原生回退；`remotePromptShown` 为真才解除 pause。**load/switch** setup 后经 [`seedReplayScrollback`](../internal/pkg/ssh/client/client_init_helpers.go) / [`SanitizeReplayScrollback`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) **种子写入** [`ReplayScrollback`](../internal/pkg/ssh/client/client.go)（剥泄漏与提示符行；不写终端）。login/load/nested 共用 [`runRemotePromptSetup`](../internal/pkg/ssh/client/prompt_setup.go)，连接后应**无需按 Enter** 即见 AiT 提示符。 |
-| SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ai-ssh login -J jump,final` 一次登录到最终主机 |
+| SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ai-ssh -J jump,final` 一次登录到最终主机 |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
 ### 远程提示符管线（Remote prompt pipeline）
@@ -301,11 +303,11 @@ sequenceDiagram
 
 当 `remotePromptShown` 已设置时，[`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) 优先使用 scrollback 中的 AiT 行或客户端绘制（`setupSucceeded` 或 `remotePromptReadySeen`），**不会**回退到原生 shell 提示符（P11）。
 
-**`ai-ssh shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ai-ssh` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ai-ssh login` 结束后回到 OS shell。
+**`ai-ssh shell`**：行级 REPL，可直接输入 ssh 形连接 argv（`devhost`、`-p 22 host`、`user@host`）、`load`、`list`、`help` 等（无需 `!ai-ssh` 前缀）。**`login` 动词已移除**；`login devhost` 报错 Try。连接结束后在 shell 内回到 `AiT> `；系统 shell 执行 `ai-ssh user@host` 结束后回到 OS shell。
 
 **内置 `ll`**（仅 shell REPL，非 `ai-ssh ai` / `!ai-ssh`）：本机目录长列表（纯 Go [`dirlist`](../internal/pkg/dirlist/)，对齐 `ls -la`）；可选一个路径参数，默认 cwd。
 
-**`ai-ssh shell` 命令解析**（仅首词）：**内置**（`exit`、`help`、`clear`、`history`、`ai`、`login`、`load`、`list`、`suspend`）→ **`<AppRoot>/bin/<name>`** 用户扩展（扁平目录；Unix 须可执行位）→ **ai-ssh CLI** 子命令（`config`、`session`、`get` 等）→ **系统 PATH**。bin 扩展可覆盖 ai-ssh 子命令名，不可覆盖内置。外部命令经 `exec` 传 argv（不经 shell 拼接）；TTY 下 REPL 对子进程临时恢复 cooked 模式。实现：[`exec_dispatch.go`](../internal/ai-ssh/shell/exec_dispatch.go)、[`shellext/`](../internal/pkg/shellext/)。
+**`ai-ssh shell` 命令解析**（仅首词）：**内置**（`exit`、`help`、`clear`、`history`、`ai`、`load`、`list`、`suspend`、`ll`）→ **`<AppRoot>/bin/<name>`** → **login 前缀 Try** → **ai-ssh CLI**（`ExecuteCobraOnly`）→ **PATH** → **窄 SSH 连接**（[`cliroute.ShouldREPLSSHConnect`](../internal/pkg/cliroute/route.go)：store alias 或 `~/.ssh/config` Host；亦允许 flag 引导）→ **not-found**。实现：[`exec_dispatch.go`](../internal/ai-ssh/shell/exec_dispatch.go)、[`shellext/`](../internal/pkg/shellext/)、[`cliroute/`](../internal/pkg/cliroute/)。
 
 **本地 REPL 输入（UTF-8，macOS / Linux / Windows）：** 交互式 `ai-ssh shell` 与本机 `ai-ssh ai` 通过 [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) 以 **UTF-8** 读取 stdin（Emacs 行编辑、方向键、Up/Down 遍历已加载输入历史）。请使用 UTF-8 终端：Linux/macOS 设置 `LANG=*.UTF-8`；Windows 推荐 **Windows Terminal** 并启用 UTF-8（避免非 UTF-8 代码页）。IME 组字由终端负责，确认后以 UTF-8 字节送入进程（AiT 不绘制预编辑下划线）。管道/重定向 stdin（`echo … | ai-ssh shell`）本就支持 UTF-8；SSH 远程 shell 按字节转发，不受此限制。
 
@@ -322,8 +324,8 @@ sequenceDiagram
 | 命令 | 行为 |
 |------|------|
 | `!ai-ssh help` / `!ai-ssh` | 打印会话内命令与可本地执行的 CLI 说明 |
-| `!ai-ssh <子命令> …` | 在本地执行对应 `ai-ssh` CLI（如 `!ai-ssh list`）；`login`/`load`/`session --switch` 走链式 handler |
-| `!ai-ssh login [flags] dest` | 必要时自动落库 → suspend → 关闭 SSH → `Manager.Login` 连接新主机 |
+| `!ai-ssh <子命令> …` | 在本地执行对应 `ai-ssh` CLI（如 `!ai-ssh list`）；ssh 形 `[flags] dest` / `load` / `session --switch` 走链式 handler |
+| `!ai-ssh [flags] dest` | 必要时自动落库 → suspend → 关闭 SSH → `Manager.Login` 连接新主机 |
 | `!ai-ssh load [id\|alias]` | 必要时自动落库 → suspend → `Manager.Load` |
 | `!ai-ssh session --switch [id\|alias]` | 必要时自动落库 → suspend → `Manager.Switch`（无需 `--force`）；无参 picker 使用 raw TTY；选同一会话时 **重连**（suspend 后 SSH 已断开） |
 | `!ai-ssh ai [问题]` | 进入**远程** AI REPL；可选首条提问 |
@@ -342,15 +344,15 @@ sequenceDiagram
 - `aiAvailable == false`（未配置 API Key）时 fail-closed：行首 `!!…` / `!ai-ssh…` 不进远程；仅**非空** AI 问题才 stderr 提示配置 key；空问题只打印 usage。
 - meta 行由本地 echo，不写入远程 PTY；用户可见消息经 `termPrintln` / `aitModeNotice` 使用 `termEOL`（`\r\n`）适配 raw TTY。
 
-### login
+### SSH 连接（默认路由）
 
 ```mermaid
 sequenceDiagram
   participant User
-  participant CLI as ait_login
+  participant CLI as ait_connect
   participant DB as sqlite
   participant SSH as ssh_client
-  User->>CLI: ai-ssh login --save user@host
+  User->>CLI: ai-ssh --save user@host
   CLI->>DB: upsert session
   CLI->>SSH: Dial and PTY
   loop interactive
@@ -372,8 +374,8 @@ sequenceDiagram
 
 - **配置解析**：`internal/pkg/ssh/args` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
-- **一次性命令**：`ai-ssh login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的**无 alias** 连接键即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
-- 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；否则保持 ephemeral，直至首次 `!ai-ssh suspend` / `!ai-ssh login` / `!ai-ssh load` / `!ai-ssh session --switch` 时自动落库（D1 dedupe）
+- **一次性命令**：`ai-ssh host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的**无 alias** 连接键即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
+- 交互式连接 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；否则保持 ephemeral，直至首次 `!ai-ssh suspend` / `!ai-ssh [flags] dest` / `!ai-ssh load` / `!ai-ssh session --switch` 时自动落库（D1 dedupe）
 - PS1 setup 结束后，本地终端立即显示远程 AiT 提示符（缓冲 emit 或 refresh 回显，非静态占位符）
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 

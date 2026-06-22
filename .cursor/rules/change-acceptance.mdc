@@ -233,7 +233,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
-| H2a | 无 destination → `Try:` + `ai-ssh login --help` | `TestDestinationRequiredErr_Format` |
+| H2a | 无 destination（如 `ai-ssh --save`）→ `Try:` + `ai-ssh --help`；**无参** `ai-ssh` → root help | `TestDestinationRequiredErr_Format`、`TestExecuteWriters_EmptyShowsRootHelp` |
 | H2b | `--tmux` + remote cmd 冲突 → `Try:` | `TestTmuxWithRemoteCommandErr_Format` |
 | H2c | transfer 路径个数不足 → `Try:` | `TestTransferPathCountErr_Format` |
 | H2d | meta get/put 参数不足（SSH） | `TestTransferUsageHint_Format` |
@@ -309,7 +309,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| K23 | AI REPL `history` / `history n` 在 raw TTY 每条 entry 起于列 0；`crlf.NewWriter` 对已含 `\r\n` 的输入幂等（不产生 `\r\r\n`） | `TestExecuteLineHistory_AIMode`（断言 `\r\n` 且禁止 `\r\r\n`）、`TestExecuteLineHistory_AIMode_CRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` | `ai-ssh login user@host` → `!!` → `history`；每行起于列 0 |
+| K23 | AI REPL `history` / `history n` 在 raw TTY 每条 entry 起于列 0；`crlf.NewWriter` 对已含 `\r\n` 的输入幂等（不产生 `\r\r\n`） | `TestExecuteLineHistory_AIMode`（断言 `\r\n` 且禁止 `\r\r\n`）、`TestExecuteLineHistory_AIMode_CRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` | `ai-ssh user@host` → `!!` → `history`；每行起于列 0 |
 | K24 | `ai-ssh shell` `load` 无参 picker 的编号列表与 `Select session …: ` 提示走 `shellCLIOut`（raw TTY 下为 `terminal.NewCRLFWriter(os.Stdout)`） | `TestExecuteLineLoad_PickerCRLF` | `./bin/ai-ssh shell` → `load`；列表每行起于列 0 |
 
 ### P* 明细（AppRoot / AIT_HOME）
@@ -357,7 +357,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | Z7 | 进度定稿行 CRLF 安全；TTY 上 `copying…` 行内 `\r` 刷新 | `TestZModemTransfer_ProgressCRLF`、`TestTransferProgress_InlineDoneCRLF` | SSH 内 `!ai-ssh get/put`：单行百分比更新，done 起于列 0 |
 | Z8 | `sz`/`rz` 命令无 shell 重定向至目标路径；chain resolve 不回退 U12–U20 | `TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestResolveTransferMode_*` | — |
 | Z9 | ZMODEM 包与 `transfer_zmodem` 无 Unix-only 编译标签 | `make test-cross` | — |
-| Z10 | Windows 客户端链式 get/put（可选） | — | Windows Terminal：`ai-ssh login` → 嵌套 ssh → `!ai-ssh get/put` |
+| Z10 | Windows 客户端链式 get/put（可选） | — | Windows Terminal：`ai-ssh user@host` → 嵌套 ssh → `!ai-ssh get/put` |
 
 ### F* 明细（ZMODEM teardown 尾部 drain / strip）
 
@@ -453,16 +453,16 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | W3 | 动态 PS1 含目录段 + `git rev-parse`（**默认 short** 含 `basename`） | `TestRemoteSetupLine_ContainsDirAndGit` | — |
 | W4 | 重复 precmd：同前缀不同路径仍去重（R2） | `TestDuplicatePromptOutput_PrefixMatch` | meta 后无双提示符 |
 | W5 | setup 泄漏过滤仍隐藏含新 PS1 的 export（R1） | `TestIsSetupLeakLine`、`TestSetupOutputFilterAcrossChunks` | login 无 setup 回显 |
-| W6 | `finishRemoteSetup` 无静态占位符 stdout；无 marker 时 `\r` refresh | `TestFinishRemoteSetup_RefreshOnly`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused` | `ai-ssh login` 后提示符含 `:路径`；git 目录含 `:分支` |
+| W6 | `finishRemoteSetup` 无静态占位符 stdout；无 marker 时 `\r` refresh | `TestFinishRemoteSetup_RefreshOnly`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused` | `ai-ssh devhost` 后提示符含 `:路径`；git 目录含 `:分支` |
 | W7 | 默认/缺省 `session.remote_prompt.path` 为 **short**，PS1 含 `basename` | `TestRemoteSetupLine_ShortDir`、`TestConfigRemotePromptPath_Default`、`TestConfigEnsureFile_RemotePromptPath` | 默认 login：提示符 `…:末级目录名>` |
 | W8 | `path: absolute` 时 PS1 含 `${PWD/#$HOME` | `TestRemoteSetupLine_AbsoluteDir` | `ai-ssh config set session.remote_prompt.path absolute` 后 re-login：`…:~/path>` |
 | W9 | `session.remote_prompt.path` set/get/validate；非法值字段路径 | `TestSetGetKey_RemotePromptPath`、`TestValidate_BadRemotePromptPath` | `ai-ssh config get session.remote_prompt.path` |
-| W10 | **login 与 load** 共用 helper，`absolute` 时 PS1 一致 | `TestRemotePromptInitialCommands_LoginLoadSamePath` | `ai-ssh login` 与 `ai-ssh session --load` 同配置下 dir 表现一致 |
+| W10 | **connect 与 load** 共用 helper，`absolute` 时 PS1 一致 | `TestRemotePromptInitialCommands_LoginLoadSamePath` | `ai-ssh devhost` 与 `ai-ssh session --load` 同配置下 dir 表现一致 |
 | W11 | 会话内 `ssh` 后 MOTD+quiet 注入内层 AiT PS1（short/absolute） | `TestForwardStdin_SSHTriggersNestedPrompt` | login proxy 后 `ssh final` → `AiT user@final:…>` |
 | W12 | nested 后 R2 用 active host；单跳 active=dial 不变 | `TestDuplicatePromptOutput_ActiveHostAfterNested`、`TestDuplicatePromptOutput_SingleHopUnchanged`、`TestSingleHopPromptIdentityEqualsDial` | — |
 | W13 | `parseSSHCommandLine` 解析 `-p`/`user@host`；`-J` 不挂钩 | `TestParseSSHCommandLine_PortAndUserHost`、`TestParseSSHCommandLine_SkipComplex` | — |
 | W14 | nested 注入后 `chain on`；新 Client 默认 chain off | `TestForwardStdin_SSHEnablesChainMode`、`TestRunInteractive_SingleHopChainOff` | `!ai-ssh chain` 显示 on |
-| W15 | setup pause 期间 prompt 仅入 scroll 时，`finishRemoteSetup` **立即**写 stdout；stdin 无 `\r`；无双 prompt | `TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused` | `ai-ssh login devhost` 无需 Enter 即见 `AiT user@host:…>` |
+| W15 | setup pause 期间 prompt 仅入 scroll 时，`finishRemoteSetup` **立即**写 stdout；stdin 无 `\r`；无双 prompt | `TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused` | `ai-ssh devhost` 无需 Enter 即见 `AiT user@host:…>` |
 | W16 | `\r` refresh 首条 prompt 不被 premature `remotePromptShown` 丢弃；emit 失败回退 refresh | `TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestFinishRemoteSetup_EmitFailFallsBackRefresh` | 同 W15；无 marker 路径亦无需 Enter |
 
 ### P11 明细（meta 结束提示符 repaint）
@@ -476,14 +476,14 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
 | TM9a | attach 突发输出在 `pauseRemoteOut` 期间不写 stdout | `TestRunInteractive_TmuxAttachBurstSuppressed` | — |
-| TM9b | grace 窗口内迟到的 setup echo 从 stdout 剔除 | `TestHandleRemoteOutput_TmuxLateSetupLeakFiltered` | `ai-ssh login devhost --tmux` 无 stty/export PS1 泄漏 |
+| TM9b | grace 窗口内迟到的 setup echo 从 stdout 剔除 | `TestHandleRemoteOutput_TmuxLateSetupLeakFiltered` | `ai-ssh devhost --tmux` 无 stty/export PS1 泄漏 |
 | TM9c | 仅 `\r` 结尾的 setup 行仍被过滤 | `TestSetupOutputFilter_CRLines` | — |
 | TM9d | pre-attach `send-keys -l` 引号 golden（单引号 target + literal） | `TestBuildSendKeysLiteralCmd_Golden` | — |
-| TM10a | 省略 `--tmux` 重登清除 `tmux_enabled` | `TestLoginWithoutTmuxClearsTmuxEnabled` | `login devhost` 后再 `login devhost` store 无 tmux |
+| TM10a | 省略 `--tmux` 重登清除 `tmux_enabled` | `TestLoginWithoutTmuxClearsTmuxEnabled` | `ai-ssh devhost` 后再 `ai-ssh devhost` store 无 tmux |
 | TM10b | `--tmux` 登录设置 `tmux_enabled` | `TestLoginWithTmuxSetsTmuxEnabled` | — |
 | TM10c | tmux attach 失败含 sentinel + Try | `TestWrapTmuxAttachExitErr_Format`、`TestWrapTmuxPreAttachErr_Format` | — |
 | TM10d | `TmuxEnabled` 以 CLI `--tmux` 为准 | `TestBuildSessionForLogin_TmuxFollowsCLI` | — |
-| TM11a | 裸 `\n` 远程输出经 `writeInteractiveStdout` 转 CRLF | `TestHandleRemoteOutput_InteractiveStdoutCRLF`、`TestHandleRemoteOutput_GraceStripUsesCRLF` | `ai-ssh login devhost` 提示符起于列 0、无阶梯 |
+| TM11a | 裸 `\n` 远程输出经 `writeInteractiveStdout` 转 CRLF | `TestHandleRemoteOutput_InteractiveStdoutCRLF`、`TestHandleRemoteOutput_GraceStripUsesCRLF` | `ai-ssh devhost` 提示符起于列 0、无阶梯 |
 | TM11b | grace 期 `stripSetupLeakStdout` 保留 `\r`/`\r\n` | `TestStripSetupLeakStdout_PreservesCRLF`、`TestStripSetupLeakStdout_PreservesLoneLF` | — |
 | TM11c | `crlf.NewWriter` 对已含 `\r\n` 幂等（与 K23 一致） | `TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_IdempotentAcrossWrites` | — |
 | TM11d | prompt 已 shown 后 duplicate 仍丢弃（W4 不回退） | `TestCopyOutDropsDuplicatePromptAfterShown` | — |
@@ -521,13 +521,13 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾（无 mock 时） |
 |----|----------|------------|------------------------|
-| N1 | `!ai-ssh login dest` suspend 当前 persisted 会话并进入新 host | `TestHandleMetaLine_ChainLogin` | SSH：`!ai-ssh login user@hostB` 进入 hostB |
-| N2 | ephemeral 当前会话 `!ai-ssh login` → auto-persist + suspend + 进入新 host | `TestEnsureSessionPersisted_ChainLogin` | `ai-ssh login hostA`（无 save）→ `!ai-ssh login hostB` |
+| N1 | `!ai-ssh dest` suspend 当前 persisted 会话并进入新 host | `TestHandleMetaLine_ChainLogin` | SSH：`!ai-ssh user@hostB` 进入 hostB |
+| N2 | ephemeral 当前会话 `!ai-ssh user@hostB` → auto-persist + suspend + 进入新 host | `TestEnsureSessionPersisted_ChainLogin` | `ai-ssh hostA`（无 save）→ `!ai-ssh user@hostB` |
 | N3 | `!ai-ssh load id` 链式 load | `TestRunInteractive_ChainLoad` | SSH：`!ai-ssh load <alias>` |
 | N4 | `!ai-ssh session --switch alias` auto-suspend + switch | `TestRunInteractive_ChainSwitch` | SSH：`!ai-ssh session --switch hostA` |
 | N5 | 链式 login 后 DB：旧 session `suspended`，新 `active` + current meta | `TestChainLogin_DBSessionStates` | `!ai-ssh session --list` 见两行状态 |
-| N6 | `meta.Execute(["login",...])` 仍 blocked（H4a 不回退） | `TestExecuteBlockedLogin` | — |
-| N7 | 本机 shell active 时 `login`/`load` 仍 blocked（R4 不回退） | shell builtin dispatch tests | `ai-ssh shell` 内 active 时 `login` → Try |
+| N6 | REPL/meta `login` 前缀硬拒绝 + Try（H4a 语义：active 时 ssh 形 argv blocked） | `TestExecuteLine_LoginPrefixRejected`、`TestExecuteBlockedLogin` | — |
+| N7 | 本机 shell active 时 ssh 形 argv 仍 blocked（R4 不回退） | shell dispatch tests | `ai-ssh shell` 内 active 时 `devhost` → Try |
 | N8 | `!ai-ssh suspend`/`get`/`put`/AI meta 路径不变 | 现有 Z*/R19/H4* 仍过 | `!ai-ssh get`/`!!` 烟雾 |
 | N9 | ephemeral 会话 `!ai-ssh suspend` → auto-persist + suspended + scrollback | `TestEnsureSessionPersisted_Suspend` | ephemeral login 后 `!ai-ssh suspend` → `session --list` 可见 |
 | N10 | auto-persist 同连接键 dedupe（D1 不回退） | `TestEnsureSessionPersisted_DedupeConnectionKey` | — |
@@ -682,7 +682,8 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 ```bash
 ./bin/ai-ssh session --load 621b71ac    # H1a：多行 Try
 ./bin/ai-ssh session                    # H1c：无 flag → Try
-./bin/ai-ssh login                      # H2a：destination required → Try
+./bin/ai-ssh --save                   # H2a：destination required → Try
+./bin/ai-ssh                          # LC8：无参 → root help（非 Try）
 ./bin/ai-ssh config get bad.key         # H3b：unknown config key → Try
 ./bin/ai-ssh ai ask </dev/null          # H3a：ask 需消息 → Try
 ```
@@ -759,35 +760,35 @@ run hostname -I         # A20c：Ask 下手动 run 仍可用
 
 ```bash
 # 默认 short（末级目录名）
-ai-ssh login user@host          # W15：连接后直接见 AiT user@host:…> ，无需 Enter
+ai-ssh user@host          # W15：连接后直接见 AiT user@host:…> ，无需 Enter
 ./bin/ai-ssh config get session.remote_prompt.path
 
 ai-ssh config set session.remote_prompt.path absolute
 ai-ssh session --load <id>      # W10：与 login 相同 absolute 表现
 
 # 链式（-J 或 !ai-ssh chain 传输）
-ai-ssh login -J jump user@final # 提示符 user@final:…
+ai-ssh -J jump user@final # 提示符 user@final:…
 !ai-ssh chain on && !ai-ssh get …  # T* 仍绿；提示符不变
 
 # local → remote（沿用 login 时 PS1）
 !ai-ssh local && !ai-ssh remote
 
 # nested manual ssh（W11–W14）
-ai-ssh login root@proxy
+ai-ssh root@proxy
 ssh root@final -p60528        # W11：final 上 AiT 提示符；W14：!ai-ssh chain → on
 ```
 
-对比：`ai-ssh login -J proxy,final` 应直接在内层出现 AiT 提示符（无 proxy 提示符阶段）。
+对比：`ai-ssh -J proxy,final` 应直接在内层出现 AiT 提示符（无 proxy 提示符阶段）。
 
 手动烟雾（login `--tmux` / 提示符 CRLF，TM9–TM13）：
 
 ```bash
-ai-ssh login devhost
+ai-ssh devhost
 # TM11/W15：单行 AiT user@host:path> 起于列 0，无阶梯重复；无需 Enter
 exit
-ai-ssh login devhost
+ai-ssh devhost
 exit
-ai-ssh login devhost --tmux
+ai-ssh devhost --tmux
 # TM13/TM9：成功进入 tmux；setup 无泄漏；提示符起于列 0
 # TM12：若失败 stderr 多行 Try（tmux pane setup / attach failed），非静默
 # TM10：先非 tmux 再 --tmux 可切换；省略 --tmux 重登清除 tmux_enabled（TM10a）
@@ -797,7 +798,7 @@ ai-ssh login devhost --tmux
 
 ```bash
 # 需 nested SSH + active shell 安装 lrzsz（apt/brew install lrzsz）
-ai-ssh login devhost
+ai-ssh devhost
 ssh root@internal-host
 echo remote > test
 !ai-ssh get ./test ./test.local    # Z6/Z7/U26/U30/F4：handshake inline → copying… N%（单行刷新）→ done；stdout 无协议乱码
@@ -811,7 +812,7 @@ cat test                        # 仅含 remote，无 sz/rz 命令行
 
 ```bash
 # 直连 SFTP（会话内）
-ai-ssh login user@host
+ai-ssh user@host
 !ai-ssh get /remote/big.bin ./big.bin   # V6：100% → closing… → done
 
 # 链式 ZMODEM（需 lrzsz）
@@ -827,9 +828,9 @@ ssh internal
 
 ```bash
 # 需真实 SSH hostA/hostB
-ai-ssh login hostA                    # 无 --save
+ai-ssh hostA                    # 无 --save
 # 在 hostA：
-!ai-ssh login user@hostB            # N2：auto-persist + 切 hostB
+!ai-ssh user@hostB            # N2：auto-persist + 切 hostB
 !ai-ssh session --list              # N5
 !ai-ssh session --switch hostA      # N4：回 hostA
 !ai-ssh load <alias>                # N3
@@ -891,7 +892,8 @@ ai-ssh login hostA                    # 无 --save
 | Y* | `ai-ssh shell` 内置 `ll`（仅 shell 模式） | `TestShellLL_CurrentDir`、`TestShellLL_TargetPath`、`TestExecuteLine_LLWinsOverBin`、`TestDirlist_FormatMode`、`TestDirlist_SymlinkSuffix`、`TestShellLL_NotFoundHint`、`TestShellLL_TooManyArgs`、`TestAIMode_LLNotBuiltin`、`TestTopLevelLLUnknown` |
 | T* | 统一 get/put 路由（直连 SFTP / 链式 ZMODEM / 握手修复） | `TestRoute_DirectUsesSFTPWhenLrzszPresent`、`TestRoute_ChainPrefersZModemWhenLrzszPresent`、`TestInjectZModem_NoSttyNoQuietWait`、`TestSession_WaitHandshakeTimeout`、`TestHandleTransfer_ZModemFallbackSFTP` |
 | TR* | get/put 相对 remote cwd 解析 + 默认目标 basename | `TestJoinRemotePath_RelativeUnderCwd`、`TestResolveTransferArgs_SFTPRelativeRemote`、`TestNormalizeMetaTransferArgs_GetDefaultLocal`、`TestNormalizeMetaTransferArgs_GetDirTarget`、`TestParseTransfer_GetSinglePath`、`TestDefaultLocalPathForGet`、`TestWrapTransferWrongHop_SkipsSameHostAfterResolve`、`TestNormalizeMetaTransferArgs_PutDefaultRemote`、`TestNormalizeMetaTransferArgs_PutDirTarget`、`TestParseTransfer_PutSinglePath`、`TestDefaultRemotePathForPut`、`TestRemotePathWithDirDefault` |
-| N* | SSH 会话内 login/load/switch 链式切换 + auto-persist | `TestHandleMetaLine_ChainLogin`、`TestEnsureSessionPersisted_*`、`TestRunInteractive_ChainLoad`、`TestRunInteractive_ChainSwitch`、`TestExecuteBlockedLogin`、`TestParseMetaChainLine_*` |
+| N* | SSH 会话内 connect/load/switch 链式切换 + auto-persist | `TestHandleMetaLine_ChainLogin`、`TestEnsureSessionPersisted_*`、`TestRunInteractive_ChainLoad`、`TestRunInteractive_ChainSwitch`、`TestExecuteBlockedLogin`、`TestParseMetaChainLine_*` |
+| LC* | 去掉 `login` 子命令 / SSH 默认路由 | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestParseMetaChainLine_*` | 见 plan LC1–LC11 |
 | V* | 传输收尾 / 可取消 / ZEOF / ZFIN / send put 100% | `TestSession_Wait_TeardownAfterDone`、`TestSession_Wait_TeardownTimeout`、`TestSession_Wait_TeardownAfterZFINWithPrefix`、`TestSession_Wait_TeardownChainTimeout`、`TestSession_Wait_SendTeardownAfterUpload`、`TestZModem_ResyncSkipsPrefix`、`TestZModemReceive_ZEOFOffsetMismatch`、`TestBlockBuffer_CloseLargeSlowReader`、`TestZModemTransfer_FinishingPhase`、`TestZModemTransfer_PutWaitAfterProgress100`、`TestPTYZModemErrHint_TeardownTimeout`、`TestTransferProgress_SFTPClosingPhase`、`TestProcessForwardStdin_TransferCtrlC`、`TestSession_Wait_ContextCancelAborts`、`TestCopyWithContext_CancelDuringBlockedRead` |
 
 ## 索引

@@ -26,7 +26,7 @@ import (
 var (
 	metaHelpIntro    = "AiT in-session commands (" + toolname.MetaPrefix + " prefix):"
 	metaHelpUsage    = toolname.MetaPrefix + " <subcommand> [args...]"
-	metaHelpTailNote = "\nlogin/load/switch suspend the current session (auto-save if needed) and connect to the target.\n"
+	metaHelpTailNote = "\nConnect/load/switch suspend the current session (auto-save if needed) and connect to the target.\n"
 )
 
 const metaCommands = `  help              show this help
@@ -36,7 +36,7 @@ const metaCommands = `  help              show this help
   !! [question]     alias for !ai-ssh ai
   !! ask <msg>     one-shot AI reply
   !! agent [msg]   Agent REPL when no msg; one-shot when msg given
-  login [flags] dest   suspend current session; log in to another host
+  user@hostB [flags]   suspend current session; log in to another host (ssh-style argv)
   load [id|alias]      suspend current session; load a saved session
   session --switch [id|alias]   suspend current; switch to another session
   local             local mode (prompt: AiT Local>)
@@ -61,7 +61,7 @@ func WriteMetaHelp(w io.Writer) error {
 	}
 	if err := b.WriteExamples(
 		toolname.MetaLine("list"),
-		toolname.MetaLine("login user@hostB"),
+		toolname.MetaLine("user@hostB"),
 		toolname.MetaLine("session --switch prod"),
 		toolname.MetaLine("config get session.auth_ttl"),
 		toolname.MetaLine("session delete <id|alias>"),

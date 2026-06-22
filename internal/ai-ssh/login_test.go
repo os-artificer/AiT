@@ -18,38 +18,75 @@ package aish
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/registry/all"
 
-	pkglogin "github.com/os-artificer/AiT/internal/ai-ssh/login"
+	"github.com/os-artificer/AiT/internal/ai-ssh/login"
 )
 
-func TestLoginCmdErrorNoUsage(t *testing.T) {
-	root := newRootCmd()
-	var stderr bytes.Buffer
-	root.SetErr(&stderr)
-	root.SetOut(&bytes.Buffer{})
-	root.SetArgs([]string{"login"})
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected error for missing destination")
+func TestExecuteWriters_EmptyShowsRootHelp(t *testing.T) {
+	var out bytes.Buffer
+	err := ExecuteWriters(nil, &out, io.Discard)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(stderr.String(), "Usage:") {
-		t.Fatalf("stderr must not contain Usage on error, got: %q", stderr.String())
+	if !strings.Contains(out.String(), "OpenSSH-compatible flags:") {
+		t.Fatalf("root help missing SSH section: %s", out.String())
+	}
+	if strings.Contains(out.String(), "  login       ") {
+		t.Fatalf("root help must not list login subcommand: %s", out.String())
+	}
+}
+
+func TestExecuteWriters_LoginPrefixRejected(t *testing.T) {
+	err := ExecuteWriters([]string{"login", "user@host"}, io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, login.ErrLoginPrefixRemoved) {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Try:") {
+		t.Fatalf("missing Try: %q", err.Error())
+	}
+}
+
+func TestExecuteWriters_FlagOnlyDestinationRequired(t *testing.T) {
+	err := ExecuteWriters([]string{"--save"}, io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("expected destination error")
+	}
+	if !strings.Contains(err.Error(), "Try:") {
+		t.Fatalf("missing Try: %q", err.Error())
+	}
+}
+
+func TestExecuteWriters_SSHDefaultConnect(t *testing.T) {
+	err := ExecuteWriters([]string{"user@example.com"}, io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("expected dial/resolve error without real host")
+	}
+	if errors.Is(err, login.ErrLoginPrefixRemoved) {
+		t.Fatal("must not treat user@host as removed login prefix")
+	}
+	if strings.Contains(err.Error(), `unknown command "user@example.com"`) {
+		t.Fatalf("must route to SSH connect, not Cobra: %v", err)
 	}
 }
 
 func TestLoginCmdSilenceUsage(t *testing.T) {
-	cmd := pkglogin.New(testDeps().RunWithMgr)
+	cmd := login.New(testDeps().RunWithMgr)
 	if !cmd.SilenceUsage || !cmd.SilenceErrors {
 		t.Fatalf("login cmd SilenceUsage=%v SilenceErrors=%v", cmd.SilenceUsage, cmd.SilenceErrors)
 	}
 }
 
 func TestLoginCmdHelpRunE(t *testing.T) {
-	cmd := pkglogin.New(testDeps().RunWithMgr)
+	cmd := login.New(testDeps().RunWithMgr)
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)

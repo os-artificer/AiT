@@ -14,17 +14,26 @@
  * limitations under the License.
 **/
 
-package builtin
+package shell
 
 import (
-	"testing"
+	"context"
 
-	"github.com/os-artificer/AiT/internal/ai-ssh/login"
+	"github.com/os-artificer/AiT/internal/pkg/session"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
+	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
 )
 
-// TestCmdLogin_MatchesLoginName (C25) wires shell login verb to login.Name.
-func TestCmdLogin_MatchesLoginName(t *testing.T) {
-	if CmdLogin != login.Name {
-		t.Fatalf("CmdLogin=%q login.Name=%q", CmdLogin, login.Name)
+func runSSHConnect(ctx context.Context, mgr *session.Manager, argv []string) error {
+	spec, err := openssh.ParseLogin(argv)
+	if err != nil {
+		return err
 	}
+
+	resolved, err := resolve.Resolve(spec)
+	if err != nil {
+		return err
+	}
+
+	return mgr.Login(ctx, session.LoginOptsFromResolved(resolved))
 }

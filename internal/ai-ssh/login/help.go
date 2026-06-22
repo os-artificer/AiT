@@ -23,18 +23,12 @@ import (
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
-const helpShort = `  login flags (see "ai-ssh login --help" for full detail):
-    -p port  -l user  -i identity  -F config  -J jump  -o key=value
-    --save  --alias name  --tmux  --password P
-    --host H  --user U  --port N  --identity P  (legacy, same as ssh flags above)
-`
-
 // HelpRequested reports whether argv is only -h, --help, or help.
 func HelpRequested(argv []string) bool {
 	return pkghelpdoc.HelpRequested(argv)
 }
 
-// WriteHelp prints full login usage, flags, and examples to w.
+// WriteHelp prints full SSH connect usage, flags, and examples to w.
 func WriteHelp(w io.Writer) error {
 	_, err := io.WriteString(w, HelpFull)
 	return err
@@ -42,8 +36,7 @@ func WriteHelp(w io.Writer) error {
 
 // WriteHelpShort prints a compact flag list for the ai-ssh shell REPL to w.
 func WriteHelpShort(w io.Writer) error {
-	_, err := io.WriteString(w, helpShort)
-	return err
+	return pkghelpdoc.WriteSSHConnectShort(w)
 }
 
 // helpContains checks substrings for tests.

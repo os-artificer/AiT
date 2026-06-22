@@ -24,7 +24,7 @@ pkg/*                       → importable by external modules; generic, non–A
 
 ## Subcommand package (design closure)
 
-Each **top-level** `ai-ssh <subcommand>` (e.g. `login`, `get`, `put`, `shell`, `ai`, `session`, `config`) lives under **`internal/ai-ssh/<subcommand>/`** and owns its vertical slice in **one package**:
+Each **registered top-level** `ai-ssh <subcommand>` (e.g. `get`, `put`, `shell`, `ai`, `session`, `config`) lives under **`internal/ai-ssh/<subcommand>/`**. **SSH connect** uses OpenSSH-shaped default routing via [`internal/ai-ssh/login/`](../internal/ai-ssh/login/) (not registered as a Cobra subcommand) and [`internal/pkg/cliroute/`](../internal/pkg/cliroute/).
 
 | Concern | Typical files | Notes |
 |---------|---------------|--------|
@@ -71,7 +71,7 @@ When `internal/pkg` must recognize a subcommand name (e.g. meta `!ai-ssh get`):
 ## `pkg/*` (repository root)
 
 - Libraries meant for **external** import, not tied to AiT product semantics.
-- Do not place `ai-ssh login` business logic here.
+- Do not place SSH connect business logic in `internal/pkg` root helpers; keep it in `internal/ai-ssh/login` + `cliroute`.
 - Prefer `internal/pkg` for module-private shared code.
 
 ---
@@ -91,7 +91,7 @@ When `internal/pkg` must recognize a subcommand name (e.g. meta `!ai-ssh get`):
 - Do not suffix packages with `cmd` (e.g. ~~`shellcmd`~~). The file `cmd.go` is fine for Cobra wiring.
 - REPL for `ai-ssh ai` lives in **`internal/ai-ssh/ai/mode`** (package `mode`), distinct from one-shot **`ai/ask`** and **`ai/agent`**.
 - Top-level `session` CLI is **`internal/ai-ssh/session`**; import the session manager as `pkgsession "…/internal/pkg/session"`.
-- **`ai-ssh shell` REPL builtins** (`exit`, `help`, `ll`, `login`, …) live in **`internal/ai-ssh/shell/builtin/`** (package `builtin`); parent `shell` wires REPL I/O and non-builtin dispatch (`exec_dispatch.go`).
+- **`ai-ssh shell` REPL builtins** (`exit`, `help`, `ll`, …) live in **`internal/ai-ssh/shell/builtin/`** (package `builtin`); parent `shell` wires REPL I/O and non-builtin dispatch (`exec_dispatch.go`). SSH-style connect is **not** a builtin; `login` prefix is rejected.
 
 ---
 
@@ -101,7 +101,7 @@ Subcommands of a parent command live **under the parent’s package tree**, with
 
 | Parent | Registry | Child packages (examples) |
 |--------|----------|---------------------------|
-| `ai-ssh` | `internal/ai-ssh/registry` | `login`, `get`, `ai`, `config`, `session`, … |
+| `ai-ssh` | `internal/ai-ssh/registry` | `get`, `ai`, `config`, `session`, … (+ default SSH route) |
 | `ai-ssh ai` | `internal/ai-ssh/ai/subregistry` | `ask`, `agent`, `provider`, `ollama` |
 | `ai-ssh ai provider` | `internal/ai-ssh/ai/provider/subregistry` | `enable`, `disable` |
 | `ai-ssh ai ollama` | `internal/ai-ssh/ai/ollama/subregistry` | `status`, `setup`, `start`, `stop`, `disable` |
@@ -136,9 +136,9 @@ AiT exposes three **independent** command registration paths. New user-facing ve
 
 **Special case — `ai-ssh ai model list`:** handled as a **parent positional** routed into the AI REPL meta path (R15), not as a Cobra child under `ai/model`. See [design.md](design.md) § AI CLI.
 
-Shell builtins (`list`, `load`, `login`, …) are **not** Cobra children of `ai-ssh shell`; SSH `!ai-ssh <subcmd>` reuses top-level Cobra via [`meta.Execute`](../internal/ai-ssh/meta/exec.go) except `ai` / `!!` which enter AI mode.
+Shell builtins (`list`, `load`, …) are **not** Cobra children of `ai-ssh shell`; SSH `!ai-ssh <subcmd>` reuses top-level Cobra via [`meta.Execute`](../internal/ai-ssh/meta/exec.go) except `ai` / `!!` which enter AI mode. Chain connect uses `!ai-ssh [flags] dest`, not `!ai-ssh login`.
 
-**Try-block SSOT:** shared `ai-ssh session …` / `ai-ssh login …` example lines for errhint live in [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go); `internal/pkg/session` re-exports them for convenience.
+**Try-block SSOT:** shared `ai-ssh session …` / `ai-ssh …` example lines for errhint live in [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go); `internal/pkg/session` re-exports them for convenience.
 
 ---
 

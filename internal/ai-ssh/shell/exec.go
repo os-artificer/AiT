@@ -34,7 +34,7 @@ var cliExecutor func([]string, io.Writer, io.Writer) error
 var aiModeRunner func(context.Context, *session.Manager) error
 
 // PrintHelp writes AiT shell REPL usage to w (CRLF when raw TTY mode is active).
-// hasActiveSession controls whether login/load commands appear in the help output.
+// hasActiveSession controls whether ssh-style connect / load are blocked in help output.
 // w must be non-nil. Does not return an error.
 func PrintHelp(w io.Writer, hasActiveSession bool) {
 	var buf bytes.Buffer
@@ -73,7 +73,7 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 		return exitREPL, err
 	}
 
-	return false, dispatchShellCommand(ctx, words)
+	return false, dispatchShellCommand(ctx, env.Mgr, words)
 }
 
 // SetAIModeRunner registers the function that enters local AI mode from the REPL.

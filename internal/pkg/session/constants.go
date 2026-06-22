@@ -25,7 +25,7 @@ const (
 // Errhint sentinels (errors.Is / WithTry first line — do not change wording).
 const (
 	errInvalidSelection                = "invalid selection"
-	errEphemeralSuspendRequiresPersist = "suspend requires a saved session; use ai-ssh login --save or --alias <name>"
+	errEphemeralSuspendRequiresPersist = "suspend requires a saved session; use ai-ssh --save or --alias <name>"
 	errNoSavedSessions                 = "no saved sessions"
 	errNoCurrentSession                = "no current session"
 	errNonInteractiveTerminal          = "non-interactive terminal"

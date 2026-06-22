@@ -17,11 +17,15 @@
 package aish
 
 import (
+	"context"
 	"io"
 	"os"
 
+	"github.com/os-artificer/AiT/internal/ai-ssh/login"
 	"github.com/os-artificer/AiT/internal/ai-ssh/registry"
+	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 
 	"github.com/spf13/cobra"
@@ -38,11 +42,14 @@ func newRootCmd() *cobra.Command {
 	}
 
 	registry.AttachRoot(root, registry.Deps{
-		RunWithMgr:     runWithManager,
-		ExecuteWriters: ExecuteWriters,
+		RunWithMgr:       runWithManager,
+		ExecuteWriters:   ExecuteWriters,
+		ExecuteCobraOnly: ExecuteCobraOnly,
 	})
 
-	pkghelpdoc.Bind(root, registry.WriteRootHelp)
+	root.SetHelpFunc(func(c *cobra.Command, _ []string) {
+		_ = registry.WriteRootHelp(c.OutOrStdout())
+	})
 	return root
 }
 
@@ -52,15 +59,38 @@ func Execute(args []string) error {
 	return ExecuteWriters(args, os.Stdout, os.Stderr)
 }
 
-// ExecuteWriters runs the Cobra root with custom stdout and stderr (e.g. ai-ssh shell REPL or meta !ai-ssh).
-// args are passed to the root command; returns Cobra execution errors without calling os.Exit.
+// ExecuteWriters runs the top-level ai-ssh CLI with custom stdout and stderr.
+// Empty argv and -h/--help print root help; ssh-style argv run login; else Cobra subcommands.
 func ExecuteWriters(args []string, out, errOut io.Writer) error {
+	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {
+		return registry.WriteRootHelp(out)
+	}
+	if args[0] == login.Name {
+		return login.PrefixRejectedErr()
+	}
+	if cliroute.IsSSHConnectArgs(args) {
+		return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
+			return login.Run(ctx, mgr, args)
+		})
+	}
+	return executeCobraRoot(args, out, errOut)
+}
+
+// ExecuteCobraOnly runs registered subcommands without the top-level SSH default route.
+// Used from shell REPL, meta !ai-ssh, and local AI Agent ait_cli injection.
+func ExecuteCobraOnly(args []string, out, errOut io.Writer) error {
+	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {
+		return registry.WriteRootHelp(out)
+	}
+	return executeCobraRoot(args, out, errOut)
+}
+
+func executeCobraRoot(args []string, out, errOut io.Writer) error {
 	root := newRootCmd()
 	root.SetOut(out)
 	root.SetErr(errOut)
 	root.SetArgs(args)
 	root.SilenceUsage = true
 	root.SilenceErrors = true
-
 	return root.Execute()
 }

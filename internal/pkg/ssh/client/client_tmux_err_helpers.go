@@ -40,8 +40,8 @@ const (
 
 func tmuxAttachTryLines(tmuxName string) []string {
 	return []string{
-		clihints.TryLoginTmuxUserHost,
-		clihints.TryLoginTmuxDevhost,
+		clihints.TryConnectTmuxUserHost,
+		clihints.TryConnectTmuxDevhost,
 		fmt.Sprintf("ssh user@host 'tmux list-sessions | grep %s'", tmuxName),
 		clihints.TrySessionList,
 	}
@@ -68,7 +68,7 @@ func wrapTmuxSessionNotFoundErr(tmuxName string, cause error) error {
 	}
 	return errhint.WithTry(wrapped,
 		hintTmuxSessionNotFoundExplain,
-		append(tmuxAttachTryLines(tmuxName), clihints.TryLoginTmuxSaveDevhost)...,
+		append(tmuxAttachTryLines(tmuxName), clihints.TryConnectTmuxSaveDevhost)...,
 	)
 }
 

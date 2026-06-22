@@ -29,8 +29,8 @@ func TestDestinationRequiredErr_Format(t *testing.T) {
 	if !strings.Contains(s, "Try:") {
 		t.Fatalf("missing Try block: %q", s)
 	}
-	if !strings.Contains(s, clihints.TryLoginHelp) {
-		t.Fatalf("missing login help try line: %q", s)
+	if !strings.Contains(s, clihints.TryConnectHelp) {
+		t.Fatalf("missing connect help try line: %q", s)
 	}
 }
 

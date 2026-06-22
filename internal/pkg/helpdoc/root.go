@@ -43,7 +43,7 @@ func formatRootSubcommands(entries []RootCommandEntry) string {
 func WriteRootHelp(w io.Writer, entries []RootCommandEntry) error {
 	introMain := "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant."
 	introHint := fmt.Sprintf("Run '%s <command> --help' for command-specific usage and examples.", toolname.AISsh)
-	usage := toolname.AISsh + " [command]"
+	usage := RootUsageLine() + "\n  " + toolname.AISsh + " [command]"
 
 	b := NewBody(w)
 	if err := b.WriteIntro(introMain, introHint); err != nil {
@@ -52,12 +52,15 @@ func WriteRootHelp(w io.Writer, entries []RootCommandEntry) error {
 	if err := b.WriteUsage(usage); err != nil {
 		return err
 	}
+	if err := WriteSSHConnectSection(w); err != nil {
+		return err
+	}
 	if err := b.WriteSection(SectionCommands, formatRootSubcommands(entries)); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		toolname.CLI("shell"),
-		toolname.CLI("login myserver"),
+		"ai-ssh myserver",
 		clihints.TrySessionList,
 	); err != nil {
 		return err

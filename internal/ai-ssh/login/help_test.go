@@ -45,7 +45,7 @@ func TestWriteHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "ai-ssh login [flags]") {
+	if !strings.Contains(out, "ai-ssh [flags] destination") {
 		t.Errorf("missing usage line: %q", out[:min(200, len(out))])
 	}
 }

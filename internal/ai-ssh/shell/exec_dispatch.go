@@ -21,8 +21,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/os-artificer/AiT/internal/ai-ssh/login"
+	"github.com/os-artificer/AiT/internal/ai-ssh/shell/builtin"
+	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/shellext"
 )
 
@@ -37,9 +41,13 @@ func SetExternalRunner(fn func(context.Context, string, []string) error) {
 	externalRunner = fn
 }
 
-func dispatchShellCommand(ctx context.Context, words []string) error {
+func dispatchShellCommand(ctx context.Context, mgr *session.Manager, words []string) error {
 	if path, ok := shellext.ResolveAppBin(words[0]); ok {
 		return runExternal(ctx, path, words)
+	}
+
+	if len(words) > 0 && words[0] == login.Name {
+		return login.PrefixRejectedErr()
 	}
 
 	if err := runCLI(words); err == nil {
@@ -49,10 +57,22 @@ func dispatchShellCommand(ctx context.Context, words []string) error {
 	}
 
 	sysPath, lpErr := platform.LookPath(words[0])
-	if lpErr != nil {
-		return commandNotFoundErr(words[0])
+	if lpErr == nil {
+		return runExternal(ctx, sysPath, words)
 	}
-	return runExternal(ctx, sysPath, words)
+
+	var lookup cliroute.AliasLookup
+	if mgr != nil {
+		lookup = mgr.Store
+	}
+	if cliroute.ShouldREPLSSHConnect(words, lookup) {
+		if mgr != nil && mgr.HasActiveSession() {
+			return builtin.LoginBlockedWhenActiveErr()
+		}
+		return runSSHConnect(ctx, mgr, words)
+	}
+
+	return commandNotFoundErr(words[0])
 }
 
 func runExternal(ctx context.Context, path string, argv []string) error {

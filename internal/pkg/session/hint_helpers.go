@@ -51,9 +51,9 @@ func pickCancelledErr() error {
 func TmuxRequiresTTYErr() error {
 	return errhint.WithTryMsg(errTmuxRequiresTTY,
 		hintTmuxTTYExplain,
-		TryLoginTmuxUserHost,
-		TryLoginTmuxDevhost,
-		tryLoginHelp,
+		TryConnectTmuxUserHost,
+		TryConnectTmuxDevhost,
+		tryConnectHelp,
 	)
 }
 
@@ -64,7 +64,7 @@ func tmuxEnsureErr(sess *store.Session, cause error) error {
 		fmt.Sprintf("ssh %s 'which tmux'", hostLabel),
 		"sudo apt install tmux    # Debian/Ubuntu",
 		"brew install tmux        # macOS",
-		tryLoginHelp,
+		tryConnectHelp,
 	)
 }
 

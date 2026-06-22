@@ -19,6 +19,7 @@ package client
 import (
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 )
 
@@ -36,7 +37,7 @@ const (
 
 // ChainActionError signals RunInteractive should chain to login/load/switch.
 // Args holds tokens after "!ai-ssh " excluding the subcommand keyword where noted:
-// login → login flags/dest; load → load args; switch → args after "--switch".
+// load → load args; switch → args after "--switch"; login → full connect argv.
 type ChainActionError struct {
 	Op   ChainOp
 	Args []string
@@ -47,9 +48,10 @@ func (e *ChainActionError) Error() string {
 	return "ait: chain action"
 }
 
-// ParseMetaChainLine detects !ai-ssh login/load/session --switch meta lines.
+// ParseMetaChainLine detects !ai-ssh load/session --switch/connect meta lines.
+// lookup resolves saved session aliases for bare-word chain connect; may be nil.
 // Returns ok false when the line is not a chain action.
-func ParseMetaChainLine(line string) (*ChainActionError, bool) {
+func ParseMetaChainLine(line string, lookup cliroute.AliasLookup) (*ChainActionError, bool) {
 	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, meta.PrefixAitSpace) {
 		return nil, false
@@ -62,7 +64,7 @@ func ParseMetaChainLine(line string) (*ChainActionError, bool) {
 
 	switch args[0] {
 	case "login":
-		return &ChainActionError{Op: ChainOpLogin, Args: append([]string(nil), args[1:]...)}, true
+		return nil, false
 	case "load":
 		return &ChainActionError{Op: ChainOpLoad, Args: append([]string(nil), args[1:]...)}, true
 	case "session":
@@ -72,7 +74,14 @@ func ParseMetaChainLine(line string) (*ChainActionError, bool) {
 				Args: append([]string(nil), args[2:]...),
 			}, true
 		}
+		return nil, false
 	}
 
-	return nil, false
+	if cliroute.IsMetaCLIFirstWord(args[0]) {
+		return nil, false
+	}
+	if !cliroute.IsMetaChainConnectArgs(args, lookup) {
+		return nil, false
+	}
+	return &ChainActionError{Op: ChainOpLogin, Args: append([]string(nil), args...)}, true
 }

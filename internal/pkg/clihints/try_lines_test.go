@@ -18,25 +18,25 @@ package clihints
 
 import "testing"
 
-func TestTryLines_LoginSaveVariantsDiffer(t *testing.T) {
-	if TryLoginSave == "" || TryLoginSaveUserHost == "" {
-		t.Fatal("login save try lines must be non-empty")
+func TestTryLines_ConnectSaveVariantsDiffer(t *testing.T) {
+	if TryConnectSave == "" || TryConnectSaveUserHost == "" {
+		t.Fatal("connect save try lines must be non-empty")
 	}
-	if TryLoginSave == TryLoginSaveUserHost {
-		t.Fatalf("session and openssh login save hints must differ: %q", TryLoginSave)
+	if TryConnectSave == TryConnectSaveUserHost {
+		t.Fatalf("session and openssh connect save hints must differ: %q", TryConnectSave)
 	}
-	if TryLoginSave != "ai-ssh login --save <destination>" {
-		t.Fatalf("TryLoginSave: got %q", TryLoginSave)
+	if TryConnectSave != "ai-ssh --save <destination>" {
+		t.Fatalf("TryConnectSave: got %q", TryConnectSave)
 	}
-	if TryLoginSaveUserHost != "ai-ssh login --save user@host" {
-		t.Fatalf("TryLoginSaveUserHost: got %q", TryLoginSaveUserHost)
+	if TryConnectSaveUserHost != "ai-ssh --save user@host" {
+		t.Fatalf("TryConnectSaveUserHost: got %q", TryConnectSaveUserHost)
 	}
 }
 
 func TestTryLines_SessionAndTransferNonEmpty(t *testing.T) {
 	lines := []string{
 		TrySessionList,
-		TryLoginExample,
+		TryConnectExample,
 		TryGetHelp,
 		TryPutHelp,
 		TryGetExample,

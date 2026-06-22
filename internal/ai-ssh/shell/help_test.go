@@ -53,7 +53,7 @@ func TestWriteShellREPLHelpSections(t *testing.T) {
 		out := buf.String()
 		for _, want := range []string{
 			pkghelpdoc.SectionCommands,
-			"login [flags]",
+			"[flags] destination",
 			pkghelpdoc.SectionKeys,
 			"Ctrl+R",
 		} {
@@ -71,10 +71,10 @@ func TestWriteShellREPLHelpSections(t *testing.T) {
 			t.Fatal(err)
 		}
 		out := buf.String()
-		if strings.Contains(out, "login [flags]") {
-			t.Fatalf("active session REPL help must omit login command:\n%s", out)
+		if strings.Contains(out, "[flags] destination") {
+			t.Fatalf("active session REPL help must omit connect command:\n%s", out)
 		}
-		if !strings.Contains(out, shellREPLHelpUsageNoLogin) {
+		if !strings.Contains(out, shellREPLHelpUsageNoLoad) {
 			t.Fatalf("active session REPL help missing no-login usage:\n%s", out)
 		}
 		for _, want := range []string{
