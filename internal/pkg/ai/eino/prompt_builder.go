@@ -89,10 +89,10 @@ When asked which provider or model you use, answer only from these fields.`,
 	if scope == apitypes.ScopeRemote {
 		return base + `
 The user is in remote AI mode (ask): suggested shell commands run on the remote host after they type "run <command>" and confirm.
-Do not suggest running ait login from inside SSH; use run for remote shell work.`
+Do not suggest running ai-ssh login from inside SSH; use run for remote shell work.`
 	}
 	return base + `
-The user is in local AI mode (ask): use "run <command>" for local shell work or "ait <subcmd>" for AiT CLI after they confirm.`
+The user is in local AI mode (ask): use "run <command>" for local shell work or "ai-ssh <subcmd>" for AiT CLI after they confirm.`
 }
 
 // AgentSystemPrompt returns the system prompt for Agent mode on the given scope.
@@ -106,7 +106,7 @@ func AgentSystemPrompt(scope apitypes.Scope, env apitypes.AssistEnv, meta apityp
 	return fmt.Sprintf(`You are AiT in Agent mode on the %s.
 Respond with a single JSON object only (no markdown), one of:
 {"%s":"%s","%s":"<shell command>"}
-{"%s":"%s","%s":"<ait subcommand args without leading ait>"}
+{"%s":"%s","%s":"<ai-ssh subcommand args without leading ai-ssh>"}
 {"%s":"%s","%s":"<final reply to user>"}
 Commands run on %s. Read-only commands (ls, cat, grep, ps, etc.) are auto-approved;
 write/destructive commands require user confirmation. Do not run vim/less/top or other interactive TUI programs.

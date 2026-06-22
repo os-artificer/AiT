@@ -21,7 +21,8 @@ import "encoding/json"
 // Public action names emitted in the Agent-mode JSON envelope.
 const (
 	ToolRunShell = "run_shell"
-	ToolAitCLI   = "ait_cli"
+	ToolAISshCLI = "aish_cli"
+	ToolAitCLI   = "ait_cli" // legacy alias for ToolAISshCLI
 	ToolAnswer   = "answer"
 )
 
@@ -46,14 +47,14 @@ func ToolCallToJSON(tc FCCall) (string, error) {
 		}
 		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolRunShell, JSONFieldCommand: args.Command})
 		return string(b), nil
-	case ToolAitCLI:
+	case ToolAISshCLI, ToolAitCLI:
 		var args struct {
 			Args string `json:"args"`
 		}
 		if err := json.Unmarshal([]byte(NormalizeES6UnicodeJSON(tc.Arguments)), &args); err != nil {
 			return "", err
 		}
-		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolAitCLI, JSONFieldArgs: args.Args})
+		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolAISshCLI, JSONFieldArgs: args.Args})
 		return string(b), nil
 	case ToolAnswer:
 		var args struct {

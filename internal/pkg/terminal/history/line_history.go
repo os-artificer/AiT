@@ -15,7 +15,7 @@
 **/
 
 // Package history implements the bash-style REPL input history model used by
-// `ait shell` and `ait ai`: bounded in-memory ring, optional file backing
+// `ai-ssh shell` and `ai-ssh ai`: bounded in-memory ring, optional file backing
 // (load/append/write/reload), reverse search, and the `history` command.
 package history
 

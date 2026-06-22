@@ -57,12 +57,26 @@ func TestMetaScanner_BashHistoryWithArgsCapturedWhenAIDisabled(t *testing.T) {
 }
 
 func TestMetaScanner_AitPrefixCapturedWhenAIDisabled(t *testing.T) {
-	fwd, _, meta := drive("!ait local\n", false)
+	fwd, _, meta := drive("!ai-ssh local\n", false)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait local" {
-		t.Errorf("meta=%v want [!ait local]", meta)
+	if len(meta) != 1 || meta[0] != "!ai-ssh local" {
+		t.Errorf("meta=%v want [!ai-ssh local]", meta)
+	}
+}
+
+// TestScanner_MaxLookCoversLongestPrefix ensures holding buf fits "!ai-ssh local ".
+func TestScanner_MaxLookCoversLongestPrefix(t *testing.T) {
+	if maxLook < len("!ai-ssh local ") {
+		t.Fatalf("maxLook=%d shorter than len(!ai-ssh local )", maxLook)
+	}
+	fwd, _, meta := drive("!ai-ssh local\n", false)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ai-ssh local" {
+		t.Errorf("meta=%v want [!ai-ssh local]", meta)
 	}
 }
 
@@ -113,32 +127,32 @@ func TestMetaScanner_BangBangUTF8Query(t *testing.T) {
 }
 
 func TestMetaScanner_AitAIQuery(t *testing.T) {
-	fwd, _, meta := drive("!ait ai how to grep\n", true)
+	fwd, _, meta := drive("!ai-ssh ai how to grep\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait ai how to grep" {
+	if len(meta) != 1 || meta[0] != "!ai-ssh ai how to grep" {
 		t.Errorf("meta=%v", meta)
 	}
 }
 
 func TestMetaScanner_AitAIAsk(t *testing.T) {
-	fwd, _, meta := drive("!ait ai ask ping\n", true)
+	fwd, _, meta := drive("!ai-ssh ai ask ping\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait ai ask ping" {
+	if len(meta) != 1 || meta[0] != "!ai-ssh ai ask ping" {
 		t.Errorf("meta=%v", meta)
 	}
 }
 
-// RA6: bare !ait ai line is captured as meta and yields empty initial prompt.
+// RA6: bare !ai-ssh ai line is captured as meta and yields empty initial prompt.
 func TestMetaScanner_AitAIBareLine(t *testing.T) {
-	fwd, _, meta := drive("!ait ai\n", true)
+	fwd, _, meta := drive("!ai-ssh ai\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait ai" {
+	if len(meta) != 1 || meta[0] != "!ai-ssh ai" {
 		t.Errorf("meta=%v", meta)
 	}
 	prompt, ok := AIPromptFromLine(meta[0])
@@ -158,11 +172,11 @@ func TestMetaScanner_BangBangAsk(t *testing.T) {
 }
 
 func TestMetaScanner_AitAIAgent(t *testing.T) {
-	fwd, _, meta := drive("!ait ai agent find large files\n", true)
+	fwd, _, meta := drive("!ai-ssh ai agent find large files\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait ai agent find large files" {
+	if len(meta) != 1 || meta[0] != "!ai-ssh ai agent find large files" {
 		t.Errorf("meta=%v", meta)
 	}
 }
@@ -178,42 +192,42 @@ func TestMetaScanner_BangBangAgent(t *testing.T) {
 }
 
 func TestMetaScanner_AitLocal(t *testing.T) {
-	fwd, _, meta := drive("!ait local\n", true)
+	fwd, _, meta := drive("!ai-ssh local\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait local" {
+	if len(meta) != 1 || meta[0] != "!ai-ssh local" {
 		t.Errorf("meta=%v", meta)
 	}
 }
 
 func TestMetaScanner_AitRemote(t *testing.T) {
-	fwd, _, meta := drive("!ait remote\n", true)
+	fwd, _, meta := drive("!ai-ssh remote\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait remote" {
+	if len(meta) != 1 || meta[0] != "!ai-ssh remote" {
 		t.Errorf("meta=%v", meta)
 	}
 }
 
 func TestMetaScanner_AitSuspend(t *testing.T) {
-	fwd, _, meta := drive("!ait suspend\n", true)
+	fwd, _, meta := drive("!ai-ssh suspend\n", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait suspend" {
+	if len(meta) != 1 || meta[0] != "!ai-ssh suspend" {
 		t.Errorf("meta=%v", meta)
 	}
 }
 
 func TestMetaScanner_HelpLine(t *testing.T) {
-	fwd, _, meta := drive("!ait help\n", true)
+	fwd, _, meta := drive("!ai-ssh help\n", true)
 	if len(fwd) != 0 {
 		t.Errorf("forwarded %q", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!ait help" {
-		t.Errorf("meta=%v want [!ait help]", meta)
+	if len(meta) != 1 || meta[0] != "!ai-ssh help" {
+		t.Errorf("meta=%v want [!ai-ssh help]", meta)
 	}
 }
 
@@ -297,14 +311,14 @@ func TestMetaScanner_PrefixCandidateHelpers(t *testing.T) {
 	if !prefixCandidate("!") {
 		t.Error(`"!" should be candidate`)
 	}
-	if !prefixCandidate("!ait") {
-		t.Error(`"!ait" should be candidate`)
+	if !prefixCandidate("!ai-ssh") {
+		t.Error(`"!ai-ssh" should be candidate`)
 	}
-	if !prefixCandidate("!ait ai") {
-		t.Error(`"!ait ai" should be candidate`)
+	if !prefixCandidate("!ai-ssh ai") {
+		t.Error(`"!ai-ssh ai" should be candidate`)
 	}
-	if prefixCandidate("!ait ai ") {
-		t.Error(`exact match "!ait ai " should not be reported as candidate`)
+	if prefixCandidate("!ai-ssh ai ") {
+		t.Error(`exact match "!ai-ssh ai " should not be reported as candidate`)
 	}
 	if prefixCandidate("!zzz") {
 		t.Error(`"!zzz" should not be candidate`)
@@ -312,8 +326,8 @@ func TestMetaScanner_PrefixCandidateHelpers(t *testing.T) {
 	if _, ok := prefixMatch("!! "); !ok {
 		t.Error(`"!! " should match`)
 	}
-	if _, ok := prefixMatch("!ait remote\n"); !ok {
-		t.Error(`"!ait remote\n" should match`)
+	if _, ok := prefixMatch("!ai-ssh remote\n"); !ok {
+		t.Error(`"!ai-ssh remote\n" should match`)
 	}
 }
 
@@ -325,14 +339,14 @@ func TestAIPromptFromLine(t *testing.T) {
 	}{
 		{"!! how to grep", "how to grep", true},
 		{"!!", "", true},
-		{"!ait ai how to grep", "how to grep", true},
-		{"!ait ai ask hello", "ask hello", true},
+		{"!ai-ssh ai how to grep", "how to grep", true},
+		{"!ai-ssh ai ask hello", "ask hello", true},
 		{"!! ask hello", "ask hello", true},
-		{"!ait ai agent find large files", "agent find large files", true},
+		{"!ai-ssh ai agent find large files", "agent find large files", true},
 		{"!! agent find large files", "agent find large files", true},
-		{"!ait ai", "", true},
-		{"!ait suspend", "", false},
-		{"!ait local", "", false},
+		{"!ai-ssh ai", "", true},
+		{"!ai-ssh suspend", "", false},
+		{"!ai-ssh local", "", false},
 	}
 	for _, tc := range tests {
 		p, ok := AIPromptFromLine(tc.line)

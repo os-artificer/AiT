@@ -29,7 +29,7 @@ func TestConfigLoad_MigratesLegacyConfig(t *testing.T) {
 	}
 
 	home := t.TempDir()
-	dataRoot := filepath.Join(home, ".local", "share", "ait")
+	dataRoot := filepath.Join(home, ".local", "share", "AiT")
 	legacyDir := filepath.Join(home, ".config", "ait")
 	t.Setenv("HOME", home)
 	t.Setenv("AIT_HOME", "")

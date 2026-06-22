@@ -20,7 +20,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 )
 
-// Meta — in-session !ait / !! prefix strings (aliased from the meta subpackage).
+// Meta — in-session !ai-ssh / !! prefix strings (aliased from the meta subpackage).
 const (
 	metaPrefixAitSpace = meta.PrefixAitSpace
 	metaPrefixAitAI    = meta.PrefixAitAI

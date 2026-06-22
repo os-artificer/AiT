@@ -25,10 +25,10 @@ func TestTryLines_LoginSaveVariantsDiffer(t *testing.T) {
 	if TryLoginSave == TryLoginSaveUserHost {
 		t.Fatalf("session and openssh login save hints must differ: %q", TryLoginSave)
 	}
-	if TryLoginSave != "ait login --save <destination>" {
+	if TryLoginSave != "ai-ssh login --save <destination>" {
 		t.Fatalf("TryLoginSave: got %q", TryLoginSave)
 	}
-	if TryLoginSaveUserHost != "ait login --save user@host" {
+	if TryLoginSaveUserHost != "ai-ssh login --save user@host" {
 		t.Fatalf("TryLoginSaveUserHost: got %q", TryLoginSaveUserHost)
 	}
 }

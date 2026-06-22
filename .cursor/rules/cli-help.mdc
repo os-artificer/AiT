@@ -1,6 +1,6 @@
 ---
-description: CLI/Cobra --help 必须与 ait login 同版式；新命令 checklist
-globs: internal/ait/*.go,internal/pkg/helpdoc/**,internal/ait/**/help.go,internal/ait/login/**,internal/ait/shell/**,internal/ait/meta/**
+description: CLI/Cobra --help 必须与 ai-ssh login 同版式；新命令 checklist
+globs: internal/ai-ssh/*.go,internal/pkg/helpdoc/**,internal/ai-ssh/**/help.go,internal/ai-ssh/login/**,internal/ai-ssh/shell/**,internal/ai-ssh/meta/**
 alwaysApply: false
 ---
 
@@ -17,11 +17,11 @@ alwaysApply: false
 ## 必须
 
 - 共用排版在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`Body`、`Bind`、`WriteTransferHelp`、OpenSSH 块）
-- 各命令正文在 **`internal/ait/<cmd>/help.go`**（嵌套子命令在 **`internal/ait/<parent>/<sub>/help.go`**）
+- 各命令正文在 **`internal/ai-ssh/<cmd>/help.go`**（嵌套子命令在 **`internal/ai-ssh/<parent>/<sub>/help.go`**）
 - OpenSSH / Not supported **只**在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`common.go` / helpers）
 - Cobra 绑定：`pkghelpdoc.Bind(cmd, WriteHelp)`（见 [`bind.go`](internal/pkg/helpdoc/bind.go)）
 - get/put：**一个** `WriteTransferHelp(w, cmdName)`
-- `Long`: `Run 'ait <cmd> --help' for usage and examples.`
+- `Long`: `Run 'ai-ssh <cmd> --help' for usage and examples.`（或 `pkghelpdoc.LongHint`）
 - `SilenceUsage: true`
 
 ## 用户可见报错（Hint 模板）
@@ -50,4 +50,4 @@ alwaysApply: false
 
 ## 回归
 
-仅改 help 展示；不得改 `Run`/`RunE` 业务逻辑。参考 [`login/help.go`](internal/ait/login/help.go)（`HelpFull` golden）与 [`internal/pkg/helpdoc`](internal/pkg/helpdoc) 共用块。
+仅改 help 展示；不得改 `Run`/`RunE` 业务逻辑。参考 [`login/help.go`](internal/ai-ssh/login/help.go)（`HelpFull` golden）与 [`internal/pkg/helpdoc`](internal/pkg/helpdoc) 共用块。

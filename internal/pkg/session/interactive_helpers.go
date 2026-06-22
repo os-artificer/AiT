@@ -36,7 +36,7 @@ var ErrNonInteractivePick = errhint.NewSentinel(errNonInteractiveTerminal)
 var ErrPickCancelled = errhint.NewSentinel(errPickCancelled)
 
 // CheckInteractiveStdin returns ErrNonInteractivePick when stdin is not a terminal.
-// Used before interactive session pick for ait session --load or --switch without a target.
+// Used before interactive session pick for ai-ssh session --load or --switch without a target.
 func CheckInteractiveStdin() error {
 	if stdinIsTerminal() {
 		return nil
@@ -60,7 +60,7 @@ func stdinIsTerminal() bool {
 }
 
 // PickSessionInteractiveTTY lists sessions and reads a selection with raw TTY line editing.
-// Used after SSH chain actions and standalone ait session --load/--switch pickers.
+// Used after SSH chain actions and standalone ai-ssh session --load/--switch pickers.
 // Shell REPL callers should use PickSessionFrom directly while already in raw mode.
 // Returns ErrNonInteractivePick when stdin is not a TTY, ErrPickCancelled on Ctrl+C,
 // or invalid-selection / store errors from the picker.

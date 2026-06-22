@@ -32,6 +32,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/localmode"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/tmux"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 	"github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
 
 	"golang.org/x/crypto/ssh"
@@ -164,10 +165,10 @@ type InteractiveOpts struct {
 	// RemotePromptDirAbsolute selects absolute vs short (basename) cwd in the remote PS1.
 	RemotePromptDirAbsolute bool
 	AI                      *ai.Client
-	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/ait init_hooks.
+	// OnRemoteAI enters remote AI REPL (!ai-ssh ai / !!); wired from internal/ai-ssh init_hooks.
 	OnRemoteAI RemoteAIRunner
 	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
-	// OnMetaCLI runs ait CLI subcommands from !ait <args> (args exclude the prefix).
+	// OnMetaCLI runs ai-ssh CLI subcommands from !ai-ssh <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
 	// AgentMaxSteps overrides the agent turn limit; 0 means use default from config.
 	AgentMaxSteps int
@@ -179,7 +180,7 @@ type InteractiveOpts struct {
 	ReplayScrollback string
 }
 
-// RunInteractive runs a PTY shell with !ait / !! meta handling, optional tmux, and AI/local modes.
+// RunInteractive runs a PTY shell with !ai-ssh / !! meta handling, optional tmux, and AI/local modes.
 // ctx cancels the session loop. Requires a TTY on stdin. Returns terminal, session, tmux, or OnSuspend errors.
 func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error {
 	sess, err := c.conn.NewSession()
@@ -468,7 +469,7 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 			args := strings.Fields(strings.TrimPrefix(line, metaPrefixAitSpace))
 			return c.runMetaCLI(stdin, opts, args)
 		}
-		termPrintln(os.Stdout, "AiT: unknown meta command (try !ait help)")
+		termPrintln(os.Stdout, "AiT: unknown meta command (try "+toolname.MetaLine("help")+")")
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
@@ -476,7 +477,7 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 
 func (c *Client) runMetaCLI(stdin io.Writer, opts InteractiveOpts, args []string) error {
 	if opts.OnMetaCLI == nil {
-		termPrintln(os.Stdout, "AiT: meta CLI not available (try !ait help)")
+		termPrintln(os.Stdout, "AiT: meta CLI not available (try "+toolname.MetaLine("help")+")")
 		c.finishMetaInteraction(stdin)
 		return nil
 	}
@@ -493,7 +494,7 @@ func (c *Client) runMetaCLI(stdin io.Writer, opts InteractiveOpts, args []string
 
 func (c *Client) enterLocalMode() error {
 	if c.localShell.Running() {
-		aitModeNotice("already in local mode (type !ait remote to return)")
+		aitModeNotice("already in local mode (type " + toolname.MetaLine("remote to return") + ")")
 		return nil
 	}
 
@@ -513,7 +514,7 @@ func (c *Client) enterLocalMode() error {
 	aitModeNotice(
 		"local mode",
 		"Prompt is \""+LocalPrompt+"\" (commands run on this machine; SSH stays connected).",
-		"Type !ait remote to return.",
+		"Type "+toolname.MetaLine("remote to return")+".",
 	)
 	return nil
 }
@@ -535,7 +536,7 @@ func (c *Client) exitLocalMode() error {
 		c.localShell.Stop()
 	}
 
-	aitModeNotice("not in local mode (type !ait local to switch)")
+	aitModeNotice("not in local mode (type " + toolname.MetaLine("local to switch") + ")")
 	return nil
 }
 

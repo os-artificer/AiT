@@ -5,38 +5,38 @@
 
 本文档描述**当前主干**已实现的行为与包结构（非待办计划）。用户向导读 [`README.zh-CN.md`](../README.zh-CN.md)、[`docs/user-manual.zh-CN.md`](user-manual.zh-CN.md)；代码结构向导读 [`AGENTS.zh-CN.md`](../AGENTS.zh-CN.md)。
 
-CLI 入口：[`internal/ait/root.go`](../internal/ait/root.go)（`Run` + cobra root）。依赖见 [`go.mod`](../go.mod)。目录：`cmd/ait` 薄入口 → `internal/ait` + `internal/pkg`。
+CLI 入口：[`cmd/ai-ssh/main.go`](../cmd/ai-ssh/main.go) → [`internal/ai-ssh/root.go`](../internal/ai-ssh/root.go)（Go 包 **`aish`**：`Run` + Cobra 根）。依赖见 [`go.mod`](../go.mod)。目录：`cmd/ai-ssh` 薄入口 → `internal/ai-ssh`（包名 `aish`）+ `internal/pkg`。
 
 ## CLI 形态
 
 ```text
-ait shell                                    # AiT> REPL（login/list/load 等）
-ait ai                                       # 本机 AI 模式（AiT AI(Agent)>）；ait shell 内也可输入 ai
-ait ai model list                            # 列出已配置 AI provider（含 ENABLED 列）
-ait ai ask [message...]                      # 单轮提问（无参数读 stdin）；SSH：!ait ai ask / !! ask
-ait ai agent [message...]                    # 单轮 agent（工具执行）
-ait ai provider enable|disable <provider>    # 启用/禁用某 provider 的路由
-ait ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup：models_dir + 安装前 [y/N]）
-ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
+ai-ssh shell                                    # AiT> REPL（login/list/load 等）
+ai-ssh ai                                       # 本机 AI 模式（AiT AI(Agent)>）；ai-ssh shell 内也可输入 ai
+ai-ssh ai model list                            # 列出已配置 AI provider（含 ENABLED 列）
+ai-ssh ai ask [message...]                      # 单轮提问（无参数读 stdin）；SSH：!ai-ssh ai ask / !! ask
+ai-ssh ai agent [message...]                    # 单轮 agent（工具执行）
+ai-ssh ai provider enable|disable <provider>    # 启用/禁用某 provider 的路由
+ai-ssh ai ollama status|setup|start|stop|disable  # 本地 Ollama（setup：models_dir + 安装前 [y/N]）
+ai-ssh login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH 兼容：-p -l -i -F -J -o 等；destination 为 [user@]host 或 config Host 别名
         # 需本机 OpenSSH 客户端 (ssh -G) 解析 config；数据面为 Go x/crypto/ssh（Win/macOS/Linux）
         # 新连接须 --save（按 id 书签）或 --alias（命名保存，隐含 --save）才写入 SQLite
         # 若匹配的无 alias 行已在 session 列表中，login 会更新该行并刷新 auth TTL（无需 --save/--alias）
         # 带 command 时为一次性执行；新主机无 --save/--alias 时不持久化
         # 旧写法 --host/--user 仍向后兼容
-ait session --list [-v]   # # 列用于按序号选择；-v 输出 FULL_ID（完整 UUID）
-ait session --load [<id|alias>] [--tmux] [--password]   # 省略 id 可交互选择；id 须为 alias 或完整 UUID（非列表 ID 列）
-ait session --suspend         # 本机 CLI；SSH 内请用 !ait suspend
-ait session --switch [id|alias] [--tmux] [--password] [--force]  # 切换会话；省略 id 时交互选择
-ait session --delete <id|alias|all> [--force]         # 删除单个或全部会话
-ait get [ssh-flags] <paths...>   # OpenSSH 参数；路径/顺序见 get/put 小节
-ait put [ssh-flags] <paths...>
-ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUAL/$EDITOR（Unix vi / Windows Notepad）
+ai-ssh session --list [-v]   # # 列用于按序号选择；-v 输出 FULL_ID（完整 UUID）
+ai-ssh session --load [<id|alias>] [--tmux] [--password]   # 省略 id 可交互选择；id 须为 alias 或完整 UUID（非列表 ID 列）
+ai-ssh session --suspend         # 本机 CLI；SSH 内请用 !ai-ssh suspend
+ai-ssh session --switch [id|alias] [--tmux] [--password] [--force]  # 切换会话；省略 id 时交互选择
+ai-ssh session --delete <id|alias|all> [--force]         # 删除单个或全部会话
+ai-ssh get [ssh-flags] <paths...>   # OpenSSH 参数；路径/顺序见 get/put 小节
+ai-ssh put [ssh-flags] <paths...>
+ai-ssh config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUAL/$EDITOR（Unix vi / Windows Notepad）
 ```
 
-**AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ait ai [--model <云端-provider>]`** 或 **`ait shell` 内 `ai`** 进入本机 AI REPL（`AiT AI(Agent)>`），`run` / `ait` 经确认后在本机执行。已连接 SSH 时用 **`!ait ai`** / **`!!`** 进入远程 AI（`AiT AI(Agent) user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ait ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ait ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议](#会话内-meta-协议ait--)。
+**AI 模式**（多 provider：Deepseek + MiniMax + 可选本地 Ollama；云端需密钥环 `ai.<provider>.api_key`，别名 `deepseek.api_key` / `minimax.api_key`）：**`ai-ssh ai [--model <云端-provider>]`** 或 **`ai-ssh shell` 内 `ai`** 进入本机 AI REPL（`AiT AI(Agent)>`），`run` / `ai-ssh` 经确认后在本机执行。已连接 SSH 时用 **`!ai-ssh ai`** / **`!!`** 进入远程 AI（`AiT AI(Agent) user@host>`），`run` 经确认后写入远程 PTY stdin。**`!ai-ssh ai` 作为 meta 子命令被阻断**。未配置云端 Key 且未启用 tiered Ollama 时 `!!` / `!ai-ssh ai` 本地 fail-closed。启用 **`ai.tiered.enabled`** 时，短句首轮走本地 Ollama（无需 Key）；长文/复杂题及 `--model` / REPL `model <云端>` 走云端默认与故障转移（`ai.default` / `ai.fallback`）。见 [AI 模式（双作用域）](#ai-模式双作用域) 与 [会话内 meta 协议（!ai-ssh / !!）](#会话内-meta-协议ai-ssh--)。
 
-**`!ait local` / `!ait remote`** 切换本地/远程输入；**`!ait suspend`** 挂起会话；**`!ait chain [on|off]`** 切换链式模式（经 PTY 管道注入实现多跳 SSH 的文件传输与 tmux 操作）。
+**`!ai-ssh local` / `!ai-ssh remote`** 切换本地/远程输入；**`!ai-ssh suspend`** 挂起会话；**`!ai-ssh chain [on|off]`** 切换链式模式（经 PTY 管道注入实现多跳 SSH 的文件传输与 tmux 操作）。
 
 ### 两种恢复模式（默认 vs `--tmux`）
 
@@ -45,7 +45,7 @@ ait config init|view|edit|validate|set|get ...   # YAML 配置；edit 用 $VISUA
 | **默认（书签）** | 无 `--tmux` | 用已存连接信息重连；可选将上次 suspend 的 scrollback **种子写入内存**（不在终端显示） | 不保证保活 |
 | **tmux 保活** | `login`/`load` 加 `--tmux` | SSH 后 `tmux attach -t ait-<session_id>`（不存在则 `new -s`） | 断开连接后 shell/进程仍在 |
 
-**新连接须使用 `--save`、`--alias` 或 `--tmux` 才持久化**（`--tmux` 隐含 `--save`）。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ait login user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。`login_destination` 保存 SSH config Host 名（如 `devhost`），供 `load`/`switch` 时 `ssh -G` 重解析跳板。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
+**新连接须使用 `--save`、`--alias` 或 `--tmux` 才持久化**（`--tmux` 隐含 `--save`）。会话行的连接唯一键为 **`username` + `host` + `port` + `alias`**（无 `--alias` 时 alias 为空，与命名 alias 为独立行）。无 flag 的 `ai-ssh login user@host` 仅当存在**无 alias** 的匹配行时自动更新该行并刷新 auth TTL；若仅有命名 alias 行或无匹配行，则不写 SQLite。`login_destination` 保存 SSH config Host 名（如 `devhost`），供 `load`/`switch` 时 `ssh -G` 重解析跳板。scrollback/`remote_cwd` 仅在 suspend 时作为增强项写入，不作为「真正保活」承诺。真正保活必须显式 `--tmux`。
 
 ### login 持久化决策（连接键含 alias）
 
@@ -64,14 +64,14 @@ flowchart TD
   findEmpty -->|not found| ephemeral[plan.persist=false]
 ```
 
-同一 `user@host:port` 可并存：`ait login --save user@host`（无 alias 行）与 `ait login --alias prod user@host`（`prod` 行）为两条独立记录，各自 `session_id` 与 tmux 会话 `ait-<id>`。SQLite 对 `(username, host, port, COALESCE(alias,''))` 建唯一索引；升级时若存在同键重复行，迁移保留 `updated_at` 最新者。
+同一 `user@host:port` 可并存：`ai-ssh login --save user@host`（无 alias 行）与 `ai-ssh login --alias prod user@host`（`prod` 行）为两条独立记录，各自 `session_id` 与 tmux 会话 `ait-<id>`。SQLite 对 `(username, host, port, COALESCE(alias,''))` 建唯一索引；升级时若存在同键重复行，迁移保留 `updated_at` 最新者。
 
 ## 架构总览
 
 ```mermaid
 flowchart TB
-  subgraph cli [internal/ait]
-    Run[ait.Run]
+  subgraph cli [internal/ai-ssh]
+    Run[aish.Run]
     CliPkg[cli cobra]
     ShellPkg[shell REPL]
     LoginPkg[login]
@@ -163,16 +163,16 @@ flowchart TB
 | 场景 | 行为 |
 |------|------|
 | 本地无前台 SSH | 等同 `load <target>`（TTL/密码规则相同） |
-| DB 中当前会话仍为 `active` | **阻断**并输出 errhint：须先在 SSH 内 `!ait suspend`，或 `session --switch --force`（仅标记当前为 suspended，**不**保存 scrollback/cwd）→ 再 **load 目标**。会话内 `!ait session --switch` 会先自动 suspend。 |
+| DB 中当前会话仍为 `active` | **阻断**并输出 errhint：须先在 SSH 内 `!ai-ssh suspend`，或 `session --switch --force`（仅标记当前为 suspended，**不**保存 scrollback/cwd）→ 再 **load 目标**。会话内 `!ai-ssh session --switch` 会先自动 suspend。 |
 | 未指定目标 | `list` 展示编号菜单，用户选择 id/alias（支持 `--tmux` 继承当前连接模式或按目标会话 DB 中 `tmux_enabled`） |
 
 ```text
-ait session --switch              # 交互式选择
-ait session --switch prod         # 按 alias/id 切换
-ait session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
+ai-ssh session --switch              # 交互式选择
+ai-ssh session --switch prod         # 按 alias/id 切换
+ai-ssh session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 ```
 
-**交互 SSH 内：** 使用 `!ait login`、`!ait load`、`!ait session --switch` 链式切换会话；仅挂起用 `!ait suspend`。
+**交互 SSH 内：** 使用 `!ai-ssh login`、`!ai-ssh load`、`!ai-ssh session --switch` 链式切换会话；仅挂起用 `!ai-ssh suspend`。
 
 **与 `load` 区别：** `load` 仅连接目标；`switch` 会检查当前会话是否仍为 `active`，须先挂起（或 `--force`）再加载目标，并更新 `app_meta.current_session_id`。
 
@@ -180,7 +180,7 @@ ait session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 
 ## 数据模型（SQLite）
 
-数据库文件：`<AppRoot>/ait.db`，其中 **`AppRoot`** 为统一运行时目录（[`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)）。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%\ait`。可用 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。完整目录树见 [运行时文件布局](#运行时文件布局approot)。
+数据库文件：`<AppRoot>/ait.db`，其中 **`AppRoot`** 为统一运行时目录（[`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)）。默认：Linux `~/.local/share/AiT`，macOS `~/Library/Application Support/AiT`，Windows `%LOCALAPPDATA%\AiT`。旧版数据目录 `~/.local/share/ait`（`legacyAppName`）在首次运行时自动迁移。可用 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。完整目录树见 [运行时文件布局](#运行时文件布局approot)。
 
 ```sql
 CREATE TABLE sessions (
@@ -219,13 +219,13 @@ CREATE TABLE app_meta (
 - `suspend` → 写 `session_state`，`status=suspended`；tmux 模式先 `tmux detach` 再断 SSH
 - `session --delete <id>` / `session --delete all` → 删 DB 行、scrollback sidecar 及 per-session keyring 条目（**不**杀远程 tmux 会话）
 
-**凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`ait config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<AppRoot>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
+**凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`ai-ssh config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<AppRoot>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
 
-**运行时文件布局（`AppRoot`）：** 所有 AiT 自有运行时文件位于同一目录（`platform.AppRoot()` = `DataDir()` = `ConfigDir()`）。可通过 **`AIT_HOME`**（未设置时可用 **`AIT_DATA_DIR`**）覆盖。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%/ait`。Linux 升级时，旧版 `$XDG_CONFIG_HOME/ait/config.yaml`（通常为 `~/.config/ait/config.yaml`）在首次 `config.Load` 时迁入 `AppRoot`。目录结构：
+**运行时文件布局（`AppRoot`）：** 所有 AiT 自有运行时文件位于同一目录（`platform.AppRoot()` = `DataDir()` = `ConfigDir()`）。可通过 **`AIT_HOME`**（未设置时可用 **`AIT_DATA_DIR`**）覆盖。默认：Linux `~/.local/share/AiT`，macOS `~/Library/Application Support/AiT`，Windows `%LOCALAPPDATA%/AiT`。升级时旧路径在首次使用时迁入 `AppRoot`：数据根 `~/.local/share/ait`（`legacyAppName`）、Linux 配置 `$XDG_CONFIG_HOME/ait/config.yaml`（通常为 `~/.config/ait/config.yaml`）。目录结构：
 
 ```text
 <AppRoot>/
-├── config.yaml       # 主配置（ait config init / view / edit / validate / set / get）
+├── config.yaml       # 主配置（ai-ssh config init / view / edit / validate / set / get）
 ├── ait.db            # SQLite 会话
 ├── repl_history      # REPL 输入历史
 ├── scrollback/       # suspend 侧车
@@ -233,24 +233,24 @@ CREATE TABLE app_meta (
 └── ollama/models/    # 推荐 Ollama models_dir 默认路径
 ```
 
-首次安装：执行 `ait config init` 创建或补全 `config.yaml`（仅缺失项；API key 仍走 keyring）。**`ait config view`** 打印文件（缺失时自动 init）。**`ait config edit`** 经 `$VISUAL`/`$EDITOR` 编辑（Unix 默认 `vi`，Windows 默认 Notepad），保存后自动校验。**`ait config validate`** 检查 YAML 语法与配置项（session TTL、provider URL、tiered 等）；逐条打印错误原因；失败 exit 1。
+首次安装：执行 `ai-ssh config init` 创建或补全 `config.yaml`（仅缺失项；API key 仍走 keyring）。**`ai-ssh config view`** 打印文件（缺失时自动 init）。**`ai-ssh config edit`** 经 `$VISUAL`/`$EDITOR` 编辑（Unix 默认 `vi`，Windows 默认 Notepad），保存后自动校验。**`ai-ssh config validate`** 检查 YAML 语法与配置项（session TTL、provider URL、tiered 等）；逐条打印错误原因；失败 exit 1。
 
 ## 包布局（当前）
 
 | 路径 | 职责 | 主要文件（示例） |
 |------|------|------------------|
-| [`internal/ait/`](../internal/ait/) | CLI 入口、Cobra 根、Manager 引导 | `root.go`、`cli_root.go`、`manager.go`、`context.go`、`init_hooks.go` |
-| [`internal/ait/registry/`](../internal/ait/registry/) | 顶层命令注册表（OCP）；根 `--help` | `register.go`、`root_help.go`、`all/imports.go` |
+| [`internal/ai-ssh/`](../internal/ai-ssh/) | CLI 入口、Cobra 根、Manager 引导 | `root.go`、`cli_root.go`、`manager.go`、`context.go`、`init_hooks.go` |
+| [`internal/ai-ssh/registry/`](../internal/ai-ssh/registry/) | 顶层命令注册表（OCP）；根 `--help` | `register.go`、`root_help.go`、`all/imports.go` |
 | [`internal/pkg/helpdoc/`](../internal/pkg/helpdoc/) | 共用 `--help` 排版 | `body.go`、`bind.go`、`common.go` |
-| [`internal/ait/login/`](../internal/ait/login/) | login 解析与帮助 | `run.go`, `help.go` |
-| [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
-| [`internal/ait/ai/`](../internal/ait/ai/) | `ait ai` 子树（`ask`、`agent`、`provider`、`ollama`，`subregistry`） | `cmd.go`、`help.go`、`register.go` |
-| [`internal/ait/ai/mode/`](../internal/ait/ai/mode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`、`exec.go`、`run_local.go` |
-| [`internal/ait/meta/`](../internal/ait/meta/) | 会话内 `!ait` | `exec.go` |
+| [`internal/ai-ssh/login/`](../internal/ai-ssh/login/) | login 解析与帮助 | `run.go`, `help.go` |
+| [`internal/ai-ssh/shell/`](../internal/ai-ssh/shell/) | `ai-ssh shell` REPL | `repl.go`, `exec.go`, `parse.go` |
+| [`internal/ai-ssh/ai/`](../internal/ai-ssh/ai/) | `ai-ssh ai` 子树（`ask`、`agent`、`provider`、`ollama`，`subregistry`） | `cmd.go`、`help.go`、`register.go` |
+| [`internal/ai-ssh/ai/mode/`](../internal/ai-ssh/ai/mode/) | `ai-ssh ai` / `!ai-ssh ai` AI REPL | `repl.go`、`exec.go`、`run_local.go` |
+| [`internal/ai-ssh/meta/`](../internal/ai-ssh/meta/) | 会话内 `!ai-ssh` | `exec.go` |
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/parse/) | OpenSSH argv、`ssh -G`、映射 Options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | 会话生命周期 | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
-| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ait` meta、本地模式、静默注入、远程提示符 emit | `client.go`, `client_dial.go`, `client_init_helpers.go`, `client_init_prompt_emit_helpers.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
+| [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | 拨号、PTY、`!ai-ssh` meta、本地模式、静默注入、远程提示符 emit | `client.go`, `client_dial.go`, `client_init_helpers.go`, `client_init_prompt_emit_helpers.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | scrollback、回放、路径 | `scrollback/delta.go`、`terminal/path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | 远程 tmux | `remote.go`, `remote_pty.go` |
 | [`internal/pkg/ai/`](../internal/pkg/ai/) | 多 provider AI（Eino ChatModel + Anthropic/Ollama Agent 专用路径）、tiered Ollama、模型列表 | `client/`、`eino/`、`apitypes/`、`router/` |
@@ -269,14 +269,14 @@ CREATE TABLE app_meta (
 
 | 场景 | 提示符 | 设置方式 |
 |------|--------|----------|
-| `ait shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
+| `ai-ssh shell`（未连远程） | `AiT> ` | REPL 打印 [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
 | SSH 远程 | `AiT user@host:目录[:git分支]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) 在 `load`/`login` 后注入动态 bash `PS1` / zsh `PROMPT`（非 tmux：[`waitForShellReadyBeforeInject`](../internal/pkg/ssh/client/client_init_helpers.go) 等待 scrollback 出现原生或 AiT prompt 且输出安静，最长 10s；bash 回退为 attach 后安静）；setup 末尾输出 **`RemotePromptReadySentinel`** 握手行；zsh **去重并追加** **`precmd_functions` hook**，避免 oh-my-zsh 主题永久覆盖 `PROMPT`，并**向 PTY 打印展开后的 prompt**（`${PS1@P}` / `print -Pn "$PROMPT"`，可用时 `zle reset-prompt`）；**`session.remote_prompt.path`**：`short`（默认，末级目录名）或 `absolute`（`$PWD` 家目录显示为 `~`）；Git 仓库时追加 `:分支`。setup 期间 `pauseRemoteOut` 将远程输出缓冲进 scrollback（R1 过滤 setup 泄漏；不向 scroll pending 释放原生 prompt）。[`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) 经 [`waitForRemotePromptReady`](../internal/pkg/ssh/client/client_init_helpers.go) 等待哨兵，再由 [`ensureFirstPromptVisible`](../internal/pkg/ssh/client/client_init_helpers.go) emit scrollback AiT 行、见到哨兵时**客户端绘制**、或仅在 setup 未成功时原生回退；`remotePromptShown` 为真才解除 pause。**load/switch** setup 后经 [`seedReplayScrollback`](../internal/pkg/ssh/client/client_init_helpers.go) / [`SanitizeReplayScrollback`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) **种子写入** [`ReplayScrollback`](../internal/pkg/ssh/client/client.go)（剥泄漏与提示符行；不写终端）。login/load/nested 共用 [`runRemotePromptSetup`](../internal/pkg/ssh/client/prompt_setup.go)，连接后应**无需按 Enter** 即见 AiT 提示符。 |
-| SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ait login -J jump,final` 一次登录到最终主机 |
+| SSH 内层（会话内 `ssh`） | 与 SSH 远程相同，作用于 **active** 跳板 | 在 AiT 会话中执行简单 `ssh user@host` 后，见到 MOTD 且输出安静时自动注入 PS1 并开启 chain 模式；也可用 `ai-ssh login -J jump,final` 一次登录到最终主机 |
 | SSH 本地模式 | `AiT Local> ` | 静默 rc / env（[`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)） |
 
 ### 远程提示符管线（Remote prompt pipeline）
 
-PTY 输出与 meta 结束共用一条路径，避免 oh-my-zsh 等原生提示符在 `!ait` 命令后覆盖 AiT 提示符。
+PTY 输出与 meta 结束共用一条路径，避免 oh-my-zsh 等原生提示符在 `!ai-ssh` 命令后覆盖 AiT 提示符。
 
 ```mermaid
 sequenceDiagram
@@ -301,45 +301,45 @@ sequenceDiagram
 
 当 `remotePromptShown` 已设置时，[`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) 优先使用 scrollback 中的 AiT 行或客户端绘制（`setupSucceeded` 或 `remotePromptReadySeen`），**不会**回退到原生 shell 提示符（P11）。
 
-**`ait shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ait` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ait login` 结束后回到 OS shell。
+**`ai-ssh shell`**：行级 REPL，可直接输入 `login`、`load`、`list`、`help` 等（无需 `!ai-ssh` 前缀）。在 shell 内 `login` 结束后回到 `AiT> `；系统 shell 执行 `ai-ssh login` 结束后回到 OS shell。
 
-**内置 `ll`**（仅 shell REPL，非 `ait ai` / `!ait`）：本机目录长列表（纯 Go [`dirlist`](../internal/pkg/dirlist/)，对齐 `ls -la`）；可选一个路径参数，默认 cwd。
+**内置 `ll`**（仅 shell REPL，非 `ai-ssh ai` / `!ai-ssh`）：本机目录长列表（纯 Go [`dirlist`](../internal/pkg/dirlist/)，对齐 `ls -la`）；可选一个路径参数，默认 cwd。
 
-**`ait shell` 命令解析**（仅首词）：**内置**（`exit`、`help`、`clear`、`history`、`ai`、`login`、`load`、`list`、`suspend`）→ **`<AppRoot>/bin/<name>`** 用户扩展（扁平目录；Unix 须可执行位）→ **ait CLI** 子命令（`config`、`session`、`get` 等）→ **系统 PATH**。bin 扩展可覆盖 ait 子命令名，不可覆盖内置。外部命令经 `exec` 传 argv（不经 shell 拼接）；TTY 下 REPL 对子进程临时恢复 cooked 模式。实现：[`exec_dispatch.go`](../internal/ait/shell/exec_dispatch.go)、[`shellext/`](../internal/pkg/shellext/)。
+**`ai-ssh shell` 命令解析**（仅首词）：**内置**（`exit`、`help`、`clear`、`history`、`ai`、`login`、`load`、`list`、`suspend`）→ **`<AppRoot>/bin/<name>`** 用户扩展（扁平目录；Unix 须可执行位）→ **ai-ssh CLI** 子命令（`config`、`session`、`get` 等）→ **系统 PATH**。bin 扩展可覆盖 ai-ssh 子命令名，不可覆盖内置。外部命令经 `exec` 传 argv（不经 shell 拼接）；TTY 下 REPL 对子进程临时恢复 cooked 模式。实现：[`exec_dispatch.go`](../internal/ai-ssh/shell/exec_dispatch.go)、[`shellext/`](../internal/pkg/shellext/)。
 
-**本地 REPL 输入（UTF-8，macOS / Linux / Windows）：** 交互式 `ait shell` 与本机 `ait ai` 通过 [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) 以 **UTF-8** 读取 stdin（Emacs 行编辑、方向键、Up/Down 遍历已加载输入历史）。请使用 UTF-8 终端：Linux/macOS 设置 `LANG=*.UTF-8`；Windows 推荐 **Windows Terminal** 并启用 UTF-8（避免非 UTF-8 代码页）。IME 组字由终端负责，确认后以 UTF-8 字节送入进程（AiT 不绘制预编辑下划线）。管道/重定向 stdin（`echo … | ait shell`）本就支持 UTF-8；SSH 远程 shell 按字节转发，不受此限制。
+**本地 REPL 输入（UTF-8，macOS / Linux / Windows）：** 交互式 `ai-ssh shell` 与本机 `ai-ssh ai` 通过 [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) 以 **UTF-8** 读取 stdin（Emacs 行编辑、方向键、Up/Down 遍历已加载输入历史）。请使用 UTF-8 终端：Linux/macOS 设置 `LANG=*.UTF-8`；Windows 推荐 **Windows Terminal** 并启用 UTF-8（避免非 UTF-8 代码页）。IME 组字由终端负责，确认后以 UTF-8 字节送入进程（AiT 不绘制预编辑下划线）。管道/重定向 stdin（`echo … | ai-ssh shell`）本就支持 UTF-8；SSH 远程 shell 按字节转发，不受此限制。
 
-**TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（光标）、Up/Down（召回已加载输入历史，含跨会话记录）、**Ctrl+R**（输入历史反向增量搜索）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Tab、Ctrl+C（取消当前行）、Ctrl+D（空行 EOF）、Ctrl+L（清屏保留缓冲）。历史仅记录主提示符下 Enter 提交的命令，不含确认 `[y/N]`、选 session 输入或 `!ait local` 的 env/rc 脚本。见 `help` / `ait shell --help` 的 Keys 段。
+**TTY 快捷键（本机 REPL）：** Ctrl+A/E（行首/行尾）、Left/Right（光标）、Up/Down（召回已加载输入历史，含跨会话记录）、**Ctrl+R**（输入历史反向增量搜索）、Ctrl+U/K/W（删行/删至行尾/删词）、Backspace、Tab、Ctrl+C（取消当前行）、Ctrl+D（空行 EOF）、Ctrl+L（清屏保留缓冲）。历史仅记录主提示符下 Enter 提交的命令，不含确认 `[y/N]`、选 session 输入或 `!ai-ssh local` 的 env/rc 脚本。见 `help` / `ai-ssh shell --help` 的 Keys 段。
 
-**输入历史持久化：** 本机 `ait shell` 与 `ait ai` 共用 bash 风格 **`history`** 内置命令（列出、`history n`、`-c`、`-d`、`-s`、`-a`、`-r`、`-w`），与 Up/Down、Ctrl+R 操作同一内存列表。提交命令会追加到 **`<AppRoot>/repl_history`**（权限 `0600`）；REPL 启动时加载。AI 模式下 **`clear`** 仅清对话历史；**`history`** 管理输入行历史。
+**输入历史持久化：** 本机 `ai-ssh shell` 与 `ai-ssh ai` 共用 bash 风格 **`history`** 内置命令（列出、`history n`、`-c`、`-d`、`-s`、`-a`、`-r`、`-w`），与 Up/Down、Ctrl+R 操作同一内存列表。提交命令会追加到 **`<AppRoot>/repl_history`**（权限 `0600`）；REPL 启动时加载。AI 模式下 **`clear`** 仅清对话历史；**`history`** 管理输入行历史。
 
-**清屏（`ait shell` / 本机 TTY）：** 在 `ait shell` 中输入 **`clear`** 通过 [`terminal.ClearScreen`](../internal/pkg/terminal/screen.go) 清空终端（VT100 ANSI）。TTY 下 **Ctrl+L** 清屏并在底部重显当前提示符与未提交行（保留行缓冲，与 bash/readline 一致）。本机 `ait ai` TTY 也支持 **Ctrl+L** 仅清显示；**`ait ai` 的 `clear`** 仍表示清空对话历史，与 shell 的 `clear` 不同。
+**清屏（`ai-ssh shell` / 本机 TTY）：** 在 `ai-ssh shell` 中输入 **`clear`** 通过 [`terminal.ClearScreen`](../internal/pkg/terminal/screen.go) 清空终端（VT100 ANSI）。TTY 下 **Ctrl+L** 清屏并在底部重显当前提示符与未提交行（保留行缓冲，与 bash/readline 一致）。本机 `ai-ssh ai` TTY 也支持 **Ctrl+L** 仅清显示；**`ai-ssh ai` 的 `clear`** 仍表示清空对话历史，与 shell 的 `clear` 不同。
 
-### 会话内 meta 协议（!ait / !!）
+### 会话内 meta 协议（!ai-ssh / !!）
 
 实现位于 [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/client/meta/scanner.go) 与 [`client.go`](../internal/pkg/ssh/client/client.go) 的 `forwardStdin` / `handleMetaLine`。已弃用 `\ait` 前缀。
 
 | 命令 | 行为 |
 |------|------|
-| `!ait help` / `!ait` | 打印会话内命令与可本地执行的 CLI 说明 |
-| `!ait <子命令> …` | 在本地执行对应 `ait` CLI（如 `!ait list`）；`login`/`load`/`session --switch` 走链式 handler |
-| `!ait login [flags] dest` | 必要时自动落库 → suspend → 关闭 SSH → `Manager.Login` 连接新主机 |
-| `!ait load [id\|alias]` | 必要时自动落库 → suspend → `Manager.Load` |
-| `!ait session --switch [id\|alias]` | 必要时自动落库 → suspend → `Manager.Switch`（无需 `--force`）；无参 picker 使用 raw TTY；选同一会话时 **重连**（suspend 后 SSH 已断开） |
-| `!ait ai [问题]` | 进入**远程** AI REPL；可选首条提问 |
-| `!! [问题]` | `!ait ai` 别名（`!!` 后须有空格） |
-| `!ait ai`（子命令形式） | **阻断** — 使用行首 `!ait ai`，勿经 CLI runner |
-| `!ait local` | 进入本地模式（见下节） |
-| `!ait remote` | 退出本地模式，恢复远程 stdin |
-| `!ait suspend` | 必要时自动落库 → 挂起会话并断开 |
-| `!ait get <remote> [<local>]` | 经 SFTP 从当前 SSH 连接下载单个文件（不重新认证）；省略 local 时默认为 `./basename`；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
-| `!ait put <local> [<remote>]` | 经 SFTP 向当前 SSH 连接上传单个文件（不重新认证）；省略 remote 时默认为 `./basename`（本地源文件名）；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
-| `!ait chain [on\|off]` | 切换链式模式：使用 PTY 管道注入替代 SFTP 进行文件传输和 tmux 操作；当已 SSH 超越直连主机时需要 |
+| `!ai-ssh help` / `!ai-ssh` | 打印会话内命令与可本地执行的 CLI 说明 |
+| `!ai-ssh <子命令> …` | 在本地执行对应 `ai-ssh` CLI（如 `!ai-ssh list`）；`login`/`load`/`session --switch` 走链式 handler |
+| `!ai-ssh login [flags] dest` | 必要时自动落库 → suspend → 关闭 SSH → `Manager.Login` 连接新主机 |
+| `!ai-ssh load [id\|alias]` | 必要时自动落库 → suspend → `Manager.Load` |
+| `!ai-ssh session --switch [id\|alias]` | 必要时自动落库 → suspend → `Manager.Switch`（无需 `--force`）；无参 picker 使用 raw TTY；选同一会话时 **重连**（suspend 后 SSH 已断开） |
+| `!ai-ssh ai [问题]` | 进入**远程** AI REPL；可选首条提问 |
+| `!! [问题]` | `!ai-ssh ai` 别名（`!!` 后须有空格） |
+| `!ai-ssh ai`（子命令形式） | **阻断** — 使用行首 `!ai-ssh ai`，勿经 CLI runner |
+| `!ai-ssh local` | 进入本地模式（见下节） |
+| `!ai-ssh remote` | 退出本地模式，恢复远程 stdin |
+| `!ai-ssh suspend` | 必要时自动落库 → 挂起会话并断开 |
+| `!ai-ssh get <remote> [<local>]` | 经 SFTP 从当前 SSH 连接下载单个文件（不重新认证）；省略 local 时默认为 `./basename`；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
+| `!ai-ssh put <local> [<remote>]` | 经 SFTP 向当前 SSH 连接上传单个文件（不重新认证）；省略 remote 时默认为 `./basename`（本地源文件名）；相对 remote 路径在 SFTP 前按 **active shell** cwd 解析 |
+| `!ai-ssh chain [on\|off]` | 切换链式模式：使用 PTY 管道注入替代 SFTP 进行文件传输和 tmux 操作；当已 SSH 超越直连主机时需要 |
 
 **识别规则：**
 
-- 字节级 `metaScanner`：严格匹配 opener（`!ait ai `、`!ait local`、`!! ` 等）；行内出现 `!` 亦进入 holding，避免远程 zsh 在无换行提示符下吞掉 `!ait`。
-- `aiAvailable == false`（未配置 API Key）时 fail-closed：行首 `!!…` / `!ait…` 不进远程；仅**非空** AI 问题才 stderr 提示配置 key；空问题只打印 usage。
+- 字节级 `metaScanner`：严格匹配 opener（`!ai-ssh ai `、`!ai-ssh local`、`!! ` 等）；行内出现 `!` 亦进入 holding，避免远程 zsh 在无换行提示符下吞掉 `!ai-ssh`。
+- `aiAvailable == false`（未配置 API Key）时 fail-closed：行首 `!!…` / `!ai-ssh…` 不进远程；仅**非空** AI 问题才 stderr 提示配置 key；空问题只打印 usage。
 - meta 行由本地 echo，不写入远程 PTY；用户可见消息经 `termPrintln` / `aitModeNotice` 使用 `termEOL`（`\r\n`）适配 raw TTY。
 
 ### login
@@ -350,7 +350,7 @@ sequenceDiagram
   participant CLI as ait_login
   participant DB as sqlite
   participant SSH as ssh_client
-  User->>CLI: ait login --save user@host
+  User->>CLI: ai-ssh login --save user@host
   CLI->>DB: upsert session
   CLI->>SSH: Dial and PTY
   loop interactive
@@ -372,12 +372,12 @@ sequenceDiagram
 
 - **配置解析**：`internal/pkg/ssh/args` 调用本机 `ssh -G`（`platform.OpenSSHPath`：Linux/macOS PATH；Windows 另试 `System32\OpenSSH\ssh.exe`）
 - **拨号**：`client.DialChain` 支持 `ProxyJump` / `ProxyCommand`（Unix `sh -c`，Windows `cmd /c`）
-- **一次性命令**：`ait login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的**无 alias** 连接键即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
-- 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；否则保持 ephemeral，直至首次 `!ait suspend` / `!ait login` / `!ait load` / `!ait session --switch` 时自动落库（D1 dedupe）
+- **一次性命令**：`ai-ssh login host cmd` → `RunRemoteCommand`，退出码透传；**新主机**无 `--save`/`--alias` 时不写 SQLite。对已存在的**无 alias** 连接键即使无上述 flag 也会更新该行（刷新 auth TTL、设置 current session）；新主机带 `--save` 或 `--alias` 会 upsert 并设为 **current session**（`app_meta.current_session_id`），便于后续 `session --load` / `--switch`。
+- 交互式 login 在 `--save`/`--alias` 或连接已存在时写入/更新会话行；否则保持 ephemeral，直至首次 `!ai-ssh suspend` / `!ai-ssh login` / `!ai-ssh load` / `!ai-ssh session --switch` 时自动落库（D1 dedupe）
 - PS1 setup 结束后，本地终端立即显示远程 AiT 提示符（缓冲 emit 或 refresh 回显，非静态占位符）
 - 认证顺序：`-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
 
-### 本地模式（!ait local / remote）
+### 本地模式（!ai-ssh local / remote）
 
 SSH 连接与子 shell **保持**；stdin 在本地 PTY 与远程 `stdin` 间切换，远程 stdout 在本地模式下暂停显示（仍写入 scrollback）。
 
@@ -403,11 +403,11 @@ flowchart LR
 
 ### suspend / list / load
 
-- **suspend**：`!ait suspend`；tmux 模式先 detach；写 `session_state`（可选 scrollback/cwd）→ 关 SSH
+- **suspend**：`!ai-ssh suspend`；tmux 模式先 detach；写 `session_state`（可选 scrollback/cwd）→ 关 SSH
 - **list**：表格输出 `#`、`ID`（alias 或 8 位前缀）、`TARGET`（`user@host:port`）、`STATUS`、`TMUX`、`REMAINING`（auth TTL）；`-v` 增加 `FULL_ID`（`--load` / `--switch` 请用 alias 或完整 UUID，勿用 ID 列短码）
 - **load**：TTL 校验 →（过期则读密码）→ 重连 → 将已保存 scrollback 种子写入内存（屏幕仅 MOTD + AiT 提示符）、恢复 cwd 或 `--tmux` attach → 更新 `current_session_id`
-- **switch**：当前会话为 `active` 且未 `--force` 时阻断并 errhint；`--force` 时仅标记当前 suspended、不保存 scrollback/cwd → `Load(target)`；目标与当前相同则 no-op 并提示（**standalone CLI**；SSH 内 `!ait session --switch` 在 suspend 后选同一会话会 **重连**）
-- **交互 picker**（`session --load` / `--switch` 无参，及 SSH 链式 `!ait load` / `!ait session --switch`）：在 raw TTY 下列表并读行（CRLF 输出）；Ctrl+C 取消并返回 errhint（`session pick cancelled`）；**picker 结束后 drain stdin**，避免残留输入进入下一次 SSH。`ait shell` 内 `load` 仍使用 REPL 已有 raw TTY，不重复切换，picker 后同样 drain。
+- **switch**：当前会话为 `active` 且未 `--force` 时阻断并 errhint；`--force` 时仅标记当前 suspended、不保存 scrollback/cwd → `Load(target)`；目标与当前相同则 no-op 并提示（**standalone CLI**；SSH 内 `!ai-ssh session --switch` 在 suspend 后选同一会话会 **重连**）
+- **交互 picker**（`session --load` / `--switch` 无参，及 SSH 链式 `!ai-ssh load` / `!ai-ssh session --switch`）：在 raw TTY 下列表并读行（CRLF 输出）；Ctrl+C 取消并返回 errhint（`session pick cancelled`）；**picker 结束后 drain stdin**，避免残留输入进入下一次 SSH。`ai-ssh shell` 内 `load` 仍使用 REPL 已有 raw TTY，不重复切换，picker 后同样 drain。
 - **Setup echo 过滤**：重连/login 后**泄漏过滤**（最长 30s）吞掉泄漏的 inject/PS1 片段（`stty echo`、`AITPWDEND`、PS1 目录/git 段、折行片段及 ZLE 重绘残留的单字符行），含跨 chunk 的不完整行；过滤窗口内 scrollback 与 stdout 写入相同过滤结果。**击键 grace** 在首次转发用户字节时结束，单字节回显直通，泄漏过滤继续。[`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) 在见到 ready 哨兵但远端无回显时**客户端绘制**首帧 AiT 提示符；`remotePromptShown` 为真才解除 `pauseRemoteOut`。`stdinReader` 仅在远端 setup 完成后启动。
 - **Scrollback 泄漏清理**：suspend 保存 scrollback 前过滤泄漏的 setup/探针回显行（含单字符噪声行）；`session --load` / `--switch` **种子写入**已保存 scrollback 时再次净化（剥提示符行；不写终端），屏幕不会重现历史污染。
 
@@ -437,11 +437,11 @@ sequenceDiagram
 ### session 清理
 
 ```text
-ait session --delete all         # 删除全部 sessions + session_state + sidecar + keyring 条目
-ait session --delete <id|alias>  # 删除单条；存在则确认提示（--force 跳过）
+ai-ssh session --delete all         # 删除全部 sessions + session_state + sidecar + keyring 条目
+ai-ssh session --delete <id|alias>  # 删除单条；存在则确认提示（--force 跳过）
 ```
 
-Cobra 结构：`ait session` 的 **`--delete` 为 string flag**（`--delete all` 或 `--delete <id|alias>`），非 `delete` 子命令树。`all` 须二次确认，除非 `--force`。
+Cobra 结构：`ai-ssh session` 的 **`--delete` 为 string flag**（`--delete all` 或 `--delete <id|alias>`），非 `delete` 子命令树。`all` 须二次确认，除非 `--force`。
 
 - `delete all`：事务内清空两表；遍历数据目录删除 scrollback 文件；批量清除 keyring `ait/session/*`
 - `delete <id|alias>`：`ON DELETE CASCADE` 清理 `session_state`；删对应 sidecar 与 keyring 项
@@ -477,14 +477,14 @@ sequenceDiagram
 
 **TTY 进度**（stderr，raw TTY 下 CRLF 安全）：`get … → …` / `put … → …`，可选 `handshake…`，再 **`copying… N%`**（SFTP 与链式 ZMODEM 均在同一行内刷新）。100% 后：SFTP 显示 **`closing…`**；链式 ZMODEM 显示 **`finishing…`**（get/put 对称，含链式 put 上传完成后收尾）；随后 **`done: get …`** / **`done: put …`**。传输中 Ctrl+C 可在数秒内取消。
 
-会话内 `!ait get`/`put` 使用**统一路由**：**直连**（chain 关闭、与拨号目标同 host）始终 **SFTP**；**链式**（active shell 比拨号目标更深）探测 `sz`/`rz`，有则 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**；链式且无 lrzsz 时给出安装指引，交互 TTY 下 `[y/N]` 授权后可自动安装（Linux/macOS/Windows 包管理器，可能需要远端 `sudo`）。ZMODEM 使用专用 PTY 注入（无 `stty` 包装）；握手失败约 30s 超时；直连 ZMODEM 失败时可回退 SFTP。ZMODEM 完成后 AiT 会短暂抑制 stdout、drain 延迟 PTY 尾部并从 scrollback 剥离已知协议片段，避免 teardown 乱码上屏。
+会话内 `!ai-ssh get`/`put` 使用**统一路由**：**直连**（chain 关闭、与拨号目标同 host）始终 **SFTP**；**链式**（active shell 比拨号目标更深）探测 `sz`/`rz`，有则 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**；链式且无 lrzsz 时给出安装指引，交互 TTY 下 `[y/N]` 授权后可自动安装（Linux/macOS/Windows 包管理器，可能需要远端 `sudo`）。ZMODEM 使用专用 PTY 注入（无 `stty` 包装）；握手失败约 30s 超时；直连 ZMODEM 失败时可回退 SFTP。ZMODEM 完成后 AiT 会短暂抑制 stdout、drain 延迟 PTY 尾部并从 scrollback 剥离已知协议片段，避免 teardown 乱码上屏。
 
-当用户在会话内手动 SSH 超越拨号目标时，SFTP 只能到达拨号目标。**链式模式**（`!ait chain on` 或主机名不匹配时自动启用）必须经 PTY **ZMODEM**。**login ProxyJump** 不等于链式：`DialChain` 到最终主机后，无 lrzsz 时回退 SFTP，与独立 `ait get`/`put` 一致。AiT 客户端本地为纯 Go 协议栈，无需安装 lrzsz。
+当用户在会话内手动 SSH 超越拨号目标时，SFTP 只能到达拨号目标。**链式模式**（`!ai-ssh chain on` 或主机名不匹配时自动启用）必须经 PTY **ZMODEM**。**login ProxyJump** 不等于链式：`DialChain` 到最终主机后，无 lrzsz 时回退 SFTP，与独立 `ai-ssh get`/`put` 一致。AiT 客户端本地为纯 Go 协议栈，无需安装 lrzsz。
 
 | 模式 | 命令 | 认证 |
 |------|------|------|
-| 独立 CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/parse/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/resolve/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go)（与 login 相同认证，含密码提示） |
-| SSH 会话内 | `!ait get …` / `!ait put …` | 复用 [`handleMetaLine`](../internal/pkg/ssh/client/client.go) / [`client_transfer.go`](../internal/pkg/ssh/client/client_transfer.go) 的**当前连接**，**不二次拨号** |
+| 独立 CLI | `ai-ssh get [flags] <paths…>` / `ai-ssh put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/parse/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/resolve/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go)（与 login 相同认证，含密码提示） |
+| SSH 会话内 | `!ai-ssh get …` / `!ai-ssh put …` | 复用 [`handleMetaLine`](../internal/pkg/ssh/client/client.go) / [`client_transfer.go`](../internal/pkg/ssh/client/client_transfer.go) 的**当前连接**，**不二次拨号** |
 
 **独立 CLI 参数与路径**（flag 与路径**顺序无关**；支持粘连如 `-p22`、`-i~/.ssh/id`）：
 
@@ -493,18 +493,18 @@ sequenceDiagram
 - **单路径（get）**：`user@host:/remote/file` — 本地默认 `./basename`
 - **单路径（put）**：`user@host:/remote/file` — 本地默认 `./basename`；或 `./local/file` 配合 `--session` — 远程默认 `./basename`
 - **两个路径**：`user@host:/remote/file` 与本地路径，顺序任意
-- **三个路径**：`destination` + 远程文件路径 + 本地路径（顺序任意），例如 `ait get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
+- **三个路径**：`destination` + 远程文件路径 + 本地路径（顺序任意），例如 `ai-ssh get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
 - **两个路径 + `--session`**：本地路径与远程服务器路径（顺序无关；通过 `./` 或本地已存在文件识别本地路径）
 
-**会话内**（`!ait get` / `!ait put`）：get 为 remote + 可选 local（默认 remote basename）；put 为 local + 可选 remote（默认 local basename）；相对 remote 在传输前按 active shell cwd 解析；不支持 SSH flag。
+**会话内**（`!ai-ssh get` / `!ai-ssh put`）：get 为 remote + 可选 local（默认 remote basename）；put 为 local + 可选 remote（默认 local basename）；相对 remote 在传输前按 active shell cwd 解析；不支持 SSH flag。
 
-### 代理链式模式（!ait chain）
+### 代理链式模式（!ai-ssh chain）
 
-**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ait get`/`put` 默认 **SFTP**，与独立 `ait get`/`put` 一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
+**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ai-ssh get`/`put` 默认 **SFTP**，与独立 `ai-ssh get`/`put` 一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
 
 当连接路径为 `本地 → 堡垒机`（login）再手动 `ssh internal` 时，AiT `Client` 仅持有到堡垒机的直连 SSH 会话。SFTP（`conn.NewSession()`）及基于 `conn.NewSession()` 的 tmux 操作只能到达该拨号目标——**无法**直接到达 internal。已通过 PTY 管道工作的功能（AI 模式 `!!`、scrollback 捕获、远程 cwd 检测）不受跳板数量影响，因为 PTY stdin/stdout 穿越所有 SSH 连接。
 
-**链式模式**（`!ait chain on`，嵌套 SSH 时会话内 `ssh` 成功后自动启用，或传输检测到主机名不一致时自动启用）将文件传输和 tmux 操作从 SFTP/直连会话切换为 PTY 管道注入。会话内简单 `ssh user@host` 在见到 MOTD 且输出安静后，还会在内层 shell 注入与 login 相同的 AiT `PS1`/`PROMPT`（`session.remote_prompt.path` 一致）。所有 AiT 注入的命令均为静默（在历史记录和终端中不可见）：
+**链式模式**（`!ai-ssh chain on`，嵌套 SSH 时会话内 `ssh` 成功后自动启用，或传输检测到主机名不一致时自动启用）将文件传输和 tmux 操作从 SFTP/直连会话切换为 PTY 管道注入。会话内简单 `ssh user@host` 在见到 MOTD 且输出安静后，还会在内层 shell 注入与 login 相同的 AiT `PS1`/`PROMPT`（`session.remote_prompt.path` 一致）。所有 AiT 注入的命令均为静默（在历史记录和终端中不可见）：
 
 | 层 | 机制 |
 |----|------|
@@ -529,15 +529,15 @@ flowchart LR
     PTYPut[PTY ZMODEM put]
     PTYTmux[PTY tmux 操作]
   end
-  User[用户] -->|!ait chain on| chain
-  User -->|!ait chain off| direct
+  User[用户] -->|!ai-ssh chain on| chain
+  User -->|!ai-ssh chain off| direct
 ```
 
 | 功能 | 直连模式（chain off） | 链式模式（chain on） |
 |------|----------------------|---------------------|
-| `!ait get` / `!ait put` | SFTP（直连） | ZMODEM；否则安装 lrzsz（提示） |
+| `!ai-ssh get` / `!ai-ssh put` | SFTP（直连） | ZMODEM；否则安装 lrzsz（提示） |
 | tmux `--tmux` | `conn.NewSession()` | PTY 注入（`HasSessionViaPTY` 等） |
-| AI `!!` / `!ait ai` | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
+| AI `!!` / `!ai-ssh ai` | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
 | Scrollback / cwd | PTY 管道（两种模式均可） | PTY 管道（两种模式均可） |
 | 远程要求 | 标准 | active shell 上 **lrzsz**（`sz`/`rz`，Unix-like） |
 
@@ -545,30 +545,30 @@ flowchart LR
 
 ### AI 模式（双作用域）
 
-包：[`internal/ait/ai/mode/`](../internal/ait/ai/mode/)（REPL、授权策略、Runner）；单轮：[`internal/ait/ai/ask/`](../internal/ait/ai/ask/)、[`internal/ait/ai/agent/`](../internal/ait/ai/agent/)；对话 API：[`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go)。远程入口经 `InteractiveOpts.OnRemoteAI` 由 [`internal/ait/ai/cmd.go`](../internal/ait/ai/cmd.go) 注入（避免 import 环）。
+包：[`internal/ai-ssh/ai/mode/`](../internal/ai-ssh/ai/mode/)（REPL、授权策略、Runner）；单轮：[`internal/ai-ssh/ai/ask/`](../internal/ai-ssh/ai/ask/)、[`internal/ai-ssh/ai/agent/`](../internal/ai-ssh/ai/agent/)；对话 API：[`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go)。远程入口经 `InteractiveOpts.OnRemoteAI` 由 [`internal/ai-ssh/ai/cmd.go`](../internal/ai-ssh/ai/cmd.go) 注入（避免 import 环）。
 
 | 入口 | 作用域 | 提示符 | 命令执行 |
 |------|--------|--------|----------|
-| `ait ai`、`ait shell` 内 `ai` | 本机 | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run` → 本机 shell；`ait` → 确认后跑 Cobra |
-| SSH 内 `!ait ai`、`!!` | 远程 | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
+| `ai-ssh ai`、`ai-ssh shell` 内 `ai` | 本机 | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run` → 本机 shell；`ai-ssh` → 确认后跑 Cobra |
+| SSH 内 `!ai-ssh ai`、`!!` | 远程 | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` | `run` → PTY stdin（`cmd\n`）；不在本机 exec 远程任务 |
 
-**REPL：** `help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **agent** 规划并执行；**`mode ask`** 仅问答）、`approve each|session`（默认 **each**；**session** 低危首次同意后免问；`trust` 同 session）、`model`（路由状态）、`model list`、`model <云端-provider>`（`model ollama` 拒绝）、自然语言（Ask→`Chat`；Agent→工具循环）、`run` / 本机 `ait`。已弃用：`policy per-cmd|once` → `approve`（stderr 提示）。
+**REPL：** `help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **agent** 规划并执行；**`mode ask`** 仅问答）、`approve each|session`（默认 **each**；**session** 低危首次同意后免问；`trust` 同 session）、`model`（路由状态）、`model list`、`model <云端-provider>`（`model ollama` 拒绝）、自然语言（Ask→`Chat`；Agent→工具循环）、`run` / 本机 `ai-ssh`。已弃用：`policy per-cmd|once` → `approve`（stderr 提示）。
 
 **Agent 执行：** 支持 OpenAI tools 的走 function calling，否则 JSON。**只读命令**（如 `ls`、`git status`）在 Agent 模式下自动执行；写命令与高危及 Ask 模式行为仍须 `[y/N]` 确认。远程 `run_shell` 用 PTY+scrollback 截取；本机 `CombinedOutput`。交互式 TUI（`vim`/`less`/`top` 等）不自动执行。高危命令在 `approve session` 下仍逐条确认。
 
 **多 provider 配置：** YAML `ai` 含 `default`（仅云端：`deepseek` 或 `minimax`）、可选 `fallback`、可选 `tiered`（`enabled`、`local_provider`、`max_prompt_chars`、`max_history_turns`、`complex_keywords`）、各 `providers.<id>`。旧版顶层 `deepseek:` 并入 `ai.providers.deepseek`。MiniMax 支持 `openai` / `anthropic`。Ollama 为 OpenAI 兼容 `http://127.0.0.1:11434/v1`（允许 localhost HTTP，无需 API key）。tiered 开启时 `ClassifyPrompt` 将简单首轮发往 Ollama；否则 Chat/Assist 按云端顺序（`--model` / REPL `model`，否则 `ai.default`，再 fallback）。Ollama 失败升到云端。`SuggestInstall` 始终走云端。系统提示注入事实字段 `ai_provider`、`ai_model`、`ai_mode`（`local_first` | `cloud_only`），避免模型编造后端。`AIT_AI_FAILOVER_LOG=1` 可在 stderr 打印切换。
 
-**模型列表：** `ait ai model list` 与 REPL `model list` 输出已配置 provider（密钥、**ENABLED**、角色、可达性）及可选 Ollama tags。禁用的 provider 不会收到任何 Chat/Assist 请求。
+**模型列表：** `ai-ssh ai model list` 与 REPL `model list` 输出已配置 provider（密钥、**ENABLED**、角色、可达性）及可选 Ollama tags。禁用的 provider 不会收到任何 Chat/Assist 请求。
 
-**启用/禁用：** `ai.providers.<id>.enabled`（YAML 省略视为 true）。`ait ai provider disable minimax` 停止走 MiniMax；`ait ai provider enable ollama` 重新启用路由；完整本地安装用 `ait ai ollama setup`（缺失时 [y/N] 安装确认；拒绝则打印手动安装说明）。
+**启用/禁用：** `ai.providers.<id>.enabled`（YAML 省略视为 true）。`ai-ssh ai provider disable minimax` 停止走 MiniMax；`ai-ssh ai provider enable ollama` 重新启用路由；完整本地安装用 `ai-ssh ai ollama setup`（缺失时 [y/N] 安装确认；拒绝则打印手动安装说明）。
 
-**Ollama CLI（`ait ai ollama`）：** `setup` 交互选择 `models_dir`（`OLLAMA_MODELS`；备选 AiT 数据目录、`~/.ollama/models`、自定义；`--models-dir`）；写入 tiered 与 ollama 并探测/安装/拉模型；`status` 查配置与服务；`start`/`stop` 控制 `ollama serve`；`disable` 禁用 provider（可选 `--stop`）。见 [`internal/pkg/ollama/`](../internal/pkg/ollama/)。
+**Ollama CLI（`ai-ssh ai ollama`）：** `setup` 交互选择 `models_dir`（`OLLAMA_MODELS`；备选 AiT 数据目录、`~/.ollama/models`、自定义；`--models-dir`）；写入 tiered 与 ollama 并探测/安装/拉模型；`status` 查配置与服务；`start`/`stop` 控制 `ollama serve`；`disable` 禁用 provider（可选 `--stop`）。见 [`internal/pkg/ollama/`](../internal/pkg/ollama/)。
 
 **授权：** 每次执行前多行确认：`y` 仅本次，`c` 信任首词模式，`s` 信任本会话低危，`n` 跳过（高危仅 y/n）。`approve each`/`approve session` 命令不变；`exit`/`quit` 清除信任。
 
-**单轮 ask：** `ait ai ask` 与 `!ait ai ask <msg>` / `!! ask <msg>` 走 [`ai/mode/chat`](../internal/ait/ai/mode/chat/) 的 `RunOnce`（单次对话，不进 REPL）；空 `ask` 返回 `ask requires a message`。
+**单轮 ask：** `ai-ssh ai ask` 与 `!ai-ssh ai ask <msg>` / `!! ask <msg>` 走 [`ai/mode/chat`](../internal/ai-ssh/ai/mode/chat/) 的 `RunOnce`（单次对话，不进 REPL）；空 `ask` 返回 `ask requires a message`。
 
-**SSH：** `handleAIMetaLine` 同步 `RunREPL` 并 `pauseRemoteOut`；不再异步单次 `Assist`。`!ait ai` / `!!` 后可跟首条问题，或 `ask <msg>` / `agent <msg>` 单轮。
+**SSH：** `handleAIMetaLine` 同步 `RunREPL` 并 `pauseRemoteOut`；不再异步单次 `Assist`。`!ai-ssh ai` / `!!` 后可跟首条问题，或 `ask <msg>` / `agent <msg>` 单轮。
 
 **安装建议**（不变）：`platform.LookPath` 失败时由 `SuggestInstall` 提示安装方式。
 
@@ -595,7 +595,7 @@ flowchart LR
 - `github.com/cloudwego/eino`、`github.com/cloudwego/eino-ext/components/model/openai` — 多 provider ChatModel（OpenAI 兼容 + failover）
 - `gopkg.in/yaml.v3` — 配置
 
-间接：`github.com/creack/pty`（Unix 本地模式 `!ait local`）。
+间接：`github.com/creack/pty`（Unix 本地模式 `!ai-ssh local`）。
 
 新增依赖时优先 stdlib + `x/` 扩展，见项目规则。
 
@@ -607,7 +607,7 @@ flowchart LR
 | `ssh/client` | meta 行、hostkeys、prompt、localmode、auth |
 | `ssh/args` | parse/resolve、`ssh -G`（需本机 `ssh` 时 skip） |
 | `session` | TTL/密码提示逻辑 |
-| `ait` | REPL、shell 行解析、login help |
+| `ai-ssh` | REPL、shell 行解析、login help |
 | `terminal`, `ai`, `config`, `transfer`, `platform`, `pathsafe` | 单元测试 |
 
 门禁：`make test`、`make vet`；`make test-cross` 对五平台（linux/darwin/windows × amd64/arm64）`go build ./...`。
@@ -616,12 +616,12 @@ flowchart LR
 
 以下能力已在当前代码库中实现：
 
-- [x] Cobra CLI、`ait shell` REPL、config/keyring、`session.auth_ttl`
+- [x] Cobra CLI、`ai-ssh shell` REPL、config/keyring、`session.auth_ttl`
 - [x] `login` / 交互 SSH、`ssh/args` + `ssh/client`（含 ProxyJump/Command）
 - [x] `suspend` / `list` / `load` / `session --switch` / `session --delete`
 - [x] `--tmux` 远程保活
-- [x] `get` / `put`（SFTP，单文件）与双作用域 AI 模式（`ait ai`、`!ait ai` / `!!`）
-- [x] 代理链式模式（`!ait chain on/off`）——经 PTY 管道注入实现多跳 SSH 的文件传输与 tmux
+- [x] `get` / `put`（SFTP，单文件）与双作用域 AI 模式（`ai-ssh ai`、`!ai-ssh ai` / `!!`）
+- [x] 代理链式模式（`!ai-ssh chain on/off`）——经 PTY 管道注入实现多跳 SSH 的文件传输与 tmux
 - [x] 跨平台构建（含 Windows OpenSSH 探测、分文件 proxy/resize）
 
 ## 风险与缓解
@@ -634,7 +634,7 @@ flowchart LR
 
 ## 交付物
 
-- 可执行 `bin/ait`（`make build`）
+- 可执行 `bin/ai-ssh`（`make build`）
 - [`configs/ait.example.yaml`](../configs/ait.example.yaml) 配置模板
 - 用户说明：[`README.zh-CN.md`](../README.zh-CN.md)、[`docs/user-manual.zh-CN.md`](user-manual.zh-CN.md)；代码结构：[`AGENTS.zh-CN.md`](../AGENTS.zh-CN.md)
 - `make test` / `make vet` / `make test-cross` 通过

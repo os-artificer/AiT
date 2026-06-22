@@ -19,6 +19,8 @@ package helpdoc
 import (
 	"fmt"
 	"io"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const transferIntro = "Download or upload a single file via SFTP (OpenSSH-compatible flags)."
@@ -31,9 +33,9 @@ const transferPaths = `  user@host:/remote/file              (get: local default
   with --session: get remote [/local]; put local [/remote] on the saved session host
 `
 
-const transferFlagOrder = `  Flags and paths may appear in any order (same rules as ait login).
+var transferFlagOrder = fmt.Sprintf(`  Flags and paths may appear in any order (same rules as %s login).
   Glued forms are supported: -p22, -i~/.ssh/id_ed25519
-`
+`, toolname.AISsh)
 
 const transferAITFlags = `  --session NAME   use a saved session (remote path may omit user@host)
   --password P     SSH password (stored in OS keyring when using --session)
@@ -53,7 +55,7 @@ func WriteTransferHelp(w io.Writer, cmdName string) error {
 	if err := b.WriteIntro(intro, transferNote); err != nil {
 		return err
 	}
-	if err := b.WriteUsage(fmt.Sprintf("ait %s [flags] <paths...>", cmdName)); err != nil {
+	if err := b.WriteUsage(fmt.Sprintf("%s %s [flags] <paths...>", toolname.AISsh, cmdName)); err != nil {
 		return err
 	}
 	if err := b.WriteSection(SectionPaths, transferPaths); err != nil {
@@ -68,7 +70,7 @@ func WriteTransferHelp(w io.Writer, cmdName string) error {
 	if err := b.WriteSection(SectionAITFlags, transferAITFlags); err != nil {
 		return err
 	}
-	notSupTitle := fmt.Sprintf("Not supported by ait %s (use the system ssh client instead)", cmdName)
+	notSupTitle := fmt.Sprintf("Not supported by %s %s (use the system ssh client instead)", toolname.AISsh, cmdName)
 	if err := b.WriteSection(notSupTitle, SectionOpenSSHNotSupported); err != nil {
 		return err
 	}
@@ -82,16 +84,16 @@ func WriteTransferHelp(w io.Writer, cmdName string) error {
 func transferExamples(cmdName string) []string {
 	if cmdName == "put" {
 		return []string{
-			"ait put user@host:/opt/app",
-			"ait put -p22 -i~/.ssh/id ./bin/app user@host:/usr/local/bin/app",
-			"ait put deploy@10.0.0.5 ./local.bin /opt/app/bin",
-			"ait put ./patch.tar /tmp/patch.tar --session prod",
+			toolname.CLI("put user@host:/opt/app"),
+			toolname.CLI("put -p22 -i~/.ssh/id ./bin/app user@host:/usr/local/bin/app"),
+			toolname.CLI("put deploy@10.0.0.5 ./local.bin /opt/app/bin"),
+			toolname.CLI("put ./patch.tar /tmp/patch.tar --session prod"),
 		}
 	}
 	return []string{
-		"ait get user@deploy:/var/log/app.log",
-		"ait get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log",
-		"ait get deploy@10.0.0.5 /var/log/app.log ./app.log",
-		"ait get ./app.log /var/log/app.log --session prod",
+		toolname.CLI("get user@deploy:/var/log/app.log"),
+		toolname.CLI("get -p22 -i~/.ssh/id ./app.log user@deploy:/var/log/app.log"),
+		toolname.CLI("get deploy@10.0.0.5 /var/log/app.log ./app.log"),
+		toolname.CLI("get ./app.log /var/log/app.log --session prod"),
 	}
 }

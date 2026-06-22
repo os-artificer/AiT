@@ -25,7 +25,7 @@ const (
 // Errhint sentinels (errors.Is / WithTry first line — do not change wording).
 const (
 	errInvalidSelection                = "invalid selection"
-	errEphemeralSuspendRequiresPersist = "suspend requires a saved session; use ait login --save or --alias <name>"
+	errEphemeralSuspendRequiresPersist = "suspend requires a saved session; use ai-ssh login --save or --alias <name>"
 	errNoSavedSessions                 = "no saved sessions"
 	errNoCurrentSession                = "no current session"
 	errNonInteractiveTerminal          = "non-interactive terminal"
@@ -88,7 +88,7 @@ const (
 // Stdout/stderr notices.
 const (
 	msgSuspendLocalUnsupported = "Suspend from the local shell is not supported."
-	msgSuspendLocalUseSSH      = "Reconnect to the session and run !ait suspend inside SSH."
+	msgSuspendLocalUseSSH      = "Reconnect to the session and run !ai-ssh suspend inside SSH."
 	msgAlreadyOnSessionFmt     = "already on session %s"
 	warnSwitchWithoutSuspend   = "warning: switching without suspend; marking current session suspended"
 	errTmuxEnsureFmt           = "tmux: %w (is tmux installed on remote?)"

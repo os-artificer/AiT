@@ -56,7 +56,7 @@ type Manager struct {
 	Config     *config.Config
 	AI         *ai.Client
 	OnRemoteAI sshclient.RemoteAIRunner
-	// MetaCLI runs ait subcommands from in-session !ait lines (set by internal/ait).
+	// MetaCLI runs ai-ssh subcommands from in-session !ai-ssh lines (set by internal/ai-ssh).
 	MetaCLI func(args []string) error
 }
 

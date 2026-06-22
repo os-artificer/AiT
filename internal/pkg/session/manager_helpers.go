@@ -188,7 +188,7 @@ func (m *Manager) scrollbackDataForReplay(sess *store.Session, st *store.Session
 }
 
 // suspendOtherActiveSessions marks every active session row except exceptID as suspended.
-// Used when load/login activates a new foreground session without an explicit !ait suspend
+// Used when load/login activates a new foreground session without an explicit !ai-ssh suspend
 // (status-only demotion; does not save scrollback).
 func (m *Manager) suspendOtherActiveSessions(exceptID string) error {
 	if m == nil || m.Store == nil {

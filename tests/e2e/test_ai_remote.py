@@ -1,4 +1,4 @@
-"""Remote AI via !! and !ait ai ask (R19)."""
+"""Remote AI via !! and !ai-ssh ai ask (R19)."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def test_remote_ai_bang_enters_repl(ai_remote_session):
 
 
 def test_remote_ai_bare_enters_repl(ai_remote_session):
-    ai_remote_session.child.sendline("!ait ai")
+    ai_remote_session.child.sendline("!ai-ssh ai")
     ai_remote_session.child.expect(r"AiT AI\([^)]+\)", timeout=120)
     ai_remote_session.child.sendline("mode")
     ai_remote_session.child.expect(r"agent", timeout=30)
@@ -42,7 +42,7 @@ def test_remote_ai_bare_enters_repl(ai_remote_session):
 
 
 def test_remote_ai_agent_bare_enters_repl(ai_remote_session):
-    ai_remote_session.child.sendline("!ait ai agent")
+    ai_remote_session.child.sendline("!ai-ssh ai agent")
     ai_remote_session.child.expect(r"AiT AI\([^)]+\)", timeout=120)
     ai_remote_session.child.sendline("mode")
     ai_remote_session.child.expect(r"agent", timeout=30)

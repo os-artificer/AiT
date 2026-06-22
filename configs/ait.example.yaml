@@ -1,5 +1,5 @@
 # AiT example configuration
-# Copy to AppRoot as config.yaml (see docs/design.md); or: ait config init / ait config edit / ait config validate
+# Copy to AppRoot as config.yaml (see docs/design.md); or: ai-ssh config init / ai-ssh config edit / ai-ssh config validate
 
 session:
   # Authentication cache TTL for load/switch without re-entering password
@@ -22,11 +22,11 @@ ai:
     max_steps: 16
   providers:
     ollama:
-      enabled: true   # ait ai provider disable ollama to stop local routing
+      enabled: true   # ai-ssh ai provider disable ollama to stop local routing
       api_style: openai
       base_url: http://127.0.0.1:11434/v1
       model: llama3.2
-      # models_dir: /path/to/ollama/models   # OLLAMA_MODELS; set via ait ai ollama setup
+      # models_dir: /path/to/ollama/models   # OLLAMA_MODELS; set via ai-ssh ai ollama setup
     deepseek:
       enabled: true
       api_style: openai
@@ -39,10 +39,10 @@ ai:
       model: MiniMax-M2.5
 
 # API keys (OS keyring, not in this file):
-#   ait config set ai.deepseek.api_key <key>
-#   ait config set ai.minimax.api_key <key>
+#   ai-ssh config set ai.deepseek.api_key <key>
+#   ai-ssh config set ai.minimax.api_key <key>
 # Ollama does not need a key when tiered is enabled.
-# Quick setup: ait ai ollama setup   (choose models_dir; or --models-dir)
-# Providers: ait ai provider enable|disable <deepseek|minimax|ollama>
-# Status/service: ait ai ollama status | start --wait | stop | disable
-# List providers: positional meta on `ait ai` (e.g. `ait ai model list`), not a top-level `ait models`
+# Quick setup: ai-ssh ai ollama setup   (choose models_dir; or --models-dir)
+# Providers: ai-ssh ai provider enable|disable <deepseek|minimax|ollama>
+# Status/service: ai-ssh ai ollama status | start --wait | stop | disable
+# List providers: positional meta on `ait ai` (e.g. `ai-ssh ai model list`), not a top-level `ait models`

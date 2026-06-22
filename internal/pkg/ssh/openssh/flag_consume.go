@@ -27,7 +27,7 @@ import (
 func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 	arg := argv[i]
 	if msg, ok := unsupportedFlags[arg]; ok {
-		return i, fmt.Errorf("%s is not supported by ait %s; use the system ssh client", msg, cmdLabel)
+		return i, fmt.Errorf("%s is not supported by ai-ssh %s; use the system ssh client", msg, cmdLabel)
 	}
 	if noopFlags[arg] {
 		return i, nil

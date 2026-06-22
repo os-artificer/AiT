@@ -30,7 +30,7 @@ func TestUnknownConfigKeyErr_Format(t *testing.T) {
 	if !strings.Contains(s, "Try:") {
 		t.Fatalf("missing Try block: %q", s)
 	}
-	if !strings.Contains(s, "ait config set --help") {
+	if !strings.Contains(s, "ai-ssh config set --help") {
 		t.Fatalf("missing config help try line: %q", s)
 	}
 }

@@ -6,7 +6,8 @@ This file records **product and CLI** functional changes only; documentation-onl
 
 ## [Unreleased]
 
-- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `ait ai agent` one-shot now wires Capture/CLI/MaxSteps like REPL.
+- **CLI rename:** Toolbox first tool is `ai-ssh` (`bin/ai-ssh`, in-session `!ai-ssh` meta); default data root `~/.local/share/AiT` with automatic migration from legacy `share/ait`; keyring service `AiT` with lazy read from legacy `ait`.
+- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `ai-ssh ai agent` one-shot now wires Capture/CLI/MaxSteps like REPL.
 
 ## [v1.0.0-beta.2]
 
@@ -15,6 +16,6 @@ This file records **product and CLI** functional changes only; documentation-onl
 
 ## v1.0.0-beta.1
 
-- 【Added】AI-enhanced SSH client: activate AI in an SSH session via `!! 'question'`, `!ait ai ask`, `!ait ai agent`, or `!ait ai`.
-- 【Added】Built-in file transfer: download and upload files in an SSH session via `!ait get` / `!ait put`.
+- 【Added】AI-enhanced SSH client: activate AI in an SSH session via `!! 'question'`, `!ai-ssh ai ask`, `!ai-ssh ai agent`, or `!ai-ssh ai`.
+- 【Added】Built-in file transfer: download and upload files in an SSH session via `!ai-ssh get` / `!ai-ssh put`.
 - 【Added】Switch between local and remote modes at any time within an SSH session.

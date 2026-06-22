@@ -59,7 +59,7 @@ const (
 	errNoCloudProvidersWithKeys = "no enabled cloud AI providers with API keys configured"
 	errCannotSetOllamaSession   = "cannot set session provider to ollama (local routing is automatic when tiered is enabled)"
 	errUnknownCloudProviderFmt  = "unknown cloud provider %q"
-	errProviderDisabledFmt      = "provider %q is disabled (ait ai provider enable %s)"
+	errProviderDisabledFmt      = "provider %q is disabled (ai-ssh ai provider enable %s)"
 	errProviderNoAPIKeyFmt      = "provider %q has no API key (%s)"
 	errAPIKeyNotSetFmt          = "%s API key not set"
 	errAPIKeyNotSetWithHintFmt  = "%s API key not set (%s)"

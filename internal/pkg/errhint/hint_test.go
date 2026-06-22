@@ -26,8 +26,8 @@ import (
 
 func TestWithTry_PreservesIs(t *testing.T) {
 	err := WithTry(store.ErrSessionNotFound, "The list ID column is for display only.",
-		"ait session --load <alias>",
-		"ait session --help",
+		"ai-ssh session --load <alias>",
+		"ai-ssh session --help",
 	)
 	if !errors.Is(err, store.ErrSessionNotFound) {
 		t.Fatalf("expected ErrSessionNotFound, got %v", err)
@@ -51,8 +51,8 @@ func TestFormatTryBlock_Empty(t *testing.T) {
 }
 
 func TestFormatTryBlock_Lines(t *testing.T) {
-	got := FormatTryBlock("ait session --list", "ait session --help")
-	if !strings.Contains(got, "Try:\n  ait session --list") {
+	got := FormatTryBlock("ai-ssh session --list", "ai-ssh session --help")
+	if !strings.Contains(got, "Try:\n  ai-ssh session --list") {
 		t.Fatalf("got %q", got)
 	}
 }

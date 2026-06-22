@@ -14,38 +14,38 @@
  * limitations under the License.
 **/
 
-// Package clihints holds shared errhint Try-block example command lines.
+// Package clihints holds shared errhint Try-block example command lines for the ai-ssh CLI.
 package clihints
 
-// Session and login Try lines (single source for internal/ait and internal/pkg/ssh/client).
+// Session and login Try lines (single source for internal/ai-ssh and internal/pkg/ssh/client).
 const (
-	TrySessionList          = "ait session --list"
-	TrySessionLoadAlias     = "ait session --load <alias>"
-	TrySessionLoad          = "ait session --load"
-	TrySessionLoadOptional  = "ait session --load [<id|alias>]"
-	TrySessionLoadFullID    = "ait session --list -v    then ait session --load <FULL_ID>"
-	TrySessionLoadPick      = "ait session --load       pick by # interactively"
-	TrySessionSwitchID      = "ait session --switch <id|alias>"
-	TrySessionSwitch        = "ait session --switch"
-	TrySessionSwitchForce   = "ait session --switch <id|alias> --force"
-	TrySessionHelp          = "ait session --help"
-	TryLoginSave            = "ait login --save <destination>"
-	TryLoginAlias           = "ait login --alias <name> <destination>"
-	TryLoginHelp            = "ait login --help"
-	TryLoginTmuxUserHost    = "ait login --tmux user@host"
-	TryLoginTmuxDevhost     = "ait login --tmux devhost"
-	TryLoginTmuxSaveDevhost = "ait login --tmux --save devhost"
+	TrySessionList          = "ai-ssh session --list"
+	TrySessionLoadAlias     = "ai-ssh session --load <alias>"
+	TrySessionLoad          = "ai-ssh session --load"
+	TrySessionLoadOptional  = "ai-ssh session --load [<id|alias>]"
+	TrySessionLoadFullID    = "ai-ssh session --list -v    then ai-ssh session --load <FULL_ID>"
+	TrySessionLoadPick      = "ai-ssh session --load       pick by # interactively"
+	TrySessionSwitchID      = "ai-ssh session --switch <id|alias>"
+	TrySessionSwitch        = "ai-ssh session --switch"
+	TrySessionSwitchForce   = "ai-ssh session --switch <id|alias> --force"
+	TrySessionHelp          = "ai-ssh session --help"
+	TryLoginSave            = "ai-ssh login --save <destination>"
+	TryLoginAlias           = "ai-ssh login --alias <name> <destination>"
+	TryLoginHelp            = "ai-ssh login --help"
+	TryLoginTmuxUserHost    = "ai-ssh login --tmux user@host"
+	TryLoginTmuxDevhost     = "ai-ssh login --tmux devhost"
+	TryLoginTmuxSaveDevhost = "ai-ssh login --tmux --save devhost"
 
 	// OpenSSH parse / transfer Try lines (concrete examples for get/put/login argv hints).
-	TryLoginExample      = "ait login user@host"
-	TryLoginSaveUserHost = "ait login --save user@host"
-	TryLoginRemoteCmd    = "ait login user@host uptime"
-	TryGetHelp           = "ait get --help"
-	TryPutHelp           = "ait put --help"
-	TryGetExample        = "ait get user@host:/remote/path ./local"
-	TryPutExample        = "ait put ./local user@host:/remote/path"
-	TryGetSessionProd    = "ait get --session prod <paths...>"
+	TryLoginExample      = "ai-ssh login user@host"
+	TryLoginSaveUserHost = "ai-ssh login --save user@host"
+	TryLoginRemoteCmd    = "ai-ssh login user@host uptime"
+	TryGetHelp           = "ai-ssh get --help"
+	TryPutHelp           = "ai-ssh put --help"
+	TryGetExample        = "ai-ssh get user@host:/remote/path ./local"
+	TryPutExample        = "ai-ssh put ./local user@host:/remote/path"
+	TryGetSessionProd    = "ai-ssh get --session prod <paths...>"
 
 	// Shell REPL builtin shorthand (maps to session --list).
-	TryShellList = "ait list"
+	TryShellList = "ai-ssh list"
 )

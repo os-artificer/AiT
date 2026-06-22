@@ -19,7 +19,7 @@ package meta
 import "strings"
 
 // AIPromptFromLine extracts the user prompt from a meta line that targets the
-// remote AI REPL (!! ..., !ait ai ...). Returns ("", false) for other meta lines.
+// remote AI REPL (!! ..., !ai-ssh ai ...). Returns ("", false) for other meta lines.
 func AIPromptFromLine(line string) (prompt string, isAI bool) {
 	switch {
 	case strings.HasPrefix(line, "!!"):

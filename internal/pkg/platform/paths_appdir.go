@@ -82,9 +82,9 @@ func legacyConfigDir() (string, error) {
 	}
 
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, appName), nil
+		return filepath.Join(xdg, legacyAppName), nil
 	}
-	return filepath.Join(home, ".config", appName), nil
+	return filepath.Join(home, ".config", legacyAppName), nil
 }
 
 func resolveHomeOverride() string {
@@ -98,30 +98,13 @@ func resolveHomeOverride() string {
 }
 
 func defaultAppRoot() (string, error) {
-	var base string
-	switch runtime.GOOS {
-	case "windows":
-		base = os.Getenv("LOCALAPPDATA")
-		if base == "" {
-			base = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local")
-		}
-		base = filepath.Join(base, appName)
-	case "darwin":
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		base = filepath.Join(home, "Library", "Application Support", appName)
-	default:
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-			base = filepath.Join(xdg, appName)
-		} else {
-			base = filepath.Join(home, ".local", "share", appName)
-		}
+	if err := maybeMigrateLegacyDataRoot(); err != nil {
+		return "", err
+	}
+
+	base, err := defaultAppRootPath()
+	if err != nil {
+		return "", err
 	}
 
 	if err := os.MkdirAll(base, 0o700); err != nil {
