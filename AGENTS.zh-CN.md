@@ -19,13 +19,13 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 
 ## 功能概览
 
-- **SSH 会话**：`shell`、`login`、`session`（`--list`、`--load`、`--suspend`、`--switch`、`--delete`）
+- **SSH 会话**：默认 OpenSSH 形连接（`ai-ssh [flags] destination`）、`shell`、`session`（`--list`、`--load`、`--suspend`、`--switch`、`--delete`）；无 `login` 子命令
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
-- **可选 tmux**：在 `login`/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）；`login --tmux` 隐含 `--save` 并保存 `login_destination`（ssh config Host 名如 devhost）
+- **可选 tmux**：connect/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）；`--tmux` 隐含 `--save` 并保存 `login_destination`（ssh config Host 名如 devhost）
 - **AI**：多 provider 路由 + `tiered`；`ai-ssh ai ask` / `ai-ssh ai agent` 单轮；`ai-ssh ai provider enable|disable`；`ai-ssh ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ai-ssh ai model list`；SSH `!ai-ssh ai ask` / `!! ask`
 - **传输**：`ai-ssh get` / `ai-ssh put` — SFTP 单文件（`internal/pkg/transfer`）；`!ai-ssh get` / `!ai-ssh put` 复用当前 SSH（统一路由：优先 lrzsz/ZMODEM，直连无 lrzsz 回退 SFTP，链式缺失时可授权自动安装）
 - **代理链支持**：`!ai-ssh chain [on|off]` — 链式模式下经 PTY 管道 ZMODEM 文件传输与 tmux（`internal/pkg/ssh/client/inject.go`、`transfer_zmodem.go`；`internal/pkg/tmux/remote_pty.go`）
-- **OpenSSH 配置**：`login`/`load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
+- **OpenSSH 配置**：默认 connect 与 `load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
 
 完整设计：[`docs/design.zh-CN.md`](docs/design.zh-CN.md)。配置示例：[`configs/ait.example.yaml`](configs/ait.example.yaml)。Cursor 方案归档至 `docs/<kebab-case>.md`（见 [`.cursor/rules/docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc)）。
 
@@ -37,7 +37,7 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 | `internal/ai-ssh/` | CLI 入口（Go 包 **`aish`**：`Run`、`ExitCode`、`Execute`、`NewManager`、Cobra 根）；子包见下表 |
 | `internal/ai-ssh/registry/` | 顶层命令注册表（OCP）；根 `--help` 见 `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | 共用 `--help` 排版（`Body`、`Bind`、OpenSSH 块、`WriteTransferHelp`、TTY 键） |
-| `internal/ai-ssh/login/` | `ai-ssh login` — OpenSSH 解析、help、run |
+| `internal/ai-ssh/login/` | SSH connect 解析/run（顶层默认路由；非注册子命令） |
 | `internal/ai-ssh/get/` / `internal/ai-ssh/put/` | `ai-ssh get` / `ai-ssh put` SFTP |
 | `internal/ai-ssh/shell/` | `ai-ssh shell` REPL（`AiT>`）及顶层 `ai-ssh shell` Cobra |
 | `internal/ai-ssh/session/` | `ai-ssh session`（`--list`、`--load` 等 flag）；引用 `internal/pkg/session` 时用 `pkgsession` |
@@ -93,7 +93,7 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 |----|----------------|
 | `aish`（根） | `root.go`（`Run`、`ExitCode`）；`cli_root.go`（`Execute`、`newRootCmd`）；`manager.go`（`NewManager`、`runWithManager`）；`context.go`、`runner.go`；`init_hooks.go`（meta/shell/ai 注入）；集成测试 |
 | `registry` | `registry.go`、`top_level.go`、`deps.go`、`root_help.go`、`all/imports.go` |
-| `login`、`get`、`put`、`shell`、`session`、`version` | 顶层命令：`register.go`、`cmd.go`、`help.go`、`run.go` / flags |
+| `get`、`put`、`shell`、`session`、`version` | 顶层命令：`register.go`、`cmd.go`、`help.go`、`run.go` / flags；SSH connect 经默认路由 + `login` 包 |
 | `ai` | `cmd.go`、`help.go`、`subregistry/`、`runner/`；嵌套 `ask`、`agent`、`provider`、`ollama` 各有 `register.go` |
 | `ai/mode` | `repl.go`、`exec.go`、`scope.go` 等 — AI REPL（`risk`、`approve`、`agent`、`chat`） |
 | `config` | `cmd.go`、`help.go`、`subregistry/`、`shared/`；嵌套 `set`、`get`、`init`、`view`、`edit`、`validate` |
@@ -138,8 +138,8 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 ## CLI 速查
 
 ```text
-ai-ssh shell                              # AiT> REPL：login、session --list/--load、history、help、exit
-ai-ssh login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
+ai-ssh shell                              # AiT> REPL：ssh 形连接、session --list/--load、history、help、exit
+ai-ssh [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 ai-ssh ai [--model deepseek|minimax]            # 本机 AI REPL（默认 Agent；mode ask 为问答）；tiered 可先走 Ollama
 ai-ssh ai model list
 ai-ssh ai ask [message...]
@@ -160,7 +160,7 @@ ai-ssh config init|view|edit|validate|set|get <key> [<value>]
 ## 注意事项
 
 - 保持 `cmd/ai-ssh` 精简，逻辑位于 `internal/ai-ssh` 与 `internal/pkg`。
-- `login` 经 `ssh -G` 解析配置；数据面为 Go `x/crypto/ssh`。仅开发环境使用 `AIT_SSH_INSECURE=1`。
+- 默认 SSH connect（及 `get`/`put`）经 `ssh -G` 解析配置；数据面为 Go `x/crypto/ssh`。仅开发环境使用 `AIT_SSH_INSECURE=1`。
 - **默认模式**不保证远程进程保活；仅 `--tmux` 提供远程会话保活。
 - 从本机执行 `ai-ssh session --switch` 时，若仍处于 SSH 会话中，须先 `!ai-ssh suspend`，或使用 `--force`（不保存当前 scrollback/cwd）。
 - `pkg/third-party/` 用于 vendored 工具，非主应用代码。

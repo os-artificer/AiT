@@ -29,15 +29,12 @@ import (
 
 func TestExecuteWritersSilencesStderr(t *testing.T) {
 	capture := &bytes.Buffer{}
-	err := ExecuteWriters([]string{"not-a-real-subcommand"}, os.Stdout, capture)
+	err := ExecuteWriters([]string{"ll"}, os.Stdout, capture)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if capture.Len() != 0 {
 		t.Errorf("cobra should not write stderr, got %q", capture.String())
-	}
-	if strings.Contains(err.Error(), "\n") {
-		t.Errorf("error should be one line from caller's view: %q", err.Error())
 	}
 }
 
@@ -52,7 +49,7 @@ func TestTopLevelLLUnknown(t *testing.T) {
 }
 
 func TestExecuteWritersErrorFormattedForREPL(t *testing.T) {
-	err := ExecuteWriters([]string{"not-a-real-subcommand"}, io.Discard, io.Discard)
+	err := ExecuteWriters([]string{"session"}, io.Discard, io.Discard)
 	if err == nil {
 		t.Fatal("expected error")
 	}

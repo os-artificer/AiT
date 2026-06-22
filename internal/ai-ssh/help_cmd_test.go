@@ -103,17 +103,17 @@ func helpExecuteMustContain(t *testing.T, args []string, wants ...string) {
 }
 
 func TestRootCmdHelpExecute(t *testing.T) {
-	helpExecuteMustContain(t, []string{"--help"}, "Usage:", "Examples:", "help for ai-ssh", "Commands:", "session")
-	root := newRootCmd()
 	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetErr(&buf)
-	root.SetArgs([]string{"--help"})
-	if err := root.Execute(); err != nil {
+	if err := ExecuteWriters([]string{"--help"}, &buf, &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, gone := range []string{"  list       ", "  load       ", "  suspend    "} {
+	for _, want := range []string{"Usage:", "Examples:", "help for ai-ssh", "Commands:", "session", "OpenSSH-compatible flags:"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("root help missing %q:\n%s", want, out)
+		}
+	}
+	for _, gone := range []string{"  list       ", "  load       ", "  suspend    ", "  login       "} {
 		if strings.Contains(out, gone) {
 			t.Fatalf("root help still lists removed command %q", gone)
 		}

@@ -27,7 +27,6 @@ const (
 	ReplCmdClear   = builtin.CmdClear
 	ReplCmdHistory = builtin.CmdHistory
 	ReplCmdAI      = builtin.CmdAI
-	ReplCmdLogin   = builtin.CmdLogin
 	ReplCmdLoad    = builtin.CmdLoad
 	ReplCmdList    = builtin.CmdList
 	ReplCmdLL      = builtin.CmdLL

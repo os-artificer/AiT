@@ -19,8 +19,6 @@ package shell
 import (
 	"io"
 
-	"github.com/os-artificer/AiT/internal/ai-ssh/login"
-
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
@@ -31,7 +29,7 @@ const shellREPLCommands = `  help              show REPL help
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
   ai                enter local AI mode (same as ai-ssh ai)
-  login [flags] destination [command ...]  (--save or --alias to persist)
+  [flags] destination [command ...]  connect (ssh-style; --save or --alias to persist)
   load <id|alias> [--tmux] [--password]
   list              list saved sessions
   ll [path]         long directory listing (ls -la style; ai-ssh shell only)
@@ -44,7 +42,7 @@ const shellREPLExtensions = `  ll [path]             ls -la style listing (built
   <name> on PATH        system commands when not an ai-ssh subcommand
 `
 
-const shellREPLCommandsNoLogin = `  help              show REPL help
+const shellREPLCommandsNoLoad = `  help              show REPL help
   clear             clear terminal screen
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
@@ -59,10 +57,10 @@ const (
 	shellSectionExtensions    = "Extensions"
 	shellSectionPrompts       = "Prompts"
 	shellREPLHelpIntro        = "AiT shell — type commands directly, press Enter to run (no !ai-ssh prefix):"
-	shellREPLHelpUsage        = "help | clear | history | login [flags] destination | load <id|alias> | list | ll [path] | exit"
-	shellREPLHelpUsageNoLogin = "help | clear | history | list | ll [path] | exit"
+	shellREPLHelpUsage        = "help | clear | history | [flags] destination | load <id|alias> | list | ll [path] | exit"
+	shellREPLHelpUsageNoLoad  = "help | clear | history | list | ll [path] | exit"
 	shellREPLHelpNoteTTY      = "In a TTY, Ctrl+L clears the screen and redraws the prompt (line buffer kept)."
-	shellExampleLoginServer   = "login myserver"
+	shellExampleConnectServer = "myserver"
 )
 
 const shellREPLPrompts = `  AiT>              not connected (this shell)
@@ -72,7 +70,7 @@ const shellREPLPrompts = `  AiT>              not connected (this shell)
 
 const (
 	shellSectionActiveSession = "Active session"
-	shellActiveSessionBlock   = "  login and load are unavailable while a session is active.\n" +
+	shellActiveSessionBlock   = "  SSH connect and load are unavailable while a session is active.\n" +
 		"  Use suspend to save the current session, or session --switch to change.\n"
 )
 
@@ -96,7 +94,7 @@ func WriteShellHelp(w io.Writer) error {
 	}
 	if err := b.WriteExamples(
 		"ai-ssh shell",
-		shellExampleLoginServer,
+		shellExampleConnectServer,
 		"load prod --tmux",
 	); err != nil {
 		return err
@@ -105,7 +103,7 @@ func WriteShellHelp(w io.Writer) error {
 }
 
 // WriteShellREPLHelp prints in-shell help (Usage/Examples sections; caller applies CRLF).
-// When hasActiveSession is true, login and load are omitted from commands and usage.
+// When hasActiveSession is true, connect and load are omitted from commands and usage.
 func WriteShellREPLHelp(w io.Writer, hasActiveSession bool) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(shellREPLHelpIntro, shellREPLHelpNoteTTY); err != nil {
@@ -113,14 +111,14 @@ func WriteShellREPLHelp(w io.Writer, hasActiveSession bool) error {
 	}
 	usage := shellREPLHelpUsage
 	if hasActiveSession {
-		usage = shellREPLHelpUsageNoLogin
+		usage = shellREPLHelpUsageNoLoad
 	}
 	if err := b.WriteUsage(usage); err != nil {
 		return err
 	}
 	cmds := shellREPLCommands
 	if hasActiveSession {
-		cmds = shellREPLCommandsNoLogin
+		cmds = shellREPLCommandsNoLoad
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionCommands, cmds); err != nil {
 		return err
@@ -133,7 +131,7 @@ func WriteShellREPLHelp(w io.Writer, hasActiveSession bool) error {
 			return err
 		}
 	} else {
-		if err := login.WriteHelpShort(w); err != nil {
+		if err := pkghelpdoc.WriteSSHConnectShort(w); err != nil {
 			return err
 		}
 	}
@@ -144,8 +142,8 @@ func WriteShellREPLHelp(w io.Writer, hasActiveSession bool) error {
 		return err
 	}
 	examples := []string{
-		shellExampleLoginServer,
-		"login -p 22 root@192.168.1.1 -i ~/.ssh/id_rsa",
+		shellExampleConnectServer,
+		"-p 22 root@192.168.1.1 -i ~/.ssh/id_rsa",
 		"load myserver",
 		"list",
 	}

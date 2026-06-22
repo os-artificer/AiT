@@ -10,14 +10,15 @@ CLI entry point: [`cmd/ai-ssh/main.go`](../cmd/ai-ssh/main.go) → [`internal/ai
 ## CLI surface
 
 ```text
-ai-ssh shell                                    # AiT> REPL (login/list/load, etc.)
+ai-ssh shell                                    # AiT> REPL (ssh-style connect, list/load, etc.)
+ai-ssh                                          # no args: root help (not SSH connect)
 ai-ssh ai                                       # Local AI mode (AiT AI(Agent)>); also "ai" inside ai-ssh shell
 ai-ssh ai model list                            # List configured AI providers (ENABLED column)
 ai-ssh ai ask [message...]                      # One-shot AI question (stdin if no args); SSH: !ai-ssh ai ask / !! ask
 ai-ssh ai agent [message...]                    # One-shot agent with tool execution
 ai-ssh ai provider enable|disable <provider>    # Enable/disable routing to a provider
 ai-ssh ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir + install [y/N])
-ai-ssh login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
+ai-ssh [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH-compatible: -p -l -i -F -J -o, etc.; destination is [user@]host or a config Host alias
         # Requires local OpenSSH client (ssh -G) for config resolution; data plane is Go x/crypto/ssh (Windows/macOS/Linux)
         # Persists to SQLite with --save (bookmark by id) or --alias (named save; implies --save)
@@ -29,12 +30,12 @@ ai-ssh session --load [<id|alias>] [--tmux] [--password]   # Omit id to pick; id
 ai-ssh session --suspend         # Local CLI only; inside SSH use !ai-ssh suspend
 ai-ssh session --switch [id|alias] [--tmux] [--password] [--force]  # Switch session; omit id to pick
 ai-ssh session --delete <id|alias|all> [--force]         # Delete one or all saved sessions
-ai-ssh get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like login (see get/put section)
+ai-ssh get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like default SSH connect (see get/put section)
 ai-ssh put [ssh-flags] <paths...>
 ai-ssh config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUAL/$EDITOR (vi / Notepad)
 ```
 
-**AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ai-ssh ai [--model <cloud-provider>]`** or **`ai` inside `ai-ssh shell`** runs a local AI REPL (`AiT AI(Agent)>`); commands run on this machine only after you confirm (`run`, optional `ai-ssh` subcommands). Inside an active SSH session use **`!ai-ssh ai`** or **`!!`** for remote-scoped AI (`AiT AI(Agent) user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ai-ssh ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ai-ssh ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ai-ssh / !!)](#in-session-meta-protocol-ai-ssh--).
+**AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ai-ssh ai [--model <cloud-provider>]`** or **`ai` inside `ai-ssh shell`** runs a local AI REPL (`AiT AI(Agent)>`); commands run on this machine only after you confirm (`run`, optional `ai-ssh` subcommands). Inside an active SSH session use **`!ai-ssh ai`** or **`!!`** for remote-scoped AI (`AiT AI(Agent) user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ai-ssh ai` as a meta subcommand is blocked** (same as `load`). The **`login` subcommand prefix is removed**; `ai-ssh login …` and REPL `login …` fail with Try hints. When no cloud API key is configured and tiered Ollama is off, `!!` / `!ai-ssh ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ai-ssh / !!)](#in-session-meta-protocol-ai-ssh--).
 
 Use **`!ai-ssh local` / `!ai-ssh remote`** to toggle local versus remote input while SSH stays connected; **`!ai-ssh suspend`** to suspend; **`!ai-ssh chain [on|off]`** to toggle chain mode (PTY-pipe injection for file transfer and tmux over multiple SSH hops).
 
@@ -45,7 +46,7 @@ Use **`!ai-ssh local` / `!ai-ssh remote`** to toggle local versus remote input w
 | **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally **seed** saved scrollback into in-memory buffer (not displayed on the terminal) | No keep-alive guarantee |
 | **tmux keep-alive** | `login`/`load` with `--tmux` | After SSH: `tmux attach -t ait-<session_id>` (or `new -s` if missing) | Shell/process survives disconnect |
 
-**Login metadata is persisted with `--save`, `--alias`, or `--tmux` for new connections** (`--tmux` implies `--save`). Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). `login_destination` stores the ssh config Host name (e.g. `devhost`) for `ssh -G` re-resolve on `load`/`switch`. Plain `ai-ssh login user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
+**Login metadata is persisted with `--save`, `--alias`, or `--tmux` for new connections** (`--tmux` implies `--save`). Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). `login_destination` stores the ssh config Host name (e.g. `devhost`) for `ssh -G` re-resolve on `load`/`switch`. Plain `ai-ssh user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
 
 ### Login persistence decision (connection key includes alias)
 
@@ -64,7 +65,7 @@ flowchart TD
   findEmpty -->|not found| ephemeral[plan.persist=false]
 ```
 
-The same `user@host:port` may have both an empty-alias row (`ai-ssh login --save user@host`) and named rows (`ai-ssh login --alias prod user@host`) as separate records with distinct UUIDs and tmux names `ait-<id>`. SQLite enforces `UNIQUE(username, host, port, COALESCE(alias,''))`; migration dedupes legacy duplicate keys keeping the newest `updated_at`.
+The same `user@host:port` may have both an empty-alias row (`ai-ssh --save user@host`) and named rows (`ai-ssh --alias prod user@host`) as separate records with distinct UUIDs and tmux names `ait-<id>`. SQLite enforces `UNIQUE(username, host, port, COALESCE(alias,''))`; migration dedupes legacy duplicate keys keeping the newest `updated_at`.
 
 ## Architecture overview
 
@@ -172,7 +173,7 @@ ai-ssh session --switch prod         # Switch by alias/id
 ai-ssh session --switch prod --tmux  # Switch and attach target in tmux mode
 ```
 
-**Inside interactive SSH:** use `!ai-ssh login`, `!ai-ssh load`, or `!ai-ssh session --switch` to chain sessions; `!ai-ssh suspend` to suspend only.
+**Inside interactive SSH:** use `!ai-ssh [flags] dest` (ssh-style chain connect), `!ai-ssh load`, or `!ai-ssh session --switch` to chain sessions; `!ai-ssh suspend` to suspend only.
 
 **Compared with `load`:** `load` connects only to the target; `switch` additionally checks whether the current session is still `active` and blocks until you suspend (or `--force`), then loads the target and updates `app_meta.current_session_id`.
 
@@ -271,7 +272,7 @@ First-time setup: `ai-ssh config init` creates or merges `config.yaml` (missing 
 |----------|--------|----------------|
 | `ai-ssh shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) injects dynamic bash `PS1` / zsh `PROMPT` after `load`/`login` (non-tmux: [`waitForShellReadyBeforeInject`](../internal/pkg/ssh/client/client_init_helpers.go) waits for a native or AiT prompt line in scrollback plus output quiet, up to 10s; bash hosts fall back to quiet-since-attach); setup ends with a **`RemotePromptReadySentinel`** handshake line; zsh deduplicates and appends a **`precmd_functions` hook** so oh-my-zsh themes do not permanently override `PROMPT`, then **prints the expanded prompt** to the PTY (`${PS1@P}` / `print -Pn "$PROMPT"` + `zle reset-prompt` when available); **`session.remote_prompt.path`**: `short` (default, last path segment) or `absolute` (`$PWD` with `~` for home); optional `:branch` via `git rev-parse`. During setup, `pauseRemoteOut` buffers remote output in scrollback (R1 filters setup leaks; native prompts are not seeded into scroll pending). [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) waits for the ready sentinel via [`waitForRemotePromptReady`](../internal/pkg/ssh/client/client_init_helpers.go), then [`ensureFirstPromptVisible`](../internal/pkg/ssh/client/client_init_helpers.go) emits scrollback AiT lines, **client-paints** when the sentinel is present, or native fallback only when setup did not succeed; unpause requires `remotePromptShown`. **Load/switch** seeds [`ReplayScrollback`](../internal/pkg/ssh/client/client.go) into memory **after** setup via [`seedReplayScrollback`](../internal/pkg/ssh/client/client_init_helpers.go) / [`SanitizeReplayScrollback`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) (leak strip, prompt-line strip, blank-line collapse)—not displayed on the terminal. Login/load/nested share [`runRemotePromptSetup`](../internal/pkg/ssh/client/prompt_setup.go)—the AiT prompt should appear **without pressing Enter**. |
-| SSH nested (manual `ssh` in session) | same as SSH remote on **active** hop | After a simple `ssh user@host` from an AiT session, MOTD + quiet detection triggers the same PS1 inject and enables chain mode; use `ai-ssh login -J jump,final` to land on the final host in one step |
+| SSH nested (manual `ssh` in session) | same as SSH remote on **active** hop | After a simple `ssh user@host` from an AiT session, MOTD + quiet detection triggers the same PS1 inject and enables chain mode; use `ai-ssh -J jump,final` to land on the final host in one step |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)) |
 
 ### Remote prompt pipeline
@@ -301,11 +302,11 @@ sequenceDiagram
 
 When `remotePromptShown` is set, [`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) prefers scrollback AiT lines or client paint (`setupSucceeded` or `remotePromptReadySeen`) and **does not** fall back to native shell prompts (P11).
 
-**`ai-ssh shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ai-ssh` prefix). After `login` inside shell, return to `AiT>`; after `ai-ssh login` from the system shell, return to the OS shell.
+**`ai-ssh shell`**: line-oriented REPL; type ssh-style connect argv (`devhost`, `-p 22 host`, `user@host`), `load`, `list`, `help`, etc. directly (no `!ai-ssh` prefix). The **`login` verb is removed**; `login devhost` fails with Try. After connect inside shell, return to `AiT>`; after `ai-ssh user@host` from the system shell, return to the OS shell.
 
 **Built-in `ll`** (shell REPL only, not `ai-ssh ai` or `!ai-ssh`): long-format local directory listing (`ls -la` style via pure Go [`dirlist`](../internal/pkg/dirlist/)); optional one path argument; default cwd.
 
-**Command resolution in `ai-ssh shell`** (first token only): **builtins** (`exit`, `help`, `clear`, `history`, `ai`, `login`, `load`, `list`, `suspend`) → **`<AppRoot>/bin/<name>`** user extensions (flat directory; executable bit on Unix) → **ai-ssh CLI** subcommands (`config`, `session`, `get`, …) → **system PATH**. Bin extensions can shadow ai-ssh subcommand names but never builtins. External commands run via `exec` with argv (no shell interpolation); on a TTY the REPL restores cooked mode for the child process. Implementation: [`internal/ai-ssh/shell/exec_dispatch.go`](../internal/ai-ssh/shell/exec_dispatch.go), [`internal/pkg/shellext/`](../internal/pkg/shellext/).
+**Command resolution in `ai-ssh shell`** (first token only): **builtins** (`exit`, `help`, `clear`, `history`, `ai`, `load`, `list`, `suspend`, `ll`) → **`<AppRoot>/bin/<name>`** user extensions → **login prefix Try** → **ai-ssh CLI** via `ExecuteCobraOnly` (`config`, `session`, `get`, …) → **system PATH** → **narrow SSH connect** when [`cliroute.ShouldREPLSSHConnect`](../internal/pkg/cliroute/route.go) (saved alias or `~/.ssh/config` Host; flag-led `-p`/`-l`/`user@host` also allowed) → **not-found hint**. Bin extensions can shadow ai-ssh subcommand names but never builtins. Implementation: [`internal/ai-ssh/shell/exec_dispatch.go`](../internal/ai-ssh/shell/exec_dispatch.go), [`internal/pkg/shellext/`](../internal/pkg/shellext/), [`internal/pkg/cliroute/`](../internal/pkg/cliroute/).
 
 **Local REPL input (UTF-8, macOS / Linux / Windows):** Interactive `ai-ssh shell` and local `ai-ssh ai` read stdin as **UTF-8** via [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) (Emacs-style editing, arrow keys, Up/Down over loaded input history). Use a UTF-8 terminal: Linux/macOS `LANG=*.UTF-8`; Windows **Windows Terminal** with UTF-8 (avoid legacy non-UTF code pages). IME composition is handled by the terminal; committed text arrives as UTF-8 bytes (preedit underline is not drawn by AiT). Piped or redirected stdin (`echo … | ai-ssh shell`) already accepted UTF-8; SSH remote shells forward bytes unchanged.
 
@@ -322,8 +323,8 @@ Implementation: [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/
 | Command | Behavior |
 |---------|----------|
 | `!ai-ssh help` / `!ai-ssh` | Print in-session commands and locally runnable CLI notes |
-| `!ai-ssh <subcommand> …` | Run matching `ai-ssh` CLI locally (for example `!ai-ssh list`); `login`/`load`/`session --switch` use chain handlers below |
-| `!ai-ssh login [flags] dest` | Auto-save current session if needed, suspend, close SSH, then `Manager.Login` to the new host |
+| `!ai-ssh <subcommand> …` | Run matching `ai-ssh` CLI locally (for example `!ai-ssh list`); ssh-style `[flags] dest` / `load` / `session --switch` use chain handlers below |
+| `!ai-ssh [flags] dest` | Auto-save current session if needed, suspend, close SSH, then `Manager.Login` to the new host |
 | `!ai-ssh load [id\|alias]` | Auto-save if needed, suspend, then `Manager.Load` |
 | `!ai-ssh session --switch [id\|alias]` | Auto-save if needed, suspend, then `Manager.Switch` (no `--force` required); no-arg picker uses raw TTY; picking the **same** session **reconnects** after suspend closed SSH |
 | `!ai-ssh ai [question]` | Enter **remote** AI REPL; optional first question |
@@ -342,15 +343,15 @@ Implementation: [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/
 - When `aiAvailable == false` (no API key), fail closed: leading `!!…` / `!ai-ssh ai…` never goes remote; stderr configure-key hint when entering AI mode.
 - Meta lines echo locally and never enter remote PTY; user-visible messages use `termPrintln` / `aitModeNotice` with `termEOL` (`\r\n`) for raw TTY.
 
-### login
+### SSH connect (default route)
 
 ```mermaid
 sequenceDiagram
   participant User
-  participant CLI as ait_login
+  participant CLI as ait_connect
   participant DB as sqlite
   participant SSH as ssh_client
-  User->>CLI: ai-ssh login --save user@host
+  User->>CLI: ai-ssh --save user@host
   CLI->>DB: upsert session
   CLI->>SSH: Dial and PTY
   loop interactive
@@ -372,9 +373,9 @@ sequenceDiagram
 
 - **Config resolution**: `internal/pkg/ssh/args` invokes local `ssh -G` (`platform.OpenSSHPath`: Linux/macOS on PATH; Windows also tries `System32\OpenSSH\ssh.exe`)
 - **Dial**: `client.DialChain` supports `ProxyJump` / `ProxyCommand` (Unix `sh -c`, Windows `cmd /c`)
-- **One-shot command**: `ai-ssh login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing empty-alias** connection key updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
+- **One-shot command**: `ai-ssh host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing empty-alias** connection key updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
 - Auth order: `-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
-- Interactive login writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise the session stays ephemeral until the first `!ai-ssh suspend`, `!ai-ssh login`, `!ai-ssh load`, or `!ai-ssh session --switch` (auto-save, D1 dedupe)
+- Interactive connect writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise the session stays ephemeral until the first `!ai-ssh suspend`, `!ai-ssh [flags] dest`, `!ai-ssh load`, or `!ai-ssh session --switch` (auto-save, D1 dedupe)
 - After PS1 setup, the local terminal shows the remote AiT prompt immediately (buffered emit or refresh echo—not a static placeholder)
 
 ### Local mode (!ai-ssh local / remote)

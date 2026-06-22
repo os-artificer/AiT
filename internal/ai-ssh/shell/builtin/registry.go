@@ -31,7 +31,6 @@ var commands = map[string]command{
 	CmdClear:   {run: runClear},
 	CmdHistory: {run: runHistory},
 	CmdAI:      {run: runAI},
-	CmdLogin:   {run: runLogin, blockedWhenActive: loginBlockedWhenActiveErr},
 	CmdLoad:    {run: runLoad, blockedWhenActive: loadBlockedWhenActiveErr},
 	CmdList:    {run: runList},
 	CmdLL:      {run: runLL},

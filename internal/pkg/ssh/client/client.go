@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/localmode"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
@@ -170,6 +171,8 @@ type InteractiveOpts struct {
 	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
 	// OnMetaCLI runs ai-ssh CLI subcommands from !ai-ssh <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
+	// AliasLookup resolves saved session aliases for chain connect meta lines (!ai-ssh prod).
+	AliasLookup cliroute.AliasLookup
 	// AgentMaxSteps overrides the agent turn limit; 0 means use default from config.
 	AgentMaxSteps int
 	// InitialRemoteCwd is the saved remote cwd for client-painted first prompt on load/switch.
@@ -441,7 +444,7 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 
 	default:
 
-		if chain, ok := ParseMetaChainLine(line); ok {
+		if chain, ok := ParseMetaChainLine(line, opts.AliasLookup); ok {
 			if err := c.handleSuspendMeta(stdin, opts); err != nil {
 				return err
 			}

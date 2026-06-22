@@ -46,7 +46,7 @@ func (m *Manager) PickSessionFrom(in io.Reader, out io.Writer) (string, error) {
 	if len(list) == 0 {
 		return "", errhint.WithTryMsg(errNoSavedSessions,
 			hintNoSavedSessionsExplain,
-			tryLoginSave, tryLoginAlias, trySessionHelp,
+			tryConnectSave, tryConnectAlias, trySessionHelp,
 		)
 	}
 

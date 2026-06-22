@@ -14,25 +14,26 @@
  * limitations under the License.
 **/
 
-package login
+package aish
 
 import (
-	"github.com/os-artificer/AiT/internal/ai-ssh/registry"
+	"testing"
 
-	"github.com/spf13/cobra"
+	_ "github.com/os-artificer/AiT/internal/ai-ssh/registry/all"
+
+	"github.com/os-artificer/AiT/internal/ai-ssh/registry"
+	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 )
 
-type module struct{}
-
-func init() {
-	registry.Register(module{})
-}
-
-func (module) Name() string { return Name }
-func (module) Short() string {
-	return "log in to remote host; use --save or --alias to persist (OpenSSH-compatible)"
-}
-func (module) Order() int { return 40 }
-func (module) NewCobra(d registry.Deps) *cobra.Command {
-	return New(d.RunWithMgr)
+func TestCliroute_ReservedMatchesRegistry(t *testing.T) {
+	reg := registry.Entries()
+	names := cliroute.ReservedSubcommandNames()
+	if len(names) != len(reg) {
+		t.Fatalf("reserved=%d registry=%d", len(names), len(reg))
+	}
+	for _, e := range reg {
+		if !cliroute.IsReservedSubcommand(e.Name) {
+			t.Fatalf("missing reserved %q", e.Name)
+		}
+	}
 }

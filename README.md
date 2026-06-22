@@ -12,7 +12,7 @@
 
 ## Features
 
-While remaining compatible with OpenSSH configuration and connection flags, AiT adds session management, recovery, and in-terminal collaboration beyond a typical interactive `ssh` session. Interactive login and session load show the remote AiT prompt immediately; in-session `!ai-ssh get`/`put` accept optional destination defaults and report chain ZMODEM/SFTP progress through `done:` (details in the [user manual](docs/user-manual.md)).
+While remaining compatible with OpenSSH configuration and connection flags, AiT adds session management, recovery, and in-terminal collaboration beyond a typical interactive `ssh` session. Interactive connect and session load show the remote AiT prompt immediately; in-session `!ai-ssh get`/`put` accept optional destination defaults and report chain ZMODEM/SFTP progress through `done:` (details in the [user manual](docs/user-manual.md)).
 
 ### Session management
 
@@ -40,11 +40,11 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 
 | Capability | AiT | Typical SSH client |
 |------------|-----|-------------------|
-| Unified CLI | `ai-ssh shell` REPL for `login` / `session --list` / `session --load`; input `history` and Ctrl+R (see user manual) | No equivalent integrated REPL |
+| Unified CLI | `ai-ssh shell` REPL for ssh-style connect / `session --list` / `session --load`; input `history` and Ctrl+R (see user manual) | No equivalent integrated REPL |
 
 ## Installation
 
-**Prerequisites:** Go **1.25+**; **OpenSSH client** (`ssh`) on PATH for `login`/`load` to resolve `~/.ssh/config`.
+**Prerequisites:** Go **1.25+**; **OpenSSH client** (`ssh`) on PATH for default connect/`load` to resolve `~/.ssh/config`.
 
 **Build from source** (local build and verification):
 

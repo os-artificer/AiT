@@ -12,7 +12,7 @@
 
 ## 特性
 
-在兼容 OpenSSH 配置与连接参数的前提下，AiT 在会话管理、恢复与终端内协作上提供以下能力（相对常规 `ssh` 交互会话）。交互式 login 与 session load 连接后立即显示远程 AiT 提示符；会话内 `!ai-ssh get`/`put` 支持省略目标路径（默认源文件 basename），链式 ZMODEM/SFTP 进度直至 `done:`（详见[用户手册](docs/user-manual.zh-CN.md)）。
+在兼容 OpenSSH 配置与连接参数的前提下，AiT 在会话管理、恢复与终端内协作上提供以下能力（相对常规 `ssh` 交互会话）。交互式连接 与 session load 连接后立即显示远程 AiT 提示符；会话内 `!ai-ssh get`/`put` 支持省略目标路径（默认源文件 basename），链式 ZMODEM/SFTP 进度直至 `done:`（详见[用户手册](docs/user-manual.zh-CN.md)）。
 
 ### 会话管理
 
@@ -40,11 +40,11 @@
 
 | 功能 | AiT | 常规 SSH 客户端 |
 |------|-----|-----------------|
-| 统一 CLI | `ai-ssh shell` REPL 管理 `login` / `session --list` / `session --load`；支持 `history` 与 Ctrl+R（见用户手册） | 无等效一体化 REPL |
+| 统一 CLI | `ai-ssh shell` REPL 支持 ssh 形连接 / `session --list` / `session --load`；支持 `history` 与 Ctrl+R（见用户手册） | 无等效一体化 REPL |
 
 ## 安装
 
-**前置条件**：Go **1.25+**；PATH 中须存在 **OpenSSH 客户端**（`ssh`，供 `login`/`load` 解析 `~/.ssh/config`）。
+**前置条件**：Go **1.25+**；PATH 中须存在 **OpenSSH 客户端**（`ssh`，供默认 connect/`load` 解析 `~/.ssh/config`）。
 
 **从源码构建**（本地构建与验证）：
 

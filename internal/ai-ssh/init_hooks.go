@@ -19,12 +19,20 @@ package aish
 import (
 	"github.com/os-artificer/AiT/internal/ai-ssh/ai"
 	"github.com/os-artificer/AiT/internal/ai-ssh/meta"
+	"github.com/os-artificer/AiT/internal/ai-ssh/registry"
 	_ "github.com/os-artificer/AiT/internal/ai-ssh/registry/all"
 	"github.com/os-artificer/AiT/internal/ai-ssh/shell"
+	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 )
 
 func init() {
-	meta.SetExecutorWriters(ExecuteWriters)
-	shell.SetCLIExecutor(ExecuteWriters)
-	shell.SetAIModeRunner(ai.RunLocalFromShell(ExecuteWriters))
+	names := make([]string, 0, len(registry.Entries()))
+	for _, e := range registry.Entries() {
+		names = append(names, e.Name)
+	}
+	cliroute.SetReservedSubcommandNames(names)
+
+	meta.SetExecutorWriters(ExecuteCobraOnly)
+	shell.SetCLIExecutor(ExecuteCobraOnly)
+	shell.SetAIModeRunner(ai.RunLocalFromShell(ExecuteCobraOnly))
 }

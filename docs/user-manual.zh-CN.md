@@ -17,15 +17,15 @@
 # 别名仍可用：deepseek.api_key、minimax.api_key
 
 # 登录：完整参数说明见 help
-./bin/ai-ssh login --help
+./bin/ai-ssh --help
 
 # 交互登录并持久化会话
-./bin/ai-ssh login deploy@example.com --alias prod
-./bin/ai-ssh login -p 22 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
-./bin/ai-ssh login -J bastion app.internal
+./bin/ai-ssh deploy@example.com --alias prod
+./bin/ai-ssh -p 22 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
+./bin/ai-ssh -J bastion app.internal
 
 # 一次性远程命令（类似 ssh host cmd；默认不持久化至 SQLite）
-./bin/ai-ssh login deploy@example.com uptime
+./bin/ai-ssh deploy@example.com uptime
 
 # 列出、恢复、切换会话
 ./bin/ai-ssh session --list
@@ -55,14 +55,14 @@
 | 命令 | 说明 |
 |------|------|
 | `ai-ssh shell` | 交互模式（`AiT> `）：内置（`ll` 本机长列表，仅 shell）→ `<AppRoot>/bin` → ai-ssh CLI → PATH；`exit` 退出；TTY：UTF-8，**Ctrl+L** 清屏 |
-| `ai-ssh login` | 连接主机；`--save` 或 `--alias` 首次保存；同一 `user@host:port` 可用不同 `--alias` 保存多条独立会话；无 flag 重连仅更新**无 alias** 匹配行；`host cmd` 为一次性执行 |
+| `ai-ssh [flags] destination` | 与 OpenSSH 同形连接；`--save`/`--alias` 保存；无 flag 重连仅更新**无 alias** 匹配行；`host cmd` 一次性执行；**无 `login` 前缀** |
 | `ai-ssh session --list` | 列出已保存会话（`#` 列；`-v` 输出完整 UUID） |
 | `ai-ssh session --load [<id\|alias>]` | 恢复会话（可省略 id 交互选择）；请用 alias 或 `-v` 的 FULL_ID，勿用 ID 列短码 |
 | `ai-ssh session --suspend` | 在 SSH 会话内使用 `!ai-ssh suspend` |
 | `ai-ssh session --switch [id\|alias]` | 切换会话（当前会话仍为 `active` 时阻断；须先 `!ai-ssh suspend` 或 `--force`） |
 | `ai-ssh session --delete <id\|alias>` | 删除单个会话 |
 | `ai-ssh session --delete all` | 删除全部会话（须确认；`--force` 跳过确认） |
-| `ai-ssh get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同 `login`（`-p`、`-i`、`-J` 等）；`ai-ssh get --help` |
+| `ai-ssh get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同默认 SSH 连接（`-p`、`-i`、`-J` 等）；`ai-ssh get --help` |
 | `ai-ssh put [flags] <paths...>` | 上传单个文件；flag/路径规则同 `get` |
 | `ai-ssh config init [--dry-run]` | 创建或补全 `config.yaml`（仅缺失项）；`--dry-run` 仅打印计划变更 |
 | `ai-ssh config view` | 打印 `config.yaml` 到 stdout（缺失时自动 init） |
@@ -98,7 +98,7 @@
 - **非 TTY：** `echo 你好 | ai-ssh ai ask` 无需额外 locale 配置。
 - **清屏：** `ai-ssh shell` 中输入 `clear` 或 TTY 下按 **Ctrl+L** 清空显示，REPL 不退出。`ai-ssh ai` 中 **Ctrl+L** 仅清显示；`clear` 清空对话历史。
 
-SSH 会话（`ai-ssh login`）与 `!ai-ssh local` 由远端/本地 shell 提供行编辑；本节针对本机 `AiT>` / `AiT AI(Agent)>`。
+SSH 会话（顶层 `ai-ssh user@host` 或 `session --load`）与 `!ai-ssh local` 由远端/本地 shell 提供行编辑；本节针对本机 `AiT>` / `AiT AI(Agent)>`。
 
 ## 提示符
 
@@ -107,11 +107,11 @@ SSH 会话（`ai-ssh login`）与 `!ai-ssh local` 由远端/本地 shell 提供�
 | `ai-ssh shell` | `AiT> ` |
 | `ai-ssh ai`（本机） | 默认 `AiT AI(Agent)> `；`mode ask` 后为 `AiT AI(Ask)> ` |
 | SSH 远程 | `AiT user@host:目录[:git分支]> `（`session.remote_prompt.path`：`short` / `absolute`；Git 分支可选） |
-| SSH 内层 | 会话内 `ssh` 到更深层后同样显示 AiT 提示符 | 或 `ai-ssh login -J jump,final` 一次登录到目标主机 |
+| SSH 内层 | 会话内 `ssh` 到更深层后同样显示 AiT 提示符 | 或 `ai-ssh -J jump,final` 一次登录到目标主机 |
 | SSH AI 模式（`!ai-ssh ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
 | `!ai-ssh local` | `AiT Local> ` |
 
-**`ai-ssh login`** 或 **`ai-ssh session --load`** 连接成功后，远程 **`AiT user@host:…>`** 提示符应直接显示，无需额外按 Enter。**`session --load` / `--switch`** 不会在屏幕上回放挂起前的命令输出；已保存 scrollback 仅写入内存，供 suspend/AI 上下文使用。
+**`ai-ssh user@host`** 或 **`ai-ssh session --load`** 连接成功后，远程 **`AiT user@host:…>`** 提示符应直接显示，无需额外按 Enter。**`session --load` / `--switch`** 不会在屏幕上回放挂起前的命令输出；已保存 scrollback 仅写入内存，供 suspend/AI 上下文使用。
 
 ---
 
@@ -145,8 +145,8 @@ SSH 会话（`ai-ssh login`）与 `!ai-ssh local` 由远端/本地 shell 提供�
 | 输入 | 作用 |
 |------|------|
 | `!ai-ssh help` / `!ai-ssh` | 打印会话内命令与可本地执行的 CLI 说明 |
-| `!ai-ssh <子命令> …` | 在本地执行 `ai-ssh` 子命令；`login`/`load`/`session --switch` 可在 SSH 内链式切换（见下） |
-| `!ai-ssh login [flags] dest` | 必要时自动落库 → 挂起当前会话 → 登录新主机 |
+| `!ai-ssh <子命令> …` | 在本地执行 `ai-ssh` 子命令；ssh 形 `[flags] dest` / `load` / `session --switch` 可在 SSH 内链式切换（见下） |
+| `!ai-ssh [flags] dest` | 必要时自动落库 → 挂起当前会话 → 登录新主机 |
 | `!ai-ssh load [id\|alias]` | 必要时自动落库 → 挂起 → 加载已保存会话 |
 | `!ai-ssh session --switch [id\|alias]` | 必要时自动落库 → 挂起 → 切换到另一会话 |
 | `!ai-ssh ai [问题]` | 远程 AI 模式（见上） |

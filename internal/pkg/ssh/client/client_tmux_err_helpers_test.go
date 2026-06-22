@@ -34,7 +34,7 @@ func TestWrapTmuxAttachExitErr_Format(t *testing.T) {
 	if !strings.Contains(msg, "Try:") {
 		t.Fatalf("want Try block in %q", msg)
 	}
-	if !strings.Contains(msg, "ai-ssh login --tmux devhost") {
+	if !strings.Contains(msg, "ai-ssh --tmux devhost") {
 		t.Fatalf("want tmux login try line in %q", msg)
 	}
 	if !errors.Is(err, cause) {

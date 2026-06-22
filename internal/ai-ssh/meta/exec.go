@@ -32,7 +32,6 @@ import (
 )
 
 var metaBlockedInSession = map[string]string{
-	login.Name:           "Exit the SSH session first, then log in from the local shell.",
 	shell.ReplCmdLoad:    "Exit the SSH session first, then load a saved session locally.",
 	shell.ReplCmdSuspend: "Use " + toolname.MetaLine("suspend") + " inside this SSH session.",
 	ai.Name:              "Use " + toolname.MetaLine("ai") + " or !! for AI mode inside SSH.",
@@ -61,6 +60,10 @@ func Execute(args []string) error {
 	if len(args) == 0 || (len(args) == 1 && helpArgv(args[0])) {
 		PrintMetaHelp(os.Stdout)
 		return nil
+	}
+
+	if len(args) > 0 && args[0] == login.Name {
+		return login.PrefixRejectedErr()
 	}
 
 	if detail, blocked := metaBlockedInSession[args[0]]; blocked {

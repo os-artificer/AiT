@@ -31,7 +31,7 @@ func tmuxAttachWrappedErr() error {
 	cause := errors.New("Process exited with status: 2")
 	return errhint.WithTry(fmt.Errorf("tmux attach failed (exit 2): %w", cause),
 		"Could not attach to the remote tmux session.",
-		"ai-ssh login --tmux devhost",
+		"ai-ssh --tmux devhost",
 	)
 }
 

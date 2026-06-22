@@ -17,7 +17,8 @@
 package builtin
 
 import (
-	"github.com/os-artificer/AiT/internal/ai-ssh/login"
+	"errors"
+
 	"github.com/os-artificer/AiT/internal/ai-ssh/session"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	pkgsession "github.com/os-artificer/AiT/internal/pkg/session"
@@ -31,7 +32,6 @@ const (
 	CmdClear   = "clear"
 	CmdHistory = "history"
 	CmdAI      = "ai" // matches ai.Name (shell cannot import ai: cycle via mode)
-	CmdLogin   = login.Name
 	CmdLoad    = "load"
 	CmdList    = session.ReplAliasList
 	CmdLL      = "ll"
@@ -46,8 +46,16 @@ const (
 	hintLoadBlockedExplain   = "Suspend the current SSH session before loading another from the local shell."
 )
 
+// ErrLoginBlockedActive is returned when SSH connect is attempted while a session is active (R4).
+var ErrLoginBlockedActive = errors.New(errLoginBlockedActive)
+
 func loginBlockedWhenActiveErr() error {
-	return errhint.WithTryMsg(errLoginBlockedActive,
+	return LoginBlockedWhenActiveErr()
+}
+
+// LoginBlockedWhenActiveErr reports that SSH connect is blocked while a session is active (R4).
+func LoginBlockedWhenActiveErr() error {
+	return errhint.WithTry(ErrLoginBlockedActive,
 		hintLoginBlockedExplain,
 		meta.LineSuspend,
 		pkgsession.TrySessionSwitchID,

@@ -26,8 +26,8 @@ import (
 
 func destinationRequiredErr() error {
 	return errhint.WithTryMsg("destination required (e.g. user@host or ssh config Host alias)",
-		"Add a host destination after login options.",
-		clihints.TryLoginExample, clihints.TryLoginSaveUserHost, clihints.TryLoginHelp,
+		"Add a host destination after connection options.",
+		clihints.TryConnectExample, clihints.TryConnectSaveUserHost, clihints.TryConnectHelp,
 	)
 }
 
@@ -35,9 +35,9 @@ func destinationRequiredErr() error {
 func TmuxWithRemoteCommandErr() error {
 	return errhint.WithTryMsg("cannot use --tmux with a remote command",
 		"Tmux keeps an interactive shell; one-shot commands cannot use --tmux.",
-		clihints.TryLoginExample,
-		clihints.TryLoginRemoteCmd,
-		clihints.TryLoginHelp,
+		clihints.TryConnectExample,
+		clihints.TryConnectRemoteCmd,
+		clihints.TryConnectHelp,
 	)
 }
 

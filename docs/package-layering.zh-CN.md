@@ -24,7 +24,7 @@ pkg/*                       → 供外部模块导入；与 AiT 业务无关的�
 
 ## 子命令包（设计闭环）
 
-每个顶层 **`ai-ssh <子命令>`**（如 `login`、`get`、`put`、`shell`、`ai`、`session`、`config`）放在 **`internal/ai-ssh/<子命令>/`**，并在**同一包内**完成：
+每个**已注册**顶层 **`ai-ssh <子命令>`**（如 `get`、`put`、`shell`、`ai`、`session`、`config`）放在 **`internal/ai-ssh/<子命令>/`**。**SSH connect** 经 [`internal/ai-ssh/login/`](../internal/ai-ssh/login/)（非 Cobra 子命令）与 [`internal/pkg/cliroute/`](../internal/pkg/cliroute/) 默认路由实现，并在**同一包内**完成：
 
 | 职责 | 典型文件 | 说明 |
 |------|----------|------|
@@ -71,7 +71,7 @@ pkg/*                       → 供外部模块导入；与 AiT 业务无关的�
 ## 根目录 `pkg/*`
 
 - 供**外部模块**导入、与 AiT 产品语义无关的库。
-- 不要把 `ai-ssh login` 等业务逻辑放在此处。
+- 不要把 SSH connect 业务逻辑放在 `internal/pkg` 根 helper；保留在 `internal/ai-ssh/login` + `cliroute`。
 - 模块内共用代码优先 `internal/pkg`。
 
 ---
@@ -90,7 +90,7 @@ pkg/*                       → 供外部模块导入；与 AiT 业务无关的�
 - 其余情况目录/包名与 Cobra 命令一致；禁止 `*cmd` 包后缀。
 - `ai-ssh ai` REPL：`internal/ai-ssh/ai/mode`；单轮：`ai/ask`、`ai/agent`。
 - CLI `session`：`internal/ai-ssh/session`；`internal/pkg/session` 用 `pkgsession` 别名。
-- **`ai-ssh shell` REPL 内置命令**（`exit`、`help`、`ll`、`login` 等）在 **`internal/ai-ssh/shell/builtin/`**（package `builtin`）；父包 `shell` 负责 REPL I/O 与非 builtin 四层分发（`exec_dispatch.go`）。
+- **`ai-ssh shell` REPL 内置命令**（`exit`、`help`、`ll` 等）在 **`internal/ai-ssh/shell/builtin/`**（package `builtin`）；父包 `shell` 负责 REPL I/O 与非 builtin 分发（`exec_dispatch.go`）。ssh 形连接**不是** builtin；`login` 前缀硬拒绝。
 
 ---
 
@@ -123,9 +123,9 @@ AiT 有三条**独立**的命令注册路径。新增用户可见动词须落在
 
 **特例 — `ai-ssh ai model list`：** 作为**父命令 positional** 进入 AI REPL meta 路径（R15），**不是** `ai/model` 下的 Cobra 子树。见 [design.zh-CN.md](design.zh-CN.md) AI CLI 小节。
 
-Shell 内置（`list`、`load`、`login` 等）**不是** `ai-ssh shell` 的 Cobra 子命令；SSH 内 `!ai-ssh <subcmd>` 经 [`meta.Execute`](../internal/ai-ssh/meta/exec.go) 复用顶层 Cobra（`ai` / `!!` 除外，进入 AI 模式）。
+Shell 内置（`list`、`load` 等）**不是** `ai-ssh shell` 的 Cobra 子命令；SSH 内 `!ai-ssh <subcmd>` 经 [`meta.Execute`](../internal/ai-ssh/meta/exec.go) 复用顶层 Cobra（`ai` / `!!` 除外，进入 AI 模式）。链式连接用 `!ai-ssh [flags] dest`，不是 `!ai-ssh login`。
 
-**Try 块 SSOT：** errhint 中 `ai-ssh session …` / `ai-ssh login …` 示例行集中在 [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go)；`internal/pkg/session` 再导出以便引用。
+**Try 块 SSOT：** errhint 中 `ai-ssh session …` / `ai-ssh …` 示例行集中在 [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go)；`internal/pkg/session` 再导出以便引用。
 
 ---
 

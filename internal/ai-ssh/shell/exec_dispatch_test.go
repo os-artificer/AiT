@@ -54,7 +54,7 @@ func TestDispatchShellCommand_RunsBin(t *testing.T) {
 	})
 	defer SetExternalRunner(prev)
 
-	if err := dispatchShellCommand(context.Background(), []string{"myext", "a", "b"}); err != nil {
+	if err := dispatchShellCommand(context.Background(), nil, []string{"myext", "a", "b"}); err != nil {
 		t.Fatal(err)
 	}
 	if gotPath != script {
@@ -91,7 +91,7 @@ func TestDispatchShellCommand_AitCLIBeforePATH(t *testing.T) {
 	})
 	defer SetExternalRunner(prevExt)
 
-	if err := dispatchShellCommand(context.Background(), []string{"config", "view"}); err != nil {
+	if err := dispatchShellCommand(context.Background(), nil, []string{"config", "view"}); err != nil {
 		t.Fatal(err)
 	}
 	if !calledCLI {
@@ -125,7 +125,7 @@ func TestDispatchShellCommand_PATHFallback(t *testing.T) {
 	})
 	defer SetExternalRunner(prevExt)
 
-	if err := dispatchShellCommand(context.Background(), []string{"true"}); err != nil {
+	if err := dispatchShellCommand(context.Background(), nil, []string{"true"}); err != nil {
 		t.Fatal(err)
 	}
 	if gotPath != pathExe {
@@ -150,7 +150,7 @@ func TestDispatchShellCommand_PATHSkipsCLIError(t *testing.T) {
 	})
 	defer SetExternalRunner(prevExt)
 
-	err := dispatchShellCommand(context.Background(), []string{"session"})
+	err := dispatchShellCommand(context.Background(), nil, []string{"session"})
 	if err == nil || !strings.Contains(err.Error(), "usage: session") {
 		t.Fatalf("got err=%v", err)
 	}
@@ -173,7 +173,7 @@ func TestDispatchShellCommand_NotFoundHint(t *testing.T) {
 	})
 	defer SetExternalRunner(prevExt)
 
-	err := dispatchShellCommand(context.Background(), []string{"nosuchcmd"})
+	err := dispatchShellCommand(context.Background(), nil, []string{"nosuchcmd"})
 	if err == nil {
 		t.Fatal("expected error")
 	}

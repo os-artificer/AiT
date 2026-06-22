@@ -16,16 +16,16 @@ This document describes post-install configuration, commands, prompts, data loca
 ./bin/ai-ssh config set ai.minimax.api_key <your-key>   # optional second provider
 # Aliases still work: deepseek.api_key, minimax.api_key
 
-# Login: see help for full flags
-./bin/ai-ssh login --help
+# Connect: see help for full flags
+./bin/ai-ssh --help
 
-# Interactive login and persist session
-./bin/ai-ssh login deploy@example.com --alias prod
-./bin/ai-ssh login -p 22 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
-./bin/ai-ssh login -J bastion app.internal
+# Interactive connect and persist session
+./bin/ai-ssh deploy@example.com --alias prod
+./bin/ai-ssh -p 22 -i ~/.ssh/id_ed25519 deploy@10.0.0.5
+./bin/ai-ssh -J bastion app.internal
 
 # One-shot remote command (like ssh host cmd; not persisted to SQLite by default)
-./bin/ai-ssh login deploy@example.com uptime
+./bin/ai-ssh deploy@example.com uptime
 
 # List, restore, switch sessions
 ./bin/ai-ssh session --list
@@ -55,14 +55,14 @@ Optional config template:
 | Command | Description |
 |---------|-------------|
 | `ai-ssh shell` | Interactive mode (`AiT> `): builtins (`ll` = local `ls -la` listing, shell only), then `<AppRoot>/bin`, ai-ssh CLI, PATH; `exit` to quit; TTY: UTF-8, **Ctrl+L** clear screen |
-| `ai-ssh login` | Connect to host; `--save` or `--alias` to bookmark; multiple `--alias` names on the same `user@host:port` are separate sessions; plain re-login updates only an **empty-alias** match; `host cmd` for one-shot |
+| `ai-ssh [flags] destination` | Connect like OpenSSH (`ai-ssh user@host`, `ai-ssh -J bastion app.internal`); `--save` or `--alias` to bookmark; plain re-connect updates only an **empty-alias** match; `host cmd` for one-shot; **`login` prefix removed** |
 | `ai-ssh session --list` | List saved sessions (`#` column; use `-v` for full UUID) |
 | `ai-ssh session --load [<id\|alias>]` | Restore session (omit id to pick); use alias or `FULL_ID` from `-v`, not the short ID column |
 | `ai-ssh session --suspend` | Use `!ai-ssh suspend` inside SSH session |
 | `ai-ssh session --switch [id\|alias]` | Switch session (blocked if current session still `active`; run `!ai-ssh suspend` or use `--force` first) |
 | `ai-ssh session --delete <id\|alias>` | Delete one session |
 | `ai-ssh session --delete all` | Delete all sessions (confirmation; `--force` to skip) |
-| `ai-ssh get [flags] <paths...>` | Download one file; OpenSSH flags like `login` (`-p`, `-i`, `-J`, …); `ai-ssh get --help` |
+| `ai-ssh get [flags] <paths...>` | Download one file; OpenSSH flags same as default SSH connect (`-p`, `-i`, `-J`, …); `ai-ssh get --help` |
 | `ai-ssh put [flags] <paths...>` | Upload one file; same flag/path rules as `get` |
 | `ai-ssh config init [--dry-run]` | Create or merge `config.yaml` (missing keys only); `--dry-run` prints planned changes |
 | `ai-ssh config view` | Print `config.yaml` to stdout (creates file if missing) |
@@ -98,7 +98,7 @@ On **macOS, Linux, and Windows**, interactive `ai-ssh shell` and `ai-ssh ai` acc
 - **Non-TTY:** `echo 你好 | ai-ssh ai ask` works without special locale setup.
 - **Clear screen:** In `ai-ssh shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ai-ssh ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
 
-SSH sessions (`ai-ssh login`) and `!ai-ssh local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI(Agent)>` editing is what this section describes.
+SSH sessions (top-level `ai-ssh user@host` or `session --load`) and `!ai-ssh local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI(Agent)>` editing is what this section describes.
 
 ## Prompts
 
@@ -107,11 +107,11 @@ SSH sessions (`ai-ssh login`) and `!ai-ssh local` use the remote/local shell’s
 | `ai-ssh shell` | `AiT> ` |
 | `ai-ssh ai` (local) | `AiT AI(Agent)> ` by default; `mode ask` for `AiT AI(Ask)> ` |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` (cwd + optional Git branch; `session.remote_prompt.path` short\|absolute) |
-| SSH nested | same on inner host after `ssh` from an AiT session | Or use `ai-ssh login -J jump,final` to skip manual nested `ssh` |
+| SSH nested | same on inner host after `ssh` from an AiT session | Or use `ai-ssh -J jump,final` to skip manual nested `ssh` |
 | SSH AI mode (`!ai-ssh ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
 | `!ai-ssh local` | `AiT Local> ` |
 
-After **`ai-ssh login`** or **`ai-ssh session --load`**, the remote **`AiT user@host:…>`** prompt should appear immediately—no extra Enter key. **`session --load` / `--switch`** does not redraw prior command output on screen; saved scrollback is kept in memory for suspend/AI context only.
+After **`ai-ssh user@host`** or **`ai-ssh session --load`**, the remote **`AiT user@host:…>`** prompt should appear immediately—no extra Enter key. **`session --load` / `--switch`** does not redraw prior command output on screen; saved scrollback is kept in memory for suspend/AI context only.
 
 ---
 
@@ -145,8 +145,8 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 | Input | Action |
 |-------|--------|
 | `!ai-ssh help` / `!ai-ssh` | Print in-session commands and local CLI help |
-| `!ai-ssh <subcmd> …` | Run `ai-ssh` subcommand locally; `login`/`load`/`session --switch` chain from SSH (see below) |
-| `!ai-ssh login [flags] dest` | Auto-save if needed, suspend current session, log in to another host |
+| `!ai-ssh <subcmd> …` | Run `ai-ssh` subcommand locally; ssh-style `[flags] dest` / `load` / `session --switch` chain from SSH (see below) |
+| `!ai-ssh [flags] dest` | Auto-save if needed, suspend current session, connect to another host (not `!ai-ssh login …`) |
 | `!ai-ssh load [id\|alias]` | Auto-save if needed, suspend, load saved session |
 | `!ai-ssh session --switch [id\|alias]` | Auto-save if needed, suspend, switch to another session |
 | `!ai-ssh ai [question]` | Remote AI mode (see above) |

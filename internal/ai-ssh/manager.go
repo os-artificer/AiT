@@ -53,7 +53,7 @@ func NewManager(metaCLI func([]string) error, onRemoteAI sshclient.RemoteAIRunne
 }
 
 func newManager() (*session.Manager, error) {
-	return NewManager(meta.Execute, ai.RemoteRunner(ExecuteWriters))
+	return NewManager(meta.Execute, ai.RemoteRunner(ExecuteCobraOnly))
 }
 
 func runWithManager(fn func(ctx context.Context, mgr *session.Manager) error) error {

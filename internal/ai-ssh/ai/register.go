@@ -39,7 +39,7 @@ func (topLevel) Short() string { return "local AI REPL; provider enable/disable;
 func (topLevel) Order() int    { return 20 }
 func (topLevel) NewCobra(d registry.Deps) *cobra.Command {
 	return New(Deps{
-		Exec:       deps.CLIExecutor(d.ExecuteWriters),
+		Exec:       deps.CLIExecutor(d.ExecuteCobraOnly),
 		RunWithMgr: deps.RunWithMgr(d.RunWithMgr),
 	})
 }

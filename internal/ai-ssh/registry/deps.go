@@ -31,6 +31,7 @@ type ExecuteWriters func(args []string, out, errOut io.Writer) error
 
 // Deps groups dependencies injected when attaching registered top-level commands.
 type Deps struct {
-	RunWithMgr     RunWithMgr
-	ExecuteWriters ExecuteWriters
+	RunWithMgr       RunWithMgr
+	ExecuteWriters   ExecuteWriters
+	ExecuteCobraOnly ExecuteWriters
 }

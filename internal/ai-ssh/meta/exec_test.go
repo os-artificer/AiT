@@ -18,10 +18,13 @@ package meta
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/ai-ssh/login"
 )
 
 func TestPrintMetaHelp(t *testing.T) {
@@ -35,7 +38,7 @@ func TestPrintMetaHelp(t *testing.T) {
 		"help",
 		"ai [question]",
 		"remote AI mode",
-		"login [flags] dest",
+		"user@hostB",
 		"session --switch",
 		"local",
 		"suspend",
@@ -77,10 +80,10 @@ func TestExecuteBlockedAI(t *testing.T) {
 func TestExecuteBlockedLogin(t *testing.T) {
 	err := Execute([]string{"login", "--host", "h"})
 	if err == nil {
-		t.Fatal("expected error for login in session")
+		t.Fatal("expected error for login prefix in session")
 	}
-	if !strings.Contains(err.Error(), "Exit the SSH") && !strings.Contains(err.Error(), "exit") {
-		t.Errorf("unexpected error: %v", err)
+	if !errors.Is(err, login.ErrLoginPrefixRemoved) {
+		t.Fatalf("got %v", err)
 	}
 	if !strings.Contains(err.Error(), "Try:") {
 		t.Errorf("expected Try block: %v", err)
