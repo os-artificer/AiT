@@ -17,8 +17,8 @@
 package shared
 
 const (
-	// MsgEnabledFmt is the stdout line after `ai-ssh ai provider enable`.
+	// MsgEnabledFmt is the stdout line after `aitssh ai provider enable`.
 	MsgEnabledFmt = "enabled provider %s\n"
-	// MsgDisabledFmt is the stdout line after `ai-ssh ai provider disable`.
+	// MsgDisabledFmt is the stdout line after `aitssh ai provider disable`.
 	MsgDisabledFmt = "disabled provider %s\n"
 )

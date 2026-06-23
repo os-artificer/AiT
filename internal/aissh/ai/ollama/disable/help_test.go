@@ -28,7 +28,7 @@ func TestWriteHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"Usage:", "Examples:", "help for disable"} {
+	for _, want := range []string{"Usage:", "Flags:", "--stop", "Examples:", "help for disable"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("disable help missing %q:\n%s", want, out)
 		}

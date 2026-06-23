@@ -19,6 +19,7 @@ package shell
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -29,6 +30,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/store"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestExecuteLine_LoginPrefixRejected(t *testing.T) {
@@ -47,7 +49,7 @@ func TestExecuteLine_UnknownWordNotSSH(t *testing.T) {
 
 	prevCLI := cliExecutor
 	cliExecutor = func([]string, io.Writer, io.Writer) error {
-		return errors.New(`unknown command "nosuchcmd" for "ai-ssh"`)
+		return errors.New(fmt.Sprintf(`unknown command "nosuchcmd" for "%s"`, toolname.AISsh))
 	}
 	defer func() { cliExecutor = prevCLI }()
 
@@ -73,7 +75,7 @@ func TestExecuteLine_SSHFlagLedConnect(t *testing.T) {
 
 	prevCLI := cliExecutor
 	cliExecutor = func([]string, io.Writer, io.Writer) error {
-		return errors.New(`unknown command "-p" for "ai-ssh"`)
+		return errors.New(fmt.Sprintf(`unknown command "-p" for "%s"`, toolname.AISsh))
 	}
 	defer func() { cliExecutor = prevCLI }()
 
@@ -92,7 +94,7 @@ func TestExecuteLine_SSHStyleConnect(t *testing.T) {
 
 	prevCLI := cliExecutor
 	cliExecutor = func([]string, io.Writer, io.Writer) error {
-		return errors.New(`unknown command "devhost" for "ai-ssh"`)
+		return errors.New(fmt.Sprintf(`unknown command "devhost" for "%s"`, toolname.AISsh))
 	}
 	defer func() { cliExecutor = prevCLI }()
 
@@ -111,7 +113,7 @@ func TestExecuteLine_SSHHostPortConnect(t *testing.T) {
 
 	prevCLI := cliExecutor
 	cliExecutor = func([]string, io.Writer, io.Writer) error {
-		return errors.New(`unknown command "192.168.1.1:2222" for "ai-ssh"`)
+		return errors.New(fmt.Sprintf(`unknown command "192.168.1.1:2222" for "%s"`, toolname.AISsh))
 	}
 	defer func() { cliExecutor = prevCLI }()
 
@@ -151,7 +153,7 @@ func TestExecuteLine_SSHConnectBlockedWhenActive(t *testing.T) {
 
 	prevCLI := cliExecutor
 	cliExecutor = func([]string, io.Writer, io.Writer) error {
-		return errors.New(`unknown command "devhost" for "ai-ssh"`)
+		return errors.New(fmt.Sprintf(`unknown command "devhost" for "%s"`, toolname.AISsh))
 	}
 	defer func() { cliExecutor = prevCLI }()
 

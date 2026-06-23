@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Name is the top-level `ai-ssh ai` subcommand name.
+// Name is the top-level `aitssh ai` subcommand name.
 const Name = "ai"
 
 type topLevel struct{}

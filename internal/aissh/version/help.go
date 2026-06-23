@@ -20,15 +20,15 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const (
-	versionIntroMain = "Print build version information (version, git commit hash, and build date).\n" +
-		"Version is resolved from ldflags, the embedded VERSION file, or \"dev\" as fallback."
-	versionUsage = "ai-ssh version"
-)
+const versionIntroMain = "Print build version information (version, git commit hash, and build date).\n" +
+	"Version is resolved from ldflags, the embedded VERSION file, or \"dev\" as fallback."
 
-// WriteVersionHelp prints ai-ssh version --help to w.
+var versionUsage = toolname.CLI("version")
+
+// WriteVersionHelp prints aitssh version --help to w.
 func WriteVersionHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(versionIntroMain, ""); err != nil {

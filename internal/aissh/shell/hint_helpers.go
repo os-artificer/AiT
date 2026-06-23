@@ -21,6 +21,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func unclosedQuoteErr() error {
@@ -37,7 +38,7 @@ func commandNotFoundErr(name string) error {
 	}
 	cause := fmt.Errorf("%w: %s", ErrCommandNotFound, name)
 	return errhint.WithTry(cause,
-		"Drop an executable in "+binDir+"/"+name+", use an ai-ssh subcommand, or ensure it is on PATH.",
+		"Drop an executable in "+binDir+"/"+name+", use a "+toolname.AISsh+" subcommand, or ensure it is on PATH.",
 		"help",
 		"ls "+binDir,
 	)

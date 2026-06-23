@@ -30,7 +30,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/shellext"
 )
 
-// ErrCommandNotFound is returned when no builtin, bin, ai-ssh CLI, or PATH match exists.
+// ErrCommandNotFound is returned when no builtin, bin, aitssh CLI, or PATH match exists.
 var ErrCommandNotFound = errors.New("shell: command not found")
 
 var externalRunner func(context.Context, string, []string) error

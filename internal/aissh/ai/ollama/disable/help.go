@@ -17,22 +17,27 @@
 package disable
 
 import (
+	"fmt"
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
-	introMain  = "Set ai.providers.ollama.enabled to false so AiT stops routing to Ollama."
-	introAlias = "Same config effect as: ai-ssh ai provider disable ollama. Does not turn off ai.tiered.enabled."
-	usageLine  = "ai-ssh ai ollama disable [flags]"
-	flagsBody  = `  --stop    Also run ollama stop after disabling
+	introMain = "Set ai.providers.ollama.enabled to false so AiT stops routing to Ollama."
+	flagsBody = `  --stop    Also run ollama stop after disabling
 `
-	exampleDisable     = "ai-ssh ai ollama disable"
-	exampleDisableStop = "ai-ssh ai ollama disable --stop"
 )
 
-// WriteHelp prints ai-ssh ai ollama disable --help to w.
+var (
+	introAlias         = fmt.Sprintf("Same config effect as: %s. Does not turn off ai.tiered.enabled.", toolname.CLI("ai provider disable ollama"))
+	usageLine          = toolname.CLI("ai ollama disable [flags]")
+	exampleDisable     = toolname.CLI("ai ollama disable")
+	exampleDisableStop = toolname.CLI("ai ollama disable --stop")
+)
+
+// WriteHelp prints aitssh ai ollama disable --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introAlias); err != nil {

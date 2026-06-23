@@ -1,5 +1,5 @@
 ---
-description: CLI/Cobra --help 必须与 ai-ssh login 同版式；新命令 checklist
+description: CLI/Cobra --help 必须与 aitssh login 同版式；新命令 checklist
 globs: internal/aissh/*.go,internal/pkg/helpdoc/**,internal/aissh/**/help.go,internal/aissh/login/**,internal/aissh/shell/**,internal/aissh/meta/**
 alwaysApply: false
 ---
@@ -21,7 +21,7 @@ alwaysApply: false
 - OpenSSH / Not supported **只**在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`common.go` / helpers）
 - Cobra 绑定：`pkghelpdoc.Bind(cmd, WriteHelp)`（见 [`bind.go`](internal/pkg/helpdoc/bind.go)）
 - get/put：**一个** `WriteTransferHelp(w, cmdName)`
-- `Long`: `Run 'ai-ssh <cmd> --help' for usage and examples.`（或 `pkghelpdoc.LongHint`）
+- `Long`: `Run 'aitssh <cmd> --help' for usage and examples.`（或 `pkghelpdoc.LongHint`）
 - `SilenceUsage: true`
 
 ## 用户可见报错（Hint 模板）

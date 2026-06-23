@@ -33,7 +33,7 @@ const (
 	flagNameBaseURL = "base-url"
 )
 
-// New builds the `ai-ssh ai ollama start` cobra command.
+// New builds the `aitssh ai ollama start` cobra command.
 func New() *cobra.Command {
 	var wait bool
 	var baseURL string

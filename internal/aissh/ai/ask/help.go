@@ -17,6 +17,7 @@
 package ask
 
 import (
+	"fmt"
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -26,18 +27,17 @@ import (
 var introSSH = "Does not enter interactive AI mode. Inside SSH use " + toolname.MetaLine("ai ask <message>") +
 	" or !! ask <message>."
 
-const (
-	introMain = "Send a single message to the configured AI provider and print the reply."
-	usageLine = "ai-ssh ai ask [message...]"
-	inputBody = `  message...   Prompt text (joined with spaces)
-  (no args)    Read prompt from stdin until EOF (e.g. echo "question" | ai-ssh ai ask)
-`
-	exampleQuote = `ai-ssh ai ask "explain this error"`
-	exampleModel = "ai-ssh ai ask --model minimax summarize logs"
-	exampleStdin = `echo "hello" | ai-ssh ai ask`
+const introMain = "Send a single message to the configured AI provider and print the reply."
+
+var (
+	usageLine    = toolname.CLI("ai ask [message...]")
+	inputBody    = fmt.Sprintf("  message...   Prompt text (joined with spaces)\n  (no args)    Read prompt from stdin until EOF (e.g. echo \"question\" | %s)\n", toolname.CLI("ai ask"))
+	exampleQuote = toolname.CLI(`ai ask "explain this error"`)
+	exampleModel = toolname.CLI("ai ask --model minimax summarize logs")
+	exampleStdin = fmt.Sprintf(`echo "hello" | %s`, toolname.CLI("ai ask"))
 )
 
-// WriteHelp prints ai-ssh ai ask --help to w.
+// WriteHelp prints aitssh ai ask --help to w.
 func WriteHelp(w io.Writer) error {
 	return pkghelpdoc.WriteAIChatSubcommandHelp(w, "ask", introMain, introSSH, usageLine, inputBody,
 		exampleQuote, exampleModel, exampleStdin, pkghelpdoc.ExampleAIAskSSH)

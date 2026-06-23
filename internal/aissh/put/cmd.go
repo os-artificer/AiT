@@ -32,7 +32,7 @@ const (
 	Name = "put"
 )
 
-// New builds the `ai-ssh put` cobra command.
+// New builds the `aitssh put` cobra command.
 func New(runWithMgr registry.RunWithMgr) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   Name + " [flags] <paths...>",

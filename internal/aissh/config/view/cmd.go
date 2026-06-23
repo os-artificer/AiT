@@ -26,7 +26,7 @@ import (
 
 const name = "view"
 
-// New builds the `ai-ssh config view` cobra command.
+// New builds the `aitssh config view` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           name,

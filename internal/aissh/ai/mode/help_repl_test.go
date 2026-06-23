@@ -23,6 +23,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestWriteREPLHelp_Local(t *testing.T) {
@@ -34,7 +35,7 @@ func TestWriteREPLHelp_Local(t *testing.T) {
 	for _, want := range []string{
 		pkghelpdoc.SectionCommands,
 		pkghelpdoc.SectionKeys,
-		"ai-ssh list",
+		toolname.CLI("list"),
 		"Ctrl+R",
 	} {
 		if !strings.Contains(out, want) {
@@ -58,7 +59,7 @@ func TestWriteREPLHelp_Remote(t *testing.T) {
 			t.Fatalf("remote REPL help missing %q:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "ai-ssh list") {
-		t.Fatalf("remote REPL help must not include local-only ai-ssh list extra:\n%s", out)
+	if strings.Contains(out, toolname.CLI("list")) {
+		t.Fatalf("remote REPL help must not include local-only %s extra:\n%s", toolname.CLI("list"), out)
 	}
 }

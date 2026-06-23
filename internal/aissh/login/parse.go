@@ -21,7 +21,7 @@ import "github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
 // Spec holds parsed login argv (OpenSSH + AiT extensions).
 type Spec = openssh.Spec
 
-// Parse parses argv for ai-ssh login.
+// Parse parses argv for aitssh login.
 func Parse(argv []string) (Spec, error) {
 	return openssh.ParseLogin(argv)
 }

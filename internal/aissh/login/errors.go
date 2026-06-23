@@ -25,9 +25,9 @@ import (
 )
 
 // ErrLoginPrefixRemoved is returned when argv uses the removed login subcommand prefix.
-var ErrLoginPrefixRemoved = errors.New("ai-ssh: login subcommand removed")
+var ErrLoginPrefixRemoved = errors.New(toolname.AISsh + ": login subcommand removed")
 
-// PrefixRejectedErr reports use of the removed ai-ssh login subcommand prefix.
+// PrefixRejectedErr reports use of the removed aitssh login subcommand prefix.
 func PrefixRejectedErr() error {
 	return errhint.WithTry(ErrLoginPrefixRemoved,
 		"Omit the login prefix and pass flags and destination directly to "+toolname.AISsh+".",

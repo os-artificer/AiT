@@ -27,19 +27,22 @@ import (
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	pkgsubregistry "github.com/os-artificer/AiT/internal/pkg/subregistry"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const aiNote = "Requires ai.<provider>.api_key for cloud providers. " +
 	"With ai.tiered.enabled, simple prompts use local Ollama. " +
 	"Use --model to override cloud provider for this session."
 
-// WriteAIHelp prints ai-ssh ai --help to w.
+var aiUsageLine = toolname.CLI("ai [--model deepseek|minimax] [REPL-command ...]")
+
+// WriteAIHelp prints aitssh ai --help to w.
 func WriteAIHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(pkghelpdoc.AIIntroLocal, aiNote); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ai-ssh ai [--model deepseek|minimax] [REPL-command ...]"); err != nil {
+	if err := b.WriteUsage(aiUsageLine); err != nil {
 		return err
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionFlags, pkghelpdoc.AIHelpFlagsBody); err != nil {
@@ -61,14 +64,14 @@ func WriteAIHelp(w io.Writer) error {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ai-ssh ai",
-		"ai-ssh ai ask \"summarize this\"",
-		"ai-ssh ai agent \"find large files in /var/log\"",
-		"ai-ssh ai model list",
+		toolname.CLI("ai"),
+		toolname.CLI(`ai ask "summarize this"`),
+		toolname.CLI(`ai agent "find large files in /var/log"`),
+		toolname.CLI("ai model list"),
 		pkghelpdoc.ExampleAIOllamaStatus,
 		pkghelpdoc.ExampleAIProviderEnableDeepseek,
 		pkghelpdoc.ExampleAIOllamaSetupYes,
-		"ai-ssh ai --model minimax",
+		toolname.CLI("ai --model minimax"),
 		"run echo hello",
 		"mode agent",
 		"approve session",

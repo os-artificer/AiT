@@ -28,7 +28,7 @@ import (
 
 const name = "set"
 
-// New builds the `ai-ssh config set` cobra command.
+// New builds the `aitssh config set` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "set <key> <value>",

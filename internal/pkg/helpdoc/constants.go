@@ -46,7 +46,7 @@ const (
 
 // OpenSSH — blocks embedded by login and transfer help.
 var (
-	// SectionOpenSSHFlags is the shared OpenSSH-compatible flags block (same as ai-ssh login --help).
+	// SectionOpenSSHFlags is the shared OpenSSH-compatible flags block (same as aitssh login --help).
 	SectionOpenSSHFlags = `  -p port         remote SSH port (overrides ssh_config and -o Port)
   -l user         remote username (same as ssh_config User)
   -i path         private key file (IdentityFile)

@@ -28,7 +28,7 @@ import (
 
 const name = "status"
 
-// New builds the `ai-ssh ai ollama status` cobra command.
+// New builds the `aitssh ai ollama status` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           name,

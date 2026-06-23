@@ -30,15 +30,15 @@ const OpGet = openssh.OpGet
 // OpPut uploads localPath to remotePath.
 const OpPut = openssh.OpPut
 
-// TransferSpec holds parsed argv for ai-ssh get or ai-ssh put.
+// TransferSpec holds parsed argv for aitssh get or aitssh put.
 type TransferSpec = openssh.TransferSpec
 
-// Parse parses argv for ai-ssh login.
+// Parse parses argv for aitssh login.
 func Parse(argv []string) (Spec, error) {
 	return openssh.ParseLogin(argv)
 }
 
-// ParseTransfer parses argv for ai-ssh get or ai-ssh put.
+// ParseTransfer parses argv for aitssh get or aitssh put.
 func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
 	return openssh.ParseTransfer(argv, op)
 }

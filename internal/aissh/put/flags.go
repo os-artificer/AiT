@@ -18,7 +18,7 @@ package put
 
 import "github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
 
-// OpenSSH-compatible and AiT transfer flags accepted by ai-ssh put (see internal/pkg/ssh/openssh).
+// OpenSSH-compatible and AiT transfer flags accepted by aitssh put (see internal/pkg/ssh/openssh).
 const (
 	FlagSession  = openssh.FlagSession
 	FlagPassword = openssh.FlagPassword

@@ -20,12 +20,12 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
 	introMain  = "Read-only status for Ollama: config flags, binary on PATH, API reachability, and pulled models."
 	introNote  = "Does not change config or start/stop the service."
-	usageLine  = "ai-ssh ai ollama status"
 	outputBody = `  ai.tiered.enabled
   ai.providers.ollama.enabled
   base_url, model, models_dir (OLLAMA_MODELS)
@@ -33,10 +33,14 @@ const (
   detail (when unreachable)
   pulled_models (when API is up)
 `
-	exampleStatus = "ai-ssh ai ollama status"
 )
 
-// WriteHelp prints ai-ssh ai ollama status --help to w.
+var (
+	usageLine     = toolname.CLI("ai ollama status")
+	exampleStatus = toolname.CLI("ai ollama status")
+)
+
+// WriteHelp prints aitssh ai ollama status --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introNote); err != nil {

@@ -21,7 +21,7 @@ import (
 	"os"
 )
 
-// shellCLIOut is stdout for cobra commands run inside ai-ssh shell (CRLF in raw TTY).
+// shellCLIOut is stdout for cobra commands run inside aitssh shell (CRLF in raw TTY).
 var shellCLIOut io.Writer = os.Stdout
 
 // shellCLIErr discards cobra stderr; REPL prints errors via shellPrintErr.

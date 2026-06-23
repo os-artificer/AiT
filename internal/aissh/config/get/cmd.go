@@ -28,7 +28,7 @@ import (
 
 const name = "get"
 
-// New builds the `ai-ssh config get` cobra command.
+// New builds the `aitssh config get` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "get <key>",

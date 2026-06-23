@@ -28,7 +28,7 @@ import (
 
 const name = "disable"
 
-// New builds the `ai-ssh ai provider disable` cobra command.
+// New builds the `aitssh ai provider disable` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "disable <provider>",

@@ -26,22 +26,25 @@ var hintMetaAIAsk = toolname.MetaLine("ai ask <message>")
 
 const (
 	hintSetCloudKeysOrOllama   = "Set a cloud provider API key or enable tiered Ollama routing."
-	hintSetDeepseekAPIKey      = "ai-ssh config set ai.deepseek.api_key <key>"
-	hintSetMinimaxAPIKey       = "ai-ssh config set ai.minimax.api_key <key>"
-	hintEnableOllama           = "ai-ssh ai provider enable ollama"
-	hintAIHelp                 = "ai-ssh ai --help"
-	hintOllamaSetup            = "ai-ssh ai ollama setup"
 	hintSetCloudAPIKey         = "Set an API key for a cloud provider."
 	hintStoreAPIKeyInKeyring   = "Store the provider API key in the OS keyring."
 	hintProvideChatMessage     = "Provide a message on the command line or via stdin."
-	hintAIAskWithMessage       = "ai-ssh ai ask <message>"
-	hintAIAskStdin             = "echo ping | ai-ssh ai ask"
-	hintAIAskHelp              = "ai-ssh ai ask --help"
 	hintEnableProviderOverride = "Enable the provider before using it as --model override."
+)
 
-	// HintAIHelp is the standard ai-ssh ai --help Try line (shared with client).
+var (
+	hintSetDeepseekAPIKey = toolname.CLI("config set ai.deepseek.api_key <key>")
+	hintSetMinimaxAPIKey  = toolname.CLI("config set ai.minimax.api_key <key>")
+	hintEnableOllama      = toolname.CLI("ai provider enable ollama")
+	hintAIHelp            = toolname.CLI("ai --help")
+	hintOllamaSetup       = toolname.CLI("ai ollama setup")
+	hintAIAskWithMessage  = toolname.CLI("ai ask <message>")
+	hintAIAskStdin        = "echo ping | " + toolname.CLI("ai ask")
+	hintAIAskHelp         = toolname.CLI("ai ask --help")
+
+	// HintAIHelp is the standard aitssh ai --help Try line (shared with client).
 	HintAIHelp = hintAIHelp
-	// HintOllamaSetup is the ai-ssh ai ollama setup Try line.
+	// HintOllamaSetup is the aitssh ai ollama setup Try line.
 	HintOllamaSetup = hintOllamaSetup
 	// HintStoreAPIKeyInKeyring explains keyring storage in API key errors.
 	HintStoreAPIKeyInKeyring = hintStoreAPIKeyInKeyring
@@ -49,17 +52,17 @@ const (
 	HintSetCloudAPIKey = hintSetCloudAPIKey
 )
 
-// ConfigSetAPIKeyCmd returns the ai-ssh config set command for a provider API key.
+// ConfigSetAPIKeyCmd returns the aitssh config set command for a provider API key.
 func ConfigSetAPIKeyCmd(id string) string {
 	return toolname.CLI(fmt.Sprintf("config set ai.%s.api_key <key>", id))
 }
 
-// ConfigGetAPIKeyCmd returns the ai-ssh config get command for a provider API key.
+// ConfigGetAPIKeyCmd returns the aitssh config get command for a provider API key.
 func ConfigGetAPIKeyCmd(id string) string {
 	return toolname.CLI(fmt.Sprintf("config get ai.%s.api_key", id))
 }
 
-// ProviderEnableCmd returns the ai-ssh ai provider enable command for id.
+// ProviderEnableCmd returns the aitssh ai provider enable command for id.
 func ProviderEnableCmd(id string) string {
 	return toolname.CLI("ai provider enable " + id)
 }

@@ -18,10 +18,10 @@ package put
 
 import "github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
 
-// TransferSpec holds parsed argv for ai-ssh put.
+// TransferSpec holds parsed argv for aitssh put.
 type TransferSpec = openssh.TransferSpec
 
-// ParseTransfer parses argv for ai-ssh put.
+// ParseTransfer parses argv for aitssh put.
 func ParseTransfer(argv []string) (TransferSpec, error) {
 	return openssh.ParseTransfer(argv, openssh.OpPut)
 }

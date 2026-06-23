@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package deps holds shared dependencies for the ai-ssh ai command subtree.
+// Package deps holds shared dependencies for the aitssh ai command subtree.
 package deps
 
 import (
@@ -24,13 +24,13 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/session"
 )
 
-// CLIExecutor invokes the ai-ssh root command with custom IO.
+// CLIExecutor invokes the aitssh root command with custom IO.
 type CLIExecutor func(args []string, out, errOut io.Writer) error
 
 // RunWithMgr opens a session.Manager and runs fn under a signal-cancellable context.
 type RunWithMgr func(fn func(ctx context.Context, mgr *session.Manager) error) error
 
-// Deps groups cross-package dependencies for ai-ssh ai subcommands.
+// Deps groups cross-package dependencies for aitssh ai subcommands.
 type Deps struct {
 	Exec       CLIExecutor
 	RunWithMgr RunWithMgr

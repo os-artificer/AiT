@@ -20,14 +20,14 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const (
-	introMain = "Disable routing to a provider; no Chat/Assist traffic is sent to it."
-	usageLine = "ai-ssh ai provider disable <provider>"
-)
+const introMain = "Disable routing to a provider; no Chat/Assist traffic is sent to it."
 
-// WriteHelp prints ai-ssh ai provider disable --help to w.
+var usageLine = toolname.CLI("ai provider disable <provider>")
+
+// WriteHelp prints aitssh ai provider disable --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain); err != nil {
@@ -38,7 +38,7 @@ func WriteHelp(w io.Writer) error {
 	}
 	if err := b.WriteExamples(
 		pkghelpdoc.ExampleAIProviderDisableMinimax,
-		"ai-ssh ai provider disable ollama",
+		toolname.CLI("ai provider disable ollama"),
 	); err != nil {
 		return err
 	}

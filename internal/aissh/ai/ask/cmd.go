@@ -32,12 +32,12 @@ import (
 
 const name = chat.Verb
 
-// New builds the `ai-ssh ai ask` cobra command.
+// New builds the `aitssh ai ask` cobra command.
 func New(d deps.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "ask [message...]",
 		Short:         "Send one message to the AI and print the reply (non-interactive)",
-		Long:          "Run 'ai-ssh ai ask --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
+		Long:          pkghelpdoc.LongHintChatOnce("ai ask"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -39,8 +39,8 @@ var metaBlockedInSession = map[string]string{
 
 var executor func([]string, io.Writer, io.Writer) error
 
-// SetExecutorWriters registers the function that runs ai-ssh subcommands from meta lines.
-// Called from internal/aissh init_hooks to avoid an import cycle between ai-ssh root and meta.
+// SetExecutorWriters registers the function that runs aitssh subcommands from meta lines.
+// Called from internal/aissh init_hooks to avoid an import cycle between aitssh root and meta.
 func SetExecutorWriters(fn func([]string, io.Writer, io.Writer) error) {
 	executor = fn
 }
@@ -53,7 +53,7 @@ func PrintMetaHelp(w io.Writer) {
 	_, _ = io.WriteString(w, strings.ReplaceAll(buf.String(), "\n", "\r\n"))
 }
 
-// Execute runs ai-ssh subcommands from an SSH meta line (!ait <args>).
+// Execute runs aitssh subcommands from an SSH meta line (!ait <args>).
 // Empty args or "help" prints in-session help.
 // Returns fmt.Errorf when args[0] is blocked in-session (login/load/suspend), or errors from the executor.
 func Execute(args []string) error {

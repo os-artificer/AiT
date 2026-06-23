@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package config implements the `ai-ssh config` Cobra subtree (set/get/init/view/edit/validate).
+// Package config implements the `aitssh config` Cobra subtree (set/get/init/view/edit/validate).
 package config
 
 import (
@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// New builds the `ai-ssh config` cobra command tree.
+// New builds the `aitssh config` cobra command tree.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "config",

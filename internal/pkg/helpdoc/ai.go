@@ -22,7 +22,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// AI help strings — single source for ai-ssh ai, ask, agent, ollama, and in-REPL help.
+// AI help strings — single source for aitssh ai, ask, agent, ollama, and in-REPL help.
 var (
 	ExampleAIProviderEnableDeepseek  = toolname.CLI("ai provider enable deepseek")
 	ExampleAIProviderEnableOllamaYes = toolname.CLI("ai provider enable ollama --yes")

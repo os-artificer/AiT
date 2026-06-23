@@ -1,9 +1,9 @@
 .PHONY: all build build-cross install test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
-TOOLS       := ai-ssh
-BINARY_NAME := ai-ssh
+TOOLS       := aitssh
+BINARY_NAME := aitssh
 BUILD_DIR   := bin
-MAIN_PKG    := ./cmd/ai-ssh
+MAIN_PKG    := ./cmd/aitssh
 LDFLAGS_PKG := github.com/os-artificer/AiT/internal/aissh/version
 
 VERSION    ?= $(shell cat internal/aissh/version/VERSION 2>/dev/null | tr -d ' \n')
@@ -59,13 +59,13 @@ check-generate:
 	git diff --exit-code -- internal/aissh/registry/all/imports.go
 
 test-e2e:
-	@test -x bin/ai-ssh || $(MAKE) build
+	@test -x $(BUILD_DIR)/$(BINARY_NAME) || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
 
 test-e2e-smoke:
-	@test -x bin/ai-ssh || $(MAKE) build
+	@test -x $(BUILD_DIR)/$(BINARY_NAME) || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m smoke

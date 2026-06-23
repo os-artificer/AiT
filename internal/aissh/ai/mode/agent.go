@@ -148,10 +148,10 @@ func runAgentShell(ctx context.Context, opt Options, st *sessionState, cmd strin
 func runAgentAit(ctx context.Context, opt Options, st *sessionState, argsLine string) (string, bool, error) {
 	argsLine = strings.TrimSpace(argsLine)
 	if argsLine == "" {
-		return "error: empty ai-ssh args", false, nil
+		return "error: empty " + toolname.AISsh + " args", false, nil
 	}
 	if opt.CLI == nil {
-		return "error: ai-ssh CLI not configured", false, nil
+		return "error: " + toolname.AISsh + " CLI not configured", false, nil
 	}
 
 	lvl := risk.ClassifyAit(argsLine)

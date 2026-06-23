@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/aissh/ai/ollama"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestOllamaSetupHelpSections(t *testing.T) {
@@ -32,7 +33,7 @@ func TestOllamaSetupHelpSections(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"Usage:", "Examples:", "help for setup", "ai-ssh ai ollama setup",
+		"Usage:", "Examples:", "help for setup", toolname.CLI("ai ollama setup"),
 		"[y/N]", "--yes", "--no-install", "--dry-run", "--models-dir",
 	} {
 		if !strings.Contains(out, want) {
@@ -48,7 +49,7 @@ func TestAIOllamaHelpSections(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"ai-ssh ai ollama", "status", "setup", "start", "stop", "disable",
+		toolname.CLI("ai ollama"), "status", "setup", "start", "stop", "disable",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)

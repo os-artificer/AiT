@@ -59,7 +59,7 @@ func TestAICmd_PositionalMetaNoTTY(t *testing.T) {
 			t.Fatalf("unexpected error: %v stderr=%q", err, errOut.String())
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("ai-ssh ai model list blocked (expected non-interactive exit)")
+		t.Fatal("aitssh ai model list blocked (expected non-interactive exit)")
 	}
 
 	if out.Len() > 0 {
@@ -89,7 +89,7 @@ func TestAICmd_PositionalClearNoTTY(t *testing.T) {
 			t.Fatal(err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("ai-ssh ai clear blocked (expected non-interactive meta exit)")
+		t.Fatal("aitssh ai clear blocked (expected non-interactive meta exit)")
 	}
 }
 
@@ -138,7 +138,7 @@ func TestAICmd_ChatNoTTY(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("ai-ssh ai ask blocked (expected non-interactive exit)")
+		t.Fatal("aitssh ai ask blocked (expected non-interactive exit)")
 	}
 }
 
@@ -156,7 +156,7 @@ func TestAICmd_ChatStdinNoTTY(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		case <-time.After(5 * time.Second):
-			t.Fatal("ai-ssh ai ask (stdin) blocked (expected non-interactive exit)")
+			t.Fatal("aitssh ai ask (stdin) blocked (expected non-interactive exit)")
 		}
 	})
 }
@@ -182,7 +182,7 @@ func TestAICmd_ChatEmptyNoTTY(t *testing.T) {
 				t.Fatalf("expected Try block: %v", err)
 			}
 		case <-time.After(5 * time.Second):
-			t.Fatal("ai-ssh ai ask (empty) blocked (expected quick error)")
+			t.Fatal("aitssh ai ask (empty) blocked (expected quick error)")
 		}
 	})
 }

@@ -49,7 +49,7 @@ func TestArgsFromMetaLine_NonTransfer(t *testing.T) {
 	if _, _, ok := ArgsFromMetaLine("!ait list"); ok {
 		t.Fatal("non-transfer meta should not match")
 	}
-	if _, _, ok := ArgsFromMetaLine("ai-ssh get x y"); ok {
+	if _, _, ok := ArgsFromMetaLine(toolname.CLI("get x y")); ok {
 		t.Fatal("missing prefix should not match")
 	}
 }

@@ -1,30 +1,30 @@
-# Package layering (AiT toolbox — ai-ssh)
+# Package layering (AiT toolbox — aitssh)
 
 **Languages:** English (this page) · [简体中文](package-layering.zh-CN.md)
 
 Authoritative copy for Cursor agents: [`.cursor/rules/package-layering.mdc`](../.cursor/rules/package-layering.mdc) (keep in sync with this document when conventions change).
 
-This document defines **where code lives** in the AiT module. **AiT** is a toolbox; **`ai-ssh`** is the first tool (binary `bin/ai-ssh`, entry `cmd/ai-ssh`). It complements [go-structure](../.cursor/rules/go-structure.mdc) (file layout inside a package) and [code-reuse](../.cursor/rules/code-reuse.mdc) (when to extract shared helpers).
+This document defines **where code lives** in the AiT module. **AiT** is a toolbox; **`aitssh`** is the first tool (binary `bin/aitssh`, entry `cmd/aitssh`). It complements [go-structure](../.cursor/rules/go-structure.mdc) (file layout inside a package) and [code-reuse](../.cursor/rules/code-reuse.mdc) (when to extract shared helpers).
 
 ---
 
 ## Call chain
 
 ```text
-cmd/ai-ssh/main.go          → minimal main only; delegates to aissh.Run
+cmd/aitssh/main.go          → minimal main only; delegates to aissh.Run
 internal/aissh             → package aissh: Run, ExitCode, Execute, NewManager, Cobra root
 internal/aissh/<cmd>       → one package per top-level subcommand (closed loop)
 internal/pkg/*              → shared libraries (no product subcommand ownership)
 pkg/*                       → importable by external modules; generic, non–AiT-business only
 ```
 
-**Directory vs Go package:** the application root lives in **`internal/aissh/`** and declares **`package aissh`** (directory and package name match; the shipped binary remains `ai-ssh`). Subcommand directories still use package names that match the Cobra command (`login`, `shell`, `ai`, …).
+**Directory vs Go package:** the application root lives in **`internal/aissh/`** and declares **`package aissh`** (directory and package name match; the shipped binary remains `aitssh`). Subcommand directories still use package names that match the Cobra command (`login`, `shell`, `ai`, …).
 
 ---
 
 ## Subcommand package (design closure)
 
-Each **registered top-level** `ai-ssh <subcommand>` (e.g. `get`, `put`, `shell`, `ai`, `session`, `config`) lives under **`internal/aissh/<subcommand>/`**. **SSH connect** uses OpenSSH-shaped default routing via [`internal/aissh/login/`](../internal/aissh/login/) (not registered as a Cobra subcommand) and [`internal/pkg/cliroute/`](../internal/pkg/cliroute/).
+Each **registered top-level** `aitssh <subcommand>` (e.g. `get`, `put`, `shell`, `ai`, `session`, `config`) lives under **`internal/aissh/<subcommand>/`**. **SSH connect** uses OpenSSH-shaped default routing via [`internal/aissh/login/`](../internal/aissh/login/) (not registered as a Cobra subcommand) and [`internal/pkg/cliroute/`](../internal/pkg/cliroute/).
 
 | Concern | Typical files | Notes |
 |---------|---------------|--------|
@@ -80,36 +80,36 @@ When `internal/pkg` must recognize a subcommand name (e.g. meta `!ait get`):
 
 - **`internal/pkg/helpdoc`** holds shared builders (`Body`, OpenSSH blocks, `Bind`, `WriteTransferHelp`, TTY keys).
 - Per-command flag lists and long `--help` belong in the **command package** (`internal/aissh/<cmd>/help.go`).
-- Root `ai-ssh --help` uses `registry.RootHelpEntries()`; nested parents use their **`subregistry.Entries()`**.
+- Root `aitssh --help` uses `registry.RootHelpEntries()`; nested parents use their **`subregistry.Entries()`**.
 
 ---
 
 ## Package name = command name
 
-- **Exception — toolbox root:** directory `internal/aissh/`, Go package **`aissh`** (matches the directory; binary name remains `ai-ssh`).
+- **Exception — toolbox root:** directory `internal/aissh/`, Go package **`aissh`** (matches the directory; binary name remains `aitssh`).
 - Otherwise, directory and Go package name match the Cobra command (`login`, `shell`, `ai`, `config`, `ai/ask`, `config/set`, …).
 - Do not suffix packages with `cmd` (e.g. ~~`shellcmd`~~). The file `cmd.go` is fine for Cobra wiring.
-- REPL for `ai-ssh ai` lives in **`internal/aissh/ai/mode`** (package `mode`), distinct from one-shot **`ai/ask`** and **`ai/agent`**.
+- REPL for `aitssh ai` lives in **`internal/aissh/ai/mode`** (package `mode`), distinct from one-shot **`ai/ask`** and **`ai/agent`**.
 - Top-level `session` CLI is **`internal/aissh/session`**; import the session manager as `pkgsession "…/internal/pkg/session"`.
-- **`ai-ssh shell` REPL builtins** (`exit`, `help`, `ll`, …) live in **`internal/aissh/shell/builtin/`** (package `builtin`); parent `shell` wires REPL I/O and non-builtin dispatch (`exec_dispatch.go`). SSH-style connect is **not** a builtin; `login` prefix is rejected.
+- **`aitssh shell` REPL builtins** (`exit`, `help`, `ll`, …) live in **`internal/aissh/shell/builtin/`** (package `builtin`); parent `shell` wires REPL I/O and non-builtin dispatch (`exec_dispatch.go`). SSH-style connect is **not** a builtin; `login` prefix is rejected.
 
 ---
 
-## Nested subcommands (`ai-ssh ai`, `ai-ssh config`, …)
+## Nested subcommands (`aitssh ai`, `aitssh config`, …)
 
 Subcommands of a parent command live **under the parent’s package tree**, with the same closure as top-level commands:
 
 | Parent | Registry | Child packages (examples) |
 |--------|----------|---------------------------|
-| `ai-ssh` | `internal/aissh/registry` | `get`, `ai`, `config`, `session`, … (+ default SSH route) |
-| `ai-ssh ai` | `internal/aissh/ai/subregistry` | `ask`, `agent`, `provider`, `ollama` |
-| `ai-ssh ai provider` | `internal/aissh/ai/provider/subregistry` | `enable`, `disable` |
-| `ai-ssh ai ollama` | `internal/aissh/ai/ollama/subregistry` | `status`, `setup`, `start`, `stop`, `disable` |
-| `ai-ssh config` | `internal/aissh/config/subregistry` | `set`, `get`, `init`, `view`, `edit`, `validate` |
+| `aitssh` | `internal/aissh/registry` | `get`, `ai`, `config`, `session`, … (+ default SSH route) |
+| `aitssh ai` | `internal/aissh/ai/subregistry` | `ask`, `agent`, `provider`, `ollama` |
+| `aitssh ai provider` | `internal/aissh/ai/provider/subregistry` | `enable`, `disable` |
+| `aitssh ai ollama` | `internal/aissh/ai/ollama/subregistry` | `status`, `setup`, `start`, `stop`, `disable` |
+| `aitssh config` | `internal/aissh/config/subregistry` | `set`, `get`, `init`, `view`, `edit`, `validate` |
 
 Each node: `register.go` (`init` → parent `subregistry.Register`), `cmd.go` (`New`), `help.go` (`WriteHelp`), run logic. Wire children via **`registry/all/imports.go`** blank imports—**do not** grow parent `cmd.go` `AddCommand` lists.
 
-`ai-ssh session` has **no** Cobra children; use flag-driven actions in **`internal/aissh/session`** (`list.go`, `load.go`, …).
+`aitssh session` has **no** Cobra children; use flag-driven actions in **`internal/aissh/session`** (`list.go`, `load.go`, …).
 
 ---
 
@@ -131,14 +131,14 @@ AiT exposes three **independent** command registration paths. New user-facing ve
 | Entry | Mechanism | Extension |
 |-------|-----------|-----------|
 | **Cobra subcommands** | `registry` / `subregistry` + per-package `register.go` | New package under `internal/aissh/<cmd>/` (or nested) + blank import in `registry/all/imports.go` |
-| **`ai-ssh shell` builtins** | [`shell/builtin/registry.go`](../internal/aissh/shell/builtin/registry.go) map | Add name to `builtin/constants.go` + handler in registry map |
+| **`aitssh shell` builtins** | [`shell/builtin/registry.go`](../internal/aissh/shell/builtin/registry.go) map | Add name to `builtin/constants.go` + handler in registry map |
 | **SSH meta / AI REPL** | [`meta/exec.go`](../internal/aissh/meta/exec.go), [`ai/mode/exec.go`](../internal/aissh/ai/mode/exec.go) | Meta: delegate to Cobra or block; AI REPL: meta verbs in `mode` |
 
-**Special case — `ai-ssh ai model list`:** handled as a **parent positional** routed into the AI REPL meta path (R15), not as a Cobra child under `ai/model`. See [design.md](design.md) § AI CLI.
+**Special case — `aitssh ai model list`:** handled as a **parent positional** routed into the AI REPL meta path (R15), not as a Cobra child under `ai/model`. See [design.md](design.md) § AI CLI.
 
-Shell builtins (`list`, `load`, …) are **not** Cobra children of `ai-ssh shell`; SSH `!ait <subcmd>` reuses top-level Cobra via [`meta.Execute`](../internal/aissh/meta/exec.go) except `ai` / `!!` which enter AI mode. Chain connect uses `!ait [flags] dest`, not `!ait login`.
+Shell builtins (`list`, `load`, …) are **not** Cobra children of `aitssh shell`; SSH `!ait <subcmd>` reuses top-level Cobra via [`meta.Execute`](../internal/aissh/meta/exec.go) except `ai` / `!!` which enter AI mode. Chain connect uses `!ait [flags] dest`, not `!ait login`.
 
-**Try-block SSOT:** shared `ai-ssh session …` / `ai-ssh …` example lines for errhint live in [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go); `internal/pkg/session` re-exports them for convenience.
+**Try-block SSOT:** shared `aitssh session …` / `aitssh …` example lines for errhint live in [`internal/pkg/clihints/try_lines.go`](../internal/pkg/clihints/try_lines.go); `internal/pkg/session` re-exports them for convenience.
 
 ---
 
@@ -161,5 +161,5 @@ Refactors (registry, parse moves) must preserve existing behavior: full `make te
 - [ ] No edits to other subcommand packages or `cli/root.go` command list
 - [ ] No “names only” package under `internal/pkg`
 - [ ] `internal/pkg` does not import `internal/aissh`
-- [ ] `cmd/ai-ssh` stays thin `main`
-- [ ] Cross-command reuse is in `internal/pkg`, not copy-pasted across `ai-ssh` packages
+- [ ] `cmd/aitssh` stays thin `main`
+- [ ] Cross-command reuse is in `internal/pkg`, not copy-pasted across `aitssh` packages

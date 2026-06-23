@@ -22,7 +22,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// IsUnknownCommand reports whether err is a Cobra unknown top-level subcommand error for ai-ssh.
+// IsUnknownCommand reports whether err is a Cobra unknown top-level subcommand error for aitssh.
 func IsUnknownCommand(err error) bool {
 	if err == nil {
 		return false

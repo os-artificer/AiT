@@ -20,11 +20,11 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
 	introMain = "Check config.yaml for YAML syntax and configuration value errors. Does not create a missing file."
-	usageLine = "ai-ssh config validate"
 	checks    = `  YAML syntax (line hints from the parser)
   session.auth_ttl          valid duration
   ai.default / ai.fallback  known cloud providers
@@ -33,7 +33,9 @@ const (
 `
 )
 
-// WriteHelp prints ai-ssh config validate --help to w.
+var usageLine = toolname.CLI("config validate")
+
+// WriteHelp prints aitssh config validate --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain); err != nil {
@@ -45,7 +47,7 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteSection("Checks:", checks); err != nil {
 		return err
 	}
-	if err := b.WriteExamples("ai-ssh config validate"); err != nil {
+	if err := b.WriteExamples(toolname.CLI("config validate")); err != nil {
 		return err
 	}
 	return b.Finish("validate")

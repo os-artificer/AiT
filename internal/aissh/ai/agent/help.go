@@ -17,6 +17,7 @@
 package agent
 
 import (
+	"fmt"
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -26,18 +27,17 @@ import (
 var introSSH = "Does not enter interactive AI mode. Inside SSH use " + toolname.MetaLine("ai agent <message>") +
 	" or !! agent <message>."
 
-const (
-	introMain = "Send one message in agent mode: the AI may execute shell commands after confirmation."
-	usageLine = "ai-ssh ai agent [message...]"
-	inputBody = `  message...   Prompt text (joined with spaces)
-  (no args)    Read prompt from stdin until EOF (e.g. echo "question" | ai-ssh ai agent)
-`
-	exampleQuote = `ai-ssh ai agent "find large files in /var/log"`
-	exampleModel = "ai-ssh ai agent --model minimax check disk usage"
-	exampleStdin = `echo "list running containers" | ai-ssh ai agent`
+const introMain = "Send one message in agent mode: the AI may execute shell commands after confirmation."
+
+var (
+	usageLine    = toolname.CLI("ai agent [message...]")
+	inputBody    = fmt.Sprintf("  message...   Prompt text (joined with spaces)\n  (no args)    Read prompt from stdin until EOF (e.g. echo \"question\" | %s)\n", toolname.CLI("ai agent"))
+	exampleQuote = toolname.CLI(`ai agent "find large files in /var/log"`)
+	exampleModel = toolname.CLI("ai agent --model minimax check disk usage")
+	exampleStdin = fmt.Sprintf(`echo "list running containers" | %s`, toolname.CLI("ai agent"))
 )
 
-// WriteHelp prints ai-ssh ai agent --help to w.
+// WriteHelp prints aitssh ai agent --help to w.
 func WriteHelp(w io.Writer) error {
 	return pkghelpdoc.WriteAIChatSubcommandHelp(w, "agent", introMain, introSSH, usageLine, inputBody,
 		exampleQuote, exampleModel, exampleStdin, pkghelpdoc.ExampleAIAgentSSH)

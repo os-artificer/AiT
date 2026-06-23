@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package shared holds helpers shared by ai-ssh config subcommands.
+// Package shared holds helpers shared by aitssh config subcommands.
 package shared
 
 import (

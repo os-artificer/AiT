@@ -34,7 +34,7 @@ func WriteHelp(w io.Writer) error {
 	return err
 }
 
-// WriteHelpShort prints a compact flag list for the ai-ssh shell REPL to w.
+// WriteHelpShort prints a compact flag list for the aitssh shell REPL to w.
 func WriteHelpShort(w io.Writer) error {
 	return pkghelpdoc.WriteSSHConnectShort(w)
 }

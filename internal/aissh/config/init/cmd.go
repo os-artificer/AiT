@@ -28,7 +28,7 @@ import (
 
 const name = "init"
 
-// New builds the `ai-ssh config init` cobra command.
+// New builds the `aitssh config init` cobra command.
 func New() *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{

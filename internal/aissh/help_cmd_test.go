@@ -108,7 +108,7 @@ func TestRootCmdHelpExecute(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"Usage:", "Examples:", "help for ai-ssh", "Commands:", "session", "OpenSSH-compatible flags:"} {
+	for _, want := range []string{"Usage:", "Examples:", "help for aitssh", "Commands:", "session", "OpenSSH-compatible flags:"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("root help missing %q:\n%s", want, out)
 		}

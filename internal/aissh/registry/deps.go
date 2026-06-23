@@ -26,7 +26,7 @@ import (
 // RunWithMgr opens a session.Manager and runs fn under a signal-cancellable context.
 type RunWithMgr func(fn func(ctx context.Context, mgr *session.Manager) error) error
 
-// ExecuteWriters runs the Cobra root with custom stdout/stderr (e.g. ai-ssh shell REPL).
+// ExecuteWriters runs the Cobra root with custom stdout/stderr (e.g. aitssh shell REPL).
 type ExecuteWriters func(args []string, out, errOut io.Writer) error
 
 // Deps groups dependencies injected when attaching registered top-level commands.

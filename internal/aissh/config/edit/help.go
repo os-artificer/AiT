@@ -20,15 +20,14 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const (
-	introMain = "Open config.yaml in $VISUAL or $EDITOR (default: vi on Unix, Notepad on Windows). Validates YAML after the editor exits."
-	usageLine = "ai-ssh config edit"
-	notes     = "  Editor order: $VISUAL, then $EDITOR, then the OS default.\n"
-)
+const introMain = "Open config.yaml in $VISUAL/$EDITOR (default vi on Unix, Notepad on Windows); validates after save."
 
-// WriteHelp prints ai-ssh config edit --help to w.
+var usageLine = toolname.CLI("config edit")
+
+// WriteHelp prints aitssh config edit --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain); err != nil {
@@ -37,10 +36,7 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteUsage(usageLine); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Notes:", notes); err != nil {
-		return err
-	}
-	if err := b.WriteExamples("ai-ssh config edit"); err != nil {
+	if err := b.WriteExamples(toolname.CLI("config edit")); err != nil {
 		return err
 	}
 	return b.Finish("edit")

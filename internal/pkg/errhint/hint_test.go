@@ -21,13 +21,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 )
 
 func TestWithTry_PreservesIs(t *testing.T) {
 	err := WithTry(store.ErrSessionNotFound, "The list ID column is for display only.",
-		"ai-ssh session --load <alias>",
-		"ai-ssh session --help",
+		clihints.TrySessionLoadAlias,
+		clihints.TrySessionHelp,
 	)
 	if !errors.Is(err, store.ErrSessionNotFound) {
 		t.Fatalf("expected ErrSessionNotFound, got %v", err)
@@ -51,8 +52,8 @@ func TestFormatTryBlock_Empty(t *testing.T) {
 }
 
 func TestFormatTryBlock_Lines(t *testing.T) {
-	got := FormatTryBlock("ai-ssh session --list", "ai-ssh session --help")
-	if !strings.Contains(got, "Try:\n  ai-ssh session --list") {
+	got := FormatTryBlock(clihints.TrySessionList, clihints.TrySessionHelp)
+	if !strings.Contains(got, "Try:\n  "+clihints.TrySessionList) {
 		t.Fatalf("got %q", got)
 	}
 }

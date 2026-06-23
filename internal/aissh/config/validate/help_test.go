@@ -28,7 +28,15 @@ func TestWriteHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "Usage:") || !strings.Contains(out, "help for validate") {
-		t.Fatalf("validate help: %q", out)
+	for _, want := range []string{
+		"Usage:",
+		"Checks:",
+		"session.auth_ttl",
+		"Does not create a missing file",
+		"help for validate",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("validate help missing %q:\n%s", want, out)
+		}
 	}
 }

@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestHelpContainsFlags(t *testing.T) {
@@ -45,7 +47,7 @@ func TestWriteHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "ai-ssh [flags] destination") {
+	if !strings.Contains(out, toolname.AISsh+" [flags] destination") {
 		t.Errorf("missing usage line: %q", out[:min(200, len(out))])
 	}
 }

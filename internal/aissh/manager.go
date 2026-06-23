@@ -29,7 +29,7 @@ import (
 )
 
 // NewManager opens the store, loads config, optionally constructs an AI client, and wires metaCLI.
-// metaCLI runs ai-ssh subcommands from in-session !ait lines (provided by internal/aissh/meta).
+// metaCLI runs aitssh subcommands from in-session !ait lines (provided by internal/aissh/meta).
 func NewManager(metaCLI func([]string) error, onRemoteAI sshclient.RemoteAIRunner) (*session.Manager, error) {
 	st, err := store.Open()
 	if err != nil {

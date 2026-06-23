@@ -8,7 +8,7 @@
 
 **AiT** — A cross-platform (Linux / macOS / Windows) AI-enhanced command-line **toolbox** that includes, but is not limited to, terminal and SSH workflows—built to be a practical everyday tool for operations engineers.
 
-**First tool:** [`ai-ssh`](cmd/ai-ssh) — AI-enhanced SSH client (session management, in-terminal AI, file transfer). Binary: `bin/ai-ssh`; install with `go install github.com/os-artificer/AiT/cmd/ai-ssh@latest`.
+**First tool:** [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (session management, in-terminal AI, file transfer). Binary: `bin/aitssh`; install with `go install github.com/os-artificer/AiT/cmd/aitssh@latest`.
 
 ## Features
 
@@ -19,7 +19,7 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 | Capability | AiT | Typical SSH client |
 |------------|-----|-------------------|
 | Session persistence | SQLite stores connection parameters, aliases, and authentication TTL (`session.auth_ttl`) | No session store; rely on shell history or external notes |
-| Fast resume | `ai-ssh session --load` / `--switch`; credential-free reconnect within auth TTL (TTL refreshes when you re-enter the password) | Must specify `user@host` and flags on each connect |
+| Fast resume | `aitssh session --load` / `--switch`; credential-free reconnect within auth TTL (TTL refreshes when you re-enter the password) | Must specify `user@host` and flags on each connect |
 | Suspend and context | `!ait suspend` saves scrollback and remote working directory | Terminal context is lost after disconnect |
 
 ### Remote keep-alive
@@ -32,15 +32,15 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 
 | Capability | AiT | Typical SSH client |
 |------------|-----|-------------------|
-| AI mode | Local `ai-ssh ai` (`AiT AI(Agent)>`) and in-SSH `!ait ai` / `!!` (remote `run` after confirm); Deepseek + MiniMax + optional tiered Ollama | No built-in assistant; separate tools required |
+| AI mode | Local `aitssh ai` (`AiT AI(Agent)>`) and in-SSH `!ait ai` / `!!` (remote `run` after confirm); Deepseek + MiniMax + optional tiered Ollama | No built-in assistant; separate tools required |
 | Local mode | `!ait local` / `!ait remote` switch input target while SSH stays connected | Local and remote work in separate terminals |
-| File transfer | `ai-ssh get` / `ai-ssh put` (SFTP, single file); `!ait get` / `!ait put` reuse the live SSH session | Must assemble scp/rsync SSH options manually |
+| File transfer | `aitssh get` / `aitssh put` (SFTP, single file); `!ait get` / `!ait put` reuse the live SSH session | Must assemble scp/rsync SSH options manually |
 
 ### Local entry point
 
 | Capability | AiT | Typical SSH client |
 |------------|-----|-------------------|
-| Unified CLI | `ai-ssh shell` REPL for ssh-style connect / `session --list` / `session --load`; input `history` and Ctrl+R (see user manual) | No equivalent integrated REPL |
+| Unified CLI | `aitssh shell` REPL for ssh-style connect / `session --list` / `session --load`; input `history` and Ctrl+R (see user manual) | No equivalent integrated REPL |
 
 ## Installation
 
@@ -52,14 +52,14 @@ While remaining compatible with OpenSSH configuration and connection flags, AiT 
 git clone https://github.com/os-artificer/AiT.git
 cd AiT
 make build
-./bin/ai-ssh --help
+./bin/aitssh --help
 ```
 
 **`go install`** (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
 
 ```bash
-go install github.com/os-artificer/AiT/cmd/ai-ssh@latest
-ai-ssh --help
+go install github.com/os-artificer/AiT/cmd/aitssh@latest
+aitssh --help
 ```
 
 Ensure `$(go env GOPATH)/bin` is on your PATH.

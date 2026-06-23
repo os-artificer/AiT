@@ -36,6 +36,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/pty"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 
 	"golang.org/x/term"
 )
@@ -408,7 +409,7 @@ func TestRunREPL_InitialChatOnceRemoteCRLF(t *testing.T) {
 }
 
 func TestIsMetaREPLCommand(t *testing.T) {
-	meta := []string{"help", "model list", "model", "clear", "policy once", "run echo", "ai-ssh list", "-h", "--help"}
+	meta := []string{"help", "model list", "model", "clear", "policy once", "run echo", toolname.CLI("list"), "-h", "--help"}
 	for _, line := range meta {
 		if !isMetaREPLCommand(line) {
 			t.Errorf("%q should be meta", line)

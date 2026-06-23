@@ -1,4 +1,4 @@
-"""pexpect helpers for interactive ai-ssh login, shell, and meta sessions."""
+"""pexpect helpers for interactive aitssh login, shell, and meta sessions."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from tests.lib.config import SSHTarget, TestConfig
 
 
 class AITExpectSession:
-    """Interactive PTY session around ai-ssh login or shell."""
+    """Interactive PTY session around aitssh login or shell."""
 
     def __init__(self, child: pexpect.spawn, *, prompt_pattern: str | bytes):
         self.child = child

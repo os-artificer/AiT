@@ -18,7 +18,7 @@ package registry
 
 import "github.com/spf13/cobra"
 
-// TopLevel is the extension point for a top-level `ai-ssh <name>` command.
+// TopLevel is the extension point for a top-level `aitssh <name>` command.
 type TopLevel interface {
 	Name() string
 	Short() string

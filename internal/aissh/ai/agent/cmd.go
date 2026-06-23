@@ -31,12 +31,12 @@ import (
 
 const name = chat.AgentVerb
 
-// New builds the `ai-ssh ai agent` cobra command.
+// New builds the `aitssh ai agent` cobra command.
 func New(d deps.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "agent [message...]",
 		Short:         "Send one message to the AI in agent mode and execute tool calls (non-interactive)",
-		Long:          "Run 'ai-ssh ai agent --help' for usage. With no arguments, reads the prompt from stdin until EOF.",
+		Long:          pkghelpdoc.LongHintChatOnce("ai agent"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

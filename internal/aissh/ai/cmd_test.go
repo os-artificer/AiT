@@ -33,8 +33,8 @@ func TestWriteAIHelpSections(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"Usage:", "Examples:", "help for ai", "ai-ssh ai", "ai-ssh ai model list", "ai-ssh ai ollama status", "ai-ssh ai ollama setup",
-		"ai-ssh ai --model minimax", "Subcommands:", "ask", "agent", "provider enable", "ollama status", "start", "stop", "disable",
+		"Usage:", "Examples:", "help for ai", toolname.CLI("ai"), toolname.CLI("ai model list"), toolname.CLI("ai ollama status"), toolname.CLI("ai ollama setup"),
+		toolname.CLI("ai --model minimax"), "Subcommands:", "ask", "agent", "provider enable", "ollama status", "start", "stop", "disable",
 		"--model", "deepseek|minimax", "run <command>", "mode ask|agent", "approve each|session", "trust", "model list", toolname.MetaLine("ai"),
 		pkghelpdoc.SectionKeys, "Ctrl+R",
 	} {

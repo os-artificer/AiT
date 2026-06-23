@@ -7,9 +7,10 @@
 
 ## [Unreleased]
 
-- **CLI 重命名：** 工具箱首个工具为 `ai-ssh`（`bin/ai-ssh`、会话内 `!ait` meta）；默认数据根 `~/.local/share/AiT`，自动从旧 `share/ait` 迁移；keyring 服务名 `AiT`，惰性读取旧 `ait` 条目。
+- **CLI 重命名：** 工具箱首个工具为 `aitssh`（`bin/aitssh`、会话内 `!ait` meta）；默认数据根 `~/.local/share/AiT`，自动从旧 `share/ait` 迁移；keyring 服务名 `AiT`，惰性读取旧 `ait` 条目。
+- **破坏性变更：** 二进制与 CLI 命令由 `ai-ssh` 重命名为 `aitssh`（`go install github.com/os-artificer/AiT/cmd/aitssh@latest`）。脚本与 PATH 别名须改用 `aitssh`；可选过渡：`ln -s aitssh ai-ssh`。
 - **破坏性变更：** 会话内 meta 前缀为 `!ait`；`!ai-ssh` 不再识别。`!!` 仍为 AI 快捷方式。
-- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `ai-ssh ai agent` 单轮现已与 REPL 一样接入 Capture/CLI/MaxSteps。
+- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `aitssh ai agent` 单轮现已与 REPL 一样接入 Capture/CLI/MaxSteps。
 
 ## [v1.0.0-beta.2]
 

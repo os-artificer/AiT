@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package aissh implements the AiT ai-ssh CLI application entry.
+// Package aissh implements the AiT aitssh CLI application entry.
 package aissh
 
 import (
@@ -24,7 +24,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
-// Run is the application entry invoked from cmd/ai-ssh.
+// Run is the application entry invoked from cmd/aitssh.
 // args are os.Args[1:] passed to the Cobra root command.
 // Returns Cobra RunE errors (login, session, get, put, etc.) printed to stderr before return.
 func Run(args []string) error {

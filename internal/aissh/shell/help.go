@@ -17,6 +17,7 @@
 package shell
 
 import (
+	"fmt"
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -27,34 +28,40 @@ const shellIntro = "Start an interactive AiT command loop at the AiT> prompt."
 
 var shellNote = "Type commands directly (no " + toolname.MetaPrefix + " prefix). Use exit or quit to leave."
 
-const shellREPLCommands = `  help              show REPL help
+var shellREPLCommands = fmt.Sprintf(`  help              show REPL help
   clear             clear terminal screen
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
-  ai                enter local AI mode (same as ai-ssh ai)
+  ai                enter local AI mode (same as %s)
   [flags] destination [command ...]  connect (ssh-style; --save or --alias to persist)
   load <id|alias> [--tmux] [--password]
   list              list saved sessions
-  ll [path]         long directory listing (ls -la style; ai-ssh shell only)
-  config, get, put  — same as: ai-ssh <command> ...
-  session           — CLI: ai-ssh session --list | --load | --switch | --suspend | --delete
-`
+  ll [path]         long directory listing (ls -la style; %s only)
+  config, get, put  — same as: %s <command> ...
+  session           — CLI: %s | %s | %s | %s | %s
+`, toolname.CLI("ai"), toolname.CLI("shell"), toolname.AISsh,
+	toolname.CLI("session --list"), toolname.CLI("session --load"),
+	toolname.CLI("session --switch"), toolname.CLI("session --suspend"),
+	toolname.CLI("session --delete"))
 
-var shellREPLExtensions = `  ll [path]             ls -la style listing (builtin; not in ai-ssh ai or ` + toolname.MetaPrefix + `)
-  <AppRoot>/bin/<name>  user extensions (checked before ai-ssh CLI and PATH)
-  <name> on PATH        system commands when not an ai-ssh subcommand
-`
+var shellREPLExtensions = fmt.Sprintf(`  ll [path]             ls -la style listing (builtin; not in %s or %s)
+  <AppRoot>/bin/<name>  user extensions (checked before %s CLI and PATH)
+  <name> on PATH        system commands when not an %s subcommand
+`, toolname.CLI("ai"), toolname.MetaPrefix, toolname.AISsh, toolname.AISsh)
 
-const shellREPLCommandsNoLoad = `  help              show REPL help
+var shellREPLCommandsNoLoad = fmt.Sprintf(`  help              show REPL help
   clear             clear terminal screen
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
-  ai                enter local AI mode (same as ai-ssh ai)
+  ai                enter local AI mode (same as %s)
   list              list saved sessions
-  ll [path]         long directory listing (ls -la style; ai-ssh shell only)
-  config, get, put  — same as: ai-ssh <command> ...
-  session           — CLI: ai-ssh session --list | --load | --switch | --suspend | --delete
-`
+  ll [path]         long directory listing (ls -la style; %s only)
+  config, get, put  — same as: %s <command> ...
+  session           — CLI: %s | %s | %s | %s | %s
+`, toolname.CLI("ai"), toolname.CLI("shell"), toolname.AISsh,
+	toolname.CLI("session --list"), toolname.CLI("session --load"),
+	toolname.CLI("session --switch"), toolname.CLI("session --suspend"),
+	toolname.CLI("session --delete"))
 
 const (
 	shellSectionExtensions    = "Extensions"
@@ -79,13 +86,13 @@ const (
 		"  Use suspend to save the current session, or session --switch to change.\n"
 )
 
-// WriteShellHelp prints ai-ssh shell --help to w.
+// WriteShellHelp prints aitssh shell --help to w.
 func WriteShellHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(shellIntro, shellNote); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ai-ssh shell"); err != nil {
+	if err := b.WriteUsage(toolname.CLI("shell")); err != nil {
 		return err
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionREPLCommands, shellREPLCommands); err != nil {
@@ -98,7 +105,7 @@ func WriteShellHelp(w io.Writer) error {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ai-ssh shell",
+		toolname.CLI("shell"),
 		shellExampleConnectServer,
 		"load prod --tmux",
 	); err != nil {

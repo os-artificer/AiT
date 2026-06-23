@@ -108,7 +108,7 @@ func IsInteractive(cmd string) bool {
 	return ok
 }
 
-// ClassifyAit returns the risk Level for an ai-ssh CLI invocation line
+// ClassifyAit returns the risk Level for an aitssh CLI invocation line
 // (without the "ait" prefix). Returns High when the line touches
 // destructive subcommands, otherwise Low.
 func ClassifyAit(argsLine string) Level {
