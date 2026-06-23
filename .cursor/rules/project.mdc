@@ -14,8 +14,8 @@ Go CLI **toolbox** (**AiT**; first tool: **ai-ssh**). Module: `github.com/os-art
 
 ## Layout
 
-- `cmd/ai-ssh`: minimal `main` only (delegates to `aish.Run`)
-- `internal/ai-ssh`: application entry (Go package `aish`)
+- `cmd/ai-ssh`: minimal `main` only (delegates to `aissh.Run`)
+- `internal/aissh`: application entry (Go package `aissh`)
 - `pkg/`: only code meant for external import
 - Product docs: [AGENTS.md](AGENTS.md), [docs/design.md](docs/design.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
 

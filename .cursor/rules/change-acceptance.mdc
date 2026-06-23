@@ -53,9 +53,9 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 |----|----------|------------|------------------------|
 | R18a | `ai-ssh ai ask "msg"` 或 `echo q \| ai-ssh ai ask` 非 TTY 单轮，5s 内结束 | `TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY` | `timeout 5 ./bin/ai-ssh ai ask ping`；`echo ping \| timeout 5 ./bin/ai-ssh ai ask` |
 | R18b | `ai-ssh ai ask` 无参且无 stdin → 需消息错误，不挂起 | `TestAICmd_ChatEmptyNoTTY`、`TestRunChatOnce_EmptyMessage` | `timeout 5 ./bin/ai-ssh ai ask </dev/null` |
-| R18c | `!ai-ssh ai ask msg` / `!! ask msg` → meta → `InitialQuestion` 为 `ask …`，单轮不进 REPL | `TestAIPromptFromMetaLine`（ask 行）、`TestMetaScanner_AitAIAsk`、`TestMetaScanner_BangBangAsk` | SSH 内 `!ai-ssh ai ask hi`（可选） |
+| R18c | `!ait ai ask msg` / `!! ask msg` → meta → `InitialQuestion` 为 `ask …`，单轮不进 REPL | `TestAIPromptFromMetaLine`（ask 行）、`TestMetaScanner_AitAIAsk`、`TestMetaScanner_BangBangAsk` | SSH 内 `!ait ai ask hi`（可选） |
 | R18d | REPL 首行仅 `ask`（无正文）→ `ErrChatMessageRequired`（文案 `ask requires a message`） | `TestParseChatCommand`、`TestRunREPL_InitialChatEmptyMessage` | — |
-| R18e | `!ai-ssh ai` / `!!` 或自由文本首行仍进 REPL（非 ask 单轮快速路径） | `TestIsMetaREPLCommand`、`TestRunREPL_InitialNonChatShowsPrompt` | — |
+| R18e | `!ait ai` / `!!` 或自由文本首行仍进 REPL（非 ask 单轮快速路径） | `TestIsMetaREPLCommand`、`TestRunREPL_InitialNonChatShowsPrompt` | — |
 | R18f | 远程 scope 单轮输出 CRLF | `TestRunREPL_InitialChatOnceRemoteCRLF` | — |
 
 ### R19 明细（SSH 远程 AI REPL UTF-8）
@@ -72,12 +72,12 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| RA1 | bare meta `agent` → 进入 Agent REPL，不 fatal | `TestRunREPL_InitialEmptyAgentEntersREPL` | SSH：`!ai-ssh ai agent` → `mode` 见 agent |
+| RA1 | bare meta `agent` → 进入 Agent REPL，不 fatal | `TestRunREPL_InitialEmptyAgentEntersREPL` | SSH：`!ait ai agent` → `mode` 见 agent |
 | RA2 | `RunREPL(..., "agent")` ScopeRemote 不 `errors.Is(ChatMessageRequired)` | 同上 | — |
-| RA3 | `handleAIMetaLine` 遇 ChatMessageRequired → return nil，SSH 可继续 | `TestHandleAIMetaLine_ErrHintNoDisconnect` | SSH：`!ai-ssh ai ask` 无消息 → hint，shell 仍可用 |
-| RA4 | ScopeRemote + mock Capture：`RunAgentOnce` 执行 `run_shell` | `TestRunAgentOnce_ScopeRemote_Capture` | `!ai-ssh ai agent 列出文件` |
+| RA3 | `handleAIMetaLine` 遇 ChatMessageRequired → return nil，SSH 可继续 | `TestHandleAIMetaLine_ErrHintNoDisconnect` | SSH：`!ait ai ask` 无消息 → hint，shell 仍可用 |
+| RA4 | ScopeRemote + mock Capture：`RunAgentOnce` 执行 `run_shell` | `TestRunAgentOnce_ScopeRemote_Capture` | `!ait ai agent 列出文件` |
 | RA5 | XML 回复经 `ParseAction` 触发 run | `TestParseAction_XMLFallback` | — |
-| RA6 | meta scanner：`!ai-ssh ai` bare line | `TestMetaScanner_AitAIBareLine` | `!ai-ssh ai` → `AiT AI(Agent) user@host>` |
+| RA6 | meta scanner：`!ait ai` bare line | `TestMetaScanner_AitAIBareLine` | `!ait ai` → `AiT AI(Agent) user@host>` |
 
 ### A20 明细（AI REPL mode / approve / Agent）
 
@@ -181,7 +181,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | S15 | `WriteSessionHelp` | `TestWriteSessionHelpSections` |
 | S16 | REPL `list` | `TestExecuteLineList` |
 | S17 | REPL `load` | `shellLoad` 路径保留 |
-| S18 | Meta `!ai-ssh list` → `session --list` | `TestExecuteSubcommandUsesCRLFStdout` |
+| S18 | Meta `!ait list` → `session --list` | `TestExecuteSubcommandUsesCRLFStdout` |
 
 ### B* 明细（session 列表序号与 load 交互）
 
@@ -344,20 +344,20 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | G15 | 坏 YAML / TTL / URL → 字段路径 + 原因 | `TestConfigValidateCmd_Bad*`、`TestValidate_Bad*` |
 | G16 | `edit` 后非法 YAML → exit 1 且打印 Issues | `TestConfigEditCmd_InvalidYAML` |
 
-### Z* 明细（链式 ZMODEM `!ai-ssh get/put`）
+### Z* 明细（链式 ZMODEM `!ait get/put`）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
 | Z1 | 本地 ZMODEM 接收会话可 Feed 远端输出 | `TestNewReceiveSession_FeedIdle` | — |
 | Z2 | 本地 ZMODEM 发送会话可打开本地文件 | `TestNewSendSession_OpensLocalFile`、`TestSession_AbortWritesCancelSeq` | — |
-| Z3 | 链式远端无 `sz`/`rz` 时 errhint / 安装流 | `TestRoute_ChainDeclinedInstall`、`TestPTYZModemErrHint_IncludesLrzsz` | 链式 `!ai-ssh get`（无 lrzsz）→ Try 或 `[y/N]` |
+| Z3 | 链式远端无 `sz`/`rz` 时 errhint / 安装流 | `TestRoute_ChainDeclinedInstall`、`TestPTYZModemErrHint_IncludesLrzsz` | 链式 `!ait get`（无 lrzsz）→ Try 或 `[y/N]` |
 | Z4 | 传输期间 remote 输出进 ZMODEM tap、不进 scrollback | `TestZModemSession_ExclusiveIO` | — |
 | Z5 | 传输后 scrollback strip ZMODEM 协议残留（含 **F2** 扩展片段） | `TestZModemSession_StripProtocolNoise` | — |
 | Z6 | `handleTransferPTY` 走 `ZModemTransfer` | `TestHandleTransferPTY_UsesZModem` | — |
-| Z7 | 进度定稿行 CRLF 安全；TTY 上 `copying…` 行内 `\r` 刷新 | `TestZModemTransfer_ProgressCRLF`、`TestTransferProgress_InlineDoneCRLF` | SSH 内 `!ai-ssh get/put`：单行百分比更新，done 起于列 0 |
+| Z7 | 进度定稿行 CRLF 安全；TTY 上 `copying…` 行内 `\r` 刷新 | `TestZModemTransfer_ProgressCRLF`、`TestTransferProgress_InlineDoneCRLF` | SSH 内 `!ait get/put`：单行百分比更新，done 起于列 0 |
 | Z8 | `sz`/`rz` 命令无 shell 重定向至目标路径；chain resolve 不回退 U12–U20 | `TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestResolveTransferMode_*` | — |
 | Z9 | ZMODEM 包与 `transfer_zmodem` 无 Unix-only 编译标签 | `make test-cross` | — |
-| Z10 | Windows 客户端链式 get/put（可选） | — | Windows Terminal：`ai-ssh user@host` → 嵌套 ssh → `!ai-ssh get/put` |
+| Z10 | Windows 客户端链式 get/put（可选） | — | Windows Terminal：`ai-ssh user@host` → 嵌套 ssh → `!ait get/put` |
 
 ### F* 明细（ZMODEM teardown 尾部 drain / strip）
 
@@ -366,7 +366,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | F1 | drain 期间 `pauseRemoteOut=true`，尾部不进 stdout | `TestDrainZModemTail_SuppressesStdout` | — |
 | F2 | drain 后 scrollback 不含 `**\x18B0` / `\x18B01` 等 | `TestZModemSession_StripProtocolNoise` | — |
 | F3 | `handleTransferPTY` 返回后 `pauseRemoteOut` 已恢复 | `TestHandleTransferPTY_PausesRemoteOut` | — |
-| F4 | post-teardown 尾部字节经 drain 后不写入 fake stdout | `TestHandleRemoteOutput_AfterZModemDrain` | 链式 `!ai-ssh get` done 后 stdout 无 `*…乱码…#` |
+| F4 | post-teardown 尾部字节经 drain 后不写入 fake stdout | `TestHandleRemoteOutput_AfterZModemDrain` | 链式 `!ait get` done 后 stdout 无 `*…乱码…#` |
 
 ### X* 明细（`ai-ssh shell` bin 扩展与 PATH 回退）
 
@@ -400,7 +400,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| T1 | 直连 + 有 lrzsz → **SFTP**（ZMODEM 仅链式） | `TestRoute_DirectUsesSFTPWhenLrzszPresent` | `!ai-ssh get`（直连）→ SFTP，不卡 handshake |
+| T1 | 直连 + 有 lrzsz → **SFTP**（ZMODEM 仅链式） | `TestRoute_DirectUsesSFTPWhenLrzszPresent` | `!ait get`（直连）→ SFTP，不卡 handshake |
 | T2 | 直连 + 无 lrzsz → SFTP 回退 | `TestRoute_FallsBackSFTPDirect` | 无 lrzsz → notice + SFTP |
 | T3 | 链式 + 拒绝安装 → errhint | `TestRoute_ChainDeclinedInstall` | 链式无 lrzsz → n → Try |
 | T4 | 链式 + 授权安装 → 重 probe ZMODEM | `TestRoute_ChainInstallThenZModem` | y → install → transfer |
@@ -411,28 +411,28 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | T9 | 握手超时 ≤30s 且 `started==false` 报错 | `TestSession_WaitHandshakeTimeout` | — |
 | T10 | 直连 ZMODEM 失败 → SFTP 回退 | `TestHandleTransfer_ZModemFallbackSFTP` | — |
 | T11 | 链式 ZMODEM 失败 → 不回退 SFTP | `TestHandleTransfer_ChainNoSFTpfFallback` | — |
-| T12 | 链式 + 有 lrzsz → ZMODEM | `TestRoute_ChainPrefersZModemWhenLrzszPresent` | 链式 `!ai-ssh get` → handshake/transfer |
+| T12 | 链式 + 有 lrzsz → ZMODEM | `TestRoute_ChainPrefersZModemWhenLrzszPresent` | 链式 `!ait get` → handshake/transfer |
 
 ### TR* 明细（get/put 路径解析与默认目标名）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
 | TR1 | 相对 remote `./bin/f` 在 shell cwd `/data/dev` 下解析为 `/data/dev/bin/f` | `TestJoinRemotePath_RelativeUnderCwd` | — |
-| TR2 | 会话内 get 对相对 remote 先 probe pwd 再 SFTP stat | `TestResolveTransferArgs_SFTPRelativeRemote` | `cd …/bin` 后 `!ai-ssh get ./ait-darwin-arm64` 成功 |
-| TR3 | `!ai-ssh get <remote>` 单参数 → 本地 `./<basename>` | `TestNormalizeMetaTransferArgs_GetDefaultLocal` | `!ai-ssh get ./bin/ait-darwin-arm64` → `./ait-darwin-arm64` |
-| TR4 | `!ai-ssh get <remote> <dir/>` 且 local 为目录 → `<dir>/<basename>` | `TestNormalizeMetaTransferArgs_GetDirTarget` | `!ai-ssh get ./file ./out/` → `./out/file` |
+| TR2 | 会话内 get 对相对 remote 先 probe pwd 再 SFTP stat | `TestResolveTransferArgs_SFTPRelativeRemote` | `cd …/bin` 后 `!ait get ./ait-darwin-arm64` 成功 |
+| TR3 | `!ait get <remote>` 单参数 → 本地 `./<basename>` | `TestNormalizeMetaTransferArgs_GetDefaultLocal` | `!ait get ./bin/ait-darwin-arm64` → `./ait-darwin-arm64` |
+| TR4 | `!ait get <remote> <dir/>` 且 local 为目录 → `<dir>/<basename>` | `TestNormalizeMetaTransferArgs_GetDirTarget` | `!ait get ./file ./out/` → `./out/file` |
 | TR5 | standalone `ai-ssh get <remote>` 单参数与 TR3 一致 | `TestParseTransfer_GetSinglePath`、`TestDefaultLocalPathForGet` | `ai-ssh get user@h:/remote/file` → `./file` |
 | TR6 | active host 与 dial 一致时 SFTP 404 不包装 wrong-hop / 不误推 chain | `TestWrapTransferWrongHop_SkipsSameHostAfterResolve` | 错误相对路径 → 原始 not found，无 chain 误导 |
-| TR7 | `!ai-ssh put <local>` 单参数 → remote `./<basename(local)>` | `TestNormalizeMetaTransferArgs_PutDefaultRemote` | `!ai-ssh put ./bin/app` → remote `./app` |
-| TR8 | `!ai-ssh put <local> <remote/>` 且 remote 为目录 → `<remote>/<basename>` | `TestNormalizeMetaTransferArgs_PutDirTarget` | `!ai-ssh put ./file ./remote-dir/` → `./remote-dir/file` |
+| TR7 | `!ait put <local>` 单参数 → remote `./<basename(local)>` | `TestNormalizeMetaTransferArgs_PutDefaultRemote` | `!ait put ./bin/app` → remote `./app` |
+| TR8 | `!ait put <local> <remote/>` 且 remote 为目录 → `<remote>/<basename>` | `TestNormalizeMetaTransferArgs_PutDirTarget` | `!ait put ./file ./remote-dir/` → `./remote-dir/file` |
 | TR9 | standalone `ai-ssh put` 单参数（local 或 `user@host:/path`）与 meta 一致 | `TestParseTransfer_PutSinglePath`、`TestDefaultRemotePathForPut` | `ai-ssh put user@host:/opt/app` → local `./app` |
 
 ### U26–U29 明细（传输进度行内更新）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| U26 | TTY 下 SFTP **get** 百分比 `\r` 行内刷新、不刷屏 | `TestTransferProgress_SFTPInlineTTY_Get` | `!ai-ssh get` 大文件：单行 `copying… N%` |
-| U27 | TTY 下 SFTP **put** 与 get 相同 inline 行为 | `TestTransferProgress_SFTPInlineTTY_Put` | `!ai-ssh put` 大文件：单行 `copying… N%` |
+| U26 | TTY 下 SFTP **get** 百分比 `\r` 行内刷新、不刷屏 | `TestTransferProgress_SFTPInlineTTY_Get` | `!ait get` 大文件：单行 `copying… N%` |
+| U27 | TTY 下 SFTP **put** 与 get 相同 inline 行为 | `TestTransferProgress_SFTPInlineTTY_Put` | `!ait put` 大文件：单行 `copying… N%` |
 | U28 | inline 后 `Done` 以 CRLF 定稿 | `TestTransferProgress_InlineDoneCRLF` | done 行起于列 0 |
 | U29 | ZMODEM get/put 统一 `copying…`（非 `transferring…`） | `TestZModemTransfer_ProgressUnifiedCopying` | 链式 get/put 与 SFTP 文案一致 |
 
@@ -440,8 +440,8 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| U30 | ZMODEM receive 分块 copy 多次 progress | `TestCopyWithProgress_Incremental` | 链式 `!ai-ssh get` 大文件：`copying… N%` 持续变化 |
-| U31 | ZMODEM send 分包 OnUploadProgress | `TestOnUploadProgress_ChunkLoop` | 链式 `!ai-ssh put` 大文件：`copying… N%` 持续变化 |
+| U30 | ZMODEM receive 分块 copy 多次 progress | `TestCopyWithProgress_Incremental` | 链式 `!ait get` 大文件：`copying… N%` 持续变化 |
+| U31 | ZMODEM send 分包 OnUploadProgress | `TestOnUploadProgress_ChunkLoop` | 链式 `!ait put` 大文件：`copying… N%` 持续变化 |
 | U32 | handshake inline 后 copying 覆盖同一行 | `TestZModemTransfer_HandshakeInlineOverwritten` | handshake 不冻结；单行刷新至 done |
 
 ### W* 明细（远程提示符 cwd + Git + 目录显示模式）
@@ -461,7 +461,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | W11 | 会话内 `ssh` 后 MOTD+quiet 注入内层 AiT PS1（short/absolute） | `TestForwardStdin_SSHTriggersNestedPrompt` | login proxy 后 `ssh final` → `AiT user@final:…>` |
 | W12 | nested 后 R2 用 active host；单跳 active=dial 不变 | `TestDuplicatePromptOutput_ActiveHostAfterNested`、`TestDuplicatePromptOutput_SingleHopUnchanged`、`TestSingleHopPromptIdentityEqualsDial` | — |
 | W13 | `parseSSHCommandLine` 解析 `-p`/`user@host`；`-J` 不挂钩 | `TestParseSSHCommandLine_PortAndUserHost`、`TestParseSSHCommandLine_SkipComplex` | — |
-| W14 | nested 注入后 `chain on`；新 Client 默认 chain off | `TestForwardStdin_SSHEnablesChainMode`、`TestRunInteractive_SingleHopChainOff` | `!ai-ssh chain` 显示 on |
+| W14 | nested 注入后 `chain on`；新 Client 默认 chain off | `TestForwardStdin_SSHEnablesChainMode`、`TestRunInteractive_SingleHopChainOff` | `!ait chain` 显示 on |
 | W15 | setup pause 期间 prompt 仅入 scroll 时，`finishRemoteSetup` **立即**写 stdout；stdin 无 `\r`；无双 prompt | `TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused` | `ai-ssh devhost` 无需 Enter 即见 `AiT user@host:…>` |
 | W16 | `\r` refresh 首条 prompt 不被 premature `remotePromptShown` 丢弃；emit 失败回退 refresh | `TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestFinishRemoteSetup_EmitFailFallsBackRefresh` | 同 W15；无 marker 路径亦无需 Enter |
 
@@ -469,7 +469,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| P11 | `remotePromptShown` 已设置时 `emitMetaPromptStdout` 优先 AiT 行/客户端绘制，**不回退**原生 shell 提示符 | `TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown`、`TestFinishMetaInteraction_PaintsAITWhenManaged` | meta（`!ai-ssh get` 等）结束后仍见 `AiT user@host:…>`，非 `$`/`#` 原生提示符 |
+| P11 | `remotePromptShown` 已设置时 `emitMetaPromptStdout` 优先 AiT 行/客户端绘制，**不回退**原生 shell 提示符 | `TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown`、`TestFinishMetaInteraction_PaintsAITWhenManaged` | meta（`!ait get` 等）结束后仍见 `AiT user@host:…>`，非 `$`/`#` 原生提示符 |
 
 ### TM* 明细（login `--tmux` / 提示符 CRLF / pre-attach）
 
@@ -502,34 +502,34 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| V1 | 数据 `done` 后 teardown 在短超时内结束（mock Idle） | `TestSession_Wait_TeardownAfterDone` | 链式 `!ai-ssh get` 大文件：100% → `finishing…` → `done` 数秒内 |
+| V1 | 数据 `done` 后 teardown 在短超时内结束（mock Idle） | `TestSession_Wait_TeardownAfterDone` | 链式 `!ait get` 大文件：100% → `finishing…` → `done` 数秒内 |
 | V2 | teardown 超时返回可 `errors.Is` 的错误（`ErrTeardownTimeout`） | `TestSession_Wait_TeardownTimeout` | — |
 | V3 | ZEOF 偏移不匹配快速失败（非长时间挂起） | `TestZModemReceive_ZEOFOffsetMismatch` | — |
 | V4 | `BlockBuffer.Close` 大文件末尾无 `close timeout` | `TestBlockBuffer_CloseLargeSlowReader` | — |
 | V5 | ZMODEM get 在 100% 后输出 `finishing…` 再 `done:` | `TestZModemTransfer_FinishingPhase` | 链式 get：`copying…` → `finishing…` → done |
-| V6 | SFTP get 在 100% 后、`Done` 前有 `closing…` | `TestTransferProgress_SFTPClosingPhase` | 直连 `!ai-ssh get`：100% → `closing…` → done |
+| V6 | SFTP get 在 100% 后、`Done` 前有 `closing…` | `TestTransferProgress_SFTPClosingPhase` | 直连 `!ait get`：100% → `closing…` → done |
 | V7 | 传输 active 时 `0x03` 触发 `transferCancel`，不写入远端 stdin | `TestProcessForwardStdin_TransferCtrlC`、`TestProcessForwardStdin_CtrlCFwdWhenInactive` | SSH 内传输中 Ctrl+C → 数秒内 cancelled |
 | V8 | `Session.Wait` 在已取消 ctx 下调用 `Abort` 并快速返回 | `TestSession_Wait_ContextCancelAborts` | — |
 | V9 | SFTP `copyWithContext` 在 ctx 取消后 2s 内退出（`ctxReader` 打断阻塞 Read） | `TestCopyWithContext_CancelDuringBlockedRead` | 独立 `ai-ssh get` 传输中 Ctrl+C → 非 0 退出 |
-| V10 | `dataDone` 后 Feed「可打印垃圾 + ZEOF + ZFIN」→ `Wait` 成功 | `TestSession_Wait_TeardownAfterZFINWithPrefix` | 嵌套 SSH 链式 `!ai-ssh get` 大文件：100% → `finishing…` → `done`（数秒内） |
+| V10 | `dataDone` 后 Feed「可打印垃圾 + ZEOF + ZFIN」→ `Wait` 成功 | `TestSession_Wait_TeardownAfterZFINWithPrefix` | 嵌套 SSH 链式 `!ait get` 大文件：100% → `finishing…` → `done`（数秒内） |
 | V11 | 队首 PTY 垃圾后 resync 可解析 ZFIN 并回到 Idle | `TestZModem_ResyncSkipsPrefix` | — |
 | V12 | `SetChainTeardown(true)` 使用 30s teardown 常量（非默认 15s） | `TestSession_Wait_TeardownChainTimeout` | — |
-| V13 | Send 会话 upload 100% 后 `finish` 触发，`Wait` 在 ZFIN 后返回 | `TestSession_Wait_SendTeardownAfterUpload` | 链式 `!ai-ssh put`：100% → `finishing…` → `done` 数秒内 |
+| V13 | Send 会话 upload 100% 后 `finish` 触发，`Wait` 在 ZFIN 后返回 | `TestSession_Wait_SendTeardownAfterUpload` | 链式 `!ait put`：100% → `finishing…` → `done` 数秒内 |
 | V14 | ZMODEM put `waitTransfer` 在 100% 后进入 finishing 并完成 Wait | `TestZModemTransfer_PutWaitAfterProgress100` | 同 V13 |
 
 ### N* 明细（SSH 会话内 login/load/switch 链式切换 + auto-persist）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾（无 mock 时） |
 |----|----------|------------|------------------------|
-| N1 | `!ai-ssh dest` suspend 当前 persisted 会话并进入新 host | `TestHandleMetaLine_ChainLogin` | SSH：`!ai-ssh user@hostB` 进入 hostB |
-| N2 | ephemeral 当前会话 `!ai-ssh user@hostB` → auto-persist + suspend + 进入新 host | `TestEnsureSessionPersisted_ChainLogin` | `ai-ssh hostA`（无 save）→ `!ai-ssh user@hostB` |
-| N3 | `!ai-ssh load id` 链式 load | `TestRunInteractive_ChainLoad` | SSH：`!ai-ssh load <alias>` |
-| N4 | `!ai-ssh session --switch alias` auto-suspend + switch | `TestRunInteractive_ChainSwitch` | SSH：`!ai-ssh session --switch hostA` |
-| N5 | 链式 login 后 DB：旧 session `suspended`，新 `active` + current meta | `TestChainLogin_DBSessionStates` | `!ai-ssh session --list` 见两行状态 |
+| N1 | `!ait dest` suspend 当前 persisted 会话并进入新 host | `TestHandleMetaLine_ChainLogin` | SSH：`!ait user@hostB` 进入 hostB |
+| N2 | ephemeral 当前会话 `!ait user@hostB` → auto-persist + suspend + 进入新 host | `TestEnsureSessionPersisted_ChainLogin` | `ai-ssh hostA`（无 save）→ `!ait user@hostB` |
+| N3 | `!ait load id` 链式 load | `TestRunInteractive_ChainLoad` | SSH：`!ait load <alias>` |
+| N4 | `!ait session --switch alias` auto-suspend + switch | `TestRunInteractive_ChainSwitch` | SSH：`!ait session --switch hostA` |
+| N5 | 链式 login 后 DB：旧 session `suspended`，新 `active` + current meta | `TestChainLogin_DBSessionStates` | `!ait session --list` 见两行状态 |
 | N6 | REPL/meta `login` 前缀硬拒绝 + Try（H4a 语义：active 时 ssh 形 argv blocked） | `TestExecuteLine_LoginPrefixRejected`、`TestExecuteBlockedLogin` | — |
 | N7 | 本机 shell active 时 ssh 形 argv 仍 blocked（R4 不回退） | shell dispatch tests | `ai-ssh shell` 内 active 时 `devhost` → Try |
-| N8 | `!ai-ssh suspend`/`get`/`put`/AI meta 路径不变 | 现有 Z*/R19/H4* 仍过 | `!ai-ssh get`/`!!` 烟雾 |
-| N9 | ephemeral 会话 `!ai-ssh suspend` → auto-persist + suspended + scrollback | `TestEnsureSessionPersisted_Suspend` | ephemeral login 后 `!ai-ssh suspend` → `session --list` 可见 |
+| N8 | `!ait suspend`/`get`/`put`/AI meta 路径不变 | 现有 Z*/R19/H4* 仍过 | `!ait get`/`!!` 烟雾 |
+| N9 | ephemeral 会话 `!ait suspend` → auto-persist + suspended + scrollback | `TestEnsureSessionPersisted_Suspend` | ephemeral login 后 `!ait suspend` → `session --list` 可见 |
 | N10 | auto-persist 同连接键 dedupe（D1 不回退） | `TestEnsureSessionPersisted_DedupeConnectionKey` | — |
 
 ### E* 明细（Eino AI 重构 E1–E12）
@@ -559,7 +559,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | 规则引用名 | 仓库等价测试 |
 |------------|----------------|
-| `TestClassifyRisk_*` | `TestClassify_*`（`internal/ai-ssh/ai/mode/risk/risk_test.go`） |
+| `TestClassifyRisk_*` | `TestClassify_*`（`internal/aissh/ai/mode/risk/risk_test.go`） |
 | `TestConfirmPrompt_UsesCRLF` | `TestConfirmPromptCRLFConversion`（`mode_test.go`） |
 | `TestApproveSession_LowRiskSkipsSecond` | `TestConfirm_ApproveSessionLowRiskSkipsSecond` |
 | `TestConfirm_PatternTrustSkipsSamePrefix` | `TestConfirm_PatternTrustFirstToken` |
@@ -573,11 +573,11 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | C17 | `config` 与 `platform` 共用 `ConfigFileName` | `TestConfigFileName_FromPlatform`；`config_load`/`P*` 测试仍过 |
 | C18 | scrollback 侧车仍为 `id.log` | `TestScrollbackFileName_Suffix`；`TestHistoryPath_UnderDataDir`、session suspend 相关测试 |
 | C19 | 传输 `done:` 格式不变 | `TestFormatTransferDone_GetPut`、`TestTransferProgress_*`、`TestZModemTransfer_FinishingPhase` |
-| C20 | 确认 `y` 与 `!ai-ssh suspend` try 行不变 | `setup_confirm_test`、session delete confirm 测试 |
+| C20 | 确认 `y` 与 `!ait suspend` try 行不变 | `setup_confirm_test`、session delete confirm 测试 |
 | C21 | `transfer/argv` 与 meta 前缀一致 | `TestArgsFromMetaLine_UsesMetaPrefix`（H2d） |
 | C22 | lrzsz install 空 host 标签不变 | `TestInstallPrompt_ActiveShellHostLabel` |
 
-### C23–C28 明细（`internal/ai-ssh` 字面量常量化）
+### C23–C28 明细（`internal/aissh` 字面量常量化）
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
@@ -651,7 +651,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] K23–K24：raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker；见 **K\*** 明细 K23–K24）
 - [ ] P1–P6：AppRoot / AIT_HOME 单目录（见 **P\***）
 - [ ] G1–G16：`ai-ssh config init` / `view` / `edit` / `validate`（见 **G\***）
-- [ ] Z1–Z10：链式 ZMODEM `!ai-ssh get/put`（见 **Z\*** 明细）
+- [ ] Z1–Z10：链式 ZMODEM `!ait get/put`（见 **Z\*** 明细）
 - [ ] F1–F4：ZMODEM teardown 尾部 drain / strip（见 **F\*** 明细）
 - [ ] X1–X8：`ai-ssh shell` bin 扩展与 PATH 回退（见 **X\*** 明细）
 - [ ] Y1–Y10：`ai-ssh shell` 内置 `ll`（仅 shell 模式；见 **Y\*** 明细）
@@ -766,16 +766,16 @@ ai-ssh user@host          # W15：连接后直接见 AiT user@host:…> ，无�
 ai-ssh config set session.remote_prompt.path absolute
 ai-ssh session --load <id>      # W10：与 login 相同 absolute 表现
 
-# 链式（-J 或 !ai-ssh chain 传输）
+# 链式（-J 或 !ait chain 传输）
 ai-ssh -J jump user@final # 提示符 user@final:…
-!ai-ssh chain on && !ai-ssh get …  # T* 仍绿；提示符不变
+!ait chain on && !ait get …  # T* 仍绿；提示符不变
 
 # local → remote（沿用 login 时 PS1）
-!ai-ssh local && !ai-ssh remote
+!ait local && !ait remote
 
 # nested manual ssh（W11–W14）
 ai-ssh root@proxy
-ssh root@final -p60528        # W11：final 上 AiT 提示符；W14：!ai-ssh chain → on
+ssh root@final -p60528        # W11：final 上 AiT 提示符；W14：!ait chain → on
 ```
 
 对比：`ai-ssh -J proxy,final` 应直接在内层出现 AiT 提示符（无 proxy 提示符阶段）。
@@ -801,11 +801,11 @@ ai-ssh devhost --tmux
 ai-ssh devhost
 ssh root@internal-host
 echo remote > test
-!ai-ssh get ./test ./test.local    # Z6/Z7/U26/U30/F4：handshake inline → copying… N%（单行刷新）→ done；stdout 无协议乱码
-!ai-ssh put ./large ./large        # U27/U31/U32：大文件 put 同 SFTP 行内进度
-!ai-ssh put ./test.local ./test
+!ait get ./test ./test.local    # Z6/Z7/U26/U30/F4：handshake inline → copying… N%（单行刷新）→ done；stdout 无协议乱码
+!ait put ./large ./large        # U27/U31/U32：大文件 put 同 SFTP 行内进度
+!ait put ./test.local ./test
 cat test                        # 仅含 remote，无 sz/rz 命令行
-# 无 lrzsz 时：!ai-ssh get … → errhint 含 install lrzsz  # Z3
+# 无 lrzsz 时：!ait get … → errhint 含 install lrzsz  # Z3
 ```
 
 手动烟雾（传输收尾 / Ctrl+C，V*）：
@@ -813,11 +813,11 @@ cat test                        # 仅含 remote，无 sz/rz 命令行
 ```bash
 # 直连 SFTP（会话内）
 ai-ssh user@host
-!ai-ssh get /remote/big.bin ./big.bin   # V6：100% → closing… → done
+!ait get /remote/big.bin ./big.bin   # V6：100% → closing… → done
 
 # 链式 ZMODEM（需 lrzsz）
 ssh internal
-!ai-ssh get /remote/big.bin ./big.bin   # V1/V5/V10：100% → finishing… → done（数秒内；嵌套 SSH 链式同）
+!ait get /remote/big.bin ./big.bin   # V1/V5/V10：100% → finishing… → done（数秒内；嵌套 SSH 链式同）
 
 # Ctrl+C（copying… 或 finishing…/closing…）
 # 会话内：数秒内 cancelled，回到 AiT 提示符  # V7
@@ -830,11 +830,11 @@ ssh internal
 # 需真实 SSH hostA/hostB
 ai-ssh hostA                    # 无 --save
 # 在 hostA：
-!ai-ssh user@hostB            # N2：auto-persist + 切 hostB
-!ai-ssh session --list              # N5
-!ai-ssh session --switch hostA      # N4：回 hostA
-!ai-ssh load <alias>                # N3
-!ai-ssh suspend                     # N9：ephemeral 亦 auto-persist
+!ait user@hostB            # N2：auto-persist + 切 hostB
+!ait session --list              # N5
+!ait session --switch hostA      # N4：回 hostA
+!ait load <alias>                # N3
+!ait suspend                     # N9：ephemeral 亦 auto-persist
 ```
 
 自动化映射：TM9–TM14 → `TestRunInteractive_TmuxAttachBurstSuppressed`、`TestHandleRemoteOutput_TmuxLateSetupLeakFiltered`、`TestSetupOutputFilter_CRLines`、`TestBuildSendKeysLiteralCmd_Golden`、`TestPartitionInitialCommands`、`TestLoginWithoutTmuxClearsTmuxEnabled`、`TestLoginWithTmuxSetsTmuxEnabled`、`TestWrapTmuxAttachExitErr_Format`、`TestWrapTmuxPreAttachErr_Format`、`TestBuildSessionForLogin_TmuxFollowsCLI`、`TestHandleRemoteOutput_InteractiveStdoutCRLF`、`TestStripSetupLeakStdout_PreservesCRLF`、`TestLoginRun_PreservesTmuxAttachErrHint`、`TestLoginExitCode_WrappedSSHExit`、`TestLoginRun_ErrHintReachableCLI`、`TestBuildSendKeysLiteralCmd_PreservesDollarLiterals`、`TestTmuxPreAttachSetup_CommandGolden`、`TestTmuxPreAttachSetup_ClearPaneGolden`、`TestCleanupOnTmuxFailure_NewRowDeletes`、`TestDeleteLoginSession_RemovesRow`；R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIAsk`、`TestMetaScanner_BangBangAsk`；R19 → `TestStdinReader_PauseExclusive`、`TestStdinReader_DrainWhilePaused`、`TestStdinReader_ResumeAfterPause`、`TestReplStdinReader_UTF8`、`TestMetaScanner_BangBangUTF8Query`；A20–A22 → `TestSessionState_Defaults`、`TestSetMode_*`、`TestAskAI_NoRunCapture`、`TestSetApprove_*`、`TestTrustAliasSession`、`TestPolicyDeprecatedAlias_*`、`TestConfirm_HighRiskIgnoresSession`、`TestApproveSession_LowRiskSkipsSecond`、`TestClassifyRisk_*`、`TestAgentTurn_RunActionMock`、`TestScrollDelta_*`、`TestIsMetaREPLCommand_ModeApprove`、`TestModeStatusLine_IncludesApprove`、`TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent`、`TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI`、`TestClassifyRisk_Interactive`、`TestAgent_SkipsVim`、`TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low`；A21 → `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt`、`TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix`、`TestConfirm_HighRiskNoSessionOption`、`TestAIMode_ConfirmNoHistory`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecuteBlockedLogin`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`、`TestHistoryCommand_List`、`TestHistoryCommand_LastN`、`TestHistoryCommand_Clear`、`TestHistoryCommand_Delete`、`TestHistoryCommand_SetLine`、`TestLineHistory_FileSync`、`TestReadLine_CtrlRSearch`、`TestReadLine_CtrlRCycle`、`TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight`、`TestExecuteLineHistory_Shell`、`TestExecuteLineHistory_AIMode`、`TestReadLine_NoHistoryOnPick`、`TestHistoryPath_UnderDataDir`、`TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode`、`TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites`；P* → `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig`、`TestAppRoot_EmptyIgnores`、`TestConfigSave_AfterMigration`；G* → `TestConfigEnsureFile_Creates`、`TestConfigEnsureFile_MergesPartial`、`TestConfigEnsureFile_NoOp`、`TestConfigEnsureFile_NoRootDeepseek`、`TestConfigInitCmd`、`TestConfigInitCmd_DryRun`、`TestConfigViewCmd`、`TestConfigViewCmd_Existing`、`TestConfigEditCmd`、`TestConfigEditCmd_InvalidYAML`、`TestConfigValidateCmd_OK`、`TestConfigValidateCmd_MissingFile`、`TestConfigValidateCmd_BadYAML`、`TestConfigValidateCmd_BadTTL`、`TestConfigValidateCmd_BadURL`、`TestValidate_OK`、`TestValidate_MissingFile`、`TestValidate_BadYAML`、`TestValidate_BadTTL`、`TestValidate_BadMinimaxURL`、`TestOpenEditor_Unix`、`TestShellQuote`；Z* → `TestNewReceiveSession_FeedIdle`、`TestNewSendSession_OpensLocalFile`、`TestSession_AbortWritesCancelSeq`、`TestPTYZModemErrHint_IncludesLrzsz`、`TestZModemSession_ExclusiveIO`、`TestZModemSession_StripProtocolNoise`、`TestHandleTransferPTY_UsesZModem`、`TestZModemTransfer_ProgressCRLF`、`TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestResolveTransferMode_*`；F* → `TestDrainZModemTail_SuppressesStdout`、`TestZModemSession_StripProtocolNoise`、`TestHandleTransferPTY_PausesRemoteOut`、`TestHandleRemoteOutput_AfterZModemDrain`；X* → `TestExecuteLine_BuiltinWinsOverBin`、`TestResolveAppBin_Found`、`TestDispatchShellCommand_RunsBin`、`TestDispatchShellCommand_AitCLIBeforePATH`、`TestDispatchShellCommand_PATHFallback`、`TestDispatchShellCommand_PATHSkipsCLIError`、`TestBinDir_UnderAppRoot`、`TestResolveAppBin_RejectsUnsafeName`、`TestDispatchShellCommand_NotFoundHint`、`TestIsUnknownCommand`；Y* → `TestShellLL_CurrentDir`、`TestShellLL_TargetPath`、`TestExecuteLine_LLWinsOverBin`、`TestDirlist_FormatMode`、`TestDirlist_SymlinkSuffix`、`TestShellLL_NotFoundHint`、`TestShellLL_TooManyArgs`、`TestAIMode_LLNotBuiltin`、`TestTopLevelLLUnknown`；T* → `TestRoute_PrefersZModemWhenLrzszPresent`、`TestRoute_FallsBackSFTPDirect`、`TestRoute_ChainDeclinedInstall`、`TestRoute_ChainInstallThenZModem`、`TestLrzszResolveInstall_NonTTY`、`TestInstallCommand_*`、`TestParseTarget`；V* → `TestSession_Wait_TeardownAfterDone`、`TestSession_Wait_TeardownTimeout`、`TestZModemReceive_ZEOFOffsetMismatch`、`TestBlockBuffer_CloseLargeSlowReader`、`TestZModemTransfer_FinishingPhase`、`TestTransferProgress_SFTPClosingPhase`、`TestProcessForwardStdin_TransferCtrlC`、`TestProcessForwardStdin_CtrlCFwdWhenInactive`、`TestSession_Wait_ContextCancelAborts`、`TestCopyWithContext_CancelDuringBlockedRead`；W* → `TestRemoteFormat_WithAndWithoutBranch`、`TestRemoteSetupMarker_Prefix`、`TestRemoteSetupLine_ContainsDirAndGit`、`TestDuplicatePromptOutput_PrefixMatch`、`TestIsSetupLeakLine`、`TestSetupOutputFilterAcrossChunks`、`TestFinishRemoteSetup_RefreshOnly`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused`、`TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestFinishRemoteSetup_EmitFailFallsBackRefresh`、`TestRemoteSetupLine_ShortDir`、`TestRemoteSetupLine_AbsoluteDir`、`TestConfigRemotePromptPath_Default`、`TestConfigEnsureFile_RemotePromptPath`、`TestSetGetKey_RemotePromptPath`、`TestValidate_BadRemotePromptPath`、`TestRemotePromptInitialCommands_LoginLoadSamePath`、`TestForwardStdin_SSHTriggersNestedPrompt`、`TestDuplicatePromptOutput_ActiveHostAfterNested`、`TestDuplicatePromptOutput_SingleHopUnchanged`、`TestSingleHopPromptIdentityEqualsDial`、`TestParseSSHCommandLine_PortAndUserHost`、`TestParseSSHCommandLine_SkipComplex`、`TestForwardStdin_SSHEnablesChainMode`、`TestRunInteractive_SingleHopChainOff`；P11 → `TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown`、`TestFinishMetaInteraction_PaintsAITWhenManaged`。
@@ -862,7 +862,7 @@ ai-ssh hostA                    # 无 --save
 | 前缀 | 能力 | 代表性测试 |
 |------|------|------------|
 | U* | 本地 REPL UTF-8 输入 | `TestReadLineRawUTF8Chinese`、`TestReadLineRawBackspaceUTF8` |
-| C* | internal 字符串常量化（语义不变） | `TestLoginHelpMatchesLegacyGolden`、`TestSaveYAML_NoRootDeepseek`、`TestHints_ConfigSetAPIKeyCmd`、`TestHints_NotConfiguredTryLines`、`TestConstants_TableHeaderGolden`；`internal/pkg/ai/agent/*_test.go`、`client/router_test.go` 仍过；**C17–C22**（`internal/pkg`）、**C23–C28**（`internal/ai-ssh`）见上表 |
+| C* | internal 字符串常量化（语义不变） | `TestLoginHelpMatchesLegacyGolden`、`TestSaveYAML_NoRootDeepseek`、`TestHints_ConfigSetAPIKeyCmd`、`TestHints_NotConfiguredTryLines`、`TestConstants_TableHeaderGolden`；`internal/pkg/ai/agent/*_test.go`、`client/router_test.go` 仍过；**C17–C22**（`internal/pkg`）、**C23–C28**（`internal/aissh`）见上表 |
 | A* | `ai-ssh shell` 清屏（`clear` / Ctrl+L） | `TestClearScreen`、`TestExecuteLineClear`、`TestReadLineRawCtrlLRedrawsLine` |
 | L* | login 可选保存（`--save` / `--alias` 隐含保存） | `TestShouldPersistLogin`、`TestPersistLoginSessionSaveOnly`、`TestPersistLoginSessionAliasOnly`、`TestParseSave`、`TestLoginHelpMatchesLegacyGolden` |
 | D* | login 连接键 dedupe 与 TTL（username+host+port+alias） | `TestResolvePersistSessionID_*`、`TestFindSessionByKey_*`、`TestMigrate_DedupeConnectionKeyKeepsNewest`、`TestPersistLoginSession_ExtendsAuthExpiry` |
@@ -886,7 +886,7 @@ ai-ssh hostA                    # 无 --save
 | TM12* | `login` 不吞 errhint（`login/run.go` 原样返回 err） | `TestLoginRun_PreservesTmuxAttachErrHint`、`TestLoginExitCode_WrappedSSHExit`、`TestLoginRun_ErrHintReachableCLI`、`TestWrapTmuxAttachExitErr_PreservesCause` |
 | TM13* | pre-attach `send-keys -l` 单引号引号（`$(…)` 字面传递） | `TestBuildSendKeysLiteralCmd_PreservesDollarLiterals`、`TestShSingleQuote_EscapesEmbeddedSingleQuotes`、`TestTmuxPreAttachSetup_CommandGolden` |
 | TM14* | `send-keys` pre-attach + phantom 行清理 | `TestTmuxPreAttachSetup_ClearPaneGolden`、`TestCleanupOnTmuxFailure_NewRowDeletes`、`TestDeleteLoginSession_RemovesRow`、`TestCleanupOnTmuxFailure_ExistingRowSuspends` |
-| Z* | 链式 ZMODEM `!ai-ssh get/put`（lrzsz over PTY） | `TestZModemSession_ExclusiveIO`、`TestHandleTransferPTY_UsesZModem`、`TestBuildSzCmd_Heredoc` |
+| Z* | 链式 ZMODEM `!ait get/put`（lrzsz over PTY） | `TestZModemSession_ExclusiveIO`、`TestHandleTransferPTY_UsesZModem`、`TestBuildSzCmd_Heredoc` |
 | F* | ZMODEM teardown 尾部 drain / strip | `TestDrainZModemTail_SuppressesStdout`、`TestZModemSession_StripProtocolNoise`、`TestHandleTransferPTY_PausesRemoteOut`、`TestHandleRemoteOutput_AfterZModemDrain` |
 | X* | `ai-ssh shell` bin 扩展与 PATH 回退 | `TestExecuteLine_BuiltinWinsOverBin`、`TestResolveAppBin_Found`、`TestDispatchShellCommand_RunsBin`、`TestDispatchShellCommand_AitCLIBeforePATH`、`TestDispatchShellCommand_PATHFallback`、`TestDispatchShellCommand_PATHSkipsCLIError`、`TestBinDir_UnderAppRoot`、`TestResolveAppBin_RejectsUnsafeName`、`TestDispatchShellCommand_NotFoundHint` |
 | Y* | `ai-ssh shell` 内置 `ll`（仅 shell 模式） | `TestShellLL_CurrentDir`、`TestShellLL_TargetPath`、`TestExecuteLine_LLWinsOverBin`、`TestDirlist_FormatMode`、`TestDirlist_SymlinkSuffix`、`TestShellLL_NotFoundHint`、`TestShellLL_TooManyArgs`、`TestAIMode_LLNotBuiltin`、`TestTopLevelLLUnknown` |

@@ -10,7 +10,7 @@ Thank you for contributing to **AiT** (AI Terminal). This document summarizes th
 
 The canonical source for coding rules is [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc), [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc), and [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc). **When you change coding conventions, update those files and both CONTRIBUTING documents** ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)).
 
-For CLI commands, `--help` text must match the login-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/ai-ssh/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `ai-ssh login --help` before opening a PR.
+For CLI commands, `--help` text must match the login-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/aissh/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `ai-ssh login --help` before opening a PR.
 
 ---
 
@@ -58,15 +58,15 @@ AiT is a Go CLI; directories follow [golang-standards/project-layout](https://gi
 | Path | Purpose |
 |------|---------|
 | [`cmd/ai-ssh`](cmd/ai-ssh) | Main entry; **only** a minimal `main` |
-| [`internal/ai-ssh`](internal/ai-ssh) | Application entry (`Run`, Cobra root); **one package per subcommand** (`internal/ai-ssh/login`, `get`, …) with name, flags, parse, help, run in the same package |
-| [`internal/pkg/*`](internal/pkg) | Shared libraries (`store`, `session`, `ssh`, …); **must not** import `internal/ai-ssh` |
+| [`internal/aissh`](internal/aissh) | Application entry (`Run`, Cobra root); **one package per subcommand** (`internal/aissh/login`, `get`, …) with name, flags, parse, help, run in the same package |
+| [`internal/pkg/*`](internal/pkg) | Shared libraries (`store`, `session`, `ssh`, …); **must not** import `internal/aissh` |
 | [`pkg/`](pkg/) | Libraries for **external** modules; generic / non–AiT-business only |
 | [`configs/`](configs/) | Config templates (e.g. `ait.example.yaml`) |
 
 Conventions:
 
-- Prefer extending `internal/ai-ssh/<cmd>` and `internal/pkg/*`; avoid adding top-level directories without reason.
-- **Package layering:** `cmd/ai-ssh` → `internal/ai-ssh` → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/package-layering.md`](docs/package-layering.md) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
+- Prefer extending `internal/aissh/<cmd>` and `internal/pkg/*`; avoid adding top-level directories without reason.
+- **Package layering:** `cmd/ai-ssh` → `internal/aissh` → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/package-layering.md`](docs/package-layering.md) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
 - `internal/` is module-private — **must not** be imported from outside this module.
 - See [`AGENTS.md`](AGENTS.md) for package layout; see [`docs/design.md`](docs/design.md) for product architecture.
 

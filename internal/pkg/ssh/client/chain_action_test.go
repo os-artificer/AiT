@@ -35,7 +35,7 @@ func (s chainAliasStub) GetSession(idOrAlias string) (*store.Session, error) {
 
 func TestParseMetaChainLine_UserHost(t *testing.T) {
 	cliroute.SetHostConfiguredHook(nil)
-	chain, ok := ParseMetaChainLine("!ai-ssh user@hostB", nil)
+	chain, ok := ParseMetaChainLine("!ait user@hostB", nil)
 	if !ok {
 		t.Fatal("expected chain login")
 	}
@@ -53,7 +53,7 @@ func TestParseMetaChainLine_Alias(t *testing.T) {
 	t.Cleanup(func() { cliroute.SetHostConfiguredHook(nil) })
 
 	lookup := chainAliasStub{"prod": {}}
-	chain, ok := ParseMetaChainLine("!ai-ssh prod", lookup)
+	chain, ok := ParseMetaChainLine("!ait prod", lookup)
 	if !ok {
 		t.Fatal("expected chain login for saved alias")
 	}
@@ -66,7 +66,7 @@ func TestParseMetaChainLine_Alias(t *testing.T) {
 }
 
 func TestParseMetaChainLine_Load(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ai-ssh load prod --tmux", nil)
+	chain, ok := ParseMetaChainLine("!ait load prod --tmux", nil)
 	if !ok {
 		t.Fatal("expected chain load")
 	}
@@ -80,7 +80,7 @@ func TestParseMetaChainLine_Load(t *testing.T) {
 }
 
 func TestParseMetaChainLine_Switch(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ai-ssh session --switch prod", nil)
+	chain, ok := ParseMetaChainLine("!ait session --switch prod", nil)
 	if !ok {
 		t.Fatal("expected chain switch")
 	}
@@ -93,7 +93,7 @@ func TestParseMetaChainLine_Switch(t *testing.T) {
 }
 
 func TestParseMetaChainLine_LoginRejected(t *testing.T) {
-	if _, ok := ParseMetaChainLine("!ai-ssh login --save user@hostB", nil); ok {
+	if _, ok := ParseMetaChainLine("!ait login --save user@hostB", nil); ok {
 		t.Fatal("login prefix must not chain")
 	}
 }
@@ -101,16 +101,16 @@ func TestParseMetaChainLine_LoginRejected(t *testing.T) {
 func TestParseMetaChainLine_UnknownNotChain(t *testing.T) {
 	cliroute.SetHostConfiguredHook(func(string) bool { return false })
 	t.Cleanup(func() { cliroute.SetHostConfiguredHook(nil) })
-	if _, ok := ParseMetaChainLine("!ai-ssh nosuch", nil); ok {
+	if _, ok := ParseMetaChainLine("!ait nosuch", nil); ok {
 		t.Fatal("unknown meta argv must not chain")
 	}
 }
 
 func TestParseMetaChainLine_NotChain(t *testing.T) {
-	if _, ok := ParseMetaChainLine("!ai-ssh list", nil); ok {
+	if _, ok := ParseMetaChainLine("!ait list", nil); ok {
 		t.Fatal("list should not be chain action")
 	}
-	if _, ok := ParseMetaChainLine("!ai-ssh session --load prod", nil); ok {
+	if _, ok := ParseMetaChainLine("!ait session --load prod", nil); ok {
 		t.Fatal("session --load should not match switch chain")
 	}
 }

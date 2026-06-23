@@ -1,4 +1,4 @@
-"""Chain login/load/switch via !ai-ssh meta (N*)."""
+"""Chain login/load/switch via !ait meta (N*)."""
 
 from __future__ import annotations
 

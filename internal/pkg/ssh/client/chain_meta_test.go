@@ -41,7 +41,7 @@ func TestHandleMetaLine_ChainLogin(t *testing.T) {
 
 	var suspendCalled bool
 	c := &Client{scroll: &terminal.Buffer{}}
-	err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, "!ai-ssh user@hostB", InteractiveOpts{
+	err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, "!ait user@hostB", InteractiveOpts{
 		OnSuspend: func(_ *terminal.Buffer, _ string, _, _ int) error {
 			suspendCalled = true
 			return nil
@@ -68,7 +68,7 @@ func TestHandleMetaLine_ChainLoginOnSuspendFail(t *testing.T) {
 
 	c := &Client{scroll: &terminal.Buffer{}}
 	want := io.EOF
-	err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, "!ai-ssh user@hostB", InteractiveOpts{
+	err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, "!ait user@hostB", InteractiveOpts{
 		OnSuspend: func(_ *terminal.Buffer, _ string, _, _ int) error {
 			return want
 		},

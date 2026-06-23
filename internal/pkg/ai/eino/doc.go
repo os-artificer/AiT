@@ -27,5 +27,5 @@
 //   - FC tool_calls and OpenAI content XML (M4) post-process cleanly after eino Generate;
 //     Anthropic XML (M6) uses the same agent.XMLToolCallToJSON on text blocks (see spike_test.go).
 //
-// This package must not import internal/ai-ssh or internal/pkg/ai/client.
+// This package must not import internal/aissh or internal/pkg/ai/client.
 package eino

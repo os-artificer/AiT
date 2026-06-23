@@ -58,8 +58,8 @@ Optional config template:
 | `ai-ssh [flags] destination` | Connect like OpenSSH (`ai-ssh user@host`, `ai-ssh -J bastion app.internal`); `--save` or `--alias` to bookmark; plain re-connect updates only an **empty-alias** match; `host cmd` for one-shot; **`login` prefix removed** |
 | `ai-ssh session --list` | List saved sessions (`#` column; use `-v` for full UUID) |
 | `ai-ssh session --load [<id\|alias>]` | Restore session (omit id to pick); use alias or `FULL_ID` from `-v`, not the short ID column |
-| `ai-ssh session --suspend` | Use `!ai-ssh suspend` inside SSH session |
-| `ai-ssh session --switch [id\|alias]` | Switch session (blocked if current session still `active`; run `!ai-ssh suspend` or use `--force` first) |
+| `ai-ssh session --suspend` | Use `!ait suspend` inside SSH session |
+| `ai-ssh session --switch [id\|alias]` | Switch session (blocked if current session still `active`; run `!ait suspend` or use `--force` first) |
 | `ai-ssh session --delete <id\|alias>` | Delete one session |
 | `ai-ssh session --delete all` | Delete all sessions (confirmation; `--force` to skip) |
 | `ai-ssh get [flags] <paths...>` | Download one file; OpenSSH flags same as default SSH connect (`-p`, `-i`, `-J`, …); `ai-ssh get --help` |
@@ -71,8 +71,8 @@ Optional config template:
 | `ai-ssh config set/get <key>` | Configuration; `ai.<provider>.api_key` uses keyring |
 | `ai-ssh ai [--model deepseek\|minimax]` | Local AI REPL (UTF-8 TTY input); optional cloud provider override for this session |
 | `ai-ssh ai model list` | List AI providers (ENABLED, reachability, Ollama tags) |
-| `ai-ssh ai ask [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ai-ssh ai ask` / `!! ask` |
-| `ai-ssh ai agent [message...]` | One-shot agent when a message is given; in SSH, bare `!ai-ssh ai agent` / `!! agent` enters Agent REPL (same as `!ai-ssh ai` / `!!`) |
+| `ai-ssh ai ask [message...]` | One-shot AI question; reads stdin when no args; in SSH: `!ait ai ask` / `!! ask` |
+| `ai-ssh ai agent [message...]` | One-shot agent when a message is given; in SSH, bare `!ait ai agent` / `!! agent` enters Agent REPL (same as `!ait ai` / `!!`) |
 | `ai-ssh ai provider enable <provider>` | Enable provider; for `ollama`: optional install checks ([y/N]); flags `--yes`, `--no-install`, `--no-pull` |
 | `ai-ssh ai provider disable <provider>` | Disable provider (no AI requests sent to it) |
 | `ai-ssh ai ollama status` | Ollama tiered/enabled flags, API reachability, pulled models |
@@ -98,7 +98,7 @@ On **macOS, Linux, and Windows**, interactive `ai-ssh shell` and `ai-ssh ai` acc
 - **Non-TTY:** `echo 你好 | ai-ssh ai ask` works without special locale setup.
 - **Clear screen:** In `ai-ssh shell`, type `clear` or press **Ctrl+L** (TTY) to clear the display; the REPL keeps running. In `ai-ssh ai`, **Ctrl+L** clears the display only; `clear` clears conversation history.
 
-SSH sessions (top-level `ai-ssh user@host` or `session --load`) and `!ai-ssh local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI(Agent)>` editing is what this section describes.
+SSH sessions (top-level `ai-ssh user@host` or `session --load`) and `!ait local` use the remote/local shell’s line editing; local `AiT>` / `AiT AI(Agent)>` editing is what this section describes.
 
 ## Prompts
 
@@ -108,8 +108,8 @@ SSH sessions (top-level `ai-ssh user@host` or `session --load`) and `!ai-ssh loc
 | `ai-ssh ai` (local) | `AiT AI(Agent)> ` by default; `mode ask` for `AiT AI(Ask)> ` |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` (cwd + optional Git branch; `session.remote_prompt.path` short\|absolute) |
 | SSH nested | same on inner host after `ssh` from an AiT session | Or use `ai-ssh -J jump,final` to skip manual nested `ssh` |
-| SSH AI mode (`!ai-ssh ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
-| `!ai-ssh local` | `AiT Local> ` |
+| SSH AI mode (`!ait ai` / `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
+| `!ait local` | `AiT Local> ` |
 
 After **`ai-ssh user@host`** or **`ai-ssh session --load`**, the remote **`AiT user@host:…>`** prompt should appear immediately—no extra Enter key. **`session --load` / `--switch`** does not redraw prior command output on screen; saved scrollback is kept in memory for suspend/AI context only.
 
@@ -128,11 +128,11 @@ Configure at least one **cloud** provider API key (see top of this page), unless
 | Where | How to enter | What runs |
 |-------|----------------|-----------|
 | Local (system shell or `ai-ssh shell`) | `ai-ssh ai` or `ai-ssh ai --model minimax`, or `ai` in `ai-ssh shell` | `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`) — `run <cmd>` runs on **this machine**; `ai-ssh <subcmd>` runs AiT CLI after confirm |
-| Inside SSH | `!ai-ssh ai` or `!!` (optional first question) | `AiT AI(Agent) user@host>` by default — `run <cmd>` runs on **remote host** via the live session |
+| Inside SSH | `!ait ai` or `!!` (optional first question) | `AiT AI(Agent) user@host>` by default — `run <cmd>` runs on **remote host** via the live session |
 
 Before each write or high-risk `run` / Agent tool execution, AiT shows a multi-line confirm menu: **`y`** run once, **`c`** trust this command’s first word for the rest of the AI session, **`s`** trust all safe commands this session, **`n`** skip. High-risk commands offer only **`y`** / **`n`**. Read-only commands in Agent mode (e.g. `ls`, `git status`) run without a prompt.
 
-In AI mode: `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default **agent**; **`mode ask`** for Q&A only), `approve each|session` (default each; `trust` = session), `model` / `model list` / `model <deepseek|minimax>`, then questions (ask) or agent planning, or `run …` / local `ai-ssh …`. `policy` is deprecated (use `approve`). Do not use `!ai-ssh ai` as a meta subcommand (`!ai-ssh ai` line form only).
+In AI mode: `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default **agent**; **`mode ask`** for Q&A only), `approve each|session` (default each; `trust` = session), `model` / `model list` / `model <deepseek|minimax>`, then questions (ask) or agent planning, or `run …` / local `ai-ssh …`. `policy` is deprecated (use `approve`). Do not use `!ait ai` as a meta subcommand (`!ait ai` line form only).
 
 With tiered routing on, short first-turn questions use local Ollama; longer prompts, code fences, complex keywords, or multi-turn history use cloud providers. `--model` / `model <cloud>` skip Ollama for that session.
 
@@ -144,19 +144,19 @@ If the cloud provider fails (network, 5xx, rate limit), AiT tries other cloud pr
 
 | Input | Action |
 |-------|--------|
-| `!ai-ssh help` / `!ai-ssh` | Print in-session commands and local CLI help |
-| `!ai-ssh <subcmd> …` | Run `ai-ssh` subcommand locally; ssh-style `[flags] dest` / `load` / `session --switch` chain from SSH (see below) |
-| `!ai-ssh [flags] dest` | Auto-save if needed, suspend current session, connect to another host (not `!ai-ssh login …`) |
-| `!ai-ssh load [id\|alias]` | Auto-save if needed, suspend, load saved session |
-| `!ai-ssh session --switch [id\|alias]` | Auto-save if needed, suspend, switch to another session |
-| `!ai-ssh ai [question]` | Remote AI mode (see above) |
-| `!! [question]` | Same as `!ai-ssh ai` |
-| `!ai-ssh local` | Local mode: run commands on local machine; SSH stays connected |
-| `!ai-ssh remote` | Exit local mode; resume remote input |
-| `!ai-ssh suspend` | Auto-save if needed; suspend: save scrollback and remote cwd; disconnect |
-| `!ai-ssh get <remote> [<local>]` | Download one file over current SSH (no re-auth); optional local defaults to `./basename` |
-| `!ai-ssh put <local> [<remote>]` | Upload one file over current SSH (no re-auth); optional remote defaults to `./basename` |
-| `!ai-ssh chain [on\|off]` | Toggle chain mode: PTY-pipe transfer for SSH hops; `on` = ZMODEM over PTY, `off` = prefer lrzsz then SFTP (default) |
+| `!ait help` / `!ait` | Print in-session commands and local CLI help |
+| `!ait <subcmd> …` | Run `ai-ssh` subcommand locally; ssh-style `[flags] dest` / `load` / `session --switch` chain from SSH (see below) |
+| `!ait [flags] dest` | Auto-save if needed, suspend current session, connect to another host (not `!ait login …`) |
+| `!ait load [id\|alias]` | Auto-save if needed, suspend, load saved session |
+| `!ait session --switch [id\|alias]` | Auto-save if needed, suspend, switch to another session |
+| `!ait ai [question]` | Remote AI mode (see above) |
+| `!! [question]` | Same as `!ait ai` |
+| `!ait local` | Local mode: run commands on local machine; SSH stays connected |
+| `!ait remote` | Exit local mode; resume remote input |
+| `!ait suspend` | Auto-save if needed; suspend: save scrollback and remote cwd; disconnect |
+| `!ait get <remote> [<local>]` | Download one file over current SSH (no re-auth); optional local defaults to `./basename` |
+| `!ait put <local> [<remote>]` | Upload one file over current SSH (no re-auth); optional remote defaults to `./basename` |
+| `!ait chain [on\|off]` | Toggle chain mode: PTY-pipe transfer for SSH hops; `on` = ZMODEM over PTY, `off` = prefer lrzsz then SFTP (default) |
 
 ---
 
@@ -181,7 +181,7 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 | Situation | Typical hint |
 |-----------|--------------|
 | `--load` with list **ID column** (8-char prefix) | `The list ID column is for display only` → use alias, `FULL_ID` from `-v`, or interactive `--load` |
-| `session --switch` while current session still **active** (local CLI) | Suspend inside SSH (`!ai-ssh suspend`) or `session --switch --force`; use `!ai-ssh session --switch` in SSH to auto-suspend |
+| `session --switch` while current session still **active** (local CLI) | Suspend inside SSH (`!ait suspend`) or `session --switch --force`; use `!ait session --switch` in SSH to auto-suspend |
 | Empty `ai-ssh ai ask` (no message / stdin) | `ask requires a message` → pass a message or pipe stdin |
 | Unknown config key | `ai-ssh config get <key>` or see example YAML |
 | `ai-ssh config validate` failure | Fix listed field paths or run `ai-ssh config edit` |
@@ -197,41 +197,41 @@ Many CLI errors include a **`Try:`** block with suggested next commands (see `in
 - `ai-ssh put` creates missing **parent directories** on the remote host before uploading the file.
 - Transfer errors are prefixed with `local file` or `remote file` so you can tell which side failed. A message like `file does not exist` or `no such file or directory` on **put** often means the remote path or parent directory is wrong (not that the local file is missing).
 - Standalone `get`/`put`: flags and paths may appear in any order; glued port/key forms work (`-p22`, `-i~/.ssh/id`).
-- In SSH, `!ai-ssh get` / `!ai-ssh put` reuse the live connection (one or two paths, no flags); omitted destination defaults to the source basename.
-- **`!ai-ssh put` local path** is on the machine running AiT (your laptop/desktop), not the remote shell’s current directory. **`!ai-ssh get` local path** is also on the AiT client. Remote paths are relative to the **active shell** (which may be a nested hop when chain mode is on).
-- In SSH, **`!ai-ssh get` / `!ai-ssh put` print phase progress and a `done:` line on stderr** (e.g. `get … → …`, `handshake…`, `copying… 50%`, then **`closing…`** for SFTP or **`finishing…`** for chain ZMODEM, then `done: get …`). On a TTY, **`copying… N%` updates in place** on one line (get and put use the same format, including SFTP and chain ZMODEM). Phase and done lines use CRLF-safe output on raw TTY (Linux, macOS, Windows clients).
-- Before `ai-ssh session --switch` from the local shell while still in SSH, run `!ai-ssh suspend` or use `--force` (does not save scrollback/cwd).
+- In SSH, `!ait get` / `!ait put` reuse the live connection (one or two paths, no flags); omitted destination defaults to the source basename.
+- **`!ait put` local path** is on the machine running AiT (your laptop/desktop), not the remote shell’s current directory. **`!ait get` local path** is also on the AiT client. Remote paths are relative to the **active shell** (which may be a nested hop when chain mode is on).
+- In SSH, **`!ait get` / `!ait put` print phase progress and a `done:` line on stderr** (e.g. `get … → …`, `handshake…`, `copying… 50%`, then **`closing…`** for SFTP or **`finishing…`** for chain ZMODEM, then `done: get …`). On a TTY, **`copying… N%` updates in place** on one line (get and put use the same format, including SFTP and chain ZMODEM). Phase and done lines use CRLF-safe output on raw TTY (Linux, macOS, Windows clients).
+- Before `ai-ssh session --switch` from the local shell while still in SSH, run `!ait suspend` or use `--force` (does not save scrollback/cwd).
 
 ---
 
 ## Proxy chain mode
 
-**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session `!ai-ssh get`/`put` on that login **probe lrzsz first**, then **fall back to SFTP** when lrzsz is missing—the same strategy as standalone `ai-ssh get`/`put` (SFTP only). **Chain mode** applies when the **interactive shell** is deeper than the dial connection (usually after you manually `ssh` inside the session).
+**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session `!ait get`/`put` on that login **probe lrzsz first**, then **fall back to SFTP** when lrzsz is missing—the same strategy as standalone `ai-ssh get`/`put` (SFTP only). **Chain mode** applies when the **interactive shell** is deeper than the dial connection (usually after you manually `ssh` inside the session).
 
-When you login to a bastion and then manually `ssh` to an internal host, AiT's direct connection only reaches the bastion. SFTP-based file transfer can only reach the dial target by default. Features that use the PTY pipe (`!!`, `!ai-ssh ai`, scrollback) work at any depth.
+When you login to a bastion and then manually `ssh` to an internal host, AiT's direct connection only reaches the bastion. SFTP-based file transfer can only reach the dial target by default. Features that use the PTY pipe (`!!`, `!ait ai`, scrollback) work at any depth.
 
-When chain mode is off and you are on the **same host as the dial target**, **`!ai-ssh get` / `!ai-ssh put` use SFTP** on the direct SSH connection (even when lrzsz is installed on the remote). **ZMODEM over PTY is used only in chain mode** when `sz`/`rz` are available. When lrzsz is missing on a direct hop, AiT **falls back to SFTP** with a notice. When you have manually SSH'd to a **deeper host**, **`!ai-ssh get` / `!ai-ssh put` automatically detect** the hostname mismatch (compared to both the resolved dial host and your original login destination alias) and enable chain mode with a one-line notice.
+When chain mode is off and you are on the **same host as the dial target**, **`!ait get` / `!ait put` use SFTP** on the direct SSH connection (even when lrzsz is installed on the remote). **ZMODEM over PTY is used only in chain mode** when `sz`/`rz` are available. When lrzsz is missing on a direct hop, AiT **falls back to SFTP** with a notice. When you have manually SSH'd to a **deeper host**, **`!ait get` / `!ait put` automatically detect** the hostname mismatch (compared to both the resolved dial host and your original login destination alias) and enable chain mode with a one-line notice.
 
-**`!ai-ssh chain on`** enables chain mode manually, which switches to PTY-pipe injection:
+**`!ait chain on`** enables chain mode manually, which switches to PTY-pipe injection:
 
 - **File transfer**: **lrzsz first** — ZMODEM over the PTY when `sz`/`rz` are available. In chain mode without lrzsz, AiT shows install instructions and, on an interactive terminal, asks **`Install lrzsz on <host>? [y/N]`** before running an OS-specific install command on the active shell (Linux package managers, Homebrew, choco/winget; may need remote `sudo`). Progress shows `handshake…`, **`copying… NN%`** (same label as SFTP; in-place on TTY), then **`finishing…`** before `done:` (get and put symmetric). AiT client (Linux/macOS/Windows Terminal) needs no local lrzsz. Standalone `ai-ssh get/put` still uses SFTP (100% → **`closing…`** → `done:`).
 - **Tmux**: Tmux operations are injected through the PTY pipe instead of opening a new SSH session.
 
-**`!ai-ssh chain off`** returns to the default SFTP/direct-session mode.
+**`!ait chain off`** returns to the default SFTP/direct-session mode.
 
-**`!ai-ssh chain`** (no argument) shows the current chain mode status.
+**`!ait chain`** (no argument) shows the current chain mode status.
 
 All AiT-injected commands are silent — they do not appear in shell history or arrow-key navigation.
 
 ```text
 AiT user@bastion> ssh internal-server
 …logged into internal-server via bastion…
-AiT user@bastion> !ai-ssh get /var/log/app.log ./app.log
+AiT user@bastion> !ait get /var/log/app.log ./app.log
   chain mode auto-enabled: active shell is on internal-server (connected to bastion).
   File transfer will use PTY-pipe injection.
-  Use !ai-ssh chain off to disable.
-AiT user@bastion> !ai-ssh chain   # shows on
-AiT user@bastion> !ai-ssh chain off
+  Use !ait chain off to disable.
+AiT user@bastion> !ait chain   # shows on
+AiT user@bastion> !ait chain off
   chain mode disabled
   File transfer and tmux will use SFTP/direct sessions.
 ```

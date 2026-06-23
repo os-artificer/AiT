@@ -96,7 +96,7 @@ func ShouldREPLSSHConnect(words []string, lookup AliasLookup) bool {
 	return narrowSSHConnect(words, lookup)
 }
 
-// IsMetaChainConnectArgs reports whether !ai-ssh argv should chain-login (N1).
+// IsMetaChainConnectArgs reports whether !ait argv should chain-login (N1).
 // lookup may be nil; when set, saved session aliases are treated like ssh config Host names.
 func IsMetaChainConnectArgs(args []string, lookup AliasLookup) bool {
 	return narrowSSHConnect(args, lookup)

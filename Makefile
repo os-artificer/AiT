@@ -4,9 +4,9 @@ TOOLS       := ai-ssh
 BINARY_NAME := ai-ssh
 BUILD_DIR   := bin
 MAIN_PKG    := ./cmd/ai-ssh
-LDFLAGS_PKG := github.com/os-artificer/AiT/internal/ai-ssh/version
+LDFLAGS_PKG := github.com/os-artificer/AiT/internal/aissh/version
 
-VERSION    ?= $(shell cat internal/ai-ssh/version/VERSION 2>/dev/null | tr -d ' \n')
+VERSION    ?= $(shell cat internal/aissh/version/VERSION 2>/dev/null | tr -d ' \n')
 GIT_COMMIT := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 BUILD_DATE  := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -55,8 +55,8 @@ test-cross:
 	done
 
 check-generate:
-	go generate ./internal/ai-ssh/registry/...
-	git diff --exit-code -- internal/ai-ssh/registry/all/imports.go
+	go generate ./internal/aissh/registry/...
+	git diff --exit-code -- internal/aissh/registry/all/imports.go
 
 test-e2e:
 	@test -x bin/ai-ssh || $(MAKE) build

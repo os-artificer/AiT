@@ -22,7 +22,7 @@ import "github.com/os-artificer/AiT/internal/pkg/ai/provider"
 const (
 	// ScopeLocal is ai-ssh ai on the local machine (non-SSH).
 	ScopeLocal Scope = iota
-	// ScopeRemote is !ai-ssh ai inside an active SSH session.
+	// ScopeRemote is !ait ai inside an active SSH session.
 	ScopeRemote
 )
 

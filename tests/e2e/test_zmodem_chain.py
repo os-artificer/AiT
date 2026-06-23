@@ -1,4 +1,4 @@
-"""Nested SSH + !ai-ssh get/put ZMODEM chain (T*/Z*; optional)."""
+"""Nested SSH + !ait get/put ZMODEM chain (T*/Z*; optional)."""
 
 from __future__ import annotations
 

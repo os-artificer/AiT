@@ -28,7 +28,7 @@ import (
 // Base is the AiT interactive shell prompt when not connected to a remote host.
 const Base = "AiT> "
 
-// Local is shown in AiT local mode (!ai-ssh local) within an SSH session.
+// Local is shown in AiT local mode (!ait local) within an SSH session.
 const Local = "AiT Local> "
 
 const remoteGitPS1 = `$(b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && [ -n "$b" ] && printf ":%s" "$b")`

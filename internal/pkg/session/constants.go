@@ -16,6 +16,10 @@
 
 package session
 
+import "github.com/os-artificer/AiT/internal/pkg/toolname"
+
+var msgSuspendLocalUseSSH = "Reconnect to the session and run " + toolname.MetaLine("suspend") + " inside SSH."
+
 // Ports and lengths.
 const (
 	defaultSSHPort        = 22
@@ -88,7 +92,6 @@ const (
 // Stdout/stderr notices.
 const (
 	msgSuspendLocalUnsupported = "Suspend from the local shell is not supported."
-	msgSuspendLocalUseSSH      = "Reconnect to the session and run !ai-ssh suspend inside SSH."
 	msgAlreadyOnSessionFmt     = "already on session %s"
 	warnSwitchWithoutSuspend   = "warning: switching without suspend; marking current session suspended"
 	errTmuxEnsureFmt           = "tmux: %w (is tmux installed on remote?)"

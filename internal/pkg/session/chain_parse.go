@@ -46,7 +46,7 @@ func chainUnexpectedSwitchArgsErr() error {
 	)
 }
 
-// ParseChainLoadArgs parses argv after "!ai-ssh load " (without the load keyword).
+// ParseChainLoadArgs parses argv after "!ait load " (without the load keyword).
 // needPick is true when no target id/alias was given and the caller should prompt.
 func ParseChainLoadArgs(argv []string) (target, password string, tmux, needPick bool, err error) {
 	if len(argv) == 0 {
@@ -93,7 +93,7 @@ func ParseChainLoadArgs(argv []string) (target, password string, tmux, needPick 
 	return target, password, tmux, needPick, nil
 }
 
-// ParseChainSwitchArgs parses argv after "!ai-ssh session --switch ".
+// ParseChainSwitchArgs parses argv after "!ait session --switch ".
 func ParseChainSwitchArgs(argv []string) (target, password string, tmux, needPick bool, err error) {
 	if len(argv) == 0 {
 		return "", "", false, true, nil

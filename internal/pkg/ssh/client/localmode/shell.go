@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package localmode runs the !ai-ssh local PTY shell that an SSH user can spawn
+// Package localmode runs the !ait local PTY shell that an SSH user can spawn
 // without dropping their remote connection. It owns the per-shell PTY lifecycle
 // (Shell), the local-shell environment setup (Env), and the shell-specific rc
 // file preparation (Prepare for bash/zsh).

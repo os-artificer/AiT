@@ -20,8 +20,8 @@ package toolname
 const (
 	// AISsh is the Cobra root command name and installed binary name.
 	AISsh = "ai-ssh"
-	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ai-ssh).
-	MetaPrefix = "!ai-ssh"
+	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ait).
+	MetaPrefix = "!ait"
 )
 
 // CLI returns "ai-ssh" or "ai-ssh <subcmd>" when subcmd is non-empty.
@@ -32,7 +32,7 @@ func CLI(subcmd string) string {
 	return AISsh + " " + subcmd
 }
 
-// MetaLine returns "!ai-ssh" or "!ai-ssh <rest>" when rest is non-empty.
+// MetaLine returns "!ait" or "!ait <rest>" when rest is non-empty.
 func MetaLine(rest string) string {
 	if rest == "" {
 		return MetaPrefix

@@ -19,19 +19,19 @@ package client
 import "testing"
 
 // TestAIPromptFromMetaLine (R18c) verifies client meta wiring preserves ask one-shot
-// InitialQuestion text for !ai-ssh ai ask and !! ask meta lines.
+// InitialQuestion text for !ait ai ask and !! ask meta lines.
 func TestAIPromptFromMetaLine(t *testing.T) {
 	tests := []struct {
 		line   string
 		prompt string
 		isAI   bool
 	}{
-		{"!ai-ssh ai ask hello", "ask hello", true},
+		{"!ait ai ask hello", "ask hello", true},
 		{"!! ask hello", "ask hello", true},
-		{"!ai-ssh ai ask ping", "ask ping", true},
+		{"!ait ai ask ping", "ask ping", true},
 		{"!! ask ping", "ask ping", true},
-		{"!ai-ssh ai how to grep", "how to grep", true},
-		{"!ai-ssh suspend", "", false},
+		{"!ait ai how to grep", "how to grep", true},
+		{"!ait suspend", "", false},
 	}
 	for _, tc := range tests {
 		p, ok := aiPromptFromMetaLine(tc.line)

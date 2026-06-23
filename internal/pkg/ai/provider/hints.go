@@ -22,6 +22,8 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
+var hintMetaAIAsk = toolname.MetaLine("ai ask <message>")
+
 const (
 	hintSetCloudKeysOrOllama   = "Set a cloud provider API key or enable tiered Ollama routing."
 	hintSetDeepseekAPIKey      = "ai-ssh config set ai.deepseek.api_key <key>"
@@ -34,7 +36,6 @@ const (
 	hintProvideChatMessage     = "Provide a message on the command line or via stdin."
 	hintAIAskWithMessage       = "ai-ssh ai ask <message>"
 	hintAIAskStdin             = "echo ping | ai-ssh ai ask"
-	hintMetaAIAsk              = "!ai-ssh ai ask <message>"
 	hintAIAskHelp              = "ai-ssh ai ask --help"
 	hintEnableProviderOverride = "Enable the provider before using it as --model override."
 

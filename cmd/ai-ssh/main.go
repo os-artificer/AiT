@@ -19,16 +19,16 @@ package main
 import (
 	"os"
 
-	"github.com/os-artificer/AiT/internal/ai-ssh"
+	"github.com/os-artificer/AiT/internal/aissh"
 )
 
 func main() {
-	err := aish.Run(os.Args[1:])
+	err := aissh.Run(os.Args[1:])
 	if err == nil {
 		return
 	}
 
-	code, ok := aish.ExitCode(err)
+	code, ok := aissh.ExitCode(err)
 	if !ok {
 		code = 1
 	}
