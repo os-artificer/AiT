@@ -58,8 +58,8 @@
 | `ai-ssh [flags] destination` | 与 OpenSSH 同形连接；`--save`/`--alias` 保存；无 flag 重连仅更新**无 alias** 匹配行；`host cmd` 一次性执行；**无 `login` 前缀** |
 | `ai-ssh session --list` | 列出已保存会话（`#` 列；`-v` 输出完整 UUID） |
 | `ai-ssh session --load [<id\|alias>]` | 恢复会话（可省略 id 交互选择）；请用 alias 或 `-v` 的 FULL_ID，勿用 ID 列短码 |
-| `ai-ssh session --suspend` | 在 SSH 会话内使用 `!ai-ssh suspend` |
-| `ai-ssh session --switch [id\|alias]` | 切换会话（当前会话仍为 `active` 时阻断；须先 `!ai-ssh suspend` 或 `--force`） |
+| `ai-ssh session --suspend` | 在 SSH 会话内使用 `!ait suspend` |
+| `ai-ssh session --switch [id\|alias]` | 切换会话（当前会话仍为 `active` 时阻断；须先 `!ait suspend` 或 `--force`） |
 | `ai-ssh session --delete <id\|alias>` | 删除单个会话 |
 | `ai-ssh session --delete all` | 删除全部会话（须确认；`--force` 跳过确认） |
 | `ai-ssh get [flags] <paths...>` | 从远程下载单个文件；OpenSSH 参数同默认 SSH 连接（`-p`、`-i`、`-J` 等）；`ai-ssh get --help` |
@@ -71,8 +71,8 @@
 | `ai-ssh config set/get <key>` | 配置项；`ai.<provider>.api_key` 经密钥环存储 |
 | `ai-ssh ai [--model deepseek\|minimax]` | 本机 AI REPL（TTY 为 UTF-8 输入）；可选本会话云端 provider 覆盖 |
 | `ai-ssh ai model list` | 列出 AI provider（ENABLED、可达性、Ollama tags） |
-| `ai-ssh ai ask [message...]` | 单轮提问；无参数时从 stdin 读取；SSH：`!ai-ssh ai ask` / `!! ask` |
-| `ai-ssh ai agent [message...]` | 有消息时为单轮 agent；SSH 内无参 `!ai-ssh ai agent` / `!! agent` 进入 Agent REPL（同 `!ai-ssh ai` / `!!`） |
+| `ai-ssh ai ask [message...]` | 单轮提问；无参数时从 stdin 读取；SSH：`!ait ai ask` / `!! ask` |
+| `ai-ssh ai agent [message...]` | 有消息时为单轮 agent；SSH 内无参 `!ait ai agent` / `!! agent` 进入 Agent REPL（同 `!ait ai` / `!!`） |
 | `ai-ssh ai provider enable <provider>` | 启用 provider；`ollama` 可选检查/安装（[y/N]）；标志 `--yes`、`--no-install`、`--no-pull` |
 | `ai-ssh ai provider disable <provider>` | 禁用 provider（不再向其发送 AI 请求） |
 | `ai-ssh ai ollama status` | 查看 tiered/启用状态、API 可达性、已拉取模型 |
@@ -98,7 +98,7 @@
 - **非 TTY：** `echo 你好 | ai-ssh ai ask` 无需额外 locale 配置。
 - **清屏：** `ai-ssh shell` 中输入 `clear` 或 TTY 下按 **Ctrl+L** 清空显示，REPL 不退出。`ai-ssh ai` 中 **Ctrl+L** 仅清显示；`clear` 清空对话历史。
 
-SSH 会话（顶层 `ai-ssh user@host` 或 `session --load`）与 `!ai-ssh local` 由远端/本地 shell 提供行编辑；本节针对本机 `AiT>` / `AiT AI(Agent)>`。
+SSH 会话（顶层 `ai-ssh user@host` 或 `session --load`）与 `!ait local` 由远端/本地 shell 提供行编辑；本节针对本机 `AiT>` / `AiT AI(Agent)>`。
 
 ## 提示符
 
@@ -108,8 +108,8 @@ SSH 会话（顶层 `ai-ssh user@host` 或 `session --load`）与 `!ai-ssh local
 | `ai-ssh ai`（本机） | 默认 `AiT AI(Agent)> `；`mode ask` 后为 `AiT AI(Ask)> ` |
 | SSH 远程 | `AiT user@host:目录[:git分支]> `（`session.remote_prompt.path`：`short` / `absolute`；Git 分支可选） |
 | SSH 内层 | 会话内 `ssh` 到更深层后同样显示 AiT 提示符 | 或 `ai-ssh -J jump,final` 一次登录到目标主机 |
-| SSH AI 模式（`!ai-ssh ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
-| `!ai-ssh local` | `AiT Local> ` |
+| SSH AI 模式（`!ait ai` / `!!`） | `AiT AI(Ask) user@host> ` / `AiT AI(Agent) user@host> ` |
+| `!ait local` | `AiT Local> ` |
 
 **`ai-ssh user@host`** 或 **`ai-ssh session --load`** 连接成功后，远程 **`AiT user@host:…>`** 提示符应直接显示，无需额外按 Enter。**`session --load` / `--switch`** 不会在屏幕上回放挂起前的命令输出；已保存 scrollback 仅写入内存，供 suspend/AI 上下文使用。
 
@@ -128,11 +128,11 @@ SSH 会话（顶层 `ai-ssh user@host` 或 `session --load`）与 `!ai-ssh local
 | 场景 | 进入方式 | 执行位置 |
 |------|----------|----------|
 | 本机（系统 shell 或 `ai-ssh shell`） | `ai-ssh ai`、`ai-ssh ai --model minimax`，或 shell 内 `ai` | 默认 `AiT AI(Agent)>`（`mode ask` → `AiT AI(Ask)>`）— `run` 在本机；`ai-ssh` 经确认后跑 CLI |
-| SSH 会话内 | `!ai-ssh ai` 或 `!!`（可带首问） | 默认 `AiT AI(Agent) user@host>` — `run` 写入远程 PTY |
+| SSH 会话内 | `!ait ai` 或 `!!`（可带首问） | 默认 `AiT AI(Agent) user@host>` — `run` 写入远程 PTY |
 
 写命令或高危 `run` / Agent 执行前有多行确认：**`y`** 仅本次，**`c`** 信任本会话内同**首词**命令，**`s`** 信任本会话所有低危命令，**`n`** 跳过。高危仅 **`y`** / **`n`**。Agent 模式下只读命令（如 `ls`、`git status`）无需确认即可执行。
 
-模式内：`help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **agent**；**`mode ask`** 仅问答）、`approve each|session`（默认 each；`trust` 同 session）、`model` / `model list` / `model <deepseek|minimax>`，自然语言（ask 问答 / agent 自动规划）或 `run` / 本机 `ai-ssh`。`policy` 已弃用（请用 `approve`）。勿用 `!ai-ssh ai` 当 meta 子命令。
+模式内：`help`、`exit`/`quit`、`clear`、`mode ask|agent`（默认 **agent**；**`mode ask`** 仅问答）、`approve each|session`（默认 each；`trust` 同 session）、`model` / `model list` / `model <deepseek|minimax>`，自然语言（ask 问答 / agent 自动规划）或 `run` / 本机 `ai-ssh`。`policy` 已弃用（请用 `approve`）。勿用 `!ait ai` 当 meta 子命令。
 
 启用 tiered 时，短句首轮走本地 Ollama；过长、含代码块、复杂关键词或多轮历史走云端。`--model` / `model <云端>` 本会话跳过 Ollama。
 
@@ -144,19 +144,19 @@ SSH 会话（顶层 `ai-ssh user@host` 或 `session --load`）与 `!ai-ssh local
 
 | 输入 | 作用 |
 |------|------|
-| `!ai-ssh help` / `!ai-ssh` | 打印会话内命令与可本地执行的 CLI 说明 |
-| `!ai-ssh <子命令> …` | 在本地执行 `ai-ssh` 子命令；ssh 形 `[flags] dest` / `load` / `session --switch` 可在 SSH 内链式切换（见下） |
-| `!ai-ssh [flags] dest` | 必要时自动落库 → 挂起当前会话 → 登录新主机 |
-| `!ai-ssh load [id\|alias]` | 必要时自动落库 → 挂起 → 加载已保存会话 |
-| `!ai-ssh session --switch [id\|alias]` | 必要时自动落库 → 挂起 → 切换到另一会话 |
-| `!ai-ssh ai [问题]` | 远程 AI 模式（见上） |
-| `!! [问题]` | 同 `!ai-ssh ai` |
-| `!ai-ssh local` | 本地模式：命令在本机执行，SSH 连接保持 |
-| `!ai-ssh remote` | 退出本地模式，恢复向远程发送输入 |
-| `!ai-ssh suspend` | 必要时自动落库 → 挂起：保存 scrollback 与远程 cwd，断开连接 |
-| `!ai-ssh get <remote> [<local>]` | 经当前 SSH 下载单个文件（不重新认证）；省略 local 时默认为 `./basename` |
-| `!ai-ssh put <local> [<remote>]` | 经当前 SSH 上传单个文件（不重新认证）；省略 remote 时默认为 `./basename` |
-| `!ai-ssh chain [on\|off]` | 切换链式模式：PTY 管道 ZMODEM 用于多跳 SSH；`on` = lrzsz ZMODEM，`off` = 优先 lrzsz 再 SFTP（默认） |
+| `!ait help` / `!ait` | 打印会话内命令与可本地执行的 CLI 说明 |
+| `!ait <子命令> …` | 在本地执行 `ai-ssh` 子命令；ssh 形 `[flags] dest` / `load` / `session --switch` 可在 SSH 内链式切换（见下） |
+| `!ait [flags] dest` | 必要时自动落库 → 挂起当前会话 → 登录新主机 |
+| `!ait load [id\|alias]` | 必要时自动落库 → 挂起 → 加载已保存会话 |
+| `!ait session --switch [id\|alias]` | 必要时自动落库 → 挂起 → 切换到另一会话 |
+| `!ait ai [问题]` | 远程 AI 模式（见上） |
+| `!! [问题]` | 同 `!ait ai` |
+| `!ait local` | 本地模式：命令在本机执行，SSH 连接保持 |
+| `!ait remote` | 退出本地模式，恢复向远程发送输入 |
+| `!ait suspend` | 必要时自动落库 → 挂起：保存 scrollback 与远程 cwd，断开连接 |
+| `!ait get <remote> [<local>]` | 经当前 SSH 下载单个文件（不重新认证）；省略 local 时默认为 `./basename` |
+| `!ait put <local> [<remote>]` | 经当前 SSH 上传单个文件（不重新认证）；省略 remote 时默认为 `./basename` |
+| `!ait chain [on\|off]` | 切换链式模式：PTY 管道 ZMODEM 用于多跳 SSH；`on` = lrzsz ZMODEM，`off` = 优先 lrzsz 再 SFTP（默认） |
 
 ---
 
@@ -181,7 +181,7 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 | 场景 | 典型提示 |
 |------|----------|
 | `--load` 使用列表 **ID 列**（8 位前缀） | `The list ID column is for display only` → 请用 alias、`-v` 的 FULL_ID 或交互式 `--load` |
-| 当前会话仍为 **active** 时本机 `session --switch` | 在 SSH 内 `!ai-ssh suspend` 或 `session --switch --force`；SSH 内可用 `!ai-ssh session --switch` 自动挂起 |
+| 当前会话仍为 **active** 时本机 `session --switch` | 在 SSH 内 `!ait suspend` 或 `session --switch --force`；SSH 内可用 `!ait session --switch` 自动挂起 |
 | 空 `ai-ssh ai ask`（无消息/stdin） | `ask requires a message` → 传入消息或管道 stdin |
 | 未知配置键 | `ai-ssh config get <key>` 或参考示例 YAML |
 | `ai-ssh config validate` 失败 | 按字段路径修正或 `ai-ssh config edit` |
@@ -197,41 +197,41 @@ Deepseek API Key 与 SSH 密码缓存存于**操作系统密钥环**，不以明
 - `ai-ssh put` 会在上传前在远程自动创建**父目录**（若不存在）。
 - 传输失败时错误会带 `local file` 或 `remote file` 前缀，便于区分本机与远端。**put** 若出现 `file does not exist` / `no such file or directory`，常见原因是远程路径或父目录不存在，而非本机文件缺失。
 - 独立 `get`/`put`：flag 与路径顺序任意；支持粘连写法（`-p22`、`-i~/.ssh/id`）。
-- SSH 会话内 `!ai-ssh get` / `!ai-ssh put` 复用当前连接（一至两个路径，无 flag）；省略的目标路径默认为源文件 basename。
-- **`!ai-ssh put` 的本机路径**指运行 AiT 的机器（笔记本/桌面），不是远程 shell 当前目录。**`!ai-ssh get` 的本机路径**同样在 AiT 客户端。远程路径相对于**当前 active shell**（链式模式下可能是嵌套跳板）。
-- SSH 会话内 **`!ai-ssh get` / `!ai-ssh put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `get … → …`、`handshake…`、`copying… 50%`，SFTP 在 100% 后短暂 **`closing…`**，链式 ZMODEM 为 **`finishing…`**，再 `done: get …`）。TTY 上 **`copying… N%` 在同一行内刷新**（get/put、SFTP 与链式 ZMODEM 文案一致）。阶段行与 done 行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
-- 从本机执行 `ai-ssh session --switch` 前，若仍处于 SSH 会话中，须先 `!ai-ssh suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
+- SSH 会话内 `!ait get` / `!ait put` 复用当前连接（一至两个路径，无 flag）；省略的目标路径默认为源文件 basename。
+- **`!ait put` 的本机路径**指运行 AiT 的机器（笔记本/桌面），不是远程 shell 当前目录。**`!ait get` 的本机路径**同样在 AiT 客户端。远程路径相对于**当前 active shell**（链式模式下可能是嵌套跳板）。
+- SSH 会话内 **`!ait get` / `!ait put` 会在 stderr 输出分阶段进度与 `done:` 完成行**（如 `get … → …`、`handshake…`、`copying… 50%`，SFTP 在 100% 后短暂 **`closing…`**，链式 ZMODEM 为 **`finishing…`**，再 `done: get …`）。TTY 上 **`copying… N%` 在同一行内刷新**（get/put、SFTP 与链式 ZMODEM 文案一致）。阶段行与 done 行在 raw TTY 下使用 CRLF（Linux/macOS/Windows 客户端均适用）。
+- 从本机执行 `ai-ssh session --switch` 前，若仍处于 SSH 会话中，须先 `!ait suspend` 保存当前状态，或使用 `--force`（不保存当前 scrollback/cwd）。
 
 ---
 
 ## 代理链式模式
 
-**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ai-ssh get`/`put` **优先探测 lrzsz**，缺失时**回退 SFTP**，与独立 `ai-ssh get`/`put`（仅 SFTP）一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
+**login 时使用 ProxyJump / `-J`** 经 `DialChain` 到达最终主机；该登录下的会话内 `!ait get`/`put` **优先探测 lrzsz**，缺失时**回退 SFTP**，与独立 `ai-ssh get`/`put`（仅 SFTP）一致。**链式模式**适用于**交互 shell 比拨号连接更深**的情况（通常在会话内手动 `ssh` 之后）。
 
-当你 login 到堡垒机再手动 `ssh` 到内网主机时，AiT 的直连仅到达拨号目标。SFTP 默认只能对该目标生效。使用 PTY 管道的功能（`!!`、`!ai-ssh ai`、scrollback）在任何深度均可正常工作。
+当你 login 到堡垒机再手动 `ssh` 到内网主机时，AiT 的直连仅到达拨号目标。SFTP 默认只能对该目标生效。使用 PTY 管道的功能（`!!`、`!ait ai`、scrollback）在任何深度均可正常工作。
 
-当 chain 关闭且位于**拨号目标同 host** 时，`!ai-ssh get`/`put` **使用 SFTP**（即使远端已安装 lrzsz）。**仅链式模式**在检测到 `sz`/`rz` 时使用 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**（带提示）。**手动 SSH 到更深层** 时，**自动启用链式模式**（主机名与拨号主机及登录别名均不匹配时）。
+当 chain 关闭且位于**拨号目标同 host** 时，`!ait get`/`put` **使用 SFTP**（即使远端已安装 lrzsz）。**仅链式模式**在检测到 `sz`/`rz` 时使用 **PTY ZMODEM**。直连且无 lrzsz 时**回退 SFTP**（带提示）。**手动 SSH 到更深层** 时，**自动启用链式模式**（主机名与拨号主机及登录别名均不匹配时）。
 
-**`!ai-ssh chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
+**`!ait chain on`** 可手动启用链式模式，切换为 PTY 管道注入：
 
 - **文件传输**：**优先 lrzsz** — 有 `sz`/`rz` 时经 PTY 跑 ZMODEM。链式且无 lrzsz 时，AiT 给出安装指引；交互 TTY 下询问 **`Install lrzsz on <host>? [y/N]`**，授权后在 active shell 执行 OS 对应安装命令（Linux 包管理器、Homebrew、choco/winget；可能需要远端 `sudo`）。进度含 `handshake…`、**`copying… NN%`**（与 SFTP 相同；TTY 上行内更新），100% 后 **`finishing…`** 再 `done:`（get/put 对称）。AiT 客户端无需本地 lrzsz。独立 `ai-ssh get/put` 仍走 SFTP（100% → **`closing…`** → `done:`）。
 - **tmux**：tmux 操作通过 PTY 管道注入，而非新开 SSH 会话。
 
-**`!ai-ssh chain off`** 返回默认 SFTP/直连会话模式。
+**`!ait chain off`** 返回默认 SFTP/直连会话模式。
 
-**`!ai-ssh chain`**（无参数）显示当前链式模式状态。
+**`!ait chain`**（无参数）显示当前链式模式状态。
 
 所有 AiT 注入的命令均为静默——不会出现在 shell 历史记录或方向键导航中。
 
 ```text
 AiT user@bastion> ssh internal-server
 …经堡垒机登录到内网服务器…
-AiT user@bastion> !ai-ssh get /var/log/app.log ./app.log
+AiT user@bastion> !ait get /var/log/app.log ./app.log
   chain mode auto-enabled: active shell is on internal-server (connected to bastion).
   File transfer will use PTY-pipe injection.
-  Use !ai-ssh chain off to disable.
-AiT user@bastion> !ai-ssh chain   # 显示 on
-AiT user@bastion> !ai-ssh chain off
+  Use !ait chain off to disable.
+AiT user@bastion> !ait chain   # 显示 on
+AiT user@bastion> !ait chain off
   chain mode disabled
   File transfer and tmux will use SFTP/direct sessions.
 ```

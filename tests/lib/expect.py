@@ -73,7 +73,7 @@ class AITExpectSession:
         return self._before_last
 
     def meta(self, cmd: str, *, timeout: int = 90) -> str:
-        return self.send_line(f"!ai-ssh {cmd}", timeout=timeout)
+        return self.send_line(f"!ait {cmd}", timeout=timeout)
 
     def bang_ai(self, first_line: str = "", *, timeout: int = 120) -> str:
         line = "!!" if not first_line else f"!! {first_line}"

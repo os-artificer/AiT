@@ -14,8 +14,8 @@
  * limitations under the License.
 **/
 
-// Package transfer holds receiver-free helpers for the in-session !ai-ssh get
-// / !ai-ssh put meta commands: meta-line argv parsing and the user-visible
+// Package transfer holds receiver-free helpers for the in-session !ait get
+// / !ait put meta commands: meta-line argv parsing and the user-visible
 // usage hint. The actual SFTP transfer methods (Client.handleTransfer*)
 // stay in the parent ssh/client package because they depend on the live
 // SSH Client receiver.
@@ -29,19 +29,19 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// UsageGet is the user-facing one-line usage for `!ai-ssh get`.
+// UsageGet is the user-facing one-line usage for `!ait get`.
 const UsageGet = "usage: " + toolname.MetaPrefix + " get <remote-path> [<local-path>]"
 
-// UsagePut is the user-facing one-line usage for `!ai-ssh put`.
+// UsagePut is the user-facing one-line usage for `!ait put`.
 const UsagePut = "usage: " + toolname.MetaPrefix + " put <local-path> [<remote-path>]"
 
-// CmdGet is the meta subcommand name for !ai-ssh get (must match ai-ssh get.Name).
+// CmdGet is the meta subcommand name for !ait get (must match ai-ssh get.Name).
 const CmdGet = "get"
 
-// CmdPut is the meta subcommand name for !ai-ssh put (must match ai-ssh put.Name).
+// CmdPut is the meta subcommand name for !ait put (must match ai-ssh put.Name).
 const CmdPut = "put"
 
-// ArgsFromMetaLine extracts the subcommand and trailing args from a `!ai-ssh <cmd> ...`
+// ArgsFromMetaLine extracts the subcommand and trailing args from a `!ait <cmd> ...`
 // meta line when cmd is one of get/put. Returns ok=false for other lines.
 func ArgsFromMetaLine(line string) (cmd string, args []string, ok bool) {
 	if !strings.HasPrefix(line, meta.PrefixAitSpace) {

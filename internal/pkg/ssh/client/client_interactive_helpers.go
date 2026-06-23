@@ -268,10 +268,10 @@ func parsePwdMarker(full, before, begin, end string) string {
 	return strings.TrimSpace(chunk[i+len(begin) : i+len(begin)+j])
 }
 
-// handleChainMeta handles the !ai-ssh chain meta command.
-// !ai-ssh chain       — show current chain mode status
-// !ai-ssh chain on    — enable chain mode (PTY-based transfer)
-// !ai-ssh chain off   — disable chain mode (SFTP-based transfer)
+// handleChainMeta handles the !ait chain meta command.
+// !ait chain       — show current chain mode status
+// !ait chain on    — enable chain mode (PTY-based transfer)
+// !ait chain off   — disable chain mode (SFTP-based transfer)
 func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 	arg := strings.TrimPrefix(line, metaLineChain)
 	arg = strings.TrimSpace(arg)
@@ -289,7 +289,7 @@ func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 			"Use "+toolname.MetaLine("chain on")+" to re-enable.",
 		)
 	default:
-		// "status" or bare "!ai-ssh chain"
+		// "status" or bare "!ait chain"
 		status := "off"
 		if c.ChainMode() {
 			status = "on"

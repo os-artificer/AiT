@@ -36,7 +36,7 @@ const (
 )
 
 // ChainActionError signals RunInteractive should chain to login/load/switch.
-// Args holds tokens after "!ai-ssh " excluding the subcommand keyword where noted:
+// Args holds tokens after "!ait " excluding the subcommand keyword where noted:
 // load → load args; switch → args after "--switch"; login → full connect argv.
 type ChainActionError struct {
 	Op   ChainOp
@@ -48,7 +48,7 @@ func (e *ChainActionError) Error() string {
 	return "ait: chain action"
 }
 
-// ParseMetaChainLine detects !ai-ssh load/session --switch/connect meta lines.
+// ParseMetaChainLine detects !ait load/session --switch/connect meta lines.
 // lookup resolves saved session aliases for bare-word chain connect; may be nil.
 // Returns ok false when the line is not a chain action.
 func ParseMetaChainLine(line string, lookup cliroute.AliasLookup) (*ChainActionError, bool) {

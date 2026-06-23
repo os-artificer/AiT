@@ -10,7 +10,7 @@
 
 规范以 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc)、[`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc) 与 [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc) 为权威来源（分层说明见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)）；**若更新编码约定，请同步修改上述规则、docs 分层文档与中英文 CONTRIBUTING**（[`CONTRIBUTING.md`](CONTRIBUTING.md)、[`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)）。
 
-CLI 命令的 `--help` 须与 `ai-ssh login --help` 同版式：共用层 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)，各命令正文在 `internal/ai-ssh/<cmd>/help.go`；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
+CLI 命令的 `--help` 须与 `ai-ssh login --help` 同版式：共用层 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)，各命令正文在 `internal/aissh/<cmd>/help.go`；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
 
 ---
 
@@ -58,15 +58,15 @@ AiT 是 Go CLI，目录遵循 [golang-standards/project-layout](https://github.c
 | 路径 | 用途 |
 |------|------|
 | [`cmd/ai-ssh`](cmd/ai-ssh) | 主程序入口；**仅**保留极简 `main` |
-| [`internal/ai-ssh`](internal/ai-ssh) | 应用入口（`Run`、Cobra 根）；**每个顶层子命令一包**（`internal/ai-ssh/login` 等），名称、flags、parse、help、run 同包闭环 |
-| [`internal/pkg/*`](internal/pkg) | 实现库（`store`、`session`、`ssh` 等）；**不得** import `internal/ai-ssh` |
+| [`internal/aissh`](internal/aissh) | 应用入口（`Run`、Cobra 根）；**每个顶层子命令一包**（`internal/aissh/login` 等），名称、flags、parse、help、run 同包闭环 |
+| [`internal/pkg/*`](internal/pkg) | 实现库（`store`、`session`、`ssh` 等）；**不得** import `internal/aissh` |
 | [`pkg/`](pkg/) | 供**外部模块**导入；通用、与 AiT 业务无关 |
 | [`configs/`](configs/) | 配置模板（如 `ait.example.yaml`） |
 
 约定：
 
-- 优先在 `internal/ai-ssh/<cmd>` 与 `internal/pkg/*` 中扩展功能，避免随意新增顶层目录。
-- **包分层：** `cmd/ai-ssh` → `internal/ai-ssh` → 子命令包；跨子命令复用放在 `internal/pkg`。详见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)。
+- 优先在 `internal/aissh/<cmd>` 与 `internal/pkg/*` 中扩展功能，避免随意新增顶层目录。
+- **包分层：** `cmd/ai-ssh` → `internal/aissh` → 子命令包；跨子命令复用放在 `internal/pkg`。详见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)。
 - `internal/` 为模块私有，**不得**被本模块以外的代码 import。
 - 各目录细节见 [`AGENTS.zh-CN.md`](AGENTS.zh-CN.md)；产品架构见 [`docs/design.zh-CN.md`](docs/design.zh-CN.md)。
 

@@ -16,7 +16,11 @@
 
 package helpdoc
 
-import "io"
+import (
+	"io"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
 
 const sectionTTYKeysCommon = `  Ctrl+A, Home     move cursor to start of line
   Ctrl+E, End      move cursor to end of line
@@ -35,8 +39,8 @@ const sectionTTYKeysCommon = `  Ctrl+A, Home     move cursor to start of line
 
 const sectionTTYKeysShellNote = "  clear            clear terminal screen (command)\n"
 
-const sectionTTYKeysAINote = `  clear            clear AI chat history (not the same as Ctrl+L)
-  In SSH remote shell or !ai-ssh local, line editing follows the remote shell.
+var sectionTTYKeysAINote = `  clear            clear AI chat history (not the same as Ctrl+L)
+  In SSH remote shell or ` + toolname.MetaLine("local") + `, line editing follows the remote shell.
 `
 
 // TTYKeysSurface selects shell vs AI key help notes.

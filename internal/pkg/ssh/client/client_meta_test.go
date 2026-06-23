@@ -59,7 +59,7 @@ func TestHandleMetaLineCLI(t *testing.T) {
 	var stdin bytes.Buffer
 	c := testClientWithPrompt("u", "h")
 	_, _ = c.scroll.Write([]byte("u@h [~] ➜ \r\n"))
-	err := c.handleMetaLine(context.Background(), &stdin, "!ai-ssh list", InteractiveOpts{
+	err := c.handleMetaLine(context.Background(), &stdin, "!ait list", InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			got = args
 			return nil
@@ -81,7 +81,7 @@ func TestHandleMetaLineCLI(t *testing.T) {
 func TestHandleMetaLineHelp(t *testing.T) {
 	var got []string
 	c := &Client{}
-	for _, line := range []string{"!ai-ssh help", "!ai-ssh"} {
+	for _, line := range []string{"!ait help", "!ait"} {
 		got = nil
 		err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, line, InteractiveOpts{
 			OnMetaCLI: func(args []string) error {
@@ -104,7 +104,7 @@ func TestHandleMetaLineUnknownRefreshesPrompt(t *testing.T) {
 	c := testClientWithPrompt("u", "h")
 	_, _ = c.scroll.Write([]byte("u@h:~$ \r\n"))
 	var stdin bytes.Buffer
-	err := c.handleMetaLine(context.Background(), &stdin, "!ai-ssh nosuch", InteractiveOpts{})
+	err := c.handleMetaLine(context.Background(), &stdin, "!ait nosuch", InteractiveOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestHandleMetaLineListFinishesStdout(t *testing.T) {
 	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
 	_, _ = c.scroll.Write([]byte("u@h [~] ➜ \r\n"))
-	err = c.handleMetaLine(context.Background(), &stdin, "!ai-ssh list", InteractiveOpts{
+	err = c.handleMetaLine(context.Background(), &stdin, "!ait list", InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			_, err := io.WriteString(os.Stdout, "row1")
 			return err
@@ -394,7 +394,7 @@ func TestHandleAIMetaLine_APIErrorPropagates(t *testing.T) {
 func TestHandleMetaLineTransferSkipsOnMetaCLI(t *testing.T) {
 	var called bool
 	c := &Client{}
-	err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, "!ai-ssh get /tmp/r ./l", InteractiveOpts{
+	err := c.handleMetaLine(context.Background(), &bytes.Buffer{}, "!ait get /tmp/r ./l", InteractiveOpts{
 		OnMetaCLI: func(args []string) error {
 			called = true
 			return nil
@@ -404,7 +404,7 @@ func TestHandleMetaLineTransferSkipsOnMetaCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	if called {
-		t.Fatal("OnMetaCLI must not run for !ai-ssh get")
+		t.Fatal("OnMetaCLI must not run for !ait get")
 	}
 }
 

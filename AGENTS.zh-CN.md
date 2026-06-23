@@ -22,9 +22,9 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 - **SSH 会话**：默认 OpenSSH 形连接（`ai-ssh [flags] destination`）、`shell`、`session`（`--list`、`--load`、`--suspend`、`--switch`、`--delete`）；无 `login` 子命令
 - **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
 - **可选 tmux**：connect/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）；`--tmux` 隐含 `--save` 并保存 `login_destination`（ssh config Host 名如 devhost）
-- **AI**：多 provider 路由 + `tiered`；`ai-ssh ai ask` / `ai-ssh ai agent` 单轮；`ai-ssh ai provider enable|disable`；`ai-ssh ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ai-ssh ai model list`；SSH `!ai-ssh ai ask` / `!! ask`
-- **传输**：`ai-ssh get` / `ai-ssh put` — SFTP 单文件（`internal/pkg/transfer`）；`!ai-ssh get` / `!ai-ssh put` 复用当前 SSH（统一路由：优先 lrzsz/ZMODEM，直连无 lrzsz 回退 SFTP，链式缺失时可授权自动安装）
-- **代理链支持**：`!ai-ssh chain [on|off]` — 链式模式下经 PTY 管道 ZMODEM 文件传输与 tmux（`internal/pkg/ssh/client/inject.go`、`transfer_zmodem.go`；`internal/pkg/tmux/remote_pty.go`）
+- **AI**：多 provider 路由 + `tiered`；`ai-ssh ai ask` / `ai-ssh ai agent` 单轮；`ai-ssh ai provider enable|disable`；`ai-ssh ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `ai-ssh ai model list`；SSH `!ait ai ask` / `!! ask`
+- **传输**：`ai-ssh get` / `ai-ssh put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH（统一路由：优先 lrzsz/ZMODEM，直连无 lrzsz 回退 SFTP，链式缺失时可授权自动安装）
+- **代理链支持**：`!ait chain [on|off]` — 链式模式下经 PTY 管道 ZMODEM 文件传输与 tmux（`internal/pkg/ssh/client/inject.go`、`transfer_zmodem.go`；`internal/pkg/tmux/remote_pty.go`）
 - **OpenSSH 配置**：默认 connect 与 `load` 经 `ssh -G` 解析 `~/.ssh/config`（`internal/pkg/ssh/args`）；数据面为 Go `x/crypto/ssh`
 
 完整设计：[`docs/design.zh-CN.md`](docs/design.zh-CN.md)。配置示例：[`configs/ait.example.yaml`](configs/ait.example.yaml)。Cursor 方案归档至 `docs/<kebab-case>.md`（见 [`.cursor/rules/docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc)）。
@@ -33,30 +33,30 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 
 | 路径 | 职责 |
 |------|------|
-| `cmd/ai-ssh/main.go` | 极简 `main` — 委托至 `aish.Run` |
-| `internal/ai-ssh/` | CLI 入口（Go 包 **`aish`**：`Run`、`ExitCode`、`Execute`、`NewManager`、Cobra 根）；子包见下表 |
-| `internal/ai-ssh/registry/` | 顶层命令注册表（OCP）；根 `--help` 见 `registry/root_help.go` + `internal/pkg/helpdoc` |
+| `cmd/ai-ssh/main.go` | 极简 `main` — 委托至 `aissh.Run` |
+| `internal/aissh/` | CLI 入口（Go 包 **`aissh`**：`Run`、`ExitCode`、`Execute`、`NewManager`、Cobra 根）；子包见下表 |
+| `internal/aissh/registry/` | 顶层命令注册表（OCP）；根 `--help` 见 `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | 共用 `--help` 排版（`Body`、`Bind`、OpenSSH 块、`WriteTransferHelp`、TTY 键） |
-| `internal/ai-ssh/login/` | SSH connect 解析/run（顶层默认路由；非注册子命令） |
-| `internal/ai-ssh/get/` / `internal/ai-ssh/put/` | `ai-ssh get` / `ai-ssh put` SFTP |
-| `internal/ai-ssh/shell/` | `ai-ssh shell` REPL（`AiT>`）及顶层 `ai-ssh shell` Cobra |
-| `internal/ai-ssh/session/` | `ai-ssh session`（`--list`、`--load` 等 flag）；引用 `internal/pkg/session` 时用 `pkgsession` |
-| `internal/ai-ssh/ai/` | `ai-ssh ai` 父命令 + `ai/subregistry`；子包 `ask`、`agent`、`provider`、`ollama` |
-| `internal/ai-ssh/ai/mode/` | `ai-ssh ai` / `!ai-ssh ai` 的 AI REPL（`risk`、`approve`、`agent`、`chat` 单轮辅助） |
-| `internal/ai-ssh/config/` | `ai-ssh config` 父命令 + `config/subregistry`；子包 `set`、`get`、`init`、`view`、`edit`、`validate` |
-| `internal/ai-ssh/version/` | `ai-ssh version` |
-| `internal/ai-ssh/meta/` | 会话内 `!ai-ssh <subcmd>` 委托 |
+| `internal/aissh/login/` | SSH connect 解析/run（顶层默认路由；非注册子命令） |
+| `internal/aissh/get/` / `internal/aissh/put/` | `ai-ssh get` / `ai-ssh put` SFTP |
+| `internal/aissh/shell/` | `ai-ssh shell` REPL（`AiT>`）及顶层 `ai-ssh shell` Cobra |
+| `internal/aissh/session/` | `ai-ssh session`（`--list`、`--load` 等 flag）；引用 `internal/pkg/session` 时用 `pkgsession` |
+| `internal/aissh/ai/` | `ai-ssh ai` 父命令 + `ai/subregistry`；子包 `ask`、`agent`、`provider`、`ollama` |
+| `internal/aissh/ai/mode/` | `ai-ssh ai` / `!ait ai` 的 AI REPL（`risk`、`approve`、`agent`、`chat` 单轮辅助） |
+| `internal/aissh/config/` | `ai-ssh config` 父命令 + `config/subregistry`；子包 `set`、`get`、`init`、`view`、`edit`、`validate` |
+| `internal/aissh/version/` | `ai-ssh version` |
+| `internal/aissh/meta/` | 会话内 `!ait <subcmd>` 委托 |
 | `internal/pkg/ssh/args/` | OpenSSH 参数解析、`ssh -G` 解析、`Resolved` → `client.Options` |
 | `internal/pkg/session/` | login、load、suspend、switch、delete、list（`manager.go`、`manager_login.go`、`manager_load.go`、`manager_suspend_switch.go`、`manager_list_pick.go`、`manager_helpers.go`） |
 | `internal/pkg/store/` | SQLite schema、迁移、CRUD（`store.go`、`store_sessions.go`、`store_state.go`、`store_meta.go`、`store_scan.go`、`session_helpers.go`、`open_helpers.go`） |
 | `internal/pkg/ssh/client/` | `Client`、`Options`、`Dial`、`DialChain`、`RunInteractive` facade、静默 PTY 注入（详见下方文件布局） |
 | `internal/pkg/ssh/client/prompt/` | AiT 显示提示符字符串 + 远程 PS1 安装片段 |
 | `internal/pkg/ssh/client/scrollback/` | 远程 PTY scrollback `Delta` 与捕获时序常量 |
-| `internal/pkg/ssh/client/localmode/` | `!ai-ssh local` 本地 PTY `Shell`、环境变量、bash/zsh 启动脚本 |
-| `internal/pkg/ssh/client/meta/` | `!ai-ssh` / `!!` 字节级状态机扫描器与 meta 常量 |
+| `internal/pkg/ssh/client/localmode/` | `!ait local` 本地 PTY `Shell`、环境变量、bash/zsh 启动脚本 |
+| `internal/pkg/ssh/client/meta/` | `!ait` / `!!` 字节级状态机扫描器与 meta 常量 |
 | `internal/pkg/ssh/client/dial/` | ProxyCommand stdio 连接、ProxyJump 解析、OpenSSH 私钥读取 |
 | `internal/pkg/ssh/client/pty/` | TTY stdin 单读者、REPL 字节通道、跨平台 resize watcher |
-| `internal/pkg/ssh/client/transfer/` | `!ai-ssh get|put` meta 参数解析与 usage 提示 |
+| `internal/pkg/ssh/client/transfer/` | `!ait get|put` meta 参数解析与 usage 提示 |
 | `internal/pkg/tmux/` | 远程 tmux（SFTP 方式 + 链式模式下的 PTY 注入方式） |
 | `internal/pkg/terminal/` | terminal facade（`path.go`）；其余通过 type alias 指向子包 |
 | `internal/pkg/terminal/scrollback/` | 环形 scrollback `Buffer`（写入/回放/文件 IO） |
@@ -65,10 +65,10 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 | `internal/pkg/terminal/lineedit/` | `ReadLine`（Ctrl+A/E、历史导航、Ctrl+R 搜索） |
 | `internal/pkg/terminal/history/` | `LineHistory`（内存 + 文件同步）与 `history` 命令 |
 | `internal/pkg/ai/` | `Client`、`Chat`、多 provider 路由 facade |
-| `internal/ai-ssh/ai/mode/risk/` | `Classify`、`Interactive`、`ClassifyAit` — 命令风险分类 |
-| `internal/ai-ssh/ai/mode/approve/` | `Confirm`、`Policy`、`PatternKey`、`SessionTrust` — 确认提示与信任 |
-| `internal/ai-ssh/ai/mode/agent/` | `Action`、`ParseAction`、`Run`、`CapturingRunner` — Agent 模式执行 |
-| `internal/ai-ssh/ai/mode/chat/` | `RunOnce`、`ParseCommand` — 单轮 `ask` / REPL `ask` 动词 |
+| `internal/aissh/ai/mode/risk/` | `Classify`、`Interactive`、`ClassifyAit` — 命令风险分类 |
+| `internal/aissh/ai/mode/approve/` | `Confirm`、`Policy`、`PatternKey`、`SessionTrust` — 确认提示与信任 |
+| `internal/aissh/ai/mode/agent/` | `Action`、`ParseAction`、`Run`、`CapturingRunner` — Agent 模式执行 |
+| `internal/aissh/ai/mode/chat/` | `RunOnce`、`ParseCommand` — 单轮 `ask` / REPL `ask` 动词 |
 | `internal/pkg/ai/provider/` | `ProviderID` 常量与 sentinel 错误 |
 | `internal/pkg/ai/router/` | 路由辅助（Strategy + Chain of Responsibility — failover 顺序、分类、API-key 提示） |
 | `internal/pkg/ai/agent/` | function-call `Tools()` 与 tool-call → AiT Agent JSON 适配 |
@@ -85,13 +85,13 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 | `.cursor/rules/` | Cursor 规则；Go 结构：[`go-structure.mdc`](.cursor/rules/go-structure.mdc) |
 | `scripts/` | 构建与 CI 辅助 |
 
-优先在 `internal/pkg/*` 与 `internal/ai-ssh` 中扩展，避免随意新增顶层目录。
+优先在 `internal/pkg/*` 与 `internal/aissh` 中扩展，避免随意新增顶层目录。
 
-### `internal/ai-ssh` 布局（根 Go 包：`aish`）
+### `internal/aissh` 布局（根 Go 包：`aissh`）
 
 | 包 | 文件（示例） |
 |----|----------------|
-| `aish`（根） | `root.go`（`Run`、`ExitCode`）；`cli_root.go`（`Execute`、`newRootCmd`）；`manager.go`（`NewManager`、`runWithManager`）；`context.go`、`runner.go`；`init_hooks.go`（meta/shell/ai 注入）；集成测试 |
+| `aissh`（根） | `root.go`（`Run`、`ExitCode`）；`cli_root.go`（`Execute`、`newRootCmd`）；`manager.go`（`NewManager`、`runWithManager`）；`context.go`、`runner.go`；`init_hooks.go`（meta/shell/ai 注入）；集成测试 |
 | `registry` | `registry.go`、`top_level.go`、`deps.go`、`root_help.go`、`all/imports.go` |
 | `get`、`put`、`shell`、`session`、`version` | 顶层命令：`register.go`、`cmd.go`、`help.go`、`run.go` / flags；SSH connect 经默认路由 + `login` 包 |
 | `ai` | `cmd.go`、`help.go`、`subregistry/`、`runner/`；嵌套 `ask`、`agent`、`provider`、`ollama` 各有 `register.go` |
@@ -126,9 +126,9 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 
 - **人类贡献者**：[CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) — 开发流程与 Go 编码规范。
 - **Go 编码规范**：生成或重构 Go 代码时遵循 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc)。
-- **包分层**：`cmd/ai-ssh` → `internal/ai-ssh`（包 `aish`）/ `<子命令>` → 跨命令复用放在 `internal/pkg`（不得 import `internal/ai-ssh`）；根目录 `pkg/` 供外部、非业务库。见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)。
+- **包分层**：`cmd/ai-ssh` → `internal/aissh`（包 `aissh`）/ `<子命令>` → 跨命令复用放在 `internal/pkg`（不得 import `internal/aissh`）；根目录 `pkg/` 供外部、非业务库。见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)。
 - **复用**：遵循 [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc)。
-- **CLI 帮助**：共用排版在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`pkghelpdoc.Bind`）；各命令正文在 `internal/ai-ssh/<cmd>/help.go`（嵌套见 `<parent>/<sub>/help.go`）；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
+- **CLI 帮助**：共用排版在 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)（`pkghelpdoc.Bind`）；各命令正文在 `internal/aissh/<cmd>/help.go`（嵌套见 `<parent>/<sub>/help.go`）；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
 - **格式化**：Go 使用 tab；完成修改后运行 `make fmt`。
 - **测试**：`*_test.go` 与实现同目录；`make test` 必须通过；store 测试使用 `:memory:` SQLite。
 - **`internal/`**：模块私有，禁止被本模块外代码 import。
@@ -155,14 +155,14 @@ ai-ssh put [ssh-flags] <paths...>
 ai-ssh config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-提示符：`AiT>`（`ai-ssh shell`）、默认 `AiT AI(Agent)>`（`mode ask` → `AiT AI(Ask)>`）、`AiT AI(Agent) user@host>`（SSH AI）、`AiT user@host>`（SSH；login/load 后立即显示）、`AiT Local>`（`!ai-ssh local`）。确认键：`y`/`c`/`s`/`n`；Agent 只读命令自动执行。SSH 内：`!ai-ssh help`；`!ai-ssh <subcmd>`（不含 `ai`）；`!ai-ssh ai`/`!!` 远程 AI；`!ai-ssh local`/`remote`；`!ai-ssh suspend`；`!ai-ssh chain [on|off]` 用于多跳 SSH 的 PTY 管道注入。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。
+提示符：`AiT>`（`ai-ssh shell`）、默认 `AiT AI(Agent)>`（`mode ask` → `AiT AI(Ask)>`）、`AiT AI(Agent) user@host>`（SSH AI）、`AiT user@host>`（SSH；login/load 后立即显示）、`AiT Local>`（`!ait local`）。确认键：`y`/`c`/`s`/`n`；Agent 只读命令自动执行。SSH 内：`!ait help`；`!ait <subcmd>`（不含 `ai`）；`!ait ai`/`!!` 远程 AI；`!ait local`/`remote`；`!ait suspend`；`!ait chain [on|off]` 用于多跳 SSH 的 PTY 管道注入。合并门禁见 [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc)（**R1–R18**、**D\***、**S\***、**B1–B7**、**H0a–H4d**）。
 
 ## 注意事项
 
-- 保持 `cmd/ai-ssh` 精简，逻辑位于 `internal/ai-ssh` 与 `internal/pkg`。
+- 保持 `cmd/ai-ssh` 精简，逻辑位于 `internal/aissh` 与 `internal/pkg`。
 - 默认 SSH connect（及 `get`/`put`）经 `ssh -G` 解析配置；数据面为 Go `x/crypto/ssh`。仅开发环境使用 `AIT_SSH_INSECURE=1`。
 - **默认模式**不保证远程进程保活；仅 `--tmux` 提供远程会话保活。
-- 从本机执行 `ai-ssh session --switch` 时，若仍处于 SSH 会话中，须先 `!ai-ssh suspend`，或使用 `--force`（不保存当前 scrollback/cwd）。
+- 从本机执行 `ai-ssh session --switch` 时，若仍处于 SSH 会话中，须先 `!ait suspend`，或使用 `--force`（不保存当前 scrollback/cwd）。
 - `pkg/third-party/` 用于 vendored 工具，非主应用代码。
-- 顶层命令：在 `internal/ai-ssh/<cmd>/` 增加 `register.go`（`registry.Register`）并在 [`registry/all/imports.go`](internal/ai-ssh/registry/all/imports.go) 空白 import。嵌套子命令：父包 `subregistry` + `<parent>/registry/all/imports.go`（见 [`docs/package-layering.md`](docs/package-layering.md)）。
+- 顶层命令：在 `internal/aissh/<cmd>/` 增加 `register.go`（`registry.Register`）并在 [`registry/all/imports.go`](internal/aissh/registry/all/imports.go) 空白 import。嵌套子命令：父包 `subregistry` + `<parent>/registry/all/imports.go`（见 [`docs/package-layering.md`](docs/package-layering.md)）。
 - 除用户要求或更新产品文档外，不随意新增 Markdown 文件。

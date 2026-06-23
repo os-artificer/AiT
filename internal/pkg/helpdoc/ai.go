@@ -32,6 +32,11 @@ var (
 	ExampleAIOllamaStartWait         = toolname.CLI("ai ollama start --wait")
 	ExampleAIOllamaDisableStop       = toolname.CLI("ai ollama disable --stop")
 
+	ExampleAIAskSSH    = toolname.MetaLine("ai ask how do I find large files")
+	ExampleAIAgentSSH  = toolname.MetaLine("ai agent how do I find large files")
+	ExampleMetaSuspend = toolname.MetaLine("suspend")
+	ExampleMetaLocal   = toolname.MetaLine("local")
+
 	AIHelpFlagsBody     = "  --model   Override AI provider for this session (uses provider model/base_url from config)\n"
 	AIChatHelpFlagsBody = "  --model   Override cloud provider (deepseek|minimax); inherited from " + toolname.CLI("ai") + "\n"
 

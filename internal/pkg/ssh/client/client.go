@@ -166,12 +166,12 @@ type InteractiveOpts struct {
 	// RemotePromptDirAbsolute selects absolute vs short (basename) cwd in the remote PS1.
 	RemotePromptDirAbsolute bool
 	AI                      *ai.Client
-	// OnRemoteAI enters remote AI REPL (!ai-ssh ai / !!); wired from internal/ai-ssh init_hooks.
+	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/aissh init_hooks.
 	OnRemoteAI RemoteAIRunner
 	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
-	// OnMetaCLI runs ai-ssh CLI subcommands from !ai-ssh <args> (args exclude the prefix).
+	// OnMetaCLI runs ai-ssh CLI subcommands from !ait <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
-	// AliasLookup resolves saved session aliases for chain connect meta lines (!ai-ssh prod).
+	// AliasLookup resolves saved session aliases for chain connect meta lines (!ait prod).
 	AliasLookup cliroute.AliasLookup
 	// AgentMaxSteps overrides the agent turn limit; 0 means use default from config.
 	AgentMaxSteps int
@@ -183,7 +183,7 @@ type InteractiveOpts struct {
 	ReplayScrollback string
 }
 
-// RunInteractive runs a PTY shell with !ai-ssh / !! meta handling, optional tmux, and AI/local modes.
+// RunInteractive runs a PTY shell with !ait / !! meta handling, optional tmux, and AI/local modes.
 // ctx cancels the session loop. Requires a TTY on stdin. Returns terminal, session, tmux, or OnSuspend errors.
 func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error {
 	sess, err := c.conn.NewSession()

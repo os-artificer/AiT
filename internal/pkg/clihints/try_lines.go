@@ -17,7 +17,7 @@
 // Package clihints holds shared errhint Try-block example command lines for the ai-ssh CLI.
 package clihints
 
-// Session and login Try lines (single source for internal/ai-ssh and internal/pkg/ssh/client).
+// Session and login Try lines (single source for internal/aissh and internal/pkg/ssh/client).
 const (
 	TrySessionList            = "ai-ssh session --list"
 	TrySessionLoadAlias       = "ai-ssh session --load <alias>"

@@ -18,10 +18,10 @@ package meta
 
 import "github.com/os-artificer/AiT/internal/pkg/toolname"
 
-// PrefixAitSpace is the "!ai-ssh " prefix used for in-session AiT meta lines.
+// PrefixAitSpace is the "!ait " prefix used for in-session AiT meta lines.
 const PrefixAitSpace = toolname.MetaPrefix + " "
 
-// PrefixAitAI is the "!ai-ssh ai" prefix used to detect the AI subcommand.
+// PrefixAitAI is the "!ait ai" prefix used to detect the AI subcommand.
 const PrefixAitAI = toolname.MetaPrefix + " ai"
 
 // Meta line constants — exact matches the scanner recognizes.
