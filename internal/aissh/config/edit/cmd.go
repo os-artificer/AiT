@@ -26,7 +26,7 @@ import (
 
 const name = "edit"
 
-// New builds the `ai-ssh config edit` cobra command.
+// New builds the `aitssh config edit` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           name,

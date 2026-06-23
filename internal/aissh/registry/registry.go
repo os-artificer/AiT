@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package registry collects top-level ai-ssh subcommands registered from init hooks.
+// Package registry collects top-level aitssh subcommands registered from init hooks.
 package registry
 
 import (

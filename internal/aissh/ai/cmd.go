@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package ai builds the `ai-ssh ai` Cobra subtree (chat, provider, model) and
+// Package ai builds the `aitssh ai` Cobra subtree (chat, provider, model) and
 // the local/remote AI REPL runners injected into shell and SSH packages.
 package ai
 
@@ -35,14 +35,14 @@ import (
 // Deps is an alias for shared ai subtree dependencies.
 type Deps = deps.Deps
 
-// CLIExecutor invokes the ai-ssh root command with custom IO; cli root injects ExecuteWriters here.
+// CLIExecutor invokes the aitssh root command with custom IO; cli root injects ExecuteWriters here.
 type CLIExecutor = deps.CLIExecutor
 
 // RunWithMgr opens a session.Manager and runs fn under a signal-cancellable context.
 type RunWithMgr = deps.RunWithMgr
 
-// New builds the `ai-ssh ai` cobra command tree.
-// d.Exec executes other ai-ssh subcommands from the AI REPL CLI tool path;
+// New builds the `aitssh ai` cobra command tree.
+// d.Exec executes other aitssh subcommands from the AI REPL CLI tool path;
 // d.RunWithMgr opens the session Manager for the chat subcommand.
 func New(d Deps) *cobra.Command {
 	cmd := &cobra.Command{

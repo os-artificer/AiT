@@ -27,10 +27,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Name is the top-level subcommand name for ai-ssh shell.
+// Name is the top-level subcommand name for aitssh shell.
 const Name = "shell"
 
-// NewCmd builds the `ai-ssh shell` cobra command.
+// NewCmd builds the `aitssh shell` cobra command.
 func NewCmd(runWithMgr registry.RunWithMgr) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   Name,

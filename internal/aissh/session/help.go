@@ -27,7 +27,7 @@ const sessionIntro = "List, load, suspend, switch, or delete saved SSH sessions 
 
 var (
 	sessionNote = "Inside an active SSH session, use " + toolname.MetaLine("suspend") +
-		" to suspend (not ai-ssh session --suspend). " +
+		" to suspend (not " + toolname.CLI("session --suspend") + "). " +
 		"List # column matches interactive pick by number; ID column is display-only unless you set an alias."
 	sessionFlags = `  --list              list saved sessions (# column for pick-by-number)
   --list -v           include FULL_ID (complete UUID) for scripting
@@ -39,29 +39,30 @@ var (
   --password P        SSH password when session auth has expired
   --force             force switch or skip delete confirmation
 `
+	sessionUsageLine = toolname.CLI("session [--list [-v] | --load [<id|alias>] | --switch [id|alias] | --suspend | --delete <id|alias|all>]")
 )
 
-const sessionExampleDeleteAllForce = "ai-ssh session --delete all --force"
+var sessionExampleDeleteAllForce = toolname.CLI("session --delete all --force")
 
-// WriteSessionHelp prints ai-ssh session --help to w.
+// WriteSessionHelp prints aitssh session --help to w.
 func WriteSessionHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(sessionIntro, sessionNote); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ai-ssh session [--list [-v] | --load [<id|alias>] | --switch [id|alias] | --suspend | --delete <id|alias|all>]"); err != nil {
+	if err := b.WriteUsage(sessionUsageLine); err != nil {
 		return err
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionAITFlags, sessionFlags); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ai-ssh session --list",
-		"ai-ssh session --list -v",
-		"ai-ssh session --load",
-		"ai-ssh session --load prod --tmux",
-		"ai-ssh session --switch",
-		"ai-ssh session --switch prod --force",
+		toolname.CLI("session --list"),
+		toolname.CLI("session --list -v"),
+		toolname.CLI("session --load"),
+		toolname.CLI("session --load prod --tmux"),
+		toolname.CLI("session --switch"),
+		toolname.CLI("session --switch prod --force"),
 		sessionExampleDeleteAllForce,
 		pkghelpdoc.ExampleMetaSuspend+"   # inside SSH session",
 	); err != nil {

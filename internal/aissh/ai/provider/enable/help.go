@@ -20,12 +20,12 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
 	introMain     = "Enable routing to a provider. Cloud providers need an API key in config or keyring."
 	introOllama   = "For ollama, also runs availability checks (install [y/N] unless --yes / --no-install)."
-	usageLine     = "ai-ssh ai provider enable <provider> [flags]"
 	providersBody = "  deepseek, minimax, ollama\n"
 	flagsOllama   = `  -y, --yes            Allow install without prompting
   --no-install         Skip Ollama install
@@ -34,7 +34,9 @@ const (
 `
 )
 
-// WriteHelp prints ai-ssh ai provider enable --help to w.
+var usageLine = toolname.CLI("ai provider enable <provider> [flags]")
+
+// WriteHelp prints aitssh ai provider enable --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introOllama); err != nil {

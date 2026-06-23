@@ -17,7 +17,7 @@
 package session
 
 const (
-	// Name is the top-level `ai-ssh session` subcommand name.
+	// Name is the top-level `aitssh session` subcommand name.
 	Name = "session"
 	// FlagList is the long --list flag passed to the session executor.
 	FlagList = "--list"

@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ErrValidationFailed indicates `ai-ssh config validate` saw at least one issue.
+// ErrValidationFailed indicates `aitssh config validate` saw at least one issue.
 var ErrValidationFailed = errors.New("config validation failed")
 
 // OpenEditorFn is the editor launcher; tests override this to skip launching $EDITOR.

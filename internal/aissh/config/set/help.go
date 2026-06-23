@@ -22,15 +22,17 @@ import (
 	"github.com/os-artificer/AiT/internal/aissh/config/shared"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
 	introMain = "Set a configuration key in the AiT YAML config file."
-	usageLine = "ai-ssh config set <key> <value>"
 	arguments = "  key     configuration key (see Keys below)\n  value   new value\n"
 )
 
-// WriteHelp prints ai-ssh config set --help to w.
+var usageLine = toolname.CLI("config set <key> <value>")
+
+// WriteHelp prints aitssh config set --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain); err != nil {
@@ -46,8 +48,8 @@ func WriteHelp(w io.Writer) error {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ai-ssh config set session.auth_ttl 336h",
-		"ai-ssh config set ai.deepseek.api_key <key>",
+		toolname.CLI("config set session.auth_ttl 336h"),
+		toolname.CLI("config set ai.deepseek.api_key <key>"),
 	); err != nil {
 		return err
 	}

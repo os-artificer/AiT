@@ -28,7 +28,7 @@ func PatternKey(cmd string) string {
 	return strings.ToLower(fields[0])
 }
 
-// PatternKeyAit returns the pattern key for an ai-ssh CLI line (without the "ait" prefix),
+// PatternKeyAit returns the pattern key for an aitssh CLI line (without the "ait" prefix),
 // prefixed with "ait:" to namespace it from shell-command patterns.
 func PatternKeyAit(argsLine string) string {
 	fields := strings.Fields(strings.TrimSpace(argsLine))

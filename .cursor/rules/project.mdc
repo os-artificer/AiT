@@ -5,16 +5,16 @@ alwaysApply: true
 
 # AiT project rules
 
-Go CLI **toolbox** (**AiT**; first tool: **ai-ssh**). Module: `github.com/os-artificer/AiT`.
+Go CLI **toolbox** (**AiT**; first tool: **aitssh**). Module: `github.com/os-artificer/AiT`.
 
 ## Commands
 
-- `make build` → `bin/ai-ssh` from `./cmd/ai-ssh`
+- `make build` → `bin/aitssh` from `./cmd/aitssh`
 - `make test` / `make vet` / `make fmt` — run after Go edits
 
 ## Layout
 
-- `cmd/ai-ssh`: minimal `main` only (delegates to `aissh.Run`)
+- `cmd/aitssh`: minimal `main` only (delegates to `aissh.Run`)
 - `internal/aissh`: application entry (Go package `aissh`)
 - `pkg/`: only code meant for external import
 - Product docs: [AGENTS.md](AGENTS.md), [docs/design.md](docs/design.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	provshared "github.com/os-artificer/AiT/internal/aissh/ai/provider/shared"
+	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -39,7 +40,7 @@ const (
 	flagShorthandYes  = "y"
 )
 
-// New builds the `ai-ssh ai provider enable` cobra command.
+// New builds the `aitssh ai provider enable` cobra command.
 func New() *cobra.Command {
 	var assumeYes, noInstall, noPull bool
 	cmd := &cobra.Command{
@@ -115,6 +116,6 @@ func setupFlagsFromCmd(cmd *cobra.Command) ollama.Options {
 	}
 }
 
-func apiKeyHint(provider string) string {
-	return fmt.Sprintf("ai-ssh config set ai.%s.api_key <key>", provider)
+func apiKeyHint(id string) string {
+	return provider.ConfigSetAPIKeyCmd(id)
 }

@@ -17,21 +17,24 @@
 package provider
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/os-artificer/AiT/internal/aissh/ai/provider/subregistry"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	pkgsubregistry "github.com/os-artificer/AiT/internal/pkg/subregistry"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const (
-	introMain       = "Enable or disable AI provider routing without editing config.yaml by hand."
-	introOllamaHint = "For Ollama install, models directory, and tiered setup, prefer: ai-ssh ai ollama setup"
-	usageLine       = "ai-ssh ai provider"
+const introMain = "Enable or disable AI provider routing without editing config.yaml by hand."
+
+var (
+	introOllamaHint = fmt.Sprintf("For Ollama install, models directory, and tiered setup, prefer: %s", toolname.CLI("ai ollama setup"))
+	usageLine       = toolname.CLI("ai provider")
 )
 
-// WriteHelp prints ai-ssh ai provider --help to w.
+// WriteHelp prints aitssh ai provider --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introOllamaHint); err != nil {

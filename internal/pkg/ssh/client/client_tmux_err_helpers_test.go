@@ -20,6 +20,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 )
 
 // TestWrapTmuxAttachExitErr_Format (TM10c) verifies attach failures include sentinel and Try block.
@@ -34,7 +36,7 @@ func TestWrapTmuxAttachExitErr_Format(t *testing.T) {
 	if !strings.Contains(msg, "Try:") {
 		t.Fatalf("want Try block in %q", msg)
 	}
-	if !strings.Contains(msg, "ai-ssh --tmux devhost") {
+	if !strings.Contains(msg, clihints.TryConnectTmuxDevhost) {
 		t.Fatalf("want tmux login try line in %q", msg)
 	}
 	if !errors.Is(err, cause) {

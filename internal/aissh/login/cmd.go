@@ -31,7 +31,7 @@ const (
 	Name = "login"
 )
 
-// New builds the `ai-ssh login` cobra command.
+// New builds the `aitssh login` cobra command.
 func New(runWithMgr registry.RunWithMgr) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   Name + " [flags] destination [command [argument ...]]",

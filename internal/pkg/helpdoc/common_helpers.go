@@ -31,6 +31,11 @@ func LongHint(cmdName string) string {
 	return fmt.Sprintf(longHintSub, toolname.CLI(cmdName))
 }
 
+// LongHintChatOnce returns Cobra Long for one-shot ai ask/agent (stdin note preserved).
+func LongHintChatOnce(subcmd string) string {
+	return fmt.Sprintf(longHintChatOnce, toolname.CLI(subcmd))
+}
+
 // HelpRequested reports whether argv is only -h, --help, or help.
 func HelpRequested(argv []string) bool {
 	return len(argv) == 1 && isHelpArg(argv[0])

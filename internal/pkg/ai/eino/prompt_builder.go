@@ -23,6 +23,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai/agent"
 	"github.com/os-artificer/AiT/internal/pkg/ai/apitypes"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 	"github.com/os-artificer/AiT/internal/pkg/utf8tail"
 
 	"github.com/cloudwego/eino/schema"
@@ -89,10 +90,10 @@ When asked which provider or model you use, answer only from these fields.`,
 	if scope == apitypes.ScopeRemote {
 		return base + `
 The user is in remote AI mode (ask): suggested shell commands run on the remote host after they type "run <command>" and confirm.
-Do not suggest running ai-ssh login from inside SSH; use run for remote shell work.`
+Do not suggest running ` + toolname.CLI("login") + ` from inside SSH; use run for remote shell work.`
 	}
 	return base + `
-The user is in local AI mode (ask): use "run <command>" for local shell work or "ai-ssh <subcmd>" for AiT CLI after they confirm.`
+The user is in local AI mode (ask): use "run <command>" for local shell work or "` + toolname.AISsh + ` <subcmd>" for AiT CLI after they confirm.`
 }
 
 // AgentSystemPrompt returns the system prompt for Agent mode on the given scope.
@@ -106,14 +107,14 @@ func AgentSystemPrompt(scope apitypes.Scope, env apitypes.AssistEnv, meta apityp
 	return fmt.Sprintf(`You are AiT in Agent mode on the %s.
 Respond with a single JSON object only (no markdown), one of:
 {"%s":"%s","%s":"<shell command>"}
-{"%s":"%s","%s":"<ai-ssh subcommand args without leading ai-ssh>"}
+{"%s":"%s","%s":"<%s subcommand args without leading %s>"}
 {"%s":"%s","%s":"<final reply to user>"}
 Commands run on %s. Read-only commands (ls, cat, grep, ps, etc.) are auto-approved;
 write/destructive commands require user confirmation. Do not run vim/less/top or other interactive TUI programs.
 Never ask for secrets. Provider: %s, model: %s.`,
 		scopeHint,
 		agent.JSONFieldAction, agent.ToolRunShell, agent.JSONFieldCommand,
-		agent.JSONFieldAction, agent.ToolAitCLI, agent.JSONFieldArgs,
+		agent.JSONFieldAction, agent.ToolAitCLI, agent.JSONFieldArgs, toolname.AISsh, toolname.AISsh,
 		agent.JSONFieldAction, agent.ToolAnswer, agent.JSONFieldText,
 		runTarget, meta.Provider, meta.Model)
 }

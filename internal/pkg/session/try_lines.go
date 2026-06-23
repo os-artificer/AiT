@@ -19,7 +19,7 @@ package session
 import "github.com/os-artificer/AiT/internal/pkg/clihints"
 
 // Re-export Try-block lines from clihints (avoids import cycle with ssh/client).
-const (
+var (
 	TrySessionList            = clihints.TrySessionList
 	TrySessionLoadAlias       = clihints.TrySessionLoadAlias
 	TrySessionLoad            = clihints.TrySessionLoad
@@ -39,7 +39,7 @@ const (
 )
 
 // Private aliases for in-package hint helpers.
-const (
+var (
 	tryLoadByAlias     = clihints.TrySessionLoadAlias
 	tryLoadByFullID    = clihints.TrySessionLoadFullID
 	tryLoadInteractive = clihints.TrySessionLoadPick

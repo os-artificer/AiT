@@ -20,14 +20,14 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const (
-	introMain = "Create config.yaml or merge missing keys with built-in defaults. Existing values are not overwritten."
-	usageLine = "ai-ssh config init [--dry-run]"
-)
+const introMain = "Create config.yaml or merge missing keys with built-in defaults. Existing values are not overwritten."
 
-// WriteHelp prints ai-ssh config init --help to w.
+var usageLine = toolname.CLI("config init [--dry-run]")
+
+// WriteHelp prints aitssh config init --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain); err != nil {
@@ -36,7 +36,10 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteUsage(usageLine); err != nil {
 		return err
 	}
-	if err := b.WriteExamples("ai-ssh config init", "ai-ssh config init --dry-run"); err != nil {
+	if err := b.WriteExamples(
+		toolname.CLI("config init"),
+		toolname.CLI("config init --dry-run"),
+	); err != nil {
 		return err
 	}
 	return b.Finish("init")

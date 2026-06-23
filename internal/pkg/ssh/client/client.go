@@ -169,7 +169,7 @@ type InteractiveOpts struct {
 	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/aissh init_hooks.
 	OnRemoteAI RemoteAIRunner
 	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
-	// OnMetaCLI runs ai-ssh CLI subcommands from !ait <args> (args exclude the prefix).
+	// OnMetaCLI runs aitssh CLI subcommands from !ait <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
 	// AliasLookup resolves saved session aliases for chain connect meta lines (!ait prod).
 	AliasLookup cliroute.AliasLookup

@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package session implements the `ai-ssh session` Cobra command (list/load/suspend/switch/delete).
+// Package session implements the `aitssh session` Cobra command (list/load/suspend/switch/delete).
 package session
 
 import (
@@ -30,7 +30,7 @@ import (
 // RunWithMgr opens a session.Manager and runs fn under a signal-cancellable context.
 type RunWithMgr func(fn func(ctx context.Context, mgr *pkgsession.Manager) error) error
 
-// New builds the `ai-ssh session` cobra command tree.
+// New builds the `aitssh session` cobra command tree.
 // runWithMgr opens a session.Manager and runs fn under a signal-cancellable context.
 func New(runWithMgr RunWithMgr) *cobra.Command {
 	var doList, doSuspend, verbose, tmux, force bool

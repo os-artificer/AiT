@@ -10,20 +10,20 @@
 
 规范以 [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc)、[`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc) 与 [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc) 为权威来源（分层说明见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)）；**若更新编码约定，请同步修改上述规则、docs 分层文档与中英文 CONTRIBUTING**（[`CONTRIBUTING.md`](CONTRIBUTING.md)、[`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)）。
 
-CLI 命令的 `--help` 须与 `ai-ssh login --help` 同版式：共用层 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)，各命令正文在 `internal/aissh/<cmd>/help.go`；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
+CLI 命令的 `--help` 须与 `aitssh login --help` 同版式：共用层 [`internal/pkg/helpdoc`](internal/pkg/helpdoc)，各命令正文在 `internal/aissh/<cmd>/help.go`；见 [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc)。
 
 ---
 
 ## 开发环境
 
 ```bash
-make build       # 编译到 bin/ai-ssh
+make build       # 编译到 bin/aitssh
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
 make test-cross  # Windows/macOS 交叉编译（仅编译，不在对应 OS 上执行测试）
 make test-e2e-smoke  # 可选 Python CLI 烟雾（无需 SSH）；CI 在合并门禁之后运行
-./bin/ai-ssh        # 运行二进制
+./bin/aitssh        # 运行二进制
 ```
 
 `make test-cross` 对 `linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64`、`windows/amd64` 执行 `go build ./...`，用于发现平台相关编译错误，**不会**在那些平台上运行测试套件。
@@ -46,7 +46,7 @@ make test-e2e         # 配置后含 SSH 的完整 E2E
 Windows 交叉编译示例：
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -o bin/ai-ssh.exe ./cmd/ai-ssh
+GOOS=windows GOARCH=amd64 go build -o bin/aitssh.exe ./cmd/aitssh
 ```
 
 ---
@@ -57,7 +57,7 @@ AiT 是 Go CLI，目录遵循 [golang-standards/project-layout](https://github.c
 
 | 路径 | 用途 |
 |------|------|
-| [`cmd/ai-ssh`](cmd/ai-ssh) | 主程序入口；**仅**保留极简 `main` |
+| [`cmd/aitssh`](cmd/aitssh) | 主程序入口；**仅**保留极简 `main` |
 | [`internal/aissh`](internal/aissh) | 应用入口（`Run`、Cobra 根）；**每个顶层子命令一包**（`internal/aissh/login` 等），名称、flags、parse、help、run 同包闭环 |
 | [`internal/pkg/*`](internal/pkg) | 实现库（`store`、`session`、`ssh` 等）；**不得** import `internal/aissh` |
 | [`pkg/`](pkg/) | 供**外部模块**导入；通用、与 AiT 业务无关 |
@@ -66,7 +66,7 @@ AiT 是 Go CLI，目录遵循 [golang-standards/project-layout](https://github.c
 约定：
 
 - 优先在 `internal/aissh/<cmd>` 与 `internal/pkg/*` 中扩展功能，避免随意新增顶层目录。
-- **包分层：** `cmd/ai-ssh` → `internal/aissh` → 子命令包；跨子命令复用放在 `internal/pkg`。详见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)。
+- **包分层：** `cmd/aitssh` → `internal/aissh` → 子命令包；跨子命令复用放在 `internal/pkg`。详见 [`docs/package-layering.zh-CN.md`](docs/package-layering.zh-CN.md)。
 - `internal/` 为模块私有，**不得**被本模块以外的代码 import。
 - 各目录细节见 [`AGENTS.zh-CN.md`](AGENTS.zh-CN.md)；产品架构见 [`docs/design.zh-CN.md`](docs/design.zh-CN.md)。
 
@@ -130,7 +130,7 @@ import (
 
 无 receiver 的包级函数放在独立文件中（如 `*_helpers.go`、`*_parse.go`），仍遵守第 3 条排序。
 
-**例外**：[`cmd/ai-ssh/main.go`](cmd/ai-ssh/main.go) 仅保留极简 `main`。
+**例外**：[`cmd/aitssh/main.go`](cmd/aitssh/main.go) 仅保留极简 `main`。
 
 包级辅助函数不要与 struct 方法混在同一文件；参考 `internal/pkg/ssh/client` 中的 `*_helpers.go` 布局。
 

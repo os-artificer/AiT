@@ -29,7 +29,7 @@ const (
 	Name = "version"
 )
 
-// New builds the `ai-ssh version` cobra command.
+// New builds the `aitssh version` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           Name,

@@ -15,7 +15,7 @@
 **/
 
 // Package scrollback implements a bounded ring buffer that captures terminal
-// output for replay (`ai-ssh session --load`) and AI assist context.
+// output for replay (`aitssh session --load`) and AI assist context.
 package scrollback
 
 import (

@@ -20,20 +20,24 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
 	introMain = "Start ollama serve in the background. Does not install Ollama or change config."
 	introAPI  = "If the API is already reachable, prints a message and exits successfully."
-	usageLine = "ai-ssh ai ollama start [flags]"
 	flagsBody = `  --wait               Poll until /api/tags responds
   --base-url string    API base to probe (default from config)
 `
-	exampleStart     = "ai-ssh ai ollama start"
-	exampleStartWait = "ai-ssh ai ollama start --wait"
 )
 
-// WriteHelp prints ai-ssh ai ollama start --help to w.
+var (
+	usageLine        = toolname.CLI("ai ollama start [flags]")
+	exampleStart     = toolname.CLI("ai ollama start")
+	exampleStartWait = toolname.CLI("ai ollama start --wait")
+)
+
+// WriteHelp prints aitssh ai ollama start --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introAPI); err != nil {

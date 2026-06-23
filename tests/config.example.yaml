@@ -2,7 +2,7 @@
 # config.local.yaml is gitignored; never commit secrets.
 
 ait:
-  binary: ../bin/ai-ssh
+  binary: ../bin/aitssh
 
 ssh:
   primary:

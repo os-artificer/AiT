@@ -26,7 +26,7 @@ import (
 
 const name = "validate"
 
-// New builds the `ai-ssh config validate` cobra command.
+// New builds the `aitssh config validate` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           name,

@@ -34,10 +34,10 @@ func TestMetaLine(t *testing.T) {
 }
 
 func TestCLI(t *testing.T) {
-	if CLI("") != "ai-ssh" {
+	if CLI("") != "aitssh" {
 		t.Fatalf("CLI()=%q", CLI(""))
 	}
-	if CLI("session --list") != "ai-ssh session --list" {
+	if CLI("session --list") != "aitssh session --list" {
 		t.Fatalf("CLI(sub)=%q", CLI("session --list"))
 	}
 }

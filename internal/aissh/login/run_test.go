@@ -25,13 +25,14 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func tmuxAttachWrappedErr() error {
 	cause := errors.New("Process exited with status: 2")
 	return errhint.WithTry(fmt.Errorf("tmux attach failed (exit 2): %w", cause),
 		"Could not attach to the remote tmux session.",
-		"ai-ssh --tmux devhost",
+		toolname.CLI("--tmux devhost"),
 	)
 }
 

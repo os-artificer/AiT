@@ -32,7 +32,7 @@ func RootHelpEntries() []pkghelpdoc.RootCommandEntry {
 	return out
 }
 
-// WriteRootHelp prints ai-ssh --help from registered top-level commands.
+// WriteRootHelp prints aitssh --help from registered top-level commands.
 func WriteRootHelp(w io.Writer) error {
 	return pkghelpdoc.WriteRootHelp(w, RootHelpEntries())
 }

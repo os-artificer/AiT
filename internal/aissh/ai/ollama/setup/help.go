@@ -20,6 +20,7 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
@@ -27,7 +28,6 @@ const (
 	introModels  = "Prompts for a models directory (OLLAMA_MODELS) unless --models-dir or config already set."
 	introInstall = "When ollama is not in PATH, you are prompted [y/N] before installing (brew/winget/install.sh)."
 	introDecline = "Declining install still saves tiered config; use local Ollama when you install it manually."
-	usageLine    = "ai-ssh ai ollama setup [flags]"
 	flagsBody    = `  --model string       Ollama model to pull (default llama3.2)
   --base-url string    Ollama API base (default http://127.0.0.1:11434/v1)
   --models-dir string  Model storage directory (OLLAMA_MODELS); interactive when unset
@@ -36,12 +36,16 @@ const (
   --no-pull            Skip ollama pull
   --dry-run            Show planned steps only
 `
-	exampleSetup     = "ai-ssh ai ollama setup"
-	exampleSetupYes  = "ai-ssh ai ollama setup --yes"
-	exampleNoInstall = "ai-ssh ai ollama setup --no-install"
 )
 
-// WriteHelp prints ai-ssh ai ollama setup --help to w.
+var (
+	usageLine        = toolname.CLI("ai ollama setup [flags]")
+	exampleSetup     = toolname.CLI("ai ollama setup")
+	exampleSetupYes  = toolname.CLI("ai ollama setup --yes")
+	exampleNoInstall = toolname.CLI("ai ollama setup --no-install")
+)
+
+// WriteHelp prints aitssh ai ollama setup --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introModels, introInstall, introDecline); err != nil {

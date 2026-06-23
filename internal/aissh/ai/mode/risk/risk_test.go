@@ -101,7 +101,7 @@ func TestIsInteractive_SudoPrefix(t *testing.T) {
 	}
 }
 
-// ClassifyAit returns High for destructive ai-ssh subcommands.
+// ClassifyAit returns High for destructive aitssh subcommands.
 func TestClassifyAit_HighPatterns(t *testing.T) {
 	if ClassifyAit("session delete abc") != High {
 		t.Fatal("expected high for session delete")
@@ -111,7 +111,7 @@ func TestClassifyAit_HighPatterns(t *testing.T) {
 	}
 }
 
-// ClassifyAit returns Low for read-only ai-ssh subcommands.
+// ClassifyAit returns Low for read-only aitssh subcommands.
 func TestClassifyAit_Low(t *testing.T) {
 	if ClassifyAit("session --list") != Low {
 		t.Fatal("expected low for session --list")

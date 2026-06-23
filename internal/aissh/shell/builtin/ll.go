@@ -20,11 +20,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/os-artificer/AiT/internal/pkg/dirlist"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func runLL(_ context.Context, env Env, argv []string) (bool, error) {
@@ -54,7 +56,7 @@ func llTargetDir(argv []string) (string, error) {
 
 func llUsageErr() error {
 	return errhint.WithTryMsg("usage: ll [path]",
-		"List the current directory or one path in ls -la style (ai-ssh shell only).",
+		fmt.Sprintf("List the current directory or one path in ls -la style (%s only).", toolname.CLI("shell")),
 		"ll",
 		"ll ..",
 		"help",

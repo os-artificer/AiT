@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -30,6 +31,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/platform"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/store"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestDispatchShellCommand_RunsBin(t *testing.T) {
@@ -86,7 +88,7 @@ func TestDispatchShellCommand_AitCLIBeforePATH(t *testing.T) {
 
 	prevExt := externalRunner
 	SetExternalRunner(func(context.Context, string, []string) error {
-		t.Fatal("external runner should not run for ai-ssh CLI")
+		t.Fatal("external runner should not run for aitssh CLI")
 		return nil
 	})
 	defer SetExternalRunner(prevExt)
@@ -110,7 +112,7 @@ func TestDispatchShellCommand_PATHFallback(t *testing.T) {
 
 	prevCLI := cliExecutor
 	cliExecutor = func([]string, io.Writer, io.Writer) error {
-		return errors.New(`unknown command "true" for "ai-ssh"`)
+		return errors.New(fmt.Sprintf(`unknown command "true" for "%s"`, toolname.AISsh))
 	}
 	defer func() { cliExecutor = prevCLI }()
 
@@ -162,7 +164,7 @@ func TestDispatchShellCommand_NotFoundHint(t *testing.T) {
 
 	prevCLI := cliExecutor
 	cliExecutor = func([]string, io.Writer, io.Writer) error {
-		return errors.New(`unknown command "nosuchcmd" for "ai-ssh"`)
+		return errors.New(fmt.Sprintf(`unknown command "nosuchcmd" for "%s"`, toolname.AISsh))
 	}
 	defer func() { cliExecutor = prevCLI }()
 

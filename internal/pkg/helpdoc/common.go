@@ -26,6 +26,7 @@ import (
 const (
 	longHintRoot          = "Run '%s --help' for usage and examples."
 	longHintSub           = "Run '%s --help' for usage and examples."
+	longHintChatOnce      = "Run '%s --help' for usage. With no arguments, reads the prompt from stdin until EOF."
 	helpUsageLineFmt      = "Usage:\n  %s\n\n"
 	helpExamplesHeader    = "Examples:"
 	helpFooterFlagsPrefix = "\nFlags:\n  -h, --help      help for %s\n"

@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package ollama builds the `ai-ssh ai ollama` Cobra subtree (status/setup/start/stop/disable).
+// Package ollama builds the `aitssh ai ollama` Cobra subtree (status/setup/start/stop/disable).
 package ollama
 
 import (
@@ -24,12 +24,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// New builds the `ai-ssh ai ollama` cobra command tree.
+// New builds the `aitssh ai ollama` cobra command tree.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "ollama",
 		Short:         "Local Ollama setup, status, and service control",
-		Long:          "Run 'ai-ssh ai ollama --help' for subcommands.",
+		Long:          pkghelpdoc.LongHint("ai ollama"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

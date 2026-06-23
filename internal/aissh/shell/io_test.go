@@ -43,7 +43,7 @@ func TestFormatShellMsg(t *testing.T) {
 
 func TestShellPrintErrMultiline(t *testing.T) {
 	var buf bytes.Buffer
-	msg := "session not found\n\nThe list ID column is for display only.\n\nTry:\n  ai-ssh session --load"
+	msg := "session not found\n\nThe list ID column is for display only.\n\nTry:\n  aitssh session --load"
 	shellPrintErr(&buf, msg)
 	out := buf.String()
 	if strings.Count(out, "AiT:") != 1 {

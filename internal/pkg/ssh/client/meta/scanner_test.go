@@ -333,7 +333,7 @@ func TestMetaScanner_PrefixCandidateHelpers(t *testing.T) {
 }
 
 func TestMetaScanner_LegacyPrefixNotCaptured(t *testing.T) {
-	cases := []string{"!ai-ssh help\n", "!ai-ssh ai ask hi\n"}
+	cases := []string{"!aitssh help\n", "!aitssh ai ask hi\n"}
 	for _, input := range cases {
 		fwd, _, meta := drive(input, true)
 		if len(meta) != 0 {

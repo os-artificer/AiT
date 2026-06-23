@@ -35,7 +35,7 @@ import (
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           toolname.AISsh,
-		Short:         "AiT ai-ssh — AI-enhanced SSH client",
+		Short:         "AiT aitssh — AI-enhanced SSH client",
 		Long:          pkghelpdoc.LongHint(toolname.AISsh),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -59,7 +59,7 @@ func Execute(args []string) error {
 	return ExecuteWriters(args, os.Stdout, os.Stderr)
 }
 
-// ExecuteWriters runs the top-level ai-ssh CLI with custom stdout and stderr.
+// ExecuteWriters runs the top-level aitssh CLI with custom stdout and stderr.
 // Empty argv and -h/--help print root help; ssh-style argv run login; else Cobra subcommands.
 func ExecuteWriters(args []string, out, errOut io.Writer) error {
 	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {

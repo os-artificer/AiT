@@ -6,9 +6,10 @@ This file records **product and CLI** functional changes only; documentation-onl
 
 ## [Unreleased]
 
-- **CLI rename:** Toolbox first tool is `ai-ssh` (`bin/ai-ssh`, in-session `!ait` meta); default data root `~/.local/share/AiT` with automatic migration from legacy `share/ait`; keyring service `AiT` with lazy read from legacy `ait`.
+- **CLI rename:** Toolbox first tool is `aitssh` (`bin/aitssh`, in-session `!ait` meta); default data root `~/.local/share/AiT` with automatic migration from legacy `share/ait`; keyring service `AiT` with lazy read from legacy `ait`.
+- **Breaking:** Binary and CLI command renamed from `ai-ssh` to `aitssh` (`go install github.com/os-artificer/AiT/cmd/aitssh@latest`). Scripts and PATH aliases must use `aitssh`; optional transition: `ln -s aitssh ai-ssh`.
 - **Breaking:** In-session meta prefix is `!ait`; `!ai-ssh` is no longer recognized. `!!` remains the AI shortcut.
-- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `ai-ssh ai agent` one-shot now wires Capture/CLI/MaxSteps like REPL.
+- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `aitssh ai agent` one-shot now wires Capture/CLI/MaxSteps like REPL.
 
 ## [v1.0.0-beta.2]
 

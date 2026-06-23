@@ -21,6 +21,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 // WriteREPLHelp prints in-AI-mode help for the given scope.
@@ -28,7 +29,7 @@ func WriteREPLHelp(w io.Writer, scope ai.Scope) error {
 	b := pkghelpdoc.NewBody(w)
 	intro := pkghelpdoc.AIIntroLocal
 	cmds := pkghelpdoc.AIReplCommands + pkghelpdoc.AIReplCommandsLocalExtra
-	examples := "mode\nrun ls\nai-ssh list\napprove each\n"
+	examples := "mode\nrun ls\n" + toolname.CLI("list") + "\napprove each\n"
 	if scope == ai.ScopeRemote {
 		intro = pkghelpdoc.AIIntroRemote
 		cmds = pkghelpdoc.AIReplCommands

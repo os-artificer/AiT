@@ -27,6 +27,7 @@ import (
 	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 type recordingRunner struct {
@@ -115,7 +116,7 @@ func TestExecuteLine_ExitClearsSessionTrust(t *testing.T) {
 }
 
 func TestExecuteLine_AitBlockedOnRemote(t *testing.T) {
-	_, err := ExecuteLine(context.Background(), Options{Scope: ai.ScopeRemote, Out: io.Discard, ErrOut: io.Discard}, &sessionState{}, "ai-ssh list", nil)
+	_, err := ExecuteLine(context.Background(), Options{Scope: ai.ScopeRemote, Out: io.Discard, ErrOut: io.Discard}, &sessionState{}, toolname.CLI("list"), nil)
 	if err == nil || !strings.Contains(err.Error(), "local-only") {
 		t.Fatalf("err=%v", err)
 	}
@@ -167,7 +168,7 @@ func TestExecuteLineHistory_AIMode(t *testing.T) {
 }
 
 // TestExecuteAitSubcmdAIMode_CRLF (F2) verifies that the local AI REPL's
-// `ai-ssh <subcmd>` execution wraps both stdout and stderr in a CRLF writer so
+// `aitssh <subcmd>` execution wraps both stdout and stderr in a CRLF writer so
 // cobra/subcommand bare \n output renders correctly on the raw-mode TTY.
 func TestExecuteAitSubcmdAIMode_CRLF(t *testing.T) {
 	var out, errOut bytes.Buffer
@@ -186,9 +187,9 @@ func TestExecuteAitSubcmdAIMode_CRLF(t *testing.T) {
 	}
 	st := newSessionState(opt)
 
-	exit, err := ExecuteLine(context.Background(), opt, st, "ai-ssh list", terminal.NewLineHistory())
+	exit, err := ExecuteLine(context.Background(), opt, st, toolname.CLI("list"), terminal.NewLineHistory())
 	if err != nil || exit {
-		t.Fatalf("ai-ssh list: exit=%v err=%v", exit, err)
+		t.Fatalf("%s: exit=%v err=%v", toolname.CLI("list"), exit, err)
 	}
 
 	if got := out.String(); !strings.Contains(got, "line1\r\nline2\r\n") {
@@ -207,7 +208,7 @@ func TestExecuteAitSubcmdAIMode_CRLF(t *testing.T) {
 
 // TestExecuteLineHistory_AIMode_CRLF (F1) verifies that the multi-line history
 // listing in the AI REPL terminates each entry with \r\n so it renders one row
-// per line on the raw-mode local TTY used by ai-ssh ai and the !! remote AI REPL.
+// per line on the raw-mode local TTY used by aitssh ai and the !! remote AI REPL.
 func TestExecuteLineHistory_AIMode_CRLF(t *testing.T) {
 	var out bytes.Buffer
 	st := &sessionState{}

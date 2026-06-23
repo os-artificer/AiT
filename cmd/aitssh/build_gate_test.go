@@ -52,7 +52,7 @@ func TestGoMod_NoGoOpenAI(t *testing.T) {
 	}
 }
 
-// TestBuild_FreshModCache (M1) builds cmd/ai-ssh with an empty module cache when not -short.
+// TestBuild_FreshModCache (M1) builds cmd/aitssh with an empty module cache when not -short.
 func TestBuild_FreshModCache(t *testing.T) {
 	if testing.Short() {
 		t.Skip("fresh mod cache build skipped in -short")
@@ -71,7 +71,7 @@ func TestBuild_FreshModCache(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpCache)
 
-	cmd := exec.Command("go", "build", "-o", filepath.Join(t.TempDir(), "ai-ssh"), ".")
+	cmd := exec.Command("go", "build", "-o", filepath.Join(t.TempDir(), "aitssh"), ".")
 	cmd.Env = append(os.Environ(), "GOMODCACHE="+tmpCache)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

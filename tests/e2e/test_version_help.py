@@ -29,7 +29,7 @@ def test_version(runner):
 
 def test_root_help(runner):
     proc = runner.run_ok(["--help"])
-    assert_contains(proc, "Usage:", "ai-ssh [command]")
+    assert_contains(proc, "Usage:", "aitssh [command]")
     for cmd in TOP_LEVEL_COMMANDS:
         assert cmd in proc.stdout, f"missing {cmd} in root help"
 

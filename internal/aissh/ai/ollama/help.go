@@ -17,6 +17,7 @@
 package ollama
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/os-artificer/AiT/internal/aissh/ai/ollama/disable"
@@ -28,16 +29,17 @@ import (
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	pkgsubregistry "github.com/os-artificer/AiT/internal/pkg/subregistry"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const (
-	ollamaIntroMain       = "Manage local Ollama for tiered AI routing (under ai-ssh ai)."
-	ollamaIntroSubcmdHelp = "Run 'ai-ssh ai ollama <subcommand> --help' for flags and examples."
-	ollamaUsageMain       = "ai-ssh ai ollama"
-	ollamaExampleStop     = "ai-ssh ai ollama stop"
+var (
+	ollamaIntroMain       = fmt.Sprintf("Manage local Ollama for tiered AI routing (under %s).", toolname.CLI("ai"))
+	ollamaIntroSubcmdHelp = fmt.Sprintf("Run '%s <subcommand> --help' for flags and examples.", toolname.CLI("ai ollama"))
+	ollamaUsageMain       = toolname.CLI("ai ollama")
+	ollamaExampleStop     = toolname.CLI("ai ollama stop")
 )
 
-// WriteAIOllamaHelp prints ai-ssh ai ollama --help to w.
+// WriteAIOllamaHelp prints aitssh ai ollama --help to w.
 func WriteAIOllamaHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(ollamaIntroMain, ollamaIntroSubcmdHelp); err != nil {
@@ -61,17 +63,17 @@ func WriteAIOllamaHelp(w io.Writer) error {
 	return b.Finish("ollama")
 }
 
-// WriteOllamaStatusHelp prints ai-ssh ai ollama status --help to w.
+// WriteOllamaStatusHelp prints aitssh ai ollama status --help to w.
 func WriteOllamaStatusHelp(w io.Writer) error { return status.WriteHelp(w) }
 
-// WriteOllamaSetupHelp prints ai-ssh ai ollama setup --help to w.
+// WriteOllamaSetupHelp prints aitssh ai ollama setup --help to w.
 func WriteOllamaSetupHelp(w io.Writer) error { return setup.WriteHelp(w) }
 
-// WriteOllamaStartHelp prints ai-ssh ai ollama start --help to w.
+// WriteOllamaStartHelp prints aitssh ai ollama start --help to w.
 func WriteOllamaStartHelp(w io.Writer) error { return start.WriteHelp(w) }
 
-// WriteOllamaStopHelp prints ai-ssh ai ollama stop --help to w.
+// WriteOllamaStopHelp prints aitssh ai ollama stop --help to w.
 func WriteOllamaStopHelp(w io.Writer) error { return stop.WriteHelp(w) }
 
-// WriteOllamaDisableHelp prints ai-ssh ai ollama disable --help to w.
+// WriteOllamaDisableHelp prints aitssh ai ollama disable --help to w.
 func WriteOllamaDisableHelp(w io.Writer) error { return disable.WriteHelp(w) }

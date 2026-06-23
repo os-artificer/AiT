@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package provider builds the `ai-ssh ai provider` Cobra subtree.
+// Package provider builds the `aitssh ai provider` Cobra subtree.
 package provider
 
 import (
@@ -29,12 +29,12 @@ import (
 
 const name = "provider"
 
-// New builds the `ai-ssh ai provider` cobra command.
+// New builds the `aitssh ai provider` cobra command.
 func New(_ deps.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           name,
 		Short:         "Enable or disable AI provider routing",
-		Long:          "Run 'ai-ssh ai provider --help' for subcommands.",
+		Long:          pkghelpdoc.LongHint("ai provider"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

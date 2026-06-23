@@ -24,7 +24,7 @@ const (
 	ActionRun = "run"
 	// ActionRunAlt is the OpenAI function-calling style alias for ActionRun.
 	ActionRunAlt = "run_shell"
-	// ActionAISsh is the canonical verb for "invoke an ai-ssh CLI subcommand".
+	// ActionAISsh is the canonical verb for "invoke an aitssh CLI subcommand".
 	ActionAISsh = "aish"
 	// ActionAISshAlt is the OpenAI function-calling style alias for ActionAISsh.
 	ActionAISshAlt = "aish_cli"
@@ -53,7 +53,7 @@ func (a Action) IsRun() bool {
 	return a.Action == ActionRun || a.Action == ActionRunAlt
 }
 
-// IsAit reports whether a is an ai-ssh CLI invocation action (canonical, alt, or legacy verbs).
+// IsAit reports whether a is an aitssh CLI invocation action (canonical, alt, or legacy verbs).
 func (a Action) IsAit() bool {
 	return a.Action == ActionAISsh || a.Action == ActionAISshAlt ||
 		a.Action == ActionAit || a.Action == ActionAitAlt

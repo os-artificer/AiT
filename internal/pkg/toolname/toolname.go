@@ -14,17 +14,17 @@
  * limitations under the License.
 **/
 
-// Package toolname holds SSOT strings for the ai-ssh CLI tool name and meta prefix.
+// Package toolname holds SSOT strings for the aitssh CLI tool name and meta prefix.
 package toolname
 
 const (
 	// AISsh is the Cobra root command name and installed binary name.
-	AISsh = "ai-ssh"
+	AISsh = "aitssh"
 	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ait).
 	MetaPrefix = "!ait"
 )
 
-// CLI returns "ai-ssh" or "ai-ssh <subcmd>" when subcmd is non-empty.
+// CLI returns "aitssh" or "aitssh <subcmd>" when subcmd is non-empty.
 func CLI(subcmd string) string {
 	if subcmd == "" {
 		return AISsh

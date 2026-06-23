@@ -20,14 +20,14 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const (
-	introMain = "Print the raw config.yaml from AppRoot. Creates the file with defaults when missing."
-	usageLine = "ai-ssh config view"
-)
+const introMain = "Print the AiT YAML config file to stdout (creates config.yaml with defaults if missing)."
 
-// WriteHelp prints ai-ssh config view --help to w.
+var usageLine = toolname.CLI("config view")
+
+// WriteHelp prints aitssh config view --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain); err != nil {
@@ -36,7 +36,7 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteUsage(usageLine); err != nil {
 		return err
 	}
-	if err := b.WriteExamples("ai-ssh config view"); err != nil {
+	if err := b.WriteExamples(toolname.CLI("config view")); err != nil {
 		return err
 	}
 	return b.Finish("view")

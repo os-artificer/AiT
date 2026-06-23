@@ -31,17 +31,18 @@ import (
 	"github.com/os-artificer/AiT/internal/aissh/config/view"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const configIntro = "Read and write AiT YAML configuration (session TTL, AI providers, API keys)."
 
-// WriteConfigHelp prints ai-ssh config --help to w.
+// WriteConfigHelp prints aitssh config --help to w.
 func WriteConfigHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(configIntro); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("ai-ssh config"); err != nil {
+	if err := b.WriteUsage(toolname.CLI("config")); err != nil {
 		return err
 	}
 	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, formatConfigSubcommands()); err != nil {
@@ -51,11 +52,11 @@ func WriteConfigHelp(w io.Writer) error {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ai-ssh config init",
-		"ai-ssh config view",
-		"ai-ssh config validate",
-		"ai-ssh config get session.auth_ttl",
-		"ai-ssh config set deepseek.model deepseek-chat",
+		toolname.CLI("config init"),
+		toolname.CLI("config view"),
+		toolname.CLI("config validate"),
+		toolname.CLI("config get session.auth_ttl"),
+		toolname.CLI("config set deepseek.model deepseek-chat"),
 	); err != nil {
 		return err
 	}

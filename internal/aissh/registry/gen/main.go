@@ -53,7 +53,7 @@ func main() {
 		fatal(err)
 	}
 
-	toolDir := filepath.Join(root, "internal", "ai-ssh")
+	toolDir := filepath.Join(root, "internal", "aissh")
 	entries, err := os.ReadDir(toolDir)
 	if err != nil {
 		fatal(err)
@@ -87,7 +87,7 @@ func main() {
 		fatal(fmt.Errorf("format: %w", err))
 	}
 
-	outPath := filepath.Join(root, "internal", "ai-ssh", "registry", "all", "imports.go")
+	outPath := filepath.Join(root, "internal", "aissh", "registry", "all", "imports.go")
 	if err := os.WriteFile(outPath, formatted, 0o644); err != nil {
 		fatal(err)
 	}

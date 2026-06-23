@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestWriteVersionHelp(t *testing.T) {
@@ -28,7 +30,7 @@ func TestWriteVersionHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"Usage:", "help for version", "ai-ssh version"} {
+	for _, want := range []string{"Usage:", "help for version", toolname.CLI("version")} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("version help missing %q:\n%s", want, out)
 		}

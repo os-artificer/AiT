@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package subregistry collects ai-ssh ai provider subcommands registered from init hooks.
+// Package subregistry collects aitssh ai provider subcommands registered from init hooks.
 package subregistry
 
 import (
@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Command is the extension point for an `ai-ssh ai provider` subcommand.
+// Command is the extension point for an `aitssh ai provider` subcommand.
 type Command interface {
 	pkgsubregistry.MetaCommand
 	NewCobra() *cobra.Command
@@ -44,7 +44,7 @@ func Attach(parent *cobra.Command) {
 	reg.Attach(parent, func(c Command) *cobra.Command { return c.NewCobra() })
 }
 
-// Entries returns registered subcommands for ai-ssh ai provider --help.
+// Entries returns registered subcommands for aitssh ai provider --help.
 func Entries() []Entry {
 	return reg.Entries()
 }

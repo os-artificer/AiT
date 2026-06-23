@@ -20,16 +20,20 @@ import (
 	"io"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 const (
 	introMain    = "Stop local ollama serve processes. Does not disable Ollama in config."
 	introWindows = "On Windows, may not quit the Ollama desktop app; close it manually if needed."
-	usageLine    = "ai-ssh ai ollama stop"
-	exampleStop  = "ai-ssh ai ollama stop"
 )
 
-// WriteHelp prints ai-ssh ai ollama stop --help to w.
+var (
+	usageLine   = toolname.CLI("ai ollama stop")
+	exampleStop = toolname.CLI("ai ollama stop")
+)
+
+// WriteHelp prints aitssh ai ollama stop --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introWindows); err != nil {
