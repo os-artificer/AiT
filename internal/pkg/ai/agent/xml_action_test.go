@@ -71,6 +71,20 @@ func TestXMLToolCallToJSON_RunAlias(t *testing.T) {
 	}
 }
 
+// M5: truncated MiniMax XML without closing tags still converts to run_shell JSON.
+func TestXMLToolCallToJSON_OpenInvokeTruncated(t *testing.T) {
+	raw := `<minimax:tool_call>
+<invoke name="run_shell">
+<parameter name="command">echo "=== CPU Info ===" && lscpu && free -h}`
+	got, ok := XMLToolCallToJSON(raw)
+	if !ok {
+		t.Fatal("expected ok for open invoke/parameter")
+	}
+	if !strings.Contains(got, `"action":"run_shell"`) || !strings.Contains(got, "lscpu") {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestXMLToolCallToJSON_PureJSONReturnsFalse(t *testing.T) {
 	raw := `{"action":"answer","text":"done"}`
 	if _, ok := XMLToolCallToJSON(raw); ok {
