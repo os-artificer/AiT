@@ -20,11 +20,11 @@ const (
 	// ConfigFileName is the AiT YAML configuration basename under AppRoot.
 	ConfigFileName = "config.yaml"
 
-	appName         = "AiT"
-	legacyAppName   = "ait"
-	dbFile          = "ait.db"
-	scrollbackDir   = "scrollback"
-	historyBasename = "repl_history"
-	keyringDirName  = "keyring"
-	binDirName      = "bin"
+	appName                = "ait"
+	legacyMixedCaseAppName = "AiT"
+	dbFile                 = "ait.db"
+	scrollbackDir          = "scrollback"
+	historyBasename        = "repl_history"
+	keyringDirName         = "keyring"
+	binDirName             = "bin"
 )

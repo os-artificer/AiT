@@ -17,7 +17,6 @@
 package platform
 
 import (
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -40,6 +39,9 @@ func maybeMigrateLegacyDataRoot() error {
 	if legacyRoot == "" || legacyRoot == newRoot {
 		return nil
 	}
+	if pathsSameDir(legacyRoot, newRoot) {
+		return nil
+	}
 
 	legacyHas, err := dirHasContent(legacyRoot)
 	if err != nil || !legacyHas {
@@ -51,7 +53,7 @@ func maybeMigrateLegacyDataRoot() error {
 		return err
 	}
 	if newHasToolData {
-		_, _ = io.WriteString(os.Stderr, "AiT: data exists in both legacy and new directories; merge manually.\r\n")
+		warnLegacyDataConflict(legacyRoot, newRoot)
 		return nil
 	}
 
@@ -69,7 +71,7 @@ func maybeMigrateLegacyDataRoot() error {
 }
 
 func legacyDataRootPath() (string, error) {
-	return dataRootForName(legacyAppName)
+	return dataRootForName(legacyMixedCaseAppName)
 }
 
 func defaultAppRootPath() (string, error) {
@@ -114,13 +116,7 @@ func dirHasContent(dir string) (bool, error) {
 }
 
 func rootHasToolData(root string) (bool, error) {
-	if _, err := os.Stat(filepath.Join(root, dbFile)); err == nil {
-		return true, nil
-	}
-	if _, err := os.Stat(filepath.Join(root, ConfigFileName)); err == nil {
-		return true, nil
-	}
-	return false, nil
+	return len(listToolDataFiles(root)) > 0, nil
 }
 
 func verifyLegacyCopied(legacyRoot, newRoot string) error {

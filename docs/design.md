@@ -181,7 +181,7 @@ aitssh session --switch prod --tmux  # Switch and attach target in tmux mode
 
 ## Data model (SQLite)
 
-Database file: `<AppRoot>/ait.db` where **`AppRoot`** is the unified runtime directory ([`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)). Defaults: Linux `~/.local/share/AiT`, macOS `~/Library/Application Support/AiT`, Windows `%LOCALAPPDATA%\AiT`. Legacy data under `~/.local/share/ait` (`legacyAppName`) is migrated on first run. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. See [Runtime file layout](#runtime-file-layout-approot) for the full tree.
+Database file: `<AppRoot>/ait.db` where **`AppRoot`** is the unified runtime directory ([`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)). Defaults: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%\ait`. Mixed-case legacy data under `~/.local/share/AiT` (`legacyMixedCaseAppName`) is migrated on first run when the canonical `ait` directory has no session files yet. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. See [Runtime file layout](#runtime-file-layout-approot) for the full tree.
 
 ```sql
 CREATE TABLE sessions (
@@ -222,7 +222,7 @@ CREATE TABLE app_meta (
 
 **Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `aitssh config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<AppRoot>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
 
-**Runtime file layout (`AppRoot`):** All AiT-owned runtime files live under one directory (`platform.AppRoot()` = `DataDir()` = `ConfigDir()`). Set **`AIT_HOME`** (or **`AIT_DATA_DIR`** when `AIT_HOME` is unset) to override. Default paths: Linux `~/.local/share/AiT`, macOS `~/Library/Application Support/AiT`, Windows `%LOCALAPPDATA%/AiT`. On upgrade, legacy paths are migrated into `AppRoot` on first use: data root `~/.local/share/ait` (`legacyAppName`), Linux config `$XDG_CONFIG_HOME/ait/config.yaml` (typically `~/.config/ait/config.yaml`). Layout:
+**Runtime file layout (`AppRoot`):** All AiT-owned runtime files live under one directory (`platform.AppRoot()` = `DataDir()` = `ConfigDir()`). Set **`AIT_HOME`** (or **`AIT_DATA_DIR`** when `AIT_HOME` is unset) to override. Default paths: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%/ait`. On upgrade, mixed-case data root `~/.local/share/AiT` (`legacyMixedCaseAppName`) is migrated into `AppRoot` on first use when safe; Linux config `$XDG_CONFIG_HOME/ait/config.yaml` (typically `~/.config/ait/config.yaml`) is also migrated. Layout:
 
 ```text
 <AppRoot>/

@@ -37,11 +37,11 @@ var ringOpen = defaultOpen
 //	AIT_KEYRING_DIR=<path>     directory for the file backend (default: <DataDir>/keyring).
 //	AIT_KEYRING_FILE_PASSWORD  master password for the file backend (default: ait-test for dev).
 const (
-	serviceName       = "AiT"
-	legacyServiceName = "ait"
-	envBackend        = "AIT_KEYRING_BACKEND"
-	envFileDir        = "AIT_KEYRING_DIR"
-	envFilePassword   = "AIT_KEYRING_FILE_PASSWORD"
+	serviceName                = "ait"
+	legacyMixedCaseServiceName = "AiT"
+	envBackend                 = "AIT_KEYRING_BACKEND"
+	envFileDir                 = "AIT_KEYRING_DIR"
+	envFilePassword            = "AIT_KEYRING_FILE_PASSWORD"
 )
 
 func defaultOpen() (keyring.Keyring, error) {
@@ -63,7 +63,7 @@ func openRingWithService(name string) (keyring.Keyring, error) {
 }
 
 func openLegacyRing() (keyring.Keyring, error) {
-	return openRingWithService(legacyServiceName)
+	return openRingWithService(legacyMixedCaseServiceName)
 }
 
 func getItem(key string) (keyring.Item, error) {

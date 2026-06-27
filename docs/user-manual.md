@@ -45,7 +45,7 @@ Optional config template:
 
 ```bash
 ./bin/aitssh config init
-# Or manually: mkdir -p ~/.local/share/AiT && cp configs/ait.example.yaml ~/.local/share/AiT/config.yaml
+# Or manually: mkdir -p ~/.local/share/ait && cp configs/ait.example.yaml ~/.local/share/ait/config.yaml
 ```
 
 ---
@@ -166,9 +166,9 @@ In-session meta prefix is **`!ait`**, not `!aitssh`; standalone CLI/binary is **
 
 | Platform | Default `AppRoot` (config, DB, scrollback, history, …) |
 |----------|--------------------------------------------------------|
-| Linux | `~/.local/share/AiT/` |
-| macOS | `~/Library/Application Support/AiT/` |
-| Windows | `%LOCALAPPDATA%\AiT\` |
+| Linux | `~/.local/share/ait/` |
+| macOS | `~/Library/Application Support/ait/` |
+| Windows | `%LOCALAPPDATA%\ait\` |
 
 All AiT runtime files live under one **`AppRoot`** directory. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. On Linux upgrade from older builds, legacy config at `$XDG_CONFIG_HOME/ait/config.yaml` (typically `~/.config/ait/config.yaml`) is migrated automatically. Run **`aitssh config init`** after install to create or fill in missing keys in `config.yaml`.
 
