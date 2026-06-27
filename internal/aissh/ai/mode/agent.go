@@ -25,6 +25,8 @@ import (
 	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/aissh/ai/mode/risk"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	pkgagent "github.com/os-artificer/AiT/internal/pkg/ai/agent"
+	"github.com/os-artificer/AiT/internal/pkg/ai/client"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
@@ -37,21 +39,32 @@ func runAgentTurn(ctx context.Context, opt Options, st *sessionState, question s
 	env := assistEnv(opt, st)
 	userMsg := question
 	maxSteps := opt.MaxAgentSteps(agentMaxSteps)
+	parseState := newAgentParseRetryState(st.history)
 
 	for step := 0; step < maxSteps; step++ {
-		reply, _, updated, err := opt.AI.ChatAgent(ctx, st.history, userMsg, env)
+		reply, _, updated, chatErr := opt.AI.ChatAgent(ctx, st.history, userMsg, env)
+		if chatErr != nil {
+			return chatErr
+		}
+
+		parseResult := pkgagent.ResolveAgentReply(reply)
+		if !parseResult.OK() {
+			userMsg, chatErr = handleAgentParseFailure(st, &parseState, userMsg, reply, parseResult)
+			if chatErr != nil {
+				return chatErr
+			}
+			continue
+		}
+
+		canonical, err := parseResult.Envelope.CanonicalJSON()
 		if err != nil {
-			return err
+			st.history = parseState.turnStartHistory
+			return formatMalformedReplyErr()
 		}
-		st.history = updated
+		st.history = client.ReplaceLastAssistant(updated, canonical)
 
-		act, ok := agent.ParseAction(reply)
-		if !ok {
-			aimWrite(opt.Out, reply+"\r\n")
-			return nil
-		}
-
-		result, done, err := executeAgentAction(ctx, opt, st, act)
+		act := agent.EnvelopeToAction(parseResult.Envelope)
+		toolResult, done, err := executeAgentAction(ctx, opt, st, act)
 		if err != nil {
 			return err
 		}
@@ -59,7 +72,7 @@ func runAgentTurn(ctx context.Context, opt Options, st *sessionState, question s
 			return nil
 		}
 
-		userMsg = "tool_result:\n" + result
+		userMsg = pkgagent.ToolResultPrefix + toolResult
 	}
 
 	aimWrite(opt.Out, fmt.Sprintf(msgAgentStepLimitFmt, maxSteps))

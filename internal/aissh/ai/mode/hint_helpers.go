@@ -96,3 +96,11 @@ func cliExecutorNotConfiguredErr() error {
 		"Internal wiring error; restart "+toolname.AISsh+".",
 	)
 }
+
+func formatMalformedReplyErr() error {
+	return errhint.WithTry(ErrAgentMalformedReply,
+		"Rephrase your question or switch to Ask mode.",
+		"mode ask",
+		"help",
+	)
+}

@@ -76,12 +76,23 @@ func TestParseAction_ES6UnicodeAnswer(t *testing.T) {
 	}
 }
 
-// ParseAction returns false for empty or unparseable input.
+// ParseAction returns false for empty input.
 func TestParseAction_Empty(t *testing.T) {
-	for _, in := range []string{"", "   ", "not json"} {
+	for _, in := range []string{"", "   "} {
 		if _, ok := ParseAction(in); ok {
 			t.Fatalf("expected !ok for %q", in)
 		}
+	}
+}
+
+// AF3: prose without JSON envelope parses as answer via ResolveAgentReply SSOT.
+func TestParseAction_Prose(t *testing.T) {
+	act, ok := ParseAction("not json")
+	if !ok || !act.IsAnswer() {
+		t.Fatalf("act=%+v ok=%v", act, ok)
+	}
+	if act.Text != "not json" {
+		t.Fatalf("text=%q", act.Text)
 	}
 }
 

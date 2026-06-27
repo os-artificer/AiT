@@ -33,6 +33,14 @@ var replOnlyTopLevelWords = map[string]struct{}{
 	"ll": {},
 }
 
+// removedTopLevelWords are legacy top-level verbs (S1/R17) routed to Cobra unknown, not SSH dial.
+var removedTopLevelWords = map[string]struct{}{
+	"list":    {},
+	"load":    {},
+	"suspend": {},
+	"models":  {},
+}
+
 var reservedSubcommands map[string]struct{}
 
 // SetReservedSubcommandNames replaces the registry-synced top-level subcommand names.
@@ -73,6 +81,9 @@ func IsSSHConnectArgs(args []string) bool {
 		return false
 	}
 	if _, replOnly := replOnlyTopLevelWords[args[0]]; replOnly {
+		return false
+	}
+	if _, removed := removedTopLevelWords[args[0]]; removed {
 		return false
 	}
 	return !IsReservedSubcommand(args[0])

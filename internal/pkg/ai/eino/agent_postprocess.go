@@ -52,7 +52,7 @@ func ProcessAgentMessage(msg *schema.Message) (reply, thinking string, err error
 		return toolJSON, strings.TrimSpace(msg.ReasoningContent), nil
 	}
 
-	reply, thinking = ExtractReply(content)
+	reply, thinking = extractAgentReplyContent(content)
 	if rc := strings.TrimSpace(msg.ReasoningContent); rc != "" {
 		thinking = rc
 	}
@@ -67,13 +67,23 @@ func ProcessAnthropicAgentText(content, blockThinking string) (reply, thinking s
 		return toolJSON, strings.TrimSpace(blockThinking)
 	}
 
-	reply, extracted := ExtractReply(content)
+	reply, extracted := extractAgentReplyContent(content)
 	thinking = strings.TrimSpace(blockThinking)
 	if extracted != "" {
 		if thinking != "" {
 			thinking += "\n"
 		}
 		thinking += extracted
+	}
+	return reply, thinking
+}
+
+// extractAgentReplyContent runs ExtractReply and preserves raw content when stripping would leave an empty reply.
+// ExtractReply removes trailing partial agent JSON; ResolveAgentReply heuristics need the raw bytes (C8).
+func extractAgentReplyContent(content string) (reply, thinking string) {
+	reply, thinking = ExtractReply(content)
+	if strings.TrimSpace(reply) == "" && content != "" {
+		reply = content
 	}
 	return reply, thinking
 }
