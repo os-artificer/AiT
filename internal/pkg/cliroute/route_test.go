@@ -35,7 +35,10 @@ func TestRoute_IsSSHConnectArgs(t *testing.T) {
 		{[]string{"user@host"}, true},
 		{[]string{"--save"}, true},
 		{[]string{"devhost"}, true},
-		{[]string{"list"}, true},
+		{[]string{"list"}, false},
+		{[]string{"load"}, false},
+		{[]string{"suspend"}, false},
+		{[]string{"models"}, false},
 	}
 	for _, tc := range cases {
 		if got := IsSSHConnectArgs(tc.args); got != tc.want {

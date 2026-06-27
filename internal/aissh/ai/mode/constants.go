@@ -59,3 +59,6 @@ const (
 	msgAgentStepLimitFmt       = "AiT: agent step limit reached (max %d steps). " +
 		"Use 'mode ask' for complex tasks, or set ai.agent.max_steps in config.\r\n"
 )
+
+// ErrAgentMalformedReply is returned when Agent S1+S2 format recovery is exhausted.
+var ErrAgentMalformedReply = errhint.NewSentinel("could not parse agent response")
