@@ -182,7 +182,7 @@ aitssh session --switch prod --tmux  # 切换并以 tmux 模式 attach 目标
 
 ## 数据模型（SQLite）
 
-数据库文件：`<AppRoot>/ait.db`，其中 **`AppRoot`** 为统一运行时目录（[`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)）。默认：Linux `~/.local/share/AiT`，macOS `~/Library/Application Support/AiT`，Windows `%LOCALAPPDATA%\AiT`。旧版数据目录 `~/.local/share/ait`（`legacyAppName`）在首次运行时自动迁移。可用 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。完整目录树见 [运行时文件布局](#运行时文件布局approot)。
+数据库文件：`<AppRoot>/ait.db`，其中 **`AppRoot`** 为统一运行时目录（[`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)）。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%\ait`。若 canonical `ait` 目录尚无会话文件，首次运行时会从混写旧目录 `~/.local/share/AiT`（`legacyMixedCaseAppName`）迁移。可用 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。完整目录树见 [运行时文件布局](#运行时文件布局approot)。
 
 ```sql
 CREATE TABLE sessions (
@@ -223,7 +223,7 @@ CREATE TABLE app_meta (
 
 **凭证存储：** SSH 密码不落明文 SQLite；7 天内有期缓存放 **OS keyring**（key: `ait/session/<id>/unlock`），过期自动要求重输。私钥仍只存路径。AI provider API Key 使用 `ai/<provider>/api_key`（CLI：`aitssh config set ai.deepseek.api_key`；旧键 `deepseek.api_key` 读取时迁移）。桌面环境优先 Secret Service / Keychain / WinCred；无 D-Bus 等 **headless** 场景回退到 `<AppRoot>/keyring` 加密文件目录（`platform.KeyringDir`）。可用 `AIT_KEYRING_DIR` 覆盖路径；headless 建议设置 `AIT_KEYRING_FILE_PASSWORD`（默认开发口令仅适合本机）。`AIT_KEYRING_BACKEND=file` 可强制仅文件后端。
 
-**运行时文件布局（`AppRoot`）：** 所有 AiT 自有运行时文件位于同一目录（`platform.AppRoot()` = `DataDir()` = `ConfigDir()`）。可通过 **`AIT_HOME`**（未设置时可用 **`AIT_DATA_DIR`**）覆盖。默认：Linux `~/.local/share/AiT`，macOS `~/Library/Application Support/AiT`，Windows `%LOCALAPPDATA%/AiT`。升级时旧路径在首次使用时迁入 `AppRoot`：数据根 `~/.local/share/ait`（`legacyAppName`）、Linux 配置 `$XDG_CONFIG_HOME/ait/config.yaml`（通常为 `~/.config/ait/config.yaml`）。目录结构：
+**运行时文件布局（`AppRoot`）：** 所有 AiT 自有运行时文件位于同一目录（`platform.AppRoot()` = `DataDir()` = `ConfigDir()`）。可通过 **`AIT_HOME`**（未设置时可用 **`AIT_DATA_DIR`**）覆盖。默认：Linux `~/.local/share/ait`，macOS `~/Library/Application Support/ait`，Windows `%LOCALAPPDATA%/ait`。升级时，若可安全迁移，混写数据根 `~/.local/share/AiT`（`legacyMixedCaseAppName`）在首次使用时迁入 `AppRoot`；Linux 配置 `$XDG_CONFIG_HOME/ait/config.yaml`（通常为 `~/.config/ait/config.yaml`）亦会迁移。目录结构：
 
 ```text
 <AppRoot>/

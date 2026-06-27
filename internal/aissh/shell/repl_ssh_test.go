@@ -89,6 +89,9 @@ func TestExecuteLine_SSHFlagLedConnect(t *testing.T) {
 }
 
 func TestExecuteLine_SSHStyleConnect(t *testing.T) {
+	t.Setenv("AIT_HOME", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+
 	cliroute.SetHostConfiguredHook(func(name string) bool { return name == "devhost" })
 	t.Cleanup(func() { cliroute.SetHostConfiguredHook(nil) })
 
@@ -127,6 +130,9 @@ func TestExecuteLine_SSHHostPortConnect(t *testing.T) {
 }
 
 func TestExecuteLine_SSHConnectBlockedWhenActive(t *testing.T) {
+	t.Setenv("AIT_HOME", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+
 	cliroute.SetHostConfiguredHook(func(string) bool { return true })
 	t.Cleanup(func() { cliroute.SetHostConfiguredHook(nil) })
 

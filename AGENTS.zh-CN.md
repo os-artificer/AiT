@@ -20,7 +20,7 @@ make test-cross  # 五平台 go build ./...（linux/darwin/windows）
 ## 功能概览
 
 - **SSH 会话**：默认 OpenSSH 形连接（`aitssh [flags] destination`）、`shell`、`session`（`--list`、`--load`、`--suspend`、`--switch`、`--delete`）；无 `login` 子命令
-- **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）
+- **持久化**：SQLite（`internal/pkg/store`）；挂起时保存 scrollback/工作目录；认证 TTL 由 `session.auth_ttl` 配置（默认 7 天；密钥走 keyring）；默认 `AppRoot`：Linux `~/.local/share/ait`、macOS `~/Library/Application Support/ait`、Windows `%LOCALAPPDATA%\ait`；可用 `AIT_HOME` 覆盖
 - **可选 tmux**：connect/`load`/`switch` 使用 `--tmux` 实现远程会话保活（`internal/pkg/tmux`）；`--tmux` 隐含 `--save` 并保存 `login_destination`（ssh config Host 名如 devhost）
 - **AI**：多 provider 路由 + `tiered`；`aitssh ai ask` / `aitssh ai agent` 单轮；`aitssh ai provider enable|disable`；`aitssh ai ollama`（setup/status/start/stop/disable；`models_dir`/`OLLAMA_MODELS`；安装前 [y/N]）；REPL `model` / `aitssh ai model list`；SSH `!ait ai ask` / `!! ask`
 - **传输**：`aitssh get` / `aitssh put` — SFTP 单文件（`internal/pkg/transfer`）；`!ait get` / `!ait put` 复用当前 SSH（统一路由：优先 lrzsz/ZMODEM，直连无 lrzsz 回退 SFTP，链式缺失时可授权自动安装）

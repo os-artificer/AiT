@@ -31,28 +31,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newRootCmd builds the Cobra root command with registry-attached subcommands and shared help binding.
-func newRootCmd() *cobra.Command {
-	root := &cobra.Command{
-		Use:           toolname.AISsh,
-		Short:         "AiT aitssh — AI-enhanced SSH client",
-		Long:          pkghelpdoc.LongHint(toolname.AISsh),
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-
-	registry.AttachRoot(root, registry.Deps{
-		RunWithMgr:       runWithManager,
-		ExecuteWriters:   ExecuteWriters,
-		ExecuteCobraOnly: ExecuteCobraOnly,
-	})
-
-	root.SetHelpFunc(func(c *cobra.Command, _ []string) {
-		_ = registry.WriteRootHelp(c.OutOrStdout())
-	})
-	return root
-}
-
 // Execute runs the Cobra root with args on os.Stdout and os.Stderr.
 // Returns Cobra execution errors (including subcommand failures); does not set os.Exit.
 func Execute(args []string) error {
@@ -83,6 +61,28 @@ func ExecuteCobraOnly(args []string, out, errOut io.Writer) error {
 		return registry.WriteRootHelp(out)
 	}
 	return executeCobraRoot(args, out, errOut)
+}
+
+// newRootCmd builds the Cobra root command with registry-attached subcommands and shared help binding.
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:           toolname.AISsh,
+		Short:         "AiT aitssh — AI-enhanced SSH client",
+		Long:          pkghelpdoc.LongHint(toolname.AISsh),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	registry.AttachRoot(root, registry.Deps{
+		RunWithMgr:       runWithManager,
+		ExecuteWriters:   ExecuteWriters,
+		ExecuteCobraOnly: ExecuteCobraOnly,
+	})
+
+	root.SetHelpFunc(func(c *cobra.Command, _ []string) {
+		_ = registry.WriteRootHelp(c.OutOrStdout())
+	})
+	return root
 }
 
 func executeCobraRoot(args []string, out, errOut io.Writer) error {

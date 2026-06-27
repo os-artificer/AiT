@@ -45,7 +45,7 @@
 
 ```bash
 ./bin/aitssh config init
-# 或手动：mkdir -p ~/.local/share/AiT && cp configs/ait.example.yaml ~/.local/share/AiT/config.yaml
+# 或手动：mkdir -p ~/.local/share/ait && cp configs/ait.example.yaml ~/.local/share/ait/config.yaml
 ```
 
 ---
@@ -166,9 +166,9 @@ SSH 会话（顶层 `aitssh user@host` 或 `session --load`）与 `!ait local` �
 
 | 平台 | 默认 `AppRoot`（config、数据库、scrollback、历史等） |
 |------|------------------------------------------------------|
-| Linux | `~/.local/share/AiT/` |
-| macOS | `~/Library/Application Support/AiT/` |
-| Windows | `%LOCALAPPDATA%\AiT\` |
+| Linux | `~/.local/share/ait/` |
+| macOS | `~/Library/Application Support/ait/` |
+| Windows | `%LOCALAPPDATA%\ait\` |
 
 可通过 **`AIT_HOME`** 或 **`AIT_DATA_DIR`** 覆盖。Linux 从旧版升级时，旧路径 `$XDG_CONFIG_HOME/ait/config.yaml`（通常为 `~/.config/ait/config.yaml`）会在首次读取时自动迁入 `AppRoot`。安装后建议执行 **`aitssh config init`** 补全缺失配置项。
 

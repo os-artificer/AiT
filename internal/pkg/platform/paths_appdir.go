@@ -82,9 +82,9 @@ func legacyConfigDir() (string, error) {
 	}
 
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, legacyAppName), nil
+		return filepath.Join(xdg, appName), nil
 	}
-	return filepath.Join(home, ".config", legacyAppName), nil
+	return filepath.Join(home, ".config", appName), nil
 }
 
 func resolveHomeOverride() string {
