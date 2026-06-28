@@ -5,12 +5,10 @@
 本文仅记录 **产品与 CLI** 的功能性变更，不包含纯文档类更新。
 发版后请将 `[未发布]` 中的条目移至带日期的版本段。
 
-## [Unreleased]
+## [v1.0.0]
 
-- **CLI 重命名：** 工具箱首个工具为 `aitssh`（`bin/aitssh`、会话内 `!ait` meta）；默认数据根 `~/.local/share/ait`，若存在混写 `AiT` 目录则自动迁移；keyring 主服务名 `ait`，惰性读取旧 `AiT` 条目。若 `share/ait` 与 `share/AiT` 均含会话数据，需手动合并（含 `keyring/`）。
-- **破坏性变更：** 二进制与 CLI 命令由 `ai-ssh` 重命名为 `aitssh`（`go install github.com/os-artificer/AiT/cmd/aitssh@latest`）。脚本与 PATH 别名须改用 `aitssh`；可选过渡：`ln -s aitssh ai-ssh`。
-- **破坏性变更：** 会话内 meta 前缀为 `!ait`；`!ai-ssh` 不再识别。`!!` 仍为 AI 快捷方式。
-- **AI (Eino refactor):** Replace `sashabaranov/go-openai` with CloudWeGo Eino ChatModel; shared DTOs in `internal/pkg/ai/apitypes`; tiered Chat routes to Ollama via Eino; tiered Agent on Ollama and Anthropic-style providers use `specialized_agent_completion`; `aitssh ai agent` 单轮现已与 REPL 一样接入 Capture/CLI/MaxSteps。
+- 【优化】优化项目代码结构，按照模块名进行独立模块划分，将SSH Client重命名为 aitssh，为后续扩展其他功能打基础。
+- 【优化】采用Eino框架对AI模块重构，并且完善与LLM模块交互时的兜底逻辑解决LLM返回结构不标准的问题。
 
 ## [v1.0.0-beta.2]
 
