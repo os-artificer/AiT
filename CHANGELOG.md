@@ -4,6 +4,10 @@
 
 This file records **product and CLI** functional changes only; documentation-only updates are not included. When a release is tagged, move items from `[Unreleased]` into a dated version section.
 
+## [Unreleased]
+
+- 【Fixed】Chain-mode (PTY/ZMODEM) `!ait put` no longer hangs at the `finishing…` phase, including zero-byte uploads; improved ZMODEM send teardown.
+
 ## [v1.0.0]
 
 - 【Optimized】Restructure the project codebase into independent modules by package name; rename the SSH client to `aitssh` to lay the groundwork for extending the toolbox with more tools.

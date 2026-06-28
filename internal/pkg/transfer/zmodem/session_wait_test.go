@@ -135,7 +135,221 @@ func TestSession_Wait_TeardownAfterZFINWithPrefix(t *testing.T) {
 	}
 }
 
-// TestSession_Wait_SendTeardownAfterUpload (V13) signals dataDone at 100% and completes after ZFIN.
+// TestSession_Wait_SendZeroByteForceReleaseWithoutRemoteZFIN (AF-put-d) completes send put when remote never answers ZFIN.
+func TestSession_Wait_SendZeroByteForceReleaseWithoutRemoteZFIN(t *testing.T) {
+	orig := sendTeardownForceReleaseDuration
+	sendTeardownForceReleaseDuration = 100 * time.Millisecond
+	defer func() { sendTeardownForceReleaseDuration = orig }()
+
+	dir := t.TempDir()
+	path := dir + "/empty"
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var ptyOut captureWriter
+	sess, err := NewSendSession(&ptyOut, path, "remote.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.SetChainTeardown(true)
+
+	zrinit, err := xzmodem.HexFrameBytes(xzmodem.ZRINIT, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zrpos, err := xzmodem.HexFrameBytes(xzmodem.ZRPOS, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- sess.Wait(t.Context())
+	}()
+
+	if _, err := sess.Feed(zrinit); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sess.Feed(zrpos); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Wait: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("send Wait timed out without remote ZFIN (expected force release)")
+	}
+}
+
+// TestSession_Wait_SendZeroByteProactiveZFINAfterEOF (AF-put-c) completes when local sz sends ZFIN right after ZEOF.
+func TestSession_Wait_SendZeroByteProactiveZFINAfterEOF(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/empty"
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var ptyOut captureWriter
+	sess, err := NewSendSession(&ptyOut, path, "remote.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.SetChainTeardown(true)
+
+	zrinit, err := xzmodem.HexFrameBytes(xzmodem.ZRINIT, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zrpos, err := xzmodem.HexFrameBytes(xzmodem.ZRPOS, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zfin, err := xzmodem.HexFrameBytes(xzmodem.ZFIN, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- sess.Wait(t.Context())
+	}()
+
+	if _, err := sess.Feed(zrinit); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sess.Feed(zrpos); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if _, err := sess.Feed(zfin); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Wait: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("send Wait timed out without remote ZFIN after proactive local ZFIN")
+	}
+}
+
+// TestSession_Wait_SendZeroByteZRPOSRetryAfterEOF (AF-put-b) completes when remote rz retries ZRPOS after ZEOF.
+func TestSession_Wait_SendZeroByteZRPOSRetryAfterEOF(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/empty"
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var ptyOut captureWriter
+	sess, err := NewSendSession(&ptyOut, path, "remote.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.SetChainTeardown(true)
+
+	zrinit, err := xzmodem.HexFrameBytes(xzmodem.ZRINIT, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zrpos, err := xzmodem.HexFrameBytes(xzmodem.ZRPOS, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zfin, err := xzmodem.HexFrameBytes(xzmodem.ZFIN, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- sess.Wait(t.Context())
+	}()
+
+	if _, err := sess.Feed(zrinit); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sess.Feed(zrpos); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if _, err := sess.Feed(zrpos); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if _, err := sess.Feed(zfin); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Wait: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("send Wait timed out after ZRPOS retry post-EOF")
+	}
+}
+
+// TestSession_Wait_SendZeroByteUpload (AF-put) signals dataDone for empty local files.
+func TestSession_Wait_SendZeroByteUpload(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/empty"
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var ptyOut captureWriter
+	sess, err := NewSendSession(&ptyOut, path, "remote.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	zrinit, err := xzmodem.HexFrameBytes(xzmodem.ZRINIT, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zrpos, err := xzmodem.HexFrameBytes(xzmodem.ZRPOS, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zfin, err := xzmodem.HexFrameBytes(xzmodem.ZFIN, xzmodem.DEFAULT_HEADER_DATA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- sess.Wait(t.Context())
+	}()
+
+	if _, err := sess.Feed(zrinit); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sess.Feed(zrpos); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if _, err := sess.Feed(zfin); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Wait: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("zero-byte send Wait timed out (dataDone likely never signaled)")
+	}
+}
+
 func TestSession_Wait_SendTeardownAfterUpload(t *testing.T) {
 	zfin, err := xzmodem.HexFrameBytes(xzmodem.ZFIN, xzmodem.DEFAULT_HEADER_DATA)
 	if err != nil {

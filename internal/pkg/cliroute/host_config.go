@@ -131,34 +131,34 @@ func hostPatternMatch(pattern, name string) bool {
 }
 
 func sshGlobMatch(pattern, name string) bool {
-	for {
-		star := strings.Index(pattern, "*")
-		if star < 0 {
-			return matchRunes([]rune(pattern), []rune(name))
+	star := strings.Index(pattern, "*")
+	if star < 0 {
+		return matchRunes([]rune(pattern), []rune(name))
+	}
+
+	prefix := pattern[:star]
+	pattern = pattern[star+1:]
+	if prefix == "" {
+		if pattern == "" {
+			return true
 		}
-		prefix := pattern[:star]
-		pattern = pattern[star+1:]
-		if prefix == "" {
-			if pattern == "" {
+		for i := 0; i <= len(name); i++ {
+			if sshGlobMatch(pattern, name[i:]) {
 				return true
 			}
-			for i := 0; i <= len(name); i++ {
-				if sshGlobMatch(pattern, name[i:]) {
-					return true
-				}
-			}
-			return false
-		}
-		idx := strings.Index(name, prefix)
-		for idx >= 0 {
-			if sshGlobMatch(pattern, name[idx+len(prefix):]) {
-				return true
-			}
-			name = name[idx+1:]
-			idx = strings.Index(name, prefix)
 		}
 		return false
 	}
+
+	idx := strings.Index(name, prefix)
+	for idx >= 0 {
+		if sshGlobMatch(pattern, name[idx+len(prefix):]) {
+			return true
+		}
+		name = name[idx+1:]
+		idx = strings.Index(name, prefix)
+	}
+	return false
 }
 
 func matchRunes(pat, name []rune) bool {

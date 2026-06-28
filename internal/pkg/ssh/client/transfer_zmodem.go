@@ -105,8 +105,9 @@ func (t *ZModemTransfer) Put(ctx context.Context, stdin io.Writer, localPath, re
 		return fmt.Errorf("zmodem put: local read %q: %w", localPath, err)
 	}
 
+	fileSize := info.Size()
 	if t.progress != nil {
-		t.progress.StartPut(localPath, remotePath, info.Size())
+		t.progress.StartPut(localPath, remotePath, fileSize)
 		t.progress.PhaseInline("handshake…")
 	}
 

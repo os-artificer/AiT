@@ -32,12 +32,16 @@ import (
 )
 
 const (
-	waitPollInterval     = 50 * time.Millisecond
-	handshakeTimeout     = 30 * time.Second
-	teardownTimeout      = 15 * time.Second
-	teardownTimeoutChain = 30 * time.Second
-	waitMaxDuration      = 30 * time.Minute
+	waitPollInterval         = 50 * time.Millisecond
+	handshakeTimeout         = 30 * time.Second
+	teardownTimeout          = 15 * time.Second
+	teardownTimeoutChain     = 30 * time.Second
+	sendTeardownForceRelease = 2 * time.Second
+	waitMaxDuration          = 30 * time.Minute
 )
+
+// sendTeardownForceReleaseDuration is how long send teardown waits for remote ZFIN before force release (tests).
+var sendTeardownForceReleaseDuration = sendTeardownForceRelease
 
 // handshakeTimeoutDuration is the wait for the remote sz/rz peer to start (overridable in tests).
 var handshakeTimeoutDuration = handshakeTimeout
@@ -67,6 +71,7 @@ type Session struct {
 	done    chan error
 	once    sync.Once
 	started atomic.Bool
+	isSend  bool
 	// testBlockIdle forces non-idle status after data done (tests in this package only).
 	testBlockIdle atomic.Bool
 	chainTeardown atomic.Bool
@@ -136,7 +141,7 @@ func NewSendSession(ptyOut io.Writer, localPath, remoteName string, progress Pro
 	var uploaded bool
 	total := int64(zf.Size)
 
-	s := &Session{done: make(chan error, 1), ptyOut: ptyOut}
+	s := &Session{done: make(chan error, 1), ptyOut: ptyOut, isSend: true}
 	s.engine = xzmodem.New(xzmodem.ZModemConsumer{
 		Writer:     ptyOut,
 		EchoWriter: io.Discard,
@@ -205,6 +210,7 @@ func (s *Session) Wait(ctx context.Context) error {
 
 	dataDone := false
 	var teardownDeadline time.Time
+	var teardownStarted time.Time
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -233,6 +239,7 @@ func (s *Session) Wait(ctx context.Context) error {
 				}
 				dataDone = true
 				teardownDeadline = time.Now().Add(s.teardownLimit())
+				teardownStarted = time.Now()
 			case <-ticker.C:
 				now := time.Now()
 				if !s.started.Load() && now.After(handshakeDeadline) {
@@ -262,6 +269,16 @@ func (s *Session) Wait(ctx context.Context) error {
 		case <-ticker.C:
 			if s.engine.HasUnread() {
 				s.engine.PumpUnread()
+			}
+			if s.isSend && s.engine.SendFileEOF() {
+				if s.engine.TryCompleteSendTeardown() {
+					continue
+				}
+				if !teardownStarted.IsZero() &&
+					time.Since(teardownStarted) >= sendTeardownForceReleaseDuration {
+					s.engine.ForceRelease()
+					continue
+				}
 			}
 			if time.Now().After(teardownDeadline) {
 				s.Abort()
