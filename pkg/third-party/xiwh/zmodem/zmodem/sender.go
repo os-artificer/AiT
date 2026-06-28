@@ -51,6 +51,10 @@ func (t *ZModem) handleSend() {
 				t.close()
 				return
 			}
+			if t.sendFileEOF {
+				err = t.sendFrame(newHexFrame(ZFIN, DEFAULT_HEADER_DATA))
+				break
+			}
 
 			//发送文件内容
 			err = t.sendFrame(newBinFrame(ZDATA, DEFAULT_HEADER_DATA))
@@ -92,7 +96,17 @@ func (t *ZModem) handleSend() {
 				sizeBytes := make([]byte, 4)
 				binary.LittleEndian.PutUint32(sizeBytes, uint32(size))
 				err = t.sendFrame(newBinFrame(ZEOF, sizeBytes))
+				if err != nil {
+					return
+				}
 				t.sendFileEOF = true
+				err = t.sendFrame(newHexFrame(ZFIN, DEFAULT_HEADER_DATA))
+				if err != nil {
+					return
+				}
+				if size == 0 && t.consumer.OnUploadProgress != nil {
+					t.consumer.OnUploadProgress(0, 0)
+				}
 			}
 		case ZSKIP:
 			//跳过
