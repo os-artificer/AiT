@@ -1,4 +1,4 @@
-//go:build unix
+//go:build linux
 
 /**
  * Copyright 2026 AiT authors.

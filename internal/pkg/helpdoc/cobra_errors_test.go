@@ -18,11 +18,14 @@ package helpdoc
 
 import (
 	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestIsUnknownCommand(t *testing.T) {
-	if !IsUnknownCommand(errors.New(`unknown command "foo" for "ait"`)) {
+	if !IsUnknownCommand(errors.New(fmt.Sprintf(`unknown command "foo" for "%s"`, toolname.AISsh))) {
 		t.Fatal("expected unknown command")
 	}
 	if IsUnknownCommand(errors.New("usage: session")) {

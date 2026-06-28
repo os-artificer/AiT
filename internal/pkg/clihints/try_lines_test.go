@@ -16,27 +16,32 @@
 
 package clihints
 
-import "testing"
+import (
+	"strings"
+	"testing"
 
-func TestTryLines_LoginSaveVariantsDiffer(t *testing.T) {
-	if TryLoginSave == "" || TryLoginSaveUserHost == "" {
-		t.Fatal("login save try lines must be non-empty")
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
+
+func TestTryLines_ConnectSaveVariantsDiffer(t *testing.T) {
+	if TryConnectSave == "" || TryConnectSaveUserHost == "" {
+		t.Fatal("connect save try lines must be non-empty")
 	}
-	if TryLoginSave == TryLoginSaveUserHost {
-		t.Fatalf("session and openssh login save hints must differ: %q", TryLoginSave)
+	if TryConnectSave == TryConnectSaveUserHost {
+		t.Fatalf("session and openssh connect save hints must differ: %q", TryConnectSave)
 	}
-	if TryLoginSave != "ait login --save <destination>" {
-		t.Fatalf("TryLoginSave: got %q", TryLoginSave)
+	if TryConnectSave != toolname.CLI("--save <destination>") {
+		t.Fatalf("TryConnectSave: got %q", TryConnectSave)
 	}
-	if TryLoginSaveUserHost != "ait login --save user@host" {
-		t.Fatalf("TryLoginSaveUserHost: got %q", TryLoginSaveUserHost)
+	if TryConnectSaveUserHost != toolname.CLI("--save user@host") {
+		t.Fatalf("TryConnectSaveUserHost: got %q", TryConnectSaveUserHost)
 	}
 }
 
 func TestTryLines_SessionAndTransferNonEmpty(t *testing.T) {
 	lines := []string{
 		TrySessionList,
-		TryLoginExample,
+		TryConnectExample,
 		TryGetHelp,
 		TryPutHelp,
 		TryGetExample,
@@ -45,6 +50,41 @@ func TestTryLines_SessionAndTransferNonEmpty(t *testing.T) {
 	for _, line := range lines {
 		if line == "" {
 			t.Fatal("expected non-empty try line")
+		}
+	}
+}
+
+func TestTryLines_PrefixFromToolname(t *testing.T) {
+	lines := []string{
+		TrySessionList,
+		TrySessionLoadAlias,
+		TrySessionLoad,
+		TrySessionLoadOptional,
+		TrySessionLoadFullID,
+		TrySessionLoadPick,
+		TrySessionSwitchID,
+		TrySessionSwitch,
+		TrySessionSwitchForce,
+		TrySessionHelp,
+		TryConnectSave,
+		TryConnectAlias,
+		TryConnectHelp,
+		TryConnectTmuxUserHost,
+		TryConnectTmuxDevhost,
+		TryConnectTmuxSaveDevhost,
+		TryConnectExample,
+		TryConnectSaveUserHost,
+		TryConnectRemoteCmd,
+		TryGetHelp,
+		TryPutHelp,
+		TryGetExample,
+		TryPutExample,
+		TryGetSessionProd,
+		TryShellList,
+	}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, toolname.AISsh) {
+			t.Fatalf("try line %q must start with %q", line, toolname.AISsh)
 		}
 	}
 }

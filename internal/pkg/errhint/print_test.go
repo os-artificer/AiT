@@ -22,12 +22,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 )
 
 func TestPrint_CLI_NoPrefix(t *testing.T) {
 	var buf bytes.Buffer
-	err := WithTry(store.ErrSessionNotFound, "explain", "ait session --help")
+	err := WithTry(store.ErrSessionNotFound, "explain", clihints.TrySessionHelp)
 	Print(&buf, SurfaceCLI, err)
 	out := buf.String()
 	if strings.Contains(out, "AiT:") {
@@ -41,7 +42,7 @@ func TestPrint_CLI_NoPrefix(t *testing.T) {
 func TestPrint_TTY_Multiline(t *testing.T) {
 	var buf bytes.Buffer
 	err := WithTry(errors.New("session not found"), "The list ID column is for display only.",
-		"ait session --load <alias>",
+		clihints.TrySessionLoadAlias,
 	)
 	Print(&buf, SurfaceTTY, err)
 	out := buf.String()

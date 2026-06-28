@@ -22,20 +22,33 @@ import (
 )
 
 const (
-	XMLInvokeRun = "run"
-	XMLInvokeAit = "ait"
+	XMLInvokeRun   = "run"
+	XMLInvokeAISsh = "aish"
+	XMLInvokeAit   = "ait" // legacy MiniMax XML invoke name
 
 	JSONFieldAction  = "action"
 	JSONFieldCommand = "command"
 	JSONFieldArgs    = "args"
 	JSONFieldText    = "text"
 
+	ToolResultPrefix  = "tool_result:\n"
+	FormatErrorPrefix = "format_error: "
+
+	formatCorrectionIntro = "Your previous response was not valid Agent JSON. " +
+		"Reply with a single JSON object only (action answer/run_shell/aish_cli).\n\n" +
+		"Original question:\n"
+	formatCorrectionReplyLabel = "\n\nInvalid response (excerpt):\n"
+	formatCorrectionErrLabel   = "\n\nParse errors:\n"
+
 	errUnsupportedToolCall = "unsupported tool call"
 	errUnknownToolFmt      = "unknown tool %q"
+
+	promptExcerptMaxRunes = 500
+	toolErrExcerptRunes   = 200
 )
 
 // ActionNamePattern is the alternation of Agent JSON action names for regex use.
-const ActionNamePattern = ToolRunShell + "|" + ToolAitCLI + "|" + ToolAnswer
+const ActionNamePattern = XMLInvokeRun + "|" + ToolRunShell + "|" + XMLInvokeAISsh + "|" + ToolAISshCLI + "|" + XMLInvokeAit + "|" + ToolAitCLI + "|" + ToolAnswer
 
 // ErrUnsupportedToolCall is returned for non-function tool_call responses.
 var ErrUnsupportedToolCall = errors.New(errUnsupportedToolCall)

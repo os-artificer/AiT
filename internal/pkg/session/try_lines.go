@@ -19,34 +19,34 @@ package session
 import "github.com/os-artificer/AiT/internal/pkg/clihints"
 
 // Re-export Try-block lines from clihints (avoids import cycle with ssh/client).
-const (
-	TrySessionList          = clihints.TrySessionList
-	TrySessionLoadAlias     = clihints.TrySessionLoadAlias
-	TrySessionLoad          = clihints.TrySessionLoad
-	TrySessionLoadOptional  = clihints.TrySessionLoadOptional
-	TrySessionLoadFullID    = clihints.TrySessionLoadFullID
-	TrySessionLoadPick      = clihints.TrySessionLoadPick
-	TrySessionSwitchID      = clihints.TrySessionSwitchID
-	TrySessionSwitch        = clihints.TrySessionSwitch
-	TrySessionSwitchForce   = clihints.TrySessionSwitchForce
-	TrySessionHelp          = clihints.TrySessionHelp
-	TryLoginSave            = clihints.TryLoginSave
-	TryLoginAlias           = clihints.TryLoginAlias
-	TryLoginHelp            = clihints.TryLoginHelp
-	TryLoginTmuxUserHost    = clihints.TryLoginTmuxUserHost
-	TryLoginTmuxDevhost     = clihints.TryLoginTmuxDevhost
-	TryLoginTmuxSaveDevhost = clihints.TryLoginTmuxSaveDevhost
+var (
+	TrySessionList            = clihints.TrySessionList
+	TrySessionLoadAlias       = clihints.TrySessionLoadAlias
+	TrySessionLoad            = clihints.TrySessionLoad
+	TrySessionLoadOptional    = clihints.TrySessionLoadOptional
+	TrySessionLoadFullID      = clihints.TrySessionLoadFullID
+	TrySessionLoadPick        = clihints.TrySessionLoadPick
+	TrySessionSwitchID        = clihints.TrySessionSwitchID
+	TrySessionSwitch          = clihints.TrySessionSwitch
+	TrySessionSwitchForce     = clihints.TrySessionSwitchForce
+	TrySessionHelp            = clihints.TrySessionHelp
+	TryConnectSave            = clihints.TryConnectSave
+	TryConnectAlias           = clihints.TryConnectAlias
+	TryConnectHelp            = clihints.TryConnectHelp
+	TryConnectTmuxUserHost    = clihints.TryConnectTmuxUserHost
+	TryConnectTmuxDevhost     = clihints.TryConnectTmuxDevhost
+	TryConnectTmuxSaveDevhost = clihints.TryConnectTmuxSaveDevhost
 )
 
 // Private aliases for in-package hint helpers.
-const (
+var (
 	tryLoadByAlias     = clihints.TrySessionLoadAlias
 	tryLoadByFullID    = clihints.TrySessionLoadFullID
 	tryLoadInteractive = clihints.TrySessionLoadPick
 	trySessionHelp     = clihints.TrySessionHelp
 	tryLoadFromLocal   = clihints.TrySessionLoadOptional
 	trySwitchForce     = clihints.TrySessionSwitchForce
-	tryLoginSave       = clihints.TryLoginSave
-	tryLoginAlias      = clihints.TryLoginAlias
-	tryLoginHelp       = clihints.TryLoginHelp
+	tryConnectSave     = clihints.TryConnectSave
+	tryConnectAlias    = clihints.TryConnectAlias
+	tryConnectHelp     = clihints.TryConnectHelp
 )

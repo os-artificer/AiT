@@ -21,12 +21,13 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func destinationRequiredErr() error {
 	return errhint.WithTryMsg("destination required (e.g. user@host or ssh config Host alias)",
-		"Add a host destination after login options.",
-		clihints.TryLoginExample, clihints.TryLoginSaveUserHost, clihints.TryLoginHelp,
+		"Add a host destination after connection options.",
+		clihints.TryConnectExample, clihints.TryConnectSaveUserHost, clihints.TryConnectHelp,
 	)
 }
 
@@ -34,21 +35,21 @@ func destinationRequiredErr() error {
 func TmuxWithRemoteCommandErr() error {
 	return errhint.WithTryMsg("cannot use --tmux with a remote command",
 		"Tmux keeps an interactive shell; one-shot commands cannot use --tmux.",
-		clihints.TryLoginExample,
-		clihints.TryLoginRemoteCmd,
-		clihints.TryLoginHelp,
+		clihints.TryConnectExample,
+		clihints.TryConnectRemoteCmd,
+		clihints.TryConnectHelp,
 	)
 }
 
 func transferPathCountErr(cmdLabel string) error {
 	tries := []string{clihints.TryGetExample, clihints.TryGetHelp}
-	msg := "need 1 to 3 path arguments for ait get (remote path required; local optional)"
+	msg := "need 1 to 3 path arguments for " + toolname.CLI("get") + " (remote path required; local optional)"
 	if cmdLabel == "put" {
 		tries = []string{clihints.TryPutExample, clihints.TryPutHelp}
-		msg = "need 1 to 3 path arguments for ait put (local path required; remote optional)"
+		msg = "need 1 to 3 path arguments for " + toolname.CLI("put") + " (local path required; remote optional)"
 	}
 	return errhint.WithTryMsg(msg,
-		fmt.Sprintf("Specify paths for ait %s.", cmdLabel),
+		fmt.Sprintf("Specify paths for %s.", toolname.CLI(cmdLabel)),
 		tries...,
 	)
 }
@@ -64,7 +65,7 @@ func sessionFlagRequiresValueErr() error {
 
 func unknownFlagErr(flag string, cmdLabel string) error {
 	return errhint.WithTryMsg(fmt.Sprintf("unknown flag %q", flag),
-		fmt.Sprintf("See supported flags for ait %s.", cmdLabel),
-		fmt.Sprintf("ait %s --help", cmdLabel),
+		fmt.Sprintf("See supported flags for %s.", toolname.CLI(cmdLabel)),
+		toolname.CLI(cmdLabel+" --help"),
 	)
 }

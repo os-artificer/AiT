@@ -18,13 +18,14 @@ package config
 
 import (
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func unknownConfigKeyErr(key string) error {
 	return errhint.WithTryMsg("unknown config key: "+key,
 		"Use a dotted key from configs/ait.example.yaml.",
-		"ait config get ai.default",
-		"ait config get session.auth_ttl",
-		"ait config set --help",
+		toolname.CLI("config get ai.default"),
+		toolname.CLI("config get session.auth_ttl"),
+		toolname.CLI("config set --help"),
 	)
 }

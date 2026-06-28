@@ -16,14 +16,18 @@
 
 package meta
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
 
 // maxLine caps the bytes captured for a single meta line so a runaway
 // paste cannot keep the scanner in meta mode indefinitely.
 const maxLine = 4096
 
 // maxLook is the longest possible opener length; bounds the holding buf.
-const maxLook = 12 // len("!ait local ")
+const maxLook = 12 // len("!ait remote\n")
 
 type scannerState int
 
@@ -159,7 +163,7 @@ func (s *Scanner) looseBangCapture(candidate string, b byte) bool {
 		return true
 	}
 
-	return strings.HasPrefix(candidate, "!ait")
+	return strings.HasPrefix(candidate, toolname.MetaPrefix)
 }
 
 func (s *Scanner) applyLineEdit(b byte) (echo []byte, handled bool) {

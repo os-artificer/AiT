@@ -27,7 +27,7 @@ def test_ai_ask_ping_non_tty(runner):
 def test_ai_ask_empty_non_tty(runner):
     proc = runner.run(["ai", "ask"], timeout=5)
     assert_exit(1, proc)
-    assert_hint(proc, try_commands=("ait ai ask <message>",))
+    assert_hint(proc, try_commands=("aitssh ai ask <message>",))
 
 
 def test_ai_ask_stdin_non_tty(runner):

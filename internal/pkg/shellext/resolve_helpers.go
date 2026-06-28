@@ -57,7 +57,7 @@ func resolveExecutable(path, binDir string) (bool, string) {
 	if !pathUnderDir(resolved, binDir) {
 		return false, ""
 	}
-	return true, resolved
+	return true, path
 }
 
 func pathUnderDir(path, dir string) bool {
@@ -65,7 +65,16 @@ func pathUnderDir(path, dir string) bool {
 	if err != nil {
 		return false
 	}
+	absPath, err = filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return false
+	}
+
 	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	absDir, err = filepath.EvalSymlinks(absDir)
 	if err != nil {
 		return false
 	}

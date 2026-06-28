@@ -16,6 +16,8 @@
 
 package helpdoc
 
+import "github.com/os-artificer/AiT/internal/pkg/toolname"
+
 // Common — shared help section titles and argv tokens.
 const (
 	SectionSubcommands       = "Subcommands"
@@ -43,8 +45,8 @@ const (
 )
 
 // OpenSSH — blocks embedded by login and transfer help.
-const (
-	// SectionOpenSSHFlags is the shared OpenSSH-compatible flags block (same as ait login --help).
+var (
+	// SectionOpenSSHFlags is the shared OpenSSH-compatible flags block (same as aitssh login --help).
 	SectionOpenSSHFlags = `  -p port         remote SSH port (overrides ssh_config and -o Port)
   -l user         remote username (same as ssh_config User)
   -i path         private key file (IdentityFile)
@@ -52,7 +54,7 @@ const (
   -J destination  ProxyJump host(s); comma-separated for a jump chain (e.g. -J bastion,internal)
   -o key=value    ssh_config option, repeatable (e.g. -o Port=22 -o User=deploy)
   -4, -6          address family hints (accepted; passed to ssh -G)
-  -t, -T, -C, -v  accepted for ssh compatibility (no extra effect in ait login)
+  -t, -T, -C, -v  accepted for ssh compatibility (no extra effect in ` + toolname.AISsh + ` login)
   -A, -a, -q, -Q  accepted for ssh compatibility
 `
 

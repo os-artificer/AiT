@@ -25,6 +25,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 // ConfirmFunc reads a line after prompt and returns whether the user agreed.
@@ -68,9 +69,9 @@ func ResolveInstallAllowed(binaryMissing bool, opts Options, confirm ConfirmFunc
 	if !isTerminalIn(os.Stdin) {
 		errhint.Print(opts.Err, errhint.SurfaceTTY, errhint.WithTry(errhint.NewSentinel("non-interactive terminal"),
 			"Ollama install confirmation requires a TTY or explicit flags.",
-			"ait ai ollama setup --yes",
-			"ait ai ollama setup --no-install",
-			"ait ai ollama setup --help",
+			toolname.CLI("ai ollama setup --yes"),
+			toolname.CLI("ai ollama setup --no-install"),
+			toolname.CLI("ai ollama setup --help"),
 		))
 		return false, nil
 	}

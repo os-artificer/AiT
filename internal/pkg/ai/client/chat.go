@@ -20,35 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	openai "github.com/sashabaranov/go-openai"
 )
-
-const (
-	// ScopeLocal is ait ai on the local machine (non-SSH).
-	ScopeLocal Scope = iota
-	// ScopeRemote is !ait ai inside an active SSH session.
-	ScopeRemote
-)
-
-// Scope selects local versus remote AI mode context.
-type Scope int
-
-// ChatMessage is one turn in a multi-turn AI conversation.
-type ChatMessage struct {
-	Role    string
-	Content string
-}
-
-// AssistEnv carries optional terminal context for the first user turn in a chat round.
-type AssistEnv struct {
-	Scope       Scope
-	HostLabel   string
-	RemoteCwd   string
-	Scrollback  string
-	AgentMode   bool
-	ApproveEach bool
-}
 
 // Chat sends history plus user to the configured AI provider(s) with failover.
 // Returns the clean reply text, optional thinking/reasoning content, updated
@@ -63,7 +35,7 @@ func (c *Client) Chat(
 		return "", "", history, fmt.Errorf("%s", errEmptyPrompt)
 	}
 
-	reply, thinking, err = c.completion(ctx, user, len(history), func(meta PromptMeta) []openai.ChatCompletionMessage {
+	reply, thinking, err = c.completion(ctx, user, len(history), func(meta PromptMeta) []completionMessage {
 		return buildChatMessages(env.Scope, history, user, env, meta)
 	})
 	if err != nil {

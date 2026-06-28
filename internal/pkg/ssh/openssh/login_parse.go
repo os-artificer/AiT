@@ -67,7 +67,7 @@ type Spec struct {
 	LegacyIdentity string
 }
 
-// ParseLogin parses argv for ait login (ssh-compatible flags + AiT extensions).
+// ParseLogin parses argv for aitssh login (ssh-compatible flags + AiT extensions).
 // Flags may appear before or after destination until the first remote command
 // argument; after that, tokens are passed through to RemoteCommand unchanged.
 // Returns fmt.Errorf for unknown/unsupported flags, missing flag values, or invalid combinations.

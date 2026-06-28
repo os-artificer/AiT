@@ -27,6 +27,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/lrzsz"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 	pkgzmodem "github.com/os-artificer/AiT/internal/pkg/transfer/zmodem"
 )
 
@@ -155,8 +156,8 @@ func wrapTransferWrongHop(dialHost string, cause error) error {
 	return errhint.WithTry(
 		fmt.Errorf("%w: %v", ErrTransferWrongHop, cause),
 		explanation,
-		"!ait chain on",
-		"!ait get /path ./local",
+		toolname.MetaLine("chain on"),
+		toolname.MetaLine("get /path ./local"),
 	)
 }
 
@@ -164,9 +165,9 @@ func wrapPTYCaptureErr(cause error) error {
 	return errhint.WithTry(
 		cause,
 		"PTY file transfer capture failed.",
-		"!ait put <local-on-this-machine> <remote-on-active-shell>",
+		toolname.MetaLine("put <local-on-this-machine> <remote-on-active-shell>"),
 		"which base64 sha256sum",
-		"!ait chain off   # if file is on directly connected host",
+		toolname.MetaLine("chain off")+"   # if file is on directly connected host",
 	)
 }
 
@@ -220,7 +221,7 @@ func autoChainNotice(activeHost, dialHost string) {
 	aitModeNotice(
 		fmt.Sprintf("chain mode auto-enabled: active shell is on %s (connected to %s).", activeShort, dialShort),
 		"File transfer will use PTY-pipe injection.",
-		"Use !ait chain off to disable.",
+		"Use "+toolname.MetaLine("chain off")+" to disable.",
 	)
 }
 

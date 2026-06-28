@@ -25,6 +25,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 // Options configures setup and EnsureLocal.
@@ -235,8 +236,8 @@ func printNext(w io.Writer) {
 	if w == nil {
 		return
 	}
-	_, _ = fmt.Fprintln(w, "Next: ait ai   (simple questions prefer local Ollama when reachable)")
-	_, _ = fmt.Fprintln(w, "      ait ai model list")
+	_, _ = fmt.Fprintln(w, "Next: "+toolname.CLI("ai")+"   (simple questions prefer local Ollama when reachable)")
+	_, _ = fmt.Fprintln(w, "      "+toolname.CLI("ai model list"))
 }
 
 func printDryRun(opts Options, cfg *config.Config) {
