@@ -99,7 +99,7 @@ func (m *Manager) Load(ctx context.Context, idOrAlias string, useTmux bool, pass
 	return m.runInteractive(ctx, client, sess, initialCmds, true, replayScrollback, initialRemoteCwd)
 }
 
-// SSHOptionsForSession builds sshclient.Options for a saved session (e.g. ait get, ait put).
+// SSHOptionsForSession builds sshclient.Options for a saved session (e.g. aitssh get, aitssh put).
 // idOrAlias is resolved via the store; passwordOverride bypasses the keyring when non-empty.
 // Returns sshclient.Options and store lookup or password-resolution errors.
 func (m *Manager) SSHOptionsForSession(idOrAlias, passwordOverride string) (sshclient.Options, error) {
@@ -183,6 +183,7 @@ func (m *Manager) runInteractive(
 		AI:                      m.AI,
 		OnRemoteAI:              m.OnRemoteAI,
 		OnMetaCLI:               m.MetaCLI,
+		AliasLookup:             m.Store,
 		AgentMaxSteps:           m.Config.AgentMaxSteps(),
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
 			id, err := m.ensureSessionPersisted(sess)

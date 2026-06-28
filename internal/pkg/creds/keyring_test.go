@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+
+	"github.com/99designs/keyring"
 )
 
 func pinFileKeyringEnv(t *testing.T) string {
@@ -108,6 +110,50 @@ func TestResolveFileKeyringDir_UsesPlatformKeyringDir(t *testing.T) {
 	}
 	if !filepath.IsAbs(got) {
 		t.Fatalf("want absolute path, got %q", got)
+	}
+}
+
+func TestKeyring_MigratesLegacyService(t *testing.T) {
+	dir := pinFileKeyringEnv(t)
+
+	const id, secret = "legacy-sess", "legacy-secret"
+	legacy, err := openLegacyRing()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Set(keyring.Item{
+		Key:  sessionKey(id),
+		Data: []byte(secret),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := GetSessionUnlock(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != secret {
+		t.Fatalf("got %q want %q", got, secret)
+	}
+
+	current, err := openRing()
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := current.Get(sessionKey(id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(item.Data) != secret {
+		t.Fatalf("new service data=%q", item.Data)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected encrypted key files under keyring dir")
 	}
 }
 

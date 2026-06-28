@@ -78,7 +78,7 @@ class AIConfig:
 
 @dataclass
 class TestConfig:
-    binary: Path = TESTS_DIR.parent / "bin" / "ait"
+    binary: Path = TESTS_DIR.parent / "bin" / "aitssh"
     primary: SSHTarget = field(default_factory=SSHTarget)
     inner: SSHTarget = field(default_factory=SSHTarget)
     jump_hosts: list[str] = field(default_factory=list)
@@ -123,7 +123,7 @@ def load_config(path: Path | None = None) -> TestConfig:
     feat_block = raw.get("features") or {}
     env_block = raw.get("env") or {}
 
-    binary = Path(str(ait_block.get("binary", "../bin/ait")))
+    binary = Path(str(ait_block.get("binary", "../bin/aitssh")))
     if not binary.is_absolute():
         binary = (TESTS_DIR / binary).resolve()
 

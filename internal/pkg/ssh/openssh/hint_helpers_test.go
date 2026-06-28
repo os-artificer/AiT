@@ -29,8 +29,8 @@ func TestDestinationRequiredErr_Format(t *testing.T) {
 	if !strings.Contains(s, "Try:") {
 		t.Fatalf("missing Try block: %q", s)
 	}
-	if !strings.Contains(s, clihints.TryLoginHelp) {
-		t.Fatalf("missing login help try line: %q", s)
+	if !strings.Contains(s, clihints.TryConnectHelp) {
+		t.Fatalf("missing connect help try line: %q", s)
 	}
 }
 
@@ -57,7 +57,7 @@ func TestTransferPathCountErr_Format(t *testing.T) {
 
 	errPut := transferPathCountErr("put")
 	sPut := errPut.Error()
-	if !strings.Contains(sPut, "1 to 3 path arguments for ait put") {
+	if !strings.Contains(sPut, "1 to 3 path arguments for aitssh put") {
 		t.Fatalf("missing put path count hint: %q", sPut)
 	}
 	if !strings.Contains(sPut, clihints.TryPutHelp) {

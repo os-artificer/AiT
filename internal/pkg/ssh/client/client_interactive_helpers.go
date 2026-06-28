@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +29,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 
 	xterm "golang.org/x/term"
 )
@@ -204,6 +206,22 @@ func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQ
 	})
 
 	c.finishMetaInteraction(stdin)
+	return swallowAIMetaREPLRecoverable(err)
+}
+
+// swallowAIMetaREPLRecoverable prints user-recoverable AI REPL errors and returns
+// nil so SSH forwardStdin continues. API/terminal failures still propagate.
+func swallowAIMetaREPLRecoverable(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ai.ErrChatMessageRequired) ||
+		errors.Is(err, ai.ErrNotConfigured) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
+		return nil
+	}
 	return err
 }
 
@@ -268,7 +286,7 @@ func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 		c.SetChainMode(false)
 		aitModeNotice("chain mode disabled",
 			"File transfer and tmux will use SFTP/direct sessions.",
-			"Use !ait chain on to re-enable.",
+			"Use "+toolname.MetaLine("chain on")+" to re-enable.",
 		)
 	default:
 		// "status" or bare "!ait chain"
@@ -278,7 +296,7 @@ func (c *Client) handleChainMeta(stdin io.Writer, line string) error {
 		}
 		aitModeNotice(
 			"chain mode: "+status,
-			"Use !ait chain on to enable, !ait chain off to disable.",
+			"Use "+toolname.MetaLine("chain on")+" to enable, "+toolname.MetaLine("chain off")+" to disable.",
 			"Chain mode uses PTY-pipe injection for file transfer and tmux,",
 			"supporting any number of SSH hops without extra tools.",
 		)

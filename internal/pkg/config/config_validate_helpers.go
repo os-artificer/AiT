@@ -23,13 +23,14 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/platform"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func configNotFoundErr(path string) error {
 	return errhint.WithTryMsg(
 		"config file not found: "+path,
 		fmt.Sprintf("Create %s before validating.", platform.ConfigFileName),
-		"ait config init",
+		toolname.CLI("config init"),
 	)
 }
 

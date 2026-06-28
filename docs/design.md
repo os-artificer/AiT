@@ -5,36 +5,37 @@
 
 This document describes behavior and package layout implemented on the **current main branch** (not a backlog). For users, see [`README.md`](../README.md), [`docs/user-manual.md`](user-manual.md); for agent orientation and code layout, see [`AGENTS.md`](../AGENTS.md).
 
-CLI entry point: [`internal/ait/root.go`](../internal/ait/root.go) (`Run` plus cobra root). Dependencies are listed in [`go.mod`](../go.mod). Layout: thin `cmd/ait` entry → `internal/ait` plus `internal/pkg`.
+CLI entry point: [`cmd/aitssh/main.go`](../cmd/aitssh/main.go) → [`internal/aissh/root.go`](../internal/aissh/root.go) (package **`aissh`**: `Run` plus Cobra root). Dependencies are listed in [`go.mod`](../go.mod). Layout: thin `cmd/aitssh` entry → `internal/aissh` (Go package `aissh`) plus `internal/pkg`.
 
 ## CLI surface
 
 ```text
-ait shell                                    # AiT> REPL (login/list/load, etc.)
-ait ai                                       # Local AI mode (AiT AI(Agent)>); also "ai" inside ait shell
-ait ai model list                            # List configured AI providers (ENABLED column)
-ait ai ask [message...]                      # One-shot AI question (stdin if no args); SSH: !ait ai ask / !! ask
-ait ai agent [message...]                    # One-shot agent with tool execution
-ait ai provider enable|disable <provider>    # Enable/disable routing to a provider
-ait ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir + install [y/N])
-ait login [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
+aitssh shell                                    # AiT> REPL (ssh-style connect, list/load, etc.)
+aitssh                                          # no args: root help (not SSH connect)
+aitssh ai                                       # Local AI mode (AiT AI(Agent)>); also "ai" inside aitssh shell
+aitssh ai model list                            # List configured AI providers (ENABLED column)
+aitssh ai ask [message...]                      # One-shot AI question (stdin if no args); SSH: !ait ai ask / !! ask
+aitssh ai agent [message...]                    # One-shot agent with tool execution
+aitssh ai provider enable|disable <provider>    # Enable/disable routing to a provider
+aitssh ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir + install [y/N])
+aitssh [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH-compatible: -p -l -i -F -J -o, etc.; destination is [user@]host or a config Host alias
         # Requires local OpenSSH client (ssh -G) for config resolution; data plane is Go x/crypto/ssh (Windows/macOS/Linux)
         # Persists to SQLite with --save (bookmark by id) or --alias (named save; implies --save)
         # Also updates an existing empty-alias row when the connection key matches (refreshes auth TTL)
         # With command: one-shot execution (similar to ssh host cmd); new hosts need --save or --alias
         # Legacy --host/--user remain supported for backward compatibility
-ait session --list [-v]   # # column for pick-by-number; -v adds FULL_ID (complete UUID)
-ait session --load [<id|alias>] [--tmux] [--password]   # Omit id to pick; id must be alias or full UUID (not list ID column)
-ait session --suspend         # Local CLI only; inside SSH use !ait suspend
-ait session --switch [id|alias] [--tmux] [--password] [--force]  # Switch session; omit id to pick
-ait session --delete <id|alias|all> [--force]         # Delete one or all saved sessions
-ait get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like login (see get/put section)
-ait put [ssh-flags] <paths...>
-ait config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUAL/$EDITOR (vi / Notepad)
+aitssh session --list [-v]   # # column for pick-by-number; -v adds FULL_ID (complete UUID)
+aitssh session --load [<id|alias>] [--tmux] [--password]   # Omit id to pick; id must be alias or full UUID (not list ID column)
+aitssh session --suspend         # Local CLI only; inside SSH use !ait suspend
+aitssh session --switch [id|alias] [--tmux] [--password] [--force]  # Switch session; omit id to pick
+aitssh session --delete <id|alias|all> [--force]         # Delete one or all saved sessions
+aitssh get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like default SSH connect (see get/put section)
+aitssh put [ssh-flags] <paths...>
+aitssh config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUAL/$EDITOR (vi / Notepad)
 ```
 
-**AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`ait ai [--model <cloud-provider>]`** or **`ai` inside `ait shell`** runs a local AI REPL (`AiT AI(Agent)>`); commands run on this machine only after you confirm (`run`, optional `ait` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI(Agent) user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `login`/`load`). When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-ait).
+**AI mode** (multi-provider: Deepseek + MiniMax + optional local Ollama; cloud requires `ai.<provider>.api_key` in keyring, aliases `deepseek.api_key` / `minimax.api_key`): **`aitssh ai [--model <cloud-provider>]`** or **`ai` inside `aitssh shell`** runs a local AI REPL (`AiT AI(Agent)>`); commands run on this machine only after you confirm (`run`, optional `aitssh` subcommands). Inside an active SSH session use **`!ait ai`** or **`!!`** for remote-scoped AI (`AiT AI(Agent) user@host>`); `run` sends the command to the remote shell via PTY stdin after confirmation. **`!ait ai` as a meta subcommand is blocked** (same as `load`). The **`login` subcommand prefix is removed**; `aitssh login …` and REPL `login …` fail with Try hints. When no cloud API key is configured and tiered Ollama is off, `!!` / `!ait ai` fail closed locally. With **`ai.tiered.enabled`**, short first-turn prompts route to local Ollama (no keyring key); longer or complex prompts and `--model` / REPL `model <cloud>` use cloud default and failover (`ai.default` / `ai.fallback`). See [AI mode (dual scope)](#ai-mode-dual-scope) and [In-session meta protocol (!ait / !!)](#in-session-meta-protocol-aitssh--).
 
 Use **`!ait local` / `!ait remote`** to toggle local versus remote input while SSH stays connected; **`!ait suspend`** to suspend; **`!ait chain [on|off]`** to toggle chain mode (PTY-pipe injection for file transfer and tmux over multiple SSH hops).
 
@@ -45,7 +46,7 @@ Use **`!ait local` / `!ait remote`** to toggle local versus remote input while S
 | **Default (bookmark)** | No `--tmux` | Reconnect with stored connection info; optionally **seed** saved scrollback into in-memory buffer (not displayed on the terminal) | No keep-alive guarantee |
 | **tmux keep-alive** | `login`/`load` with `--tmux` | After SSH: `tmux attach -t ait-<session_id>` (or `new -s` if missing) | Shell/process survives disconnect |
 
-**Login metadata is persisted with `--save`, `--alias`, or `--tmux` for new connections** (`--tmux` implies `--save`). Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). `login_destination` stores the ssh config Host name (e.g. `devhost`) for `ssh -G` re-resolve on `load`/`switch`. Plain `ait login user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
+**Login metadata is persisted with `--save`, `--alias`, or `--tmux` for new connections** (`--tmux` implies `--save`). Each saved row is keyed by **`username` + `host` + `port` + `alias`** (empty alias when `--alias` is omitted; distinct from named aliases). `login_destination` stores the ssh config Host name (e.g. `devhost`) for `ssh -G` re-resolve on `load`/`switch`. Plain `aitssh user@host` updates an existing row and refreshes auth TTL **only** when a matching **empty-alias** row exists; if only named-alias rows exist or there is no match, login stays ephemeral. Scrollback/`remote_cwd` are optional enhancements written on suspend and do **not** constitute a promise of true session keep-alive. Explicit `--tmux` is required for real keep-alive.
 
 ### Login persistence decision (connection key includes alias)
 
@@ -64,14 +65,14 @@ flowchart TD
   findEmpty -->|not found| ephemeral[plan.persist=false]
 ```
 
-The same `user@host:port` may have both an empty-alias row (`ait login --save user@host`) and named rows (`ait login --alias prod user@host`) as separate records with distinct UUIDs and tmux names `ait-<id>`. SQLite enforces `UNIQUE(username, host, port, COALESCE(alias,''))`; migration dedupes legacy duplicate keys keeping the newest `updated_at`.
+The same `user@host:port` may have both an empty-alias row (`aitssh --save user@host`) and named rows (`aitssh --alias prod user@host`) as separate records with distinct UUIDs and tmux names `ait-<id>`. SQLite enforces `UNIQUE(username, host, port, COALESCE(alias,''))`; migration dedupes legacy duplicate keys keeping the newest `updated_at`.
 
 ## Architecture overview
 
 ```mermaid
 flowchart TB
-  subgraph cli [internal/ait]
-    Run[ait.Run]
+  subgraph cli [internal/aissh]
+    Run[aissh.Run]
     CliPkg[cli cobra]
     ShellPkg[shell REPL]
     LoginPkg[login]
@@ -167,12 +168,12 @@ Switch among saved sessions. When no local foreground SSH is active, behavior ma
 | Target omitted | `list`-style numbered menu; user selects id/alias (`--tmux` follows current connection mode or target `tmux_enabled` in DB) |
 
 ```text
-ait session --switch              # Interactive picker
-ait session --switch prod         # Switch by alias/id
-ait session --switch prod --tmux  # Switch and attach target in tmux mode
+aitssh session --switch              # Interactive picker
+aitssh session --switch prod         # Switch by alias/id
+aitssh session --switch prod --tmux  # Switch and attach target in tmux mode
 ```
 
-**Inside interactive SSH:** use `!ait login`, `!ait load`, or `!ait session --switch` to chain sessions; `!ait suspend` to suspend only.
+**Inside interactive SSH:** use `!ait [flags] dest` (ssh-style chain connect), `!ait load`, or `!ait session --switch` to chain sessions; `!ait suspend` to suspend only.
 
 **Compared with `load`:** `load` connects only to the target; `switch` additionally checks whether the current session is still `active` and blocks until you suspend (or `--force`), then loads the target and updates `app_meta.current_session_id`.
 
@@ -180,7 +181,7 @@ ait session --switch prod --tmux  # Switch and attach target in tmux mode
 
 ## Data model (SQLite)
 
-Database file: `<AppRoot>/ait.db` where **`AppRoot`** is the unified runtime directory ([`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)). Defaults: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%\ait`. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. See [Runtime file layout](#runtime-file-layout-approot) for the full tree.
+Database file: `<AppRoot>/ait.db` where **`AppRoot`** is the unified runtime directory ([`platform.AppRoot()`](../internal/pkg/platform/paths_appdir.go)). Defaults: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%\ait`. Mixed-case legacy data under `~/.local/share/AiT` (`legacyMixedCaseAppName`) is migrated on first run when the canonical `ait` directory has no session files yet. Override with **`AIT_HOME`** or **`AIT_DATA_DIR`**. See [Runtime file layout](#runtime-file-layout-approot) for the full tree.
 
 ```sql
 CREATE TABLE sessions (
@@ -219,13 +220,13 @@ CREATE TABLE app_meta (
 - `suspend` → write `session_state`, `status=suspended`; in tmux mode `tmux detach` before closing SSH
 - `session --delete <id>` / `session --delete all` → delete DB rows, scrollback sidecars, and per-session keyring entries (does not kill remote tmux sessions)
 
-**Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `ait config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<AppRoot>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
+**Credential storage:** SSH passwords are not stored in plaintext SQLite; within the 7-day window, secrets cache in the **OS keyring** (key `ait/session/<id>/unlock`), expiring entries force re-entry. Private keys remain paths only. AI provider API keys use keyring paths `ai/<provider>/api_key` (CLI: `aitssh config set ai.deepseek.api_key`; legacy alias `deepseek.api_key` migrates on read). On desktop Linux/macOS/Windows the library prefers Secret Service, Keychain, or WinCred; when those are unavailable (headless, no D-Bus), it falls back to an **encrypted file store** under `<AppRoot>/keyring` (see `platform.KeyringDir`). Override with `AIT_KEYRING_DIR`; set `AIT_KEYRING_FILE_PASSWORD` on headless hosts (default dev password is for local use only). Force file-only backend with `AIT_KEYRING_BACKEND=file`.
 
-**Runtime file layout (`AppRoot`):** All AiT-owned runtime files live under one directory (`platform.AppRoot()` = `DataDir()` = `ConfigDir()`). Set **`AIT_HOME`** (or **`AIT_DATA_DIR`** when `AIT_HOME` is unset) to override. Default paths: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%/ait`. On Linux upgrade, a legacy config at `$XDG_CONFIG_HOME/ait/config.yaml` (typically `~/.config/ait/config.yaml`) is migrated into `AppRoot` on first `config.Load`. Layout:
+**Runtime file layout (`AppRoot`):** All AiT-owned runtime files live under one directory (`platform.AppRoot()` = `DataDir()` = `ConfigDir()`). Set **`AIT_HOME`** (or **`AIT_DATA_DIR`** when `AIT_HOME` is unset) to override. Default paths: Linux `~/.local/share/ait`, macOS `~/Library/Application Support/ait`, Windows `%LOCALAPPDATA%/ait`. On upgrade, mixed-case data root `~/.local/share/AiT` (`legacyMixedCaseAppName`) is migrated into `AppRoot` on first use when safe; Linux config `$XDG_CONFIG_HOME/ait/config.yaml` (typically `~/.config/ait/config.yaml`) is also migrated. Layout:
 
 ```text
 <AppRoot>/
-├── config.yaml       # main YAML (ait config init / view / edit / validate / set / get)
+├── config.yaml       # main YAML (aitssh config init / view / edit / validate / set / get)
 ├── ait.db            # SQLite sessions
 ├── repl_history      # REPL input history
 ├── scrollback/       # suspend sidecars
@@ -233,27 +234,27 @@ CREATE TABLE app_meta (
 └── ollama/models/    # recommended Ollama models_dir default
 ```
 
-First-time setup: `ait config init` creates or merges `config.yaml` (missing keys only; API keys still via keyring). **`ait config view`** prints the file (creates it when missing). **`ait config edit`** opens `$VISUAL`/`$EDITOR` (default: `vi` on Unix, Notepad on Windows) and validates after save. **`ait config validate`** checks YAML syntax and values (session TTL, provider URLs, tiered fields); prints each error with a field path; exit 1 on failure.
+First-time setup: `aitssh config init` creates or merges `config.yaml` (missing keys only; API keys still via keyring). **`aitssh config view`** prints the file (creates it when missing). **`aitssh config edit`** opens `$VISUAL`/`$EDITOR` (default: `vi` on Unix, Notepad on Windows) and validates after save. **`aitssh config validate`** checks YAML syntax and values (session TTL, provider URLs, tiered fields); prints each error with a field path; exit 1 on failure.
 
 ## Package layout (current)
 
 | Path | Role | Representative files |
 |------|------|----------------------|
-| [`internal/ait/`](../internal/ait/) | CLI entry, Cobra root, manager bootstrap | `root.go`, `cli_root.go`, `manager.go`, `context.go`, `init_hooks.go` |
-| [`internal/ait/registry/`](../internal/ait/registry/) | Top-level command registry (OCP); root `--help` | `register.go`, `root_help.go`, `all/imports.go` |
+| [`internal/aissh/`](../internal/aissh/) | CLI entry, Cobra root, manager bootstrap | `root.go`, `cli_root.go`, `manager.go`, `context.go`, `init_hooks.go` |
+| [`internal/aissh/registry/`](../internal/aissh/registry/) | Top-level command registry (OCP); root `--help` | `register.go`, `root_help.go`, `all/imports.go` |
 | [`internal/pkg/helpdoc/`](../internal/pkg/helpdoc/) | Shared `--help` layout | `body.go`, `bind.go`, `common.go` |
-| [`internal/ait/login/`](../internal/ait/login/) | Login parsing and help | `run.go`, `help.go` |
-| [`internal/ait/shell/`](../internal/ait/shell/) | `ait shell` REPL | `repl.go`, `exec.go`, `parse.go` |
-| [`internal/ait/ai/`](../internal/ait/ai/) | `ait ai` tree (`ask`, `agent`, `provider`, `ollama` via `subregistry`) | `cmd.go`, `help.go`, `register.go` |
-| [`internal/ait/ai/mode/`](../internal/ait/ai/mode/) | `ait ai` / `!ait ai` AI REPL | `repl.go`, `exec.go`, `run_local.go` |
-| [`internal/ait/meta/`](../internal/ait/meta/) | In-session `!ait` | `exec.go` |
+| [`internal/aissh/login/`](../internal/aissh/login/) | Login parsing and help | `run.go`, `help.go` |
+| [`internal/aissh/shell/`](../internal/aissh/shell/) | `aitssh shell` REPL | `repl.go`, `exec.go`, `parse.go` |
+| [`internal/aissh/ai/`](../internal/aissh/ai/) | `aitssh ai` tree (`ask`, `agent`, `provider`, `ollama` via `subregistry`) | `cmd.go`, `help.go`, `register.go` |
+| [`internal/aissh/ai/mode/`](../internal/aissh/ai/mode/) | `aitssh ai` / `!ait ai` AI REPL | `repl.go`, `exec.go`, `run_local.go` |
+| [`internal/aissh/meta/`](../internal/aissh/meta/) | In-session `!ait` | `exec.go` |
 | [`internal/pkg/ssh/args/`](../internal/pkg/ssh/args/) | OpenSSH argv, `ssh -G`, mapped options | `parse.go`, `resolve.go`, `*_helpers.go` |
 | [`internal/pkg/session/`](../internal/pkg/session/) | Session lifecycle | `manager.go`, `manager_helpers.go` |
 | [`internal/pkg/store/`](../internal/pkg/store/) | SQLite | `store.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go` |
 | [`internal/pkg/ssh/client/`](../internal/pkg/ssh/client/) | Dial, PTY, `!ait` meta, local mode, silent injection, remote prompt emit | `client.go`, `client_dial.go`, `client_init_helpers.go`, `client_init_prompt_emit_helpers.go`, `dialchain.go`, `meta/scanner.go`, `localmode/shell.go`, `hostkeys.go`, `prompt/prompt.go`, `inject.go`, `transfer_zmodem.go` |
 | [`internal/pkg/terminal/`](../internal/pkg/terminal/) | Scrollback, replay, paths | `scrollback/delta.go`, `terminal/path.go` |
 | [`internal/pkg/tmux/`](../internal/pkg/tmux/) | Remote tmux | `remote.go`, `remote_pty.go` |
-| [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider router (OpenAI + Anthropic), tiered Ollama, model list | `router.go`, `tiered.go`, `models_list.go`, `router_openai.go`, `router_anthropic.go`, `client.go`, `chat.go` |
+| [`internal/pkg/ai/`](../internal/pkg/ai/) | Multi-provider AI (Eino ChatModel + specialized Anthropic/Ollama Agent legacy), tiered Ollama, model list | `client/`, `eino/`, `apitypes/`, `router/` |
 | [`internal/pkg/transfer/`](../internal/pkg/transfer/) | SFTP get/put (single file); default path helpers | `transfer.go`, `parse.go`, `path_defaults.go` |
 | [`internal/pkg/platform/`](../internal/pkg/platform/) | `AppRoot`, data dirs, OpenSSH, editor | `paths_appdir.go`, `editor.go`, `openssh.go`, `exec.go` |
 | [`internal/pkg/config/`](../internal/pkg/config/) | YAML config, init, validate | `config.go`, `config_load.go`, `config_init.go`, `config_validate.go` |
@@ -269,9 +270,9 @@ First-time setup: `ait config init` creates or merges `config.yaml` (missing key
 
 | Scenario | Prompt | How it is set |
 |----------|--------|----------------|
-| `ait shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
+| `aitssh shell` (no remote yet) | `AiT> ` | REPL prints [`BasePrompt`](../internal/pkg/ssh/client/prompt/prompt.go) |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` | [`RemotePromptInitialCommands`](../internal/pkg/ssh/client/prompt/prompt.go) injects dynamic bash `PS1` / zsh `PROMPT` after `load`/`login` (non-tmux: [`waitForShellReadyBeforeInject`](../internal/pkg/ssh/client/client_init_helpers.go) waits for a native or AiT prompt line in scrollback plus output quiet, up to 10s; bash hosts fall back to quiet-since-attach); setup ends with a **`RemotePromptReadySentinel`** handshake line; zsh deduplicates and appends a **`precmd_functions` hook** so oh-my-zsh themes do not permanently override `PROMPT`, then **prints the expanded prompt** to the PTY (`${PS1@P}` / `print -Pn "$PROMPT"` + `zle reset-prompt` when available); **`session.remote_prompt.path`**: `short` (default, last path segment) or `absolute` (`$PWD` with `~` for home); optional `:branch` via `git rev-parse`. During setup, `pauseRemoteOut` buffers remote output in scrollback (R1 filters setup leaks; native prompts are not seeded into scroll pending). [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) waits for the ready sentinel via [`waitForRemotePromptReady`](../internal/pkg/ssh/client/client_init_helpers.go), then [`ensureFirstPromptVisible`](../internal/pkg/ssh/client/client_init_helpers.go) emits scrollback AiT lines, **client-paints** when the sentinel is present, or native fallback only when setup did not succeed; unpause requires `remotePromptShown`. **Load/switch** seeds [`ReplayScrollback`](../internal/pkg/ssh/client/client.go) into memory **after** setup via [`seedReplayScrollback`](../internal/pkg/ssh/client/client_init_helpers.go) / [`SanitizeReplayScrollback`](../internal/pkg/ssh/client/client_setup_filter_helpers.go) (leak strip, prompt-line strip, blank-line collapse)—not displayed on the terminal. Login/load/nested share [`runRemotePromptSetup`](../internal/pkg/ssh/client/prompt_setup.go)—the AiT prompt should appear **without pressing Enter**. |
-| SSH nested (manual `ssh` in session) | same as SSH remote on **active** hop | After a simple `ssh user@host` from an AiT session, MOTD + quiet detection triggers the same PS1 inject and enables chain mode; use `ait login -J jump,final` to land on the final host in one step |
+| SSH nested (manual `ssh` in session) | same as SSH remote on **active** hop | After a simple `ssh user@host` from an AiT session, MOTD + quiet detection triggers the same PS1 inject and enables chain mode; use `aitssh -J jump,final` to land on the final host in one step |
 | SSH local mode | `AiT Local> ` | Silent rc/env ([`localmode/shell.go`](../internal/pkg/ssh/client/localmode/shell.go)) |
 
 ### Remote prompt pipeline
@@ -301,19 +302,19 @@ sequenceDiagram
 
 When `remotePromptShown` is set, [`emitMetaPromptStdout`](../internal/pkg/ssh/client/client_meta_prompt_helpers.go) prefers scrollback AiT lines or client paint (`setupSucceeded` or `remotePromptReadySeen`) and **does not** fall back to native shell prompts (P11).
 
-**`ait shell`**: line-oriented REPL; type `login`, `load`, `list`, `help`, etc. directly (no `!ait` prefix). After `login` inside shell, return to `AiT>`; after `ait login` from the system shell, return to the OS shell.
+**`aitssh shell`**: line-oriented REPL; type ssh-style connect argv (`devhost`, `-p 22 host`, `user@host`), `load`, `list`, `help`, etc. directly (no `!ait` prefix). The **`login` verb is removed**; `login devhost` fails with Try. After connect inside shell, return to `AiT>`; after `aitssh user@host` from the system shell, return to the OS shell.
 
-**Built-in `ll`** (shell REPL only, not `ait ai` or `!ait`): long-format local directory listing (`ls -la` style via pure Go [`dirlist`](../internal/pkg/dirlist/)); optional one path argument; default cwd.
+**Built-in `ll`** (shell REPL only, not `aitssh ai` or `!ait`): long-format local directory listing (`ls -la` style via pure Go [`dirlist`](../internal/pkg/dirlist/)); optional one path argument; default cwd.
 
-**Command resolution in `ait shell`** (first token only): **builtins** (`exit`, `help`, `clear`, `history`, `ai`, `login`, `load`, `list`, `suspend`) → **`<AppRoot>/bin/<name>`** user extensions (flat directory; executable bit on Unix) → **ait CLI** subcommands (`config`, `session`, `get`, …) → **system PATH**. Bin extensions can shadow ait subcommand names but never builtins. External commands run via `exec` with argv (no shell interpolation); on a TTY the REPL restores cooked mode for the child process. Implementation: [`internal/ait/shell/exec_dispatch.go`](../internal/ait/shell/exec_dispatch.go), [`internal/pkg/shellext/`](../internal/pkg/shellext/).
+**Command resolution in `aitssh shell`** (first token only): **builtins** (`exit`, `help`, `clear`, `history`, `ai`, `load`, `list`, `suspend`, `ll`) → **`<AppRoot>/bin/<name>`** user extensions → **login prefix Try** → **aitssh CLI** via `ExecuteCobraOnly` (`config`, `session`, `get`, …) → **system PATH** → **narrow SSH connect** when [`cliroute.ShouldREPLSSHConnect`](../internal/pkg/cliroute/route.go) (saved alias or `~/.ssh/config` Host; flag-led `-p`/`-l`/`user@host` also allowed) → **not-found hint**. Bin extensions can shadow aitssh subcommand names but never builtins. Implementation: [`internal/aissh/shell/exec_dispatch.go`](../internal/aissh/shell/exec_dispatch.go), [`internal/pkg/shellext/`](../internal/pkg/shellext/), [`internal/pkg/cliroute/`](../internal/pkg/cliroute/).
 
-**Local REPL input (UTF-8, macOS / Linux / Windows):** Interactive `ait shell` and local `ait ai` read stdin as **UTF-8** via [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) (Emacs-style editing, arrow keys, Up/Down over loaded input history). Use a UTF-8 terminal: Linux/macOS `LANG=*.UTF-8`; Windows **Windows Terminal** with UTF-8 (avoid legacy non-UTF code pages). IME composition is handled by the terminal; committed text arrives as UTF-8 bytes (preedit underline is not drawn by AiT). Piped or redirected stdin (`echo … | ait shell`) already accepted UTF-8; SSH remote shells forward bytes unchanged.
+**Local REPL input (UTF-8, macOS / Linux / Windows):** Interactive `aitssh shell` and local `aitssh ai` read stdin as **UTF-8** via [`terminal.ReadLine`](../internal/pkg/terminal/lineedit.go) (Emacs-style editing, arrow keys, Up/Down over loaded input history). Use a UTF-8 terminal: Linux/macOS `LANG=*.UTF-8`; Windows **Windows Terminal** with UTF-8 (avoid legacy non-UTF code pages). IME composition is handled by the terminal; committed text arrives as UTF-8 bytes (preedit underline is not drawn by AiT). Piped or redirected stdin (`echo … | aitssh shell`) already accepted UTF-8; SSH remote shells forward bytes unchanged.
 
-**TTY keys (local REPL):** Ctrl+A/E (line start/end), Left/Right (cursor), Up/Down (recall loaded input history, including prior sessions), **Ctrl+R** (reverse incremental search through input history), Ctrl+U/K/W (kill line/word), Backspace, Tab, Ctrl+C (cancel line), Ctrl+D (EOF when empty), Ctrl+L (clear screen, keep buffer). History records only commands submitted at the main prompt—not confirm `[y/N]` answers, session picker input, or AiT local-mode env/rc setup. See `help` / `ait shell --help` Keys section.
+**TTY keys (local REPL):** Ctrl+A/E (line start/end), Left/Right (cursor), Up/Down (recall loaded input history, including prior sessions), **Ctrl+R** (reverse incremental search through input history), Ctrl+U/K/W (kill line/word), Backspace, Tab, Ctrl+C (cancel line), Ctrl+D (EOF when empty), Ctrl+L (clear screen, keep buffer). History records only commands submitted at the main prompt—not confirm `[y/N]` answers, session picker input, or AiT local-mode env/rc setup. See `help` / `aitssh shell --help` Keys section.
 
-**Input history persistence:** Local `ait shell` and `ait ai` share a bash-style **`history`** builtin (list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) over the same in-memory list used by Up/Down and Ctrl+R. Lines are appended to **`<AppRoot>/repl_history`** (mode `0600`) as you submit commands; the file is loaded on REPL start. In AI mode, **`clear`** clears chat/conversation history only; **`history`** manages input history.
+**Input history persistence:** Local `aitssh shell` and `aitssh ai` share a bash-style **`history`** builtin (list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`) over the same in-memory list used by Up/Down and Ctrl+R. Lines are appended to **`<AppRoot>/repl_history`** (mode `0600`) as you submit commands; the file is loaded on REPL start. In AI mode, **`clear`** clears chat/conversation history only; **`history`** manages input history.
 
-**Clear screen (`ait shell` / local TTY):** In `ait shell`, type **`clear`** to erase the terminal via [`terminal.ClearScreen`](../internal/pkg/terminal/screen.go) (VT100 ANSI). In a TTY, **Ctrl+L** clears the screen and redraws the current prompt plus the in-progress line (buffer kept; same as bash/readline). Local `ait ai` TTY also supports **Ctrl+L** for display only; **`clear` in AI mode** still clears chat history, not the same as shell `clear`.
+**Clear screen (`aitssh shell` / local TTY):** In `aitssh shell`, type **`clear`** to erase the terminal via [`terminal.ClearScreen`](../internal/pkg/terminal/screen.go) (VT100 ANSI). In a TTY, **Ctrl+L** clears the screen and redraws the current prompt plus the in-progress line (buffer kept; same as bash/readline). Local `aitssh ai` TTY also supports **Ctrl+L** for display only; **`clear` in AI mode** still clears chat history, not the same as shell `clear`.
 
 ### In-session meta protocol (!ait / !!)
 
@@ -322,8 +323,8 @@ Implementation: [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/
 | Command | Behavior |
 |---------|----------|
 | `!ait help` / `!ait` | Print in-session commands and locally runnable CLI notes |
-| `!ait <subcommand> …` | Run matching `ait` CLI locally (for example `!ait list`); `login`/`load`/`session --switch` use chain handlers below |
-| `!ait login [flags] dest` | Auto-save current session if needed, suspend, close SSH, then `Manager.Login` to the new host |
+| `!ait <subcommand> …` | Run matching `aitssh` CLI locally (for example `!ait list`); ssh-style `[flags] dest` / `load` / `session --switch` use chain handlers below |
+| `!ait [flags] dest` | Auto-save current session if needed, suspend, close SSH, then `Manager.Login` to the new host |
 | `!ait load [id\|alias]` | Auto-save if needed, suspend, then `Manager.Load` |
 | `!ait session --switch [id\|alias]` | Auto-save if needed, suspend, then `Manager.Switch` (no `--force` required); no-arg picker uses raw TTY; picking the **same** session **reconnects** after suspend closed SSH |
 | `!ait ai [question]` | Enter **remote** AI REPL; optional first question |
@@ -342,15 +343,15 @@ Implementation: [`internal/pkg/ssh/client/meta/scanner.go`](../internal/pkg/ssh/
 - When `aiAvailable == false` (no API key), fail closed: leading `!!…` / `!ait ai…` never goes remote; stderr configure-key hint when entering AI mode.
 - Meta lines echo locally and never enter remote PTY; user-visible messages use `termPrintln` / `aitModeNotice` with `termEOL` (`\r\n`) for raw TTY.
 
-### login
+### SSH connect (default route)
 
 ```mermaid
 sequenceDiagram
   participant User
-  participant CLI as ait_login
+  participant CLI as ait_connect
   participant DB as sqlite
   participant SSH as ssh_client
-  User->>CLI: ait login --save user@host
+  User->>CLI: aitssh --save user@host
   CLI->>DB: upsert session
   CLI->>SSH: Dial and PTY
   loop interactive
@@ -372,9 +373,9 @@ sequenceDiagram
 
 - **Config resolution**: `internal/pkg/ssh/args` invokes local `ssh -G` (`platform.OpenSSHPath`: Linux/macOS on PATH; Windows also tries `System32\OpenSSH\ssh.exe`)
 - **Dial**: `client.DialChain` supports `ProxyJump` / `ProxyCommand` (Unix `sh -c`, Windows `cmd /c`)
-- **One-shot command**: `ait login host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing empty-alias** connection key updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
+- **One-shot command**: `aitssh host cmd` → `RunRemoteCommand`, exit code forwarded; does not write SQLite for a new host unless `--save` or `--alias`. One-shot to an **existing empty-alias** connection key updates that row (auth TTL refresh, current session) even without those flags; with `--save` or `--alias` on a new host, upserts and sets **current session** (`app_meta.current_session_id`) for later `session --load` / `--switch`.
 - Auth order: `-i` / config `IdentityFile` → SSH agent → `~/.ssh/id_ed25519` / `id_rsa`
-- Interactive login writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise the session stays ephemeral until the first `!ait suspend`, `!ait login`, `!ait load`, or `!ait session --switch` (auto-save, D1 dedupe)
+- Interactive connect writes or updates the session row with `--save`/`--alias` or when the connection already exists; otherwise the session stays ephemeral until the first `!ait suspend`, `!ait [flags] dest`, `!ait load`, or `!ait session --switch` (auto-save, D1 dedupe)
 - After PS1 setup, the local terminal shows the remote AiT prompt immediately (buffered emit or refresh echo—not a static placeholder)
 
 ### Local mode (!ait local / remote)
@@ -407,7 +408,7 @@ flowchart LR
 - **list**: tabular output `#`, `ID` (alias or 8-char prefix), `TARGET` (`user@host:port`), `STATUS`, `TMUX`, `REMAINING` (auth TTL); `-v` adds `FULL_ID` (use alias or full UUID for `--load` / `--switch`, not the short ID column)
 - **load**: TTL check → (prompt password if expired) → reconnect → seed saved scrollback into memory (screen shows MOTD + AiT prompt only), restore cwd or `--tmux` attach → update `current_session_id`
 - **switch**: if current session is `active` and not `--force`, block with errhint; with `--force`, mark current suspended without saving scrollback/cwd → `Load(target)`; same target is no-op with notice (**standalone CLI**; in-SSH `!ait session --switch` **reconnects** when picking the same session after suspend)
-- **Interactive picker** (`session --load` / `--switch` with no target, and in-SSH chain `!ait load` / `!ait session --switch`): lists sessions and reads input in raw TTY mode (CRLF output); Ctrl+C cancels with errhint (`session pick cancelled`); **drains stdin** after pick so stale input is not forwarded to the next SSH session. `ait shell` `load` reuses the REPL raw TTY without an extra mode switch and drains stdin after pick.
+- **Interactive picker** (`session --load` / `--switch` with no target, and in-SSH chain `!ait load` / `!ait session --switch`): lists sessions and reads input in raw TTY mode (CRLF output); Ctrl+C cancels with errhint (`session pick cancelled`); **drains stdin** after pick so stale input is not forwarded to the next SSH session. `aitssh shell` `load` reuses the REPL raw TTY without an extra mode switch and drains stdin after pick.
 - **Setup echo filter**: after reconnect/login, **leak filtering** (up to 30s) suppresses leaked inject/PS1 fragments (`stty echo`, `AITPWDEND`, PS1 dir/git segments, wrapped fragments, and lone-character lines left by ZLE redraw) including partial line chunks; scrollback and stdout receive the same filtered bytes during this window. **Keystroke grace** ends on the first forwarded user byte so single-byte echo passes through while leak filtering continues. [`finishRemoteSetup`](../internal/pkg/ssh/client/client_init_helpers.go) **client-paints** the first AiT prompt when the ready sentinel is seen but remote echo is missing; unpause is gated on `remotePromptShown`. `stdinReader` starts only after remote setup completes.
 - **Scrollback leak hygiene**: leaked setup/probe echo lines (including lone-character noise lines) are filtered out of the scrollback buffer before suspend saves it, and again when saved scrollback is **seeded** on `session --load` / `--switch` (prompt lines stripped; not written to the terminal), so previously polluted recordings never resurface on screen.
 
@@ -437,11 +438,11 @@ sequenceDiagram
 ### Session cleanup
 
 ```text
-ait session --delete all         # Delete all sessions + session_state + sidecars + keyring entries
-ait session --delete <id|alias>  # Delete one; confirmation when present (--force skips)
+aitssh session --delete all         # Delete all sessions + session_state + sidecars + keyring entries
+aitssh session --delete <id|alias>  # Delete one; confirmation when present (--force skips)
 ```
 
-Cobra layout: `ait session` exposes `--delete` as a **string flag** (`--delete all` or `--delete <id|alias>`), not a `delete` subcommand tree. `all` requires secondary confirmation unless `--force`.
+Cobra layout: `aitssh session` exposes `--delete` as a **string flag** (`--delete all` or `--delete <id|alias>`), not a `delete` subcommand tree. `all` requires secondary confirmation unless `--force`.
 
 - `delete all`: transaction clears both tables; walks data dir deleting scrollback files; bulk clears keyring `ait/session/*`
 - `delete <id|alias>`: `ON DELETE CASCADE` removes `session_state`; deletes matching sidecar and keyring entries
@@ -479,11 +480,11 @@ Implementation: [`internal/pkg/transfer/`](../internal/pkg/transfer/) (SFTP over
 
 In-session `!ait get`/`put` uses a **unified router**: on **direct** connections (chain off, same host as dial target), **SFTP** is always used. In **chain mode** (active shell deeper than dial target), AiT probes for `sz`/`rz` and uses **ZMODEM** over the PTY when lrzsz is present. When lrzsz is **missing** on a direct hop, **SFTP** is used with a notice. When lrzsz is missing in **chain mode**, SFTP cannot reach the file — AiT prints install hints and, on an interactive terminal, asks `[y/N]` before injecting an OS-specific install command on the active shell (Linux package managers, Homebrew on macOS, choco/winget on Windows OpenSSH; may require remote `sudo`). ZMODEM uses a dedicated PTY inject path (no `stty` wrap); handshake failure times out in ~30s; direct-hop ZMODEM errors may fall back to SFTP. After ZMODEM completes, AiT briefly suppresses stdout while draining late PTY tail bytes and strips known protocol fragments from scrollback so teardown noise does not appear on the terminal.
 
-When the user has manually SSH'd beyond the directly connected host (e.g. login to a bastion, then `ssh internal` inside the session), SFTP and `conn.NewSession()` only reach the **dial target** of the live connection. **Chain mode** (`!ait chain on`, or **auto-enabled** when `!ait get`/`put` detects the active shell hostname differs from both the resolved dial host and the original login destination alias) requires PTY-pipe **ZMODEM** transfer. **ProxyJump at login is not chain mode**: `DialChain` tunnels to the final host; in-session transfer on that login probes lrzsz then SFTP-fallback when lrzsz is absent—the same strategy as standalone `ait get`/`put` (SFTP only). Hostname matching compares the active shell to `Options.Host` (ssh `-G` `HostName`) and `Options.LoginDestination` (CLI/config alias, e.g. `devhost` vs `dev.example.com`). Chain **get** injects remote `sz` and receives via embedded ZMODEM; chain **put** injects remote `rz` and sends via embedded Go ZMODEM—streaming over the PTY byte pipe with per-block CRC (no shell redirects into the target file). AiT clients on Linux/macOS/Windows Terminal run the local protocol stack in Go (no local lrzsz required). Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
+When the user has manually SSH'd beyond the directly connected host (e.g. login to a bastion, then `ssh internal` inside the session), SFTP and `conn.NewSession()` only reach the **dial target** of the live connection. **Chain mode** (`!ait chain on`, or **auto-enabled** when `!ait get`/`put` detects the active shell hostname differs from both the resolved dial host and the original login destination alias) requires PTY-pipe **ZMODEM** transfer. **ProxyJump at login is not chain mode**: `DialChain` tunnels to the final host; in-session transfer on that login probes lrzsz then SFTP-fallback when lrzsz is absent—the same strategy as standalone `aitssh get`/`put` (SFTP only). Hostname matching compares the active shell to `Options.Host` (ssh `-G` `HostName`) and `Options.LoginDestination` (CLI/config alias, e.g. `devhost` vs `dev.example.com`). Chain **get** injects remote `sz` and receives via embedded ZMODEM; chain **put** injects remote `rz` and sends via embedded Go ZMODEM—streaming over the PTY byte pipe with per-block CRC (no shell redirects into the target file). AiT clients on Linux/macOS/Windows Terminal run the local protocol stack in Go (no local lrzsz required). Tmux operations use `HasSessionViaPTY` / `NewSessionViaPTY` / `EnsureViaPTY` instead of `conn.NewSession()`.
 
 | Mode | Command | Authentication |
 |------|---------|----------------|
-| Standalone CLI | `ait get [flags] <paths…>` / `ait put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/parse/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/resolve/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go) (same auth path as login, including password prompt) |
+| Standalone CLI | `aitssh get [flags] <paths…>` / `aitssh put [flags] <paths…>` | [`args.ParseTransfer`](../internal/pkg/ssh/parse/transfer_parse.go) + [`args.Resolve`](../internal/pkg/ssh/resolve/resolve.go) + [`DialChain`](../internal/pkg/ssh/client/dialchain.go) (same auth path as login, including password prompt) |
 | In SSH session | `!ait get …` / `!ait put …` | Reuses the live connection from [`handleMetaLine`](../internal/pkg/ssh/client/client.go) / [`client_transfer.go`](../internal/pkg/ssh/client/client_transfer.go); **no second dial** |
 
 **Standalone flags and paths** (flags and paths may appear in **any order**; glued forms such as `-p22`, `-i~/.ssh/id` are supported):
@@ -492,14 +493,14 @@ When the user has manually SSH'd beyond the directly connected host (e.g. login 
 - AiT: `--session <id|alias>` (saved session; remote path may be bare `/path` on that host)
 - **One path (get)**: `user@host:/remote/file` — local defaults to `./basename`
 - **One path (put)**: `user@host:/remote/file` — local defaults to `./basename`; or `./local/file` with `--session` — remote defaults to `./basename`
-- **Three paths**: `destination` + remote file path + local path (any order), e.g. `ait get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
+- **Three paths**: `destination` + remote file path + local path (any order), e.g. `aitssh get deploy@10.0.0.5 /var/log/app.log ./app.log -F ~/.ssh/config`
 - **Two paths + `--session`**: local and remote server paths (order-independent; local path detected via `./` prefix or existing local file)
 
 **In-session** (`!ait get` / `!ait put`): get accepts remote + optional local (defaults to remote basename); put accepts local + optional remote (defaults to local basename); relative remote paths resolve against the active shell cwd before transfer; no SSH flags.
 
 ### Proxy chain mode (!ait chain)
 
-**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session transfer on that login uses **SFTP** by default (same as `ait get`/`put`). **Chain mode** applies when the **interactive shell** is on a host **deeper** than the dial connection—typically after you manually `ssh` from the login host to another machine inside the session.
+**ProxyJump / `-J` at login** reaches the final target through `DialChain`; in-session transfer on that login uses **SFTP** by default (same as `aitssh get`/`put`). **Chain mode** applies when the **interactive shell** is on a host **deeper** than the dial connection—typically after you manually `ssh` from the login host to another machine inside the session.
 
 When the interactive path is `local → bastion` (login) then manual `ssh internal`, the AiT `Client` holds a direct SSH session to the bastion only. SFTP (`conn.NewSession()`) and `conn.NewSession()`-based tmux operations can only reach that first hop — **not** the internal host. Features that already work through the PTY pipe (AI mode `!!`, scrollback capture, remote cwd detection) continue to work regardless of hop count because PTY stdin/stdout traverses all SSH connections.
 
@@ -544,28 +545,28 @@ flowchart LR
 
 ### AI mode (dual scope)
 
-Package: [`internal/ait/ai/mode/`](../internal/ait/ai/mode/) (REPL, exec policy, runners); one-shot: [`internal/ait/ai/ask/`](../internal/ait/ai/ask/), [`internal/ait/ai/agent/`](../internal/ait/ai/agent/); chat API: [`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go). Remote entry is wired via `InteractiveOpts.OnRemoteAI` from [`internal/ait/ai/cmd.go`](../internal/ait/ai/cmd.go) (avoids import cycles).
+Package: [`internal/aissh/ai/mode/`](../internal/aissh/ai/mode/) (REPL, exec policy, runners); one-shot: [`internal/aissh/ai/ask/`](../internal/aissh/ai/ask/), [`internal/aissh/ai/agent/`](../internal/aissh/ai/agent/); chat API: [`internal/pkg/ai/chat.go`](../internal/pkg/ai/chat.go). Remote entry is wired via `InteractiveOpts.OnRemoteAI` from [`internal/aissh/ai/cmd.go`](../internal/aissh/ai/cmd.go) (avoids import cycles).
 
 | Entry | Scope | Prompt | Command execution |
 |-------|-------|--------|-------------------|
-| `ait ai`, `ai` in `ait shell` | Local | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run <cmd>` → local `sh -c` / `cmd /c`; `ait <args>` → Cobra after confirm |
+| `aitssh ai`, `ai` in `aitssh shell` | Local | `AiT AI(Ask)>` / `AiT AI(Agent)>` | `run <cmd>` → local `sh -c` / `cmd /c`; `aitssh <args>` → Cobra after confirm |
 | `!ait ai`, `!!` in SSH | Remote | `AiT AI(Ask) user@host>` / `AiT AI(Agent) user@host>` | `run <cmd>` → PTY stdin (`cmd\n`); no local `exec` for remote work |
 
-**REPL commands:** `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default **agent**: plan/run via JSON or OpenAI tools; **`mode ask`** for Q&A only), `approve each|session` (default **each**; **session** trusts safe commands after first yes; `trust` = `approve session`), `model` (routing status), `model list`, `model <cloud-provider>` (`model ollama` rejected), free-text (Ask → `Chat`; Agent → tool loop with `run_shell` / `ait_cli` / `answer`), `run` / local-only `ait`. Deprecated: `policy per-cmd|once` → `approve each|session` (stderr hint).
+**REPL commands:** `help`, `exit`/`quit`, `clear`, `mode ask|agent` (default **agent**: plan/run via JSON or OpenAI tools; **`mode ask`** for Q&A only), `approve each|session` (default **each**; **session** trusts safe commands after first yes; `trust` = `approve session`), `model` (routing status), `model list`, `model <cloud-provider>` (`model ollama` rejected), free-text (Ask → `Chat`; Agent → tool loop with `run_shell` / `ait_cli` / `answer`), `run` / local-only `aitssh`. Deprecated: `policy per-cmd|once` → `approve each|session` (stderr hint).
 
 **Agent execution:** OpenAI-compatible providers use native function tools when available; others use JSON-in-prompt. **Read-only commands** (for example `ls`, `git status`) run without confirmation in Agent mode; write commands and high-risk commands still require `[y/N]`. `run_shell` uses `RunPTYCapture` + scrollback delta on remote; local uses `CombinedOutput`. Interactive TUI commands (`vim`, `less`, `top`, …) are never auto-run. High-risk commands always require `[y/N]` even with `approve session`.
 
 **Multi-provider config:** YAML block `ai` with `default` (cloud only: `deepseek` or `minimax`), optional `fallback`, optional `tiered` (`enabled`, `local_provider`, `max_prompt_chars`, `max_history_turns`, `complex_keywords`), and `providers.<id>` (`api_style`, `base_url`, `model`). Legacy top-level `deepseek:` merges into `ai.providers.deepseek` on load. MiniMax supports `api_style: openai` (`https://api.minimaxi.com/v1`) or `anthropic` (`https://api.minimaxi.com/anthropic`). Ollama uses OpenAI-compatible `http://127.0.0.1:11434/v1` (localhost HTTP allowed; no API key). When tiered is on, `ClassifyPrompt` sends simple first-turn prompts to Ollama; otherwise Chat/Assist use cloud order (session `--model` / REPL `model`, else `ai.default`, then failover). Ollama errors fail up to cloud. `SuggestInstall` always uses cloud. System prompt injects factual `ai_provider`, `ai_model`, `ai_mode` (`local_first` | `cloud_only`) so the model does not invent backends. Set `AIT_AI_FAILOVER_LOG=1` to log switches on stderr.
 
-**Model list:** `ait ai model list` and REPL `model list` print configured providers (key, **ENABLED**, role, reachability) and optional Ollama `GET /api/tags` pulled models (configured model marked with `*`). Disabled providers never receive Chat/Assist traffic.
+**Model list:** `aitssh ai model list` and REPL `model list` print configured providers (key, **ENABLED**, role, reachability) and optional Ollama `GET /api/tags` pulled models (configured model marked with `*`). Disabled providers never receive Chat/Assist traffic.
 
-**Provider enable/disable:** `ai.providers.<id>.enabled` (default true when omitted). `ait ai provider disable minimax` stops failover to MiniMax; `ait ai provider enable ollama` re-enables routing; full local setup is `ait ai ollama setup` (install prompt `[y/N]` when Ollama is missing; `--yes` / `--no-install`; manual steps on decline).
+**Provider enable/disable:** `ai.providers.<id>.enabled` (default true when omitted). `aitssh ai provider disable minimax` stops failover to MiniMax; `aitssh ai provider enable ollama` re-enables routing; full local setup is `aitssh ai ollama setup` (install prompt `[y/N]` when Ollama is missing; `--yes` / `--no-install`; manual steps on decline).
 
-**Ollama CLI (under `ait ai ollama`):** `setup` prompts for `models_dir` (persisted as `ai.providers.ollama.models_dir`, applied as `OLLAMA_MODELS` on AiT-started `serve`/`pull`; alternatives: AiT data dir, `~/.ollama/models`, custom; `--models-dir`); merges tiered + `providers.ollama` and may install/pull; `status` shows config + API reachability; `start`/`stop` control `ollama serve`; `disable` sets `providers.ollama.enabled` false (optional `--stop`). Package: [`internal/pkg/ollama/`](../internal/pkg/ollama/).
+**Ollama CLI (under `aitssh ai ollama`):** `setup` prompts for `models_dir` (persisted as `ai.providers.ollama.models_dir`, applied as `OLLAMA_MODELS` on AiT-started `serve`/`pull`; alternatives: AiT data dir, `~/.ollama/models`, custom; `--models-dir`); merges tiered + `providers.ollama` and may install/pull; `status` shows config + API reachability; `start`/`stop` control `ollama serve`; `disable` sets `providers.ollama.enabled` false (optional `--stop`). Package: [`internal/pkg/ollama/`](../internal/pkg/ollama/).
 
-**Authorization:** Multi-line confirm before each `run`/`ait`/Agent tool: **`y`** once, **`c`** trust first shell token for the session, **`s`** trust all low-risk for the session, **`n`** skip (high-risk: **`y`**/`n` only). `approve each`/`approve session` CLI commands unchanged. Internal `ExecPolicy` names unchanged.
+**Authorization:** Multi-line confirm before each `run`/`aitssh`/Agent tool: **`y`** once, **`c`** trust first shell token for the session, **`s`** trust all low-risk for the session, **`n`** skip (high-risk: **`y`**/`n` only). `approve each`/`approve session` CLI commands unchanged. Internal `ExecPolicy` names unchanged.
 
-**One-shot ask:** `ait ai ask` and `!ait ai ask <msg>` / `!! ask <msg>` call `chat.RunOnce` in [`internal/ait/ai/mode/chat/`](../internal/ait/ai/mode/chat/) (single turn, no REPL). Empty `ask` returns `ask requires a message`.
+**One-shot ask:** `aitssh ai ask` and `!ait ai ask <msg>` / `!! ask <msg>` call `chat.RunOnce` in [`internal/aissh/ai/mode/chat/`](../internal/aissh/ai/mode/chat/) (single turn, no REPL). Empty `ask` returns `ask requires a message`.
 
 **SSH integration:** `handleAIMetaLine` runs synchronous `RunREPL` with `pauseRemoteOut`; does not spawn async one-shot `Assist`. Optional trailing text on `!ait ai` / `!!` is the first REPL turn (or `ask <msg>` / `agent <msg>` for one-shot).
 
@@ -591,7 +592,7 @@ Direct dependencies:
 - `github.com/99designs/keyring` — secret/password cache
 - `github.com/google/uuid` — session IDs
 - `github.com/pkg/sftp` — file transfer (get/put)
-- `github.com/sashabaranov/go-openai` — Deepseek (OpenAI-compatible)
+- `github.com/cloudwego/eino`, `github.com/cloudwego/eino-ext/components/model/openai` — multi-provider ChatModel (OpenAI-compatible + failover)
 - `gopkg.in/yaml.v3` — configuration
 
 Indirect: `github.com/creack/pty` (Unix local mode `!ait local`).
@@ -606,7 +607,7 @@ Prefer stdlib plus `x/` extensions when adding dependencies; follow project rule
 | `ssh/client` | Meta lines, host keys, prompts, local mode, auth |
 | `ssh/args` | parse/resolve, `ssh -G` (skip when local `ssh` unavailable) |
 | `session` | TTL/password prompt logic |
-| `ait` | REPL, shell line parsing, login help |
+| `aitssh` | REPL, shell line parsing, login help |
 | `terminal`, `ai`, `config`, `transfer`, `platform`, `pathsafe` | Unit tests |
 
 Gates: `make test`, `make vet`; `make test-cross` runs `go build ./...` for five platforms (linux/darwin/windows × amd64/arm64).
@@ -615,11 +616,11 @@ Gates: `make test`, `make vet`; `make test-cross` runs `go build ./...` for five
 
 Capabilities implemented in the current tree:
 
-- [x] Cobra CLI, `ait shell` REPL, config/keyring, `session.auth_ttl`
+- [x] Cobra CLI, `aitssh shell` REPL, config/keyring, `session.auth_ttl`
 - [x] `login` / interactive SSH, `ssh/args` plus `ssh/client` (including ProxyJump/Command)
 - [x] `suspend` / `list` / `load` / `session --switch` / `session --delete`
 - [x] `--tmux` remote keep-alive
-- [x] `get` / `put` (SFTP, single file) and dual-scope AI mode (`ait ai`, `!ait ai` / `!!`)
+- [x] `get` / `put` (SFTP, single file) and dual-scope AI mode (`aitssh ai`, `!ait ai` / `!!`)
 - [x] Proxy chain mode (`!ait chain on/off`) — PTY-pipe injection for file transfer and tmux over multiple SSH hops
 - [x] Cross-platform builds (including Windows OpenSSH probing, split proxy/resize files)
 
@@ -633,7 +634,7 @@ Capabilities implemented in the current tree:
 
 ## Deliverables
 
-- Runnable `bin/ait` (`make build`)
+- Runnable `bin/aitssh` (`make build`)
 - [`configs/ait.example.yaml`](../configs/ait.example.yaml) configuration template
 - User docs: [`README.md`](../README.md), [`docs/user-manual.md`](user-manual.md); code orientation: [`AGENTS.md`](../AGENTS.md)
 - `make test` / `make vet` / `make test-cross` passing

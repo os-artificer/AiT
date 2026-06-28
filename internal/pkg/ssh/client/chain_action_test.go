@@ -19,24 +19,54 @@ package client
 import (
 	"reflect"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/cliroute"
+	"github.com/os-artificer/AiT/internal/pkg/store"
 )
 
-func TestParseMetaChainLine_Login(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ait login --save user@hostB")
+type chainAliasStub map[string]struct{}
+
+func (s chainAliasStub) GetSession(idOrAlias string) (*store.Session, error) {
+	if _, ok := s[idOrAlias]; ok {
+		return &store.Session{Alias: idOrAlias}, nil
+	}
+	return nil, store.ErrSessionNotFound
+}
+
+func TestParseMetaChainLine_UserHost(t *testing.T) {
+	cliroute.SetHostConfiguredHook(nil)
+	chain, ok := ParseMetaChainLine("!ait user@hostB", nil)
 	if !ok {
 		t.Fatal("expected chain login")
 	}
 	if chain.Op != ChainOpLogin {
 		t.Fatalf("op = %v, want ChainOpLogin", chain.Op)
 	}
-	want := []string{"--save", "user@hostB"}
+	want := []string{"user@hostB"}
 	if !reflect.DeepEqual(chain.Args, want) {
 		t.Fatalf("args = %v, want %v", chain.Args, want)
 	}
 }
 
+func TestParseMetaChainLine_Alias(t *testing.T) {
+	cliroute.SetHostConfiguredHook(func(string) bool { return false })
+	t.Cleanup(func() { cliroute.SetHostConfiguredHook(nil) })
+
+	lookup := chainAliasStub{"prod": {}}
+	chain, ok := ParseMetaChainLine("!ait prod", lookup)
+	if !ok {
+		t.Fatal("expected chain login for saved alias")
+	}
+	if chain.Op != ChainOpLogin {
+		t.Fatalf("op = %v, want ChainOpLogin", chain.Op)
+	}
+	if len(chain.Args) != 1 || chain.Args[0] != "prod" {
+		t.Fatalf("args = %v", chain.Args)
+	}
+}
+
 func TestParseMetaChainLine_Load(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ait load prod --tmux")
+	chain, ok := ParseMetaChainLine("!ait load prod --tmux", nil)
 	if !ok {
 		t.Fatal("expected chain load")
 	}
@@ -50,7 +80,7 @@ func TestParseMetaChainLine_Load(t *testing.T) {
 }
 
 func TestParseMetaChainLine_Switch(t *testing.T) {
-	chain, ok := ParseMetaChainLine("!ait session --switch prod")
+	chain, ok := ParseMetaChainLine("!ait session --switch prod", nil)
 	if !ok {
 		t.Fatal("expected chain switch")
 	}
@@ -62,11 +92,25 @@ func TestParseMetaChainLine_Switch(t *testing.T) {
 	}
 }
 
+func TestParseMetaChainLine_LoginRejected(t *testing.T) {
+	if _, ok := ParseMetaChainLine("!ait login --save user@hostB", nil); ok {
+		t.Fatal("login prefix must not chain")
+	}
+}
+
+func TestParseMetaChainLine_UnknownNotChain(t *testing.T) {
+	cliroute.SetHostConfiguredHook(func(string) bool { return false })
+	t.Cleanup(func() { cliroute.SetHostConfiguredHook(nil) })
+	if _, ok := ParseMetaChainLine("!ait nosuch", nil); ok {
+		t.Fatal("unknown meta argv must not chain")
+	}
+}
+
 func TestParseMetaChainLine_NotChain(t *testing.T) {
-	if _, ok := ParseMetaChainLine("!ait list"); ok {
+	if _, ok := ParseMetaChainLine("!ait list", nil); ok {
 		t.Fatal("list should not be chain action")
 	}
-	if _, ok := ParseMetaChainLine("!ait session --load prod"); ok {
+	if _, ok := ParseMetaChainLine("!ait session --load prod", nil); ok {
 		t.Fatal("session --load should not match switch chain")
 	}
 }

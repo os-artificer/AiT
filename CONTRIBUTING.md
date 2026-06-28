@@ -10,20 +10,20 @@ Thank you for contributing to **AiT** (AI Terminal). This document summarizes th
 
 The canonical source for coding rules is [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc), [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc), and [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc). **When you change coding conventions, update those files and both CONTRIBUTING documents** ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)).
 
-For CLI commands, `--help` text must match the login-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/ait/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `ait login --help` before opening a PR.
+For CLI commands, `--help` text must match the login-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/aissh/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `aitssh login --help` before opening a PR.
 
 ---
 
 ## Development setup
 
 ```bash
-make build       # build to bin/ait
+make build       # build to bin/aitssh
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
 make test-cross  # cross-compile for Windows/macOS (compile only; does not run tests on those OSes)
 make test-e2e-smoke  # optional Python CLI smoke (no SSH); also run in CI after merge gate
-./bin/ait        # run the binary
+./bin/aitssh        # run the binary
 ```
 
 `make test-cross` runs `go build ./...` for `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, and `windows/amd64` to catch platform-specific compile errors. It does **not** execute the test suite on those platforms.
@@ -46,7 +46,7 @@ make test-e2e         # full E2E including SSH when configured
 Windows cross-compile example:
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -o bin/ait.exe ./cmd/ait
+GOOS=windows GOARCH=amd64 go build -o bin/aitssh.exe ./cmd/aitssh
 ```
 
 ---
@@ -57,16 +57,16 @@ AiT is a Go CLI; directories follow [golang-standards/project-layout](https://gi
 
 | Path | Purpose |
 |------|---------|
-| [`cmd/ait`](cmd/ait) | Main entry; **only** a minimal `main` |
-| [`internal/ait`](internal/ait) | Application entry (`Run`, Cobra root); **one package per subcommand** (`internal/ait/login`, `get`, …) with name, flags, parse, help, run in the same package |
-| [`internal/pkg/*`](internal/pkg) | Shared libraries (`store`, `session`, `ssh`, …); **must not** import `internal/ait` |
+| [`cmd/aitssh`](cmd/aitssh) | Main entry; **only** a minimal `main` |
+| [`internal/aissh`](internal/aissh) | Application entry (`Run`, Cobra root); **one package per subcommand** (`internal/aissh/login`, `get`, …) with name, flags, parse, help, run in the same package |
+| [`internal/pkg/*`](internal/pkg) | Shared libraries (`store`, `session`, `ssh`, …); **must not** import `internal/aissh` |
 | [`pkg/`](pkg/) | Libraries for **external** modules; generic / non–AiT-business only |
 | [`configs/`](configs/) | Config templates (e.g. `ait.example.yaml`) |
 
 Conventions:
 
-- Prefer extending `internal/ait/<cmd>` and `internal/pkg/*`; avoid adding top-level directories without reason.
-- **Package layering:** `cmd/ait` → `internal/ait` → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/package-layering.md`](docs/package-layering.md) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
+- Prefer extending `internal/aissh/<cmd>` and `internal/pkg/*`; avoid adding top-level directories without reason.
+- **Package layering:** `cmd/aitssh` → `internal/aissh` → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/package-layering.md`](docs/package-layering.md) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
 - `internal/` is module-private — **must not** be imported from outside this module.
 - See [`AGENTS.md`](AGENTS.md) for package layout; see [`docs/design.md`](docs/design.md) for product architecture.
 
@@ -130,7 +130,7 @@ Top to bottom:
 
 Functions without a receiver live in dedicated files (e.g. `*_helpers.go`, `*_parse.go`), still following §3.
 
-**Exception**: [`cmd/ait/main.go`](cmd/ait/main.go) keeps only a minimal `main`.
+**Exception**: [`cmd/aitssh/main.go`](cmd/aitssh/main.go) keeps only a minimal `main`.
 
 Do not mix package-level helpers with struct methods in the same file; see `internal/pkg/ssh/client` `*_helpers.go` layout.
 

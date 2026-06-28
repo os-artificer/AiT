@@ -52,7 +52,7 @@ func GetProviderAPIKey(provider string) (string, error) {
 		return "", err
 	}
 
-	item, err := kr.Get(providerAPIKeyKey(provider))
+	item, err := getItem(providerAPIKeyKey(provider))
 	if err == nil {
 		return string(item.Data), nil
 	}

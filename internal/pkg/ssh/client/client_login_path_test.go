@@ -24,7 +24,7 @@ import (
 	"testing"
 )
 
-// TestLoginInteractivePathDoesNotUseTransferPackage ensures ait login/load setup
+// TestLoginInteractivePathDoesNotUseTransferPackage ensures aitssh login/load setup
 // does not pull in internal/pkg/transfer (get/put SFTP is separate from RunInteractive init).
 func TestLoginInteractivePathDoesNotUseTransferPackage(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)

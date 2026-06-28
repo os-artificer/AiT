@@ -15,7 +15,7 @@
 **/
 
 // Package lineedit implements the Emacs-style raw-TTY line editor used by
-// `ait shell` and `ait ai`: ReadLine reads one edited line with history recall,
+// `aitssh shell` and `aitssh ai`: ReadLine reads one edited line with history recall,
 // Ctrl+R reverse search, kill keys, UTF-8 input, and Ctrl+L screen clear.
 package lineedit
 

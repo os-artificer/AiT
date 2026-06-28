@@ -66,6 +66,21 @@ func TestMetaScanner_AitPrefixCapturedWhenAIDisabled(t *testing.T) {
 	}
 }
 
+// TestScanner_MaxLookCoversLongestPrefix ensures holding buf fits the longest opener.
+func TestScanner_MaxLookCoversLongestPrefix(t *testing.T) {
+	longest := "!ait remote\n"
+	if maxLook < len(longest) {
+		t.Fatalf("maxLook=%d shorter than len(%q)", maxLook, longest)
+	}
+	fwd, _, meta := drive("!ait local\n", false)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait local" {
+		t.Errorf("meta=%v want [!ait local]", meta)
+	}
+}
+
 func TestMetaScanner_BashHistoryColonModifierPassthrough(t *testing.T) {
 	fwd, _, meta := drive("!!:gs/x/y/\n", true)
 	if fwd != "!!:gs/x/y/\n" {
@@ -129,6 +144,21 @@ func TestMetaScanner_AitAIAsk(t *testing.T) {
 	}
 	if len(meta) != 1 || meta[0] != "!ait ai ask ping" {
 		t.Errorf("meta=%v", meta)
+	}
+}
+
+// RA6: bare !ait ai line is captured as meta and yields empty initial prompt.
+func TestMetaScanner_AitAIBareLine(t *testing.T) {
+	fwd, _, meta := drive("!ait ai\n", true)
+	if fwd != "" {
+		t.Errorf("forward=%q want empty", fwd)
+	}
+	if len(meta) != 1 || meta[0] != "!ait ai" {
+		t.Errorf("meta=%v", meta)
+	}
+	prompt, ok := AIPromptFromLine(meta[0])
+	if !ok || prompt != "" {
+		t.Errorf("prompt=%q ok=%v", prompt, ok)
 	}
 }
 
@@ -299,6 +329,20 @@ func TestMetaScanner_PrefixCandidateHelpers(t *testing.T) {
 	}
 	if _, ok := prefixMatch("!ait remote\n"); !ok {
 		t.Error(`"!ait remote\n" should match`)
+	}
+}
+
+func TestMetaScanner_LegacyPrefixNotCaptured(t *testing.T) {
+	cases := []string{"!aitssh help\n", "!aitssh ai ask hi\n"}
+	for _, input := range cases {
+		fwd, _, meta := drive(input, true)
+		if len(meta) != 0 {
+			t.Errorf("input %q: meta=%v want none (legacy prefix not recognized)", input, meta)
+		}
+		trimmed := strings.TrimSuffix(input, "\n")
+		if !strings.Contains(fwd, trimmed) {
+			t.Errorf("input %q: forward=%q want to contain %q", input, fwd, trimmed)
+		}
 	}
 }
 

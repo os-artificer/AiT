@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 // StatusReport holds Ollama configuration and runtime status for PrintStatus.
@@ -109,7 +110,7 @@ func formatStatus(w io.Writer, r StatusReport) error {
 
 func modelsDirLine(dir string) string {
 	if dir == "" {
-		return "(not set — run: ait ai ollama setup)"
+		return "(not set — run: " + toolname.CLI("ai ollama setup") + ")"
 	}
 	return dir
 }

@@ -24,8 +24,6 @@ const (
 
 	aiModeTieredLabel = "tiered (simple prompts local)"
 
-	scrollbackContextMax = 4000
-
 	anthropicMessagesPath      = "/v1/messages"
 	anthropicMaxTokens         = 4096
 	anthropicHeaderContentType = "Content-Type"
@@ -40,20 +38,16 @@ const (
 	anthropicRoleUser      = "user"
 	anthropicRoleAssistant = "assistant"
 
+	openAIChatCompletionsPath = "/chat/completions"
+	openAIHeaderContentType   = "Content-Type"
+	openAIContentType         = "application/json"
+	openAIHeaderAuthorization = "Authorization"
+	openAIBearerPrefix        = "Bearer "
+
 	modelsListHTTPTimeout = 3 * time.Second
 
 	httpStatusTooManyRequests = 429
 	httpStatusInternalError   = 500
-
-	promptKeyProvider = "ai_provider:"
-	promptKeyModel    = "ai_model:"
-	promptKeyMode     = "ai_mode:"
-
-	envKeyRemoteHost = "remote_host:"
-	envKeyRemoteCwd  = "remote_cwd:"
-	envKeyLocalOS    = "local_os:"
-	envKeyScrollback = "recent_terminal_output:\n"
-	envContextSep    = "\n\n---\n\n"
 
 	statusAIProviderPrefix = "AI provider: "
 	statusTieredOnSuffix   = ", tiered=on (simple prompts use local ollama)"
@@ -65,7 +59,7 @@ const (
 	errNoCloudProvidersWithKeys = "no enabled cloud AI providers with API keys configured"
 	errCannotSetOllamaSession   = "cannot set session provider to ollama (local routing is automatic when tiered is enabled)"
 	errUnknownCloudProviderFmt  = "unknown cloud provider %q"
-	errProviderDisabledFmt      = "provider %q is disabled (ait ai provider enable %s)"
+	errProviderDisabledFmt      = "provider %q is disabled (aitssh ai provider enable %s)"
 	errProviderNoAPIKeyFmt      = "provider %q has no API key (%s)"
 	errAPIKeyNotSetFmt          = "%s API key not set"
 	errAPIKeyNotSetWithHintFmt  = "%s API key not set (%s)"

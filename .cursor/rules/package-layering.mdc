@@ -3,46 +3,48 @@ description: AiT package layering — subcommand closure, registry OCP, internal
 alwaysApply: true
 ---
 
-# Package layering (AiT CLI)
+# Package layering (AiT toolbox — aitssh)
 
 Authoritative detail: [docs/package-layering.md](../../docs/package-layering.md) · [docs/package-layering.zh-CN.md](../../docs/package-layering.zh-CN.md). Keep this rule in sync when those docs change.
 
 ## Call chain
 
-`cmd/ait` → `internal/ait` (`Run`, `Execute`, `NewManager`) → `internal/ait/<cmd>` (closed loop per subcommand) → `internal/pkg/*` (shared, no product subcommand ownership).
+`cmd/aitssh` → `internal/aissh` (package **`aissh`**: `Run`, `Execute`, `NewManager`) → `internal/aissh/<cmd>` (closed loop per subcommand) → `internal/pkg/*` (shared, no product subcommand ownership).
 
-## Subcommand package (`internal/ait/<cmd>/`)
+**Directory vs package:** `internal/aissh/` uses Go package `aissh` (`aitssh` is not a valid identifier). Subcommand dirs still use package names matching Cobra (`login`, `shell`, …).
+
+## Subcommand package (`internal/aissh/<cmd>/`)
 
 One package per top-level command owns: `Name`, `flags.go`, `parse.go`, `cmd.go` (`New`), `help.go`, `run.go`, **`register.go`** (`init` → `registry.Register`).
 
 - **No** `internal/pkg/aitcmd` or names-only constant packages.
-- **No** thin `internal/ait/<cmd>/` wrappers with parse elsewhere (one closed-loop package per command).
+- **No** thin `internal/aissh/<cmd>/` wrappers with parse elsewhere (one closed-loop package per command).
 
 ## Registry (OCP)
 
-- Root: `registry.AttachRoot` in `internal/ait/cli_root.go`; root help via `registry.RootHelpEntries()` / `pkg/helpdoc.WriteRootHelp`（[`registry/root_help.go`](internal/ait/registry/root_help.go)）。
+- Root: `registry.AttachRoot` in `internal/aissh/cli_root.go`; root help via `registry.RootHelpEntries()` / `pkg/helpdoc.WriteRootHelp`（[`registry/root_help.go`](internal/aissh/registry/root_help.go)）。
 - **Do not** hand-edit `AddCommand` lists for new top-level or nested commands.
-- New top-level: `internal/ait/<cmd>/` + `_ "…/registry/all/imports.go"`.
-- Nested (`ait ai`, `ait config`, `provider`, `ollama`): parent `<parent>/subregistry` + child `register.go` + `<parent>/registry/all/imports.go`.
+- New top-level: `internal/aissh/<cmd>/` + `_ "…/registry/all/imports.go"`.
+- Nested (`aitssh ai`, `aitssh config`, `provider`, `ollama`): parent `<parent>/subregistry` + child `register.go` + `<parent>/registry/all/imports.go`.
 
 ## Package name = command name
 
-Directory/package = Cobra name (`login`, `ai/ask`, `config/set`). No `*cmd` package suffix. AI REPL: `internal/ait/ai/mode`. CLI `session`: `internal/ait/session` (alias pkg session as `pkgsession`).
+**Exception:** `internal/aissh/` root is package **`aissh`** (directory `aissh`). Otherwise directory/package = Cobra name (`login`, `ai/ask`, `config/set`). No `*cmd` package suffix. AI REPL: `internal/aissh/ai/mode`. CLI `session`: `internal/aissh/session` (alias pkg session as `pkgsession`).
 
 ## `helpdoc`
 
-- Shared: `internal/pkg/helpdoc`. Per-command: `internal/ait/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`).
+- Shared: `internal/pkg/helpdoc`. Per-command: `internal/aissh/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`).
 
 ## `clihints` (Try SSOT)
 
 - Shared errhint Try example lines: [`internal/pkg/clihints`](internal/pkg/clihints/try_lines.go).
-- `internal/ait` and `internal/pkg/ssh/*` reference `clihints` constants; do not duplicate literals such as `ait session --list`.
+- `internal/aissh` and `internal/pkg/ssh/*` reference `clihints` constants; do not duplicate literals such as `aitssh session --list`.
 
 ## `internal/pkg`
 
 - Shared OpenSSH argv: `internal/pkg/ssh/openssh`.
-- **Must not** import `internal/ait`.
-- Meta `!ait get`/`put`: protocol names in `internal/pkg/ssh/client/transfer` (`CmdGet`/`CmdPut`); test alignment with `get.Name` / `put.Name` in `internal/ait`.
+- **Must not** import `internal/aissh`.
+- Meta `!ait get`/`put`: protocol names in `internal/pkg/ssh/client/transfer` (`CmdGet`/`CmdPut`); test alignment with `get.Name` / `put.Name` in `internal/aissh`.
 
 ## Refactors
 

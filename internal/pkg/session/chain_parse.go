@@ -20,28 +20,29 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func chainPasswordRequiresValueErr() error {
 	return errhint.WithTryMsg("--password requires a value",
 		"Pass the SSH password after --password.",
-		"!ait session --switch prod --password secret",
+		toolname.MetaLine("session --switch prod --password secret"),
 	)
 }
 
 func chainUnknownFlagErr(flag string) error {
 	return errhint.WithTryMsg("unknown flag "+flag,
 		"Supported flags are --tmux and --password.",
-		"!ait load prod --tmux",
-		"!ait session --switch prod --tmux",
+		toolname.MetaLine("load prod --tmux"),
+		toolname.MetaLine("session --switch prod --tmux"),
 	)
 }
 
 func chainUnexpectedSwitchArgsErr() error {
 	return errhint.WithTryMsg("unexpected arguments with --switch",
 		"Pass the session id or alias as a single argument.",
-		"!ait session --switch <id|alias>",
-		"!ait session --switch",
+		toolname.MetaLine("session --switch <id|alias>"),
+		toolname.MetaLine("session --switch"),
 	)
 }
 
@@ -77,8 +78,8 @@ func ParseChainLoadArgs(argv []string) (target, password string, tmux, needPick 
 			if target != "" {
 				return "", "", false, false, errhint.WithTryMsg("unexpected arguments with load",
 					"Pass the session id or alias as the first argument.",
-					"!ait load <id|alias>",
-					"!ait load",
+					toolname.MetaLine("load <id|alias>"),
+					toolname.MetaLine("load"),
 				)
 			}
 			target = argv[i]

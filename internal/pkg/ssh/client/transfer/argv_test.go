@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestArgsFromMetaLine_Get(t *testing.T) {
@@ -48,7 +49,7 @@ func TestArgsFromMetaLine_NonTransfer(t *testing.T) {
 	if _, _, ok := ArgsFromMetaLine("!ait list"); ok {
 		t.Fatal("non-transfer meta should not match")
 	}
-	if _, _, ok := ArgsFromMetaLine("ait get x y"); ok {
+	if _, _, ok := ArgsFromMetaLine(toolname.CLI("get x y")); ok {
 		t.Fatal("missing prefix should not match")
 	}
 }
@@ -74,7 +75,7 @@ func TestUsageHintErr_Format(t *testing.T) {
 	if !strings.Contains(s, UsageGet) {
 		t.Fatalf("missing usage sentinel: %q", s)
 	}
-	if !strings.Contains(s, "!ait get <remote-path> <local-path>") {
+	if !strings.Contains(s, toolname.MetaLine("get <remote-path> <local-path>")) {
 		t.Fatalf("missing get try line: %q", s)
 	}
 }

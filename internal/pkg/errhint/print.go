@@ -26,7 +26,7 @@ import (
 type Surface int
 
 const (
-	// SurfaceCLI is plain stderr for top-level ait commands (no AiT: prefix).
+	// SurfaceCLI is plain stderr for top-level aitssh commands (no AiT: prefix).
 	SurfaceCLI Surface = iota
 	// SurfaceTTY is REPL/SSH-style output: AiT: on the first line, CRLF, continuation indent.
 	SurfaceTTY

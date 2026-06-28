@@ -34,7 +34,7 @@ const (
 	OpPut
 )
 
-// TransferSpec holds parsed argv for ait get or ait put.
+// TransferSpec holds parsed argv for aitssh get or aitssh put.
 type TransferSpec struct {
 	Conn       Spec
 	Session    string
@@ -42,7 +42,7 @@ type TransferSpec struct {
 	RemotePath string
 }
 
-// ParseTransfer parses argv for ait get or ait put (OpenSSH-compatible flags + AiT extensions).
+// ParseTransfer parses argv for aitssh get or aitssh put (OpenSSH-compatible flags + AiT extensions).
 // Flags and paths may appear in any order. Returns an error for unknown flags, invalid path sets,
 // or missing connection information when --session is not set.
 func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
@@ -57,7 +57,7 @@ func ParseTransfer(argv []string, op TransferOp) (TransferSpec, error) {
 	for i := 0; i < len(argv); i++ {
 		arg := argv[i]
 		if arg == "--" {
-			return TransferSpec{}, fmt.Errorf("-- is not supported for ait %s", cmdLabel)
+			return TransferSpec{}, fmt.Errorf("-- is not supported for aitssh %s", cmdLabel)
 		}
 		if !strings.HasPrefix(arg, "-") {
 			positionals = append(positionals, arg)

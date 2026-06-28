@@ -2,30 +2,30 @@
 
 **Languages:** English (this page) · [简体中文](AGENTS.zh-CN.md)
 
-**AiT** (AI Terminal) is a Go CLI: an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, multi-provider AI (Deepseek, MiniMax, optional tiered Ollama), and SFTP file get/put. Module: `github.com/os-artificer/AiT`. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
+**AiT** is a Go **toolbox** (module `github.com/os-artificer/AiT`). The first shipped tool is **`aitssh`** — an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, multi-provider AI (Deepseek, MiniMax, optional tiered Ollama), and SFTP file get/put. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
 
 ## Build and test
 
 ```bash
-make build       # → bin/ait
+make build       # → bin/aitssh
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
 make test-cross  # five-platform go build ./... (linux/darwin/windows)
-./bin/ait        # run binary
+./bin/aitssh        # run binary
 ```
 
-Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARCH=amd64 go build -o bin/ait.exe ./cmd/ait`.
+Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARCH=amd64 go build -o bin/aitssh.exe ./cmd/aitssh`.
 
 ## What AiT does
 
-- **SSH sessions**: `shell`, `login`, `session` (`--list`, `--load`, `--suspend`, `--switch`, `--delete`)
-- **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets)
-- **Optional tmux**: `--tmux` on `login`/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`); `login --tmux` implies `--save` and stores `login_destination` for ssh config Host aliases
-- **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `ait ai ask` / `ait ai agent` (one-shot); `ait ai provider enable|disable`; `ait ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `ait ai model list`; SSH `!ait ai ask` / `!! ask`; cloud keys `ai.<provider>.api_key`
-- **Transfer**: `ait get` / `ait put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (unified router: lrzsz/ZMODEM first, SFTP fallback on direct hop, chain auto-install when missing lrzsz)
+- **SSH sessions**: default OpenSSH-style connect (`aitssh [flags] destination`), `shell`, `session` (`--list`, `--load`, `--suspend`, `--switch`, `--delete`); no `login` subcommand
+- **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets); default `AppRoot` is `~/.local/share/ait` (Linux), `~/Library/Application Support/ait` (macOS), `%LOCALAPPDATA%\ait` (Windows); override with `AIT_HOME`
+- **Optional tmux**: `--tmux` on connect/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`); `--tmux` implies `--save` and stores `login_destination` for ssh config Host aliases
+- **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `aitssh ai ask` / `aitssh ai agent` (one-shot); `aitssh ai provider enable|disable`; `aitssh ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `aitssh ai model list`; SSH `!ait ai ask` / `!! ask`; cloud keys `ai.<provider>.api_key`
+- **Transfer**: `aitssh get` / `aitssh put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (unified router: lrzsz/ZMODEM first, SFTP fallback on direct hop, chain auto-install when missing lrzsz)
 - **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe ZMODEM file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_zmodem.go`; `internal/pkg/tmux/remote_pty.go`)
-- **OpenSSH config**: `login`/`load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
+- **OpenSSH config**: default connect and `load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 
 Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
 
@@ -33,19 +33,19 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 
 | Path | Role |
 |------|------|
-| `cmd/ait/main.go` | Thin `main` — delegates to `internal/ait.Run` |
-| `internal/ait/` | CLI entry (`Run`, `ExitCode`, `Execute`, `NewManager`, Cobra root); subpackages below |
-| `internal/ait/registry/` | Top-level command registry (OCP); root help via `registry/root_help.go` + `internal/pkg/helpdoc` |
+| `cmd/aitssh/main.go` | Thin `main` — delegates to `aissh.Run` |
+| `internal/aissh/` | CLI entry (Go package **`aissh`**: `Run`, `ExitCode`, `Execute`, `NewManager`, Cobra root); subpackages below |
+| `internal/aissh/registry/` | Top-level command registry (OCP); root help via `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | Shared `--help` layout (`Body`, `Bind`, OpenSSH blocks, `WriteTransferHelp`, TTY keys) |
-| `internal/ait/login/` | `ait login` — OpenSSH parse/resolve, help, run |
-| `internal/ait/get/` / `internal/ait/put/` | `ait get` / `ait put` SFTP |
-| `internal/ait/shell/` | `ait shell` REPL (`AiT>`) and top-level `ait shell` Cobra |
-| `internal/ait/session/` | `ait session` (flags: `--list`, `--load`, …); use `pkgsession` for `internal/pkg/session` |
-| `internal/ait/ai/` | `ait ai` parent + `ai/subregistry`; nested `ask`, `agent`, `provider`, `ollama` |
-| `internal/ait/ai/mode/` | AI REPL for `ait ai` / `!ait ai` (`risk`, `approve`, `agent`, `chat` one-shot helpers) |
-| `internal/ait/config/` | `ait config` parent + `config/subregistry`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
-| `internal/ait/version/` | `ait version` |
-| `internal/ait/meta/` | In-session `!ait <subcmd>` delegation |
+| `internal/aissh/login/` | SSH connect parse/run (default top-level route; not a registered subcommand) |
+| `internal/aissh/get/` / `internal/aissh/put/` | `aitssh get` / `aitssh put` SFTP |
+| `internal/aissh/shell/` | `aitssh shell` REPL (`AiT>`) and top-level `aitssh shell` Cobra |
+| `internal/aissh/session/` | `aitssh session` (flags: `--list`, `--load`, …); use `pkgsession` for `internal/pkg/session` |
+| `internal/aissh/ai/` | `aitssh ai` parent + `ai/subregistry`; nested `ask`, `agent`, `provider`, `ollama` |
+| `internal/aissh/ai/mode/` | AI REPL for `aitssh ai` / `!ait ai` (`risk`, `approve`, `agent`, `chat` one-shot helpers) |
+| `internal/aissh/config/` | `aitssh config` parent + `config/subregistry`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
+| `internal/aissh/version/` | `aitssh version` |
+| `internal/aissh/meta/` | In-session `!ait <subcmd>` delegation |
 | `internal/pkg/ssh/args/` | OpenSSH argv parse, `ssh -G` resolve, `Resolved` → `client.Options` |
 | `internal/pkg/session/` | Login, load, suspend, switch, delete, list (`manager.go`, `manager_login.go`, `manager_load.go`, `manager_suspend_switch.go`, `manager_list_pick.go`, `manager_helpers.go`) |
 | `internal/pkg/store/` | SQLite schema, migrations, CRUD (`store.go`, `store_sessions.go`, `store_state.go`, `store_meta.go`, `store_scan.go`, `session_helpers.go`, `open_helpers.go`) |
@@ -65,18 +65,18 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/terminal/lineedit/` | `ReadLine` (Ctrl+A/E, history nav, Ctrl+R search) |
 | `internal/pkg/terminal/history/` | `LineHistory` (in-memory + file sync) and `history` command |
 | `internal/pkg/ai/` | `Client`, `Chat`, multi-provider routing facade |
-| `internal/ait/ai/mode/risk/` | `Classify`, `Interactive`, `ClassifyAit` — command risk classification |
-| `internal/ait/ai/mode/approve/` | `Confirm`, `Policy`, `PatternKey`, `SessionTrust` — approval prompts and trust |
-| `internal/ait/ai/mode/agent/` | `Action`, `ParseAction`, `Run`, `CapturingRunner` — Agent mode execution |
-| `internal/ait/ai/mode/chat/` | `RunOnce`, `ParseCommand` — one-shot `ask` / REPL `ask` verb |
+| `internal/aissh/ai/mode/risk/` | `Classify`, `Interactive`, `ClassifyAit` — command risk classification |
+| `internal/aissh/ai/mode/approve/` | `Confirm`, `Policy`, `PatternKey`, `SessionTrust` — approval prompts and trust |
+| `internal/aissh/ai/mode/agent/` | `Action`, `ParseAction`, `Run`, `CapturingRunner` — Agent mode execution |
+| `internal/aissh/ai/mode/chat/` | `RunOnce`, `ParseCommand` — one-shot `ask` / REPL `ask` verb |
 | `internal/pkg/ai/provider/` | `ProviderID` constants and sentinel errors |
 | `internal/pkg/ai/router/` | Routing helpers (Strategy + Chain of Responsibility — failover order, classify, API-key hint) |
 | `internal/pkg/ai/agent/` | Function-call `Tools()` + tool-call → AiT Agent JSON adapter |
-| `internal/pkg/ai/models/` | `ait ai model list` row formatting + role / key labels |
+| `internal/pkg/ai/models/` | `aitssh ai model list` row formatting + role / key labels |
 | `internal/pkg/ollama/` | Ollama setup, `FetchTags`, `EnsureLocal`, `ManualSetupInstructions` |
 | `internal/pkg/transfer/` | SFTP get/put (single file) |
 | `internal/pkg/platform/` | `AppRoot` / `DataDir` / `ConfigDir` (`AIT_HOME`), `ExpandUserAbsPath`, paths, OpenSSH |
-| `internal/pkg/config/` | YAML config (`Load`/`Save`/`EnsureFile`/`Validate`; `ait config init/view/edit/validate`) |
+| `internal/pkg/config/` | YAML config (`Load`/`Save`/`EnsureFile`/`Validate`; `aitssh config init/view/edit/validate`) |
 | `internal/pkg/creds/` | OS keyring (API key, session unlock) |
 | `internal/pkg/pathsafe/` | Session ID and path validation (scrollback sidecars) |
 | `pkg/` | Public importable libs; [`pkg/third-party/`](pkg/third-party/) vendored upstream Go sources (e.g. xiwh ZMODEM) |
@@ -85,19 +85,19 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `.cursor/rules/` | Cursor rules; Go structure: [`go-structure.mdc`](.cursor/rules/go-structure.mdc) |
 | `scripts/` | Build and CI helpers |
 
-Prefer extending `internal/pkg/*` and `internal/ait` over new top-level directories.
+Prefer extending `internal/pkg/*` and `internal/aissh` over new top-level directories.
 
-### `internal/ait` layout
+### `internal/aissh` layout (root Go package: `aissh`)
 
 | Package | Files (examples) |
 |---------|------------------|
-| `ait` (root) | `root.go` (`Run`, `ExitCode`); `cli_root.go` (`Execute`, `newRootCmd`); `manager.go` (`NewManager`, `runWithManager`); `context.go`, `runner.go`; `init_hooks.go` (meta/shell/ai inject); integration tests |
-| `ait/registry` | `registry.go`, `top_level.go`, `deps.go`, `root_help.go`, `all/imports.go` |
-| `ait/login`, `get`, `put`, `shell`, `session`, `version` | Top-level commands: `register.go`, `cmd.go`, `help.go`, `run.go` / flags |
-| `ait/ai` | `cmd.go`, `help.go`, `subregistry/`, `runner/`; nested `ask`, `agent`, `provider`, `ollama` each with `register.go` |
-| `ait/ai/mode` | `repl.go`, `exec.go`, `scope.go`, … — AI REPL (`risk`, `approve`, `agent`, `chat`) |
-| `ait/config` | `cmd.go`, `help.go`, `subregistry/`, `shared/`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
-| `ait/meta` | `exec.go` — `Execute`, `SetExecutorWriters` (wired from `init_hooks.go`; CRLF stdout in SSH) |
+| `aissh` (root) | `root.go` (`Run`, `ExitCode`); `cli_root.go` (`Execute`, `newRootCmd`); `manager.go` (`NewManager`, `runWithManager`); `context.go`, `runner.go`; `init_hooks.go` (meta/shell/ai inject); integration tests |
+| `registry` | `registry.go`, `top_level.go`, `deps.go`, `root_help.go`, `all/imports.go` |
+| `get`, `put`, `shell`, `session`, `version` | Top-level commands: `register.go`, `cmd.go`, `help.go`, `run.go` / flags; SSH connect via default route + `login` package |
+| `ai` | `cmd.go`, `help.go`, `subregistry/`, `runner/`; nested `ask`, `agent`, `provider`, `ollama` each with `register.go` |
+| `ai/mode` | `repl.go`, `exec.go`, `scope.go`, … — AI REPL (`risk`, `approve`, `agent`, `chat`) |
+| `config` | `cmd.go`, `help.go`, `subregistry/`, `shared/`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
+| `meta` | `exec.go` — `Execute`, `SetExecutorWriters` (wired from `init_hooks.go`; CRLF stdout in SSH) |
 
 ### `internal/pkg/ssh/client` file layout
 
@@ -129,47 +129,47 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 
 - **Human contributors**: [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow and Go coding standards.
 - **Go coding standards**: when generating or refactoring Go, follow [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) — import groups (stdlib / module / third-party), one method-bearing struct per file, package-level functions in separate `*_helpers.go`, line width 150 (`.editorconfig`), nesting ≤2, blank line between responsibility blocks inside functions (§11), full godoc on exports.
-- **Package layering**: `cmd/ait` → `internal/ait/<subcommand>` (name, flags, parse, Cobra, help, run in one package per command) → shared code in `internal/pkg` (must not import `internal/ait`); root `pkg/` for external, non-business libs. See [`docs/package-layering.md`](docs/package-layering.md) and [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc).
+- **Package layering**: `cmd/aitssh` → `internal/aissh` (package `aissh`) / `<subcommand>` → shared code in `internal/pkg` (must not import `internal/aissh`); root `pkg/` for external, non-business libs. See [`docs/package-layering.md`](docs/package-layering.md) and [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc).
 - **Reuse**: follow [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc) — search existing helpers/shared packages before duplicating logic.
-- **CLI help**: shared layout in [`internal/pkg/helpdoc`](internal/pkg/helpdoc) (`pkghelpdoc.Bind`); per-command body in `internal/ait/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`); see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc).
+- **CLI help**: shared layout in [`internal/pkg/helpdoc`](internal/pkg/helpdoc) (`pkghelpdoc.Bind`); per-command body in `internal/aissh/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`); see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc).
 - **Formatting**: tabs for Go; run `make fmt` before finishing Go changes.
 - **Tests**: `*_test.go` beside implementation; `make test` must pass. Store tests use `:memory:` SQLite.
 - **`internal/`**: module-private — do not import from outside this module.
-- **Dependencies**: add only when needed; see `go.mod` (cobra, modernc sqlite, x/crypto/ssh, x/term, keyring, uuid, sftp, go-openai, yaml).
+- **Dependencies**: add only when needed; see `go.mod` (cobra, modernc sqlite, x/crypto/ssh, x/term, keyring, uuid, sftp, cloudwego/eino, yaml).
 - **Secrets**: API keys and SSH passwords in OS keyring (`creds`); never commit or log them. Do not store passwords in SQLite.
 - **Commits**: only when the user explicitly asks; never change git config or commit secrets (`.env`).
 
 ## CLI quick reference
 
 ```text
-ait shell                              # AiT> REPL: login, session --list/--load, history, help, exit
-ait login [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
+aitssh shell                              # AiT> REPL: ssh-style connect, session --list/--load, history, help, exit
+aitssh [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 # ssh-options: -p -l -i -F -J -o ... ; legacy --host/--user still supported
 # Requires OpenSSH client (ssh) on PATH for ssh -G (all platforms)
-ait ai [--model deepseek|minimax]            # local AI REPL (default Agent; mode ask for Q&A); tiered may use Ollama first
-ait ai model list
-ait ai ask [message...]               # one-shot; echo "q" | ait ai ask
-ait ai agent [message...]             # one-shot agent with tools
-ait ai provider enable|disable <provider>
-ait ai ollama status|setup|start|stop|disable # local Ollama (setup: models_dir + [y/N] before install)
-ait session --list [-v]
-ait session --load [<id|alias>] [--tmux] [--password]
-ait session --switch [id|alias] [--tmux] [--password] [--force]
-ait session --delete <id|alias|all> [--force]
-ait get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain; flags/paths any order
-ait put [ssh-flags] <paths...>
-ait config init|view|edit|validate|set|get <key> [<value>]
+aitssh ai [--model deepseek|minimax]            # local AI REPL (default Agent; mode ask for Q&A); tiered may use Ollama first
+aitssh ai model list
+aitssh ai ask [message...]               # one-shot; echo "q" | aitssh ai ask
+aitssh ai agent [message...]             # one-shot agent with tools
+aitssh ai provider enable|disable <provider>
+aitssh ai ollama status|setup|start|stop|disable # local Ollama (setup: models_dir + [y/N] before install)
+aitssh session --list [-v]
+aitssh session --load [<id|alias>] [--tmux] [--password]
+aitssh session --switch [id|alias] [--tmux] [--password] [--force]
+aitssh session --delete <id|alias|all> [--force]
+aitssh get [ssh-flags] <paths...>   # ParseTransfer + Resolve + DialChain; flags/paths any order
+aitssh put [ssh-flags] <paths...>
+aitssh config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-Prompts: `AiT>` (`ait shell`), `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`), `AiT AI(Agent) user@host>` (SSH AI), `AiT user@host>` (SSH remote; shown immediately after login/load), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip; Agent read-only commands auto-run. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `ait shell` for nested `login`/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
+Prompts: `AiT>` (`aitssh shell`), `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`), `AiT AI(Agent) user@host>` (SSH AI), `AiT user@host>` (SSH remote; shown immediately after login/load), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip; Agent read-only commands auto-run. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `aitssh shell` for nested connect/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
 
 ## Pitfalls
 
-- Keep `cmd/ait` thin — all logic in `internal/ait` and `internal/pkg`.
-- `login` resolves config via `ssh -G` (`ssh/args`); data plane is Go `x/crypto/ssh`. Set `AIT_SSH_INSECURE=1` only for dev.
+- Keep `cmd/aitssh` thin — all logic in `internal/aissh` and `internal/pkg`.
+- Default SSH connect (and `get`/`put`) resolve config via `ssh -G` (`ssh/args`); data plane is Go `x/crypto/ssh`. Set `AIT_SSH_INSECURE=1` only for dev.
 - **Default mode** does not keep remote processes alive; only `--tmux` does.
 - **`session --switch` from local shell** cannot suspend an active SSH; user must `!ait suspend` inside the session first, or use `--force` (does not save current scrollback/cwd).
 - `pkg/third-party/` is for vendored tools, not primary app code.
 
-- Top-level commands: add `internal/ait/<cmd>/` with `register.go` (`registry.Register`) and a blank import in [`registry/all/imports.go`](internal/ait/registry/all/imports.go). Nested commands: parent `subregistry` + `<parent>/registry/all/imports.go` (see [`docs/package-layering.md`](docs/package-layering.md)).
+- Top-level commands: add `internal/aissh/<cmd>/` with `register.go` (`registry.Register`) and a blank import in [`registry/all/imports.go`](internal/aissh/registry/all/imports.go). Nested commands: parent `subregistry` + `<parent>/registry/all/imports.go` (see [`docs/package-layering.md`](docs/package-layering.md)).
 - Do not add markdown files unless the user asks (except updating `README.md` / `AGENTS.md` / `docs/` when documenting the product).

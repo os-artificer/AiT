@@ -16,7 +16,7 @@
 
 package openssh
 
-// AiT transfer CLI flags shared by ait get and ait put.
+// AiT transfer CLI flags shared by aitssh get and aitssh put.
 const (
 	FlagSession  = "--session"
 	FlagPassword = "--password"

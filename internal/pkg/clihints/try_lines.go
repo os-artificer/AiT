@@ -14,38 +14,40 @@
  * limitations under the License.
 **/
 
-// Package clihints holds shared errhint Try-block example command lines.
+// Package clihints holds shared errhint Try-block example command lines for the aitssh CLI.
 package clihints
 
-// Session and login Try lines (single source for internal/ait and internal/pkg/ssh/client).
-const (
-	TrySessionList          = "ait session --list"
-	TrySessionLoadAlias     = "ait session --load <alias>"
-	TrySessionLoad          = "ait session --load"
-	TrySessionLoadOptional  = "ait session --load [<id|alias>]"
-	TrySessionLoadFullID    = "ait session --list -v    then ait session --load <FULL_ID>"
-	TrySessionLoadPick      = "ait session --load       pick by # interactively"
-	TrySessionSwitchID      = "ait session --switch <id|alias>"
-	TrySessionSwitch        = "ait session --switch"
-	TrySessionSwitchForce   = "ait session --switch <id|alias> --force"
-	TrySessionHelp          = "ait session --help"
-	TryLoginSave            = "ait login --save <destination>"
-	TryLoginAlias           = "ait login --alias <name> <destination>"
-	TryLoginHelp            = "ait login --help"
-	TryLoginTmuxUserHost    = "ait login --tmux user@host"
-	TryLoginTmuxDevhost     = "ait login --tmux devhost"
-	TryLoginTmuxSaveDevhost = "ait login --tmux --save devhost"
+import "github.com/os-artificer/AiT/internal/pkg/toolname"
 
-	// OpenSSH parse / transfer Try lines (concrete examples for get/put/login argv hints).
-	TryLoginExample      = "ait login user@host"
-	TryLoginSaveUserHost = "ait login --save user@host"
-	TryLoginRemoteCmd    = "ait login user@host uptime"
-	TryGetHelp           = "ait get --help"
-	TryPutHelp           = "ait put --help"
-	TryGetExample        = "ait get user@host:/remote/path ./local"
-	TryPutExample        = "ait put ./local user@host:/remote/path"
-	TryGetSessionProd    = "ait get --session prod <paths...>"
+// Session and login Try lines (single source for internal/aissh and internal/pkg/ssh/client).
+var (
+	TrySessionList            = toolname.CLI("session --list")
+	TrySessionLoadAlias       = toolname.CLI("session --load <alias>")
+	TrySessionLoad            = toolname.CLI("session --load")
+	TrySessionLoadOptional    = toolname.CLI("session --load [<id|alias>]")
+	TrySessionLoadFullID      = toolname.CLI("session --list -v") + "    then " + toolname.CLI("session --load <FULL_ID>")
+	TrySessionLoadPick        = toolname.CLI("session --load") + "       pick by # interactively"
+	TrySessionSwitchID        = toolname.CLI("session --switch <id|alias>")
+	TrySessionSwitch          = toolname.CLI("session --switch")
+	TrySessionSwitchForce     = toolname.CLI("session --switch <id|alias> --force")
+	TrySessionHelp            = toolname.CLI("session --help")
+	TryConnectSave            = toolname.CLI("--save <destination>")
+	TryConnectAlias           = toolname.CLI("--alias <name> <destination>")
+	TryConnectHelp            = toolname.CLI("--help")
+	TryConnectTmuxUserHost    = toolname.CLI("--tmux user@host")
+	TryConnectTmuxDevhost     = toolname.CLI("--tmux devhost")
+	TryConnectTmuxSaveDevhost = toolname.CLI("--tmux --save devhost")
+
+	// OpenSSH parse / transfer Try lines (concrete examples for get/put/connect argv hints).
+	TryConnectExample      = toolname.CLI("user@host")
+	TryConnectSaveUserHost = toolname.CLI("--save user@host")
+	TryConnectRemoteCmd    = toolname.CLI("user@host uptime")
+	TryGetHelp             = toolname.CLI("get --help")
+	TryPutHelp             = toolname.CLI("put --help")
+	TryGetExample          = toolname.CLI("get user@host:/remote/path ./local")
+	TryPutExample          = toolname.CLI("put ./local user@host:/remote/path")
+	TryGetSessionProd      = toolname.CLI("get --session prod <paths...>")
 
 	// Shell REPL builtin shorthand (maps to session --list).
-	TryShellList = "ait list"
+	TryShellList = toolname.CLI("list")
 )

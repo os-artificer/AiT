@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	openai "github.com/sashabaranov/go-openai"
 )
 
 // ChatAgent sends a turn in Agent mode (tool-style JSON actions). Uses native tools when supported.
@@ -36,7 +34,7 @@ func (c *Client) ChatAgent(
 	}
 
 	env.AgentMode = true
-	reply, thinking, err = c.completionAgent(ctx, user, len(history), func(meta PromptMeta) []openai.ChatCompletionMessage {
+	reply, thinking, err = c.completionAgent(ctx, user, len(history), func(meta PromptMeta) []completionMessage {
 		return buildChatMessages(env.Scope, history, user, env, meta)
 	})
 	if err != nil {

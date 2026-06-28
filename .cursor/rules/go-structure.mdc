@@ -79,7 +79,7 @@ func WriteRootHelp(w io.Writer) error { ... }
 
 无 receiver 的包级函数放在独立文件中（如 `*_helpers.go`、`*_parse.go`），仍遵守第 3 条排序。
 
-例外：`cmd/ait/main.go` 仅保留极简 `main`。
+例外：`cmd/aitssh/main.go` 仅保留极简 `main`。
 
 ## 5. 禁止硬编码
 

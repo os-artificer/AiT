@@ -19,6 +19,7 @@ package client
 import (
 	"io"
 	"strings"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/scrollback"
 )
@@ -41,9 +42,12 @@ func (c *Client) RunPTYCapture(stdin io.Writer, cmd string) (string, error) {
 	// Use space prefix for history suppression, but do NOT suppress echo
 	// because the caller (typically AI mode) expects the user to see the
 	// command and its output in the terminal.
+	injectAt := time.Now()
 	if err := c.Inject(stdin, cmd, InjectOpts{SuppressEcho: false}); err != nil {
 		return "", err
 	}
+
+	c.waitRemoteOutputQuietAfter(injectAt, captureQuietForClient(c), scrollback.CaptureMaxWait)
 
 	return scrollback.Delta(snap, c.scroll.String()), nil
 }

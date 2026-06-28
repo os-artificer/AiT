@@ -32,7 +32,7 @@ func TestWriteTransferHelp_Get(t *testing.T) {
 		"Usage:",
 		SectionPaths,
 		SectionOpenSSHFlagsTitle,
-		"Not supported by ait get",
+		"Not supported by aitssh get",
 		"Examples:",
 		"help for get",
 	} {

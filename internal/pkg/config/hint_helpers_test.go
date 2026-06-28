@@ -19,6 +19,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestUnknownConfigKeyErr_Format(t *testing.T) {
@@ -30,7 +32,7 @@ func TestUnknownConfigKeyErr_Format(t *testing.T) {
 	if !strings.Contains(s, "Try:") {
 		t.Fatalf("missing Try block: %q", s)
 	}
-	if !strings.Contains(s, "ait config set --help") {
+	if !strings.Contains(s, toolname.CLI("config set --help")) {
 		t.Fatalf("missing config help try line: %q", s)
 	}
 }

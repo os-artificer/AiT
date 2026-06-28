@@ -25,6 +25,7 @@ import (
 	"net/http"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai/client"
+	"github.com/os-artificer/AiT/internal/pkg/ai/eino"
 	"github.com/os-artificer/AiT/internal/pkg/ai/provider"
 	"github.com/os-artificer/AiT/internal/pkg/ai/router"
 	"github.com/os-artificer/AiT/internal/pkg/config"
@@ -78,7 +79,7 @@ type ModelsReport = client.ModelsReport
 
 // ExtractReply parses raw provider content into a clean user reply and optional thinking metadata.
 func ExtractReply(raw string) (string, string) {
-	return client.ExtractReply(raw)
+	return eino.ExtractReply(raw)
 }
 
 // WithProviderOverride sets the explicit cloud provider for a new AI client.

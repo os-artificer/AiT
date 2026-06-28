@@ -17,6 +17,7 @@
 package creds
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -36,14 +37,19 @@ var ringOpen = defaultOpen
 //	AIT_KEYRING_DIR=<path>     directory for the file backend (default: <DataDir>/keyring).
 //	AIT_KEYRING_FILE_PASSWORD  master password for the file backend (default: ait-test for dev).
 const (
-	serviceName     = "ait"
-	envBackend      = "AIT_KEYRING_BACKEND"
-	envFileDir      = "AIT_KEYRING_DIR"
-	envFilePassword = "AIT_KEYRING_FILE_PASSWORD"
+	serviceName                = "ait"
+	legacyMixedCaseServiceName = "AiT"
+	envBackend                 = "AIT_KEYRING_BACKEND"
+	envFileDir                 = "AIT_KEYRING_DIR"
+	envFilePassword            = "AIT_KEYRING_FILE_PASSWORD"
 )
 
 func defaultOpen() (keyring.Keyring, error) {
-	cfg := keyring.Config{ServiceName: serviceName}
+	return openRingWithService(serviceName)
+}
+
+func openRingWithService(name string) (keyring.Keyring, error) {
+	cfg := keyring.Config{ServiceName: name}
 
 	if err := applyFileKeyringConfig(&cfg); err != nil {
 		return nil, err
@@ -54,6 +60,38 @@ func defaultOpen() (keyring.Keyring, error) {
 	}
 
 	return keyring.Open(cfg)
+}
+
+func openLegacyRing() (keyring.Keyring, error) {
+	return openRingWithService(legacyMixedCaseServiceName)
+}
+
+func getItem(key string) (keyring.Item, error) {
+	kr, err := openRing()
+	if err != nil {
+		return keyring.Item{}, err
+	}
+
+	item, err := kr.Get(key)
+	if err == nil {
+		return item, nil
+	}
+	if !errors.Is(err, keyring.ErrKeyNotFound) {
+		return keyring.Item{}, err
+	}
+
+	legacy, legOpenErr := openLegacyRing()
+	if legOpenErr != nil {
+		return keyring.Item{}, err
+	}
+
+	item, legErr := legacy.Get(key)
+	if legErr != nil {
+		return keyring.Item{}, err
+	}
+
+	_ = kr.Set(item)
+	return item, nil
 }
 
 func openRing() (keyring.Keyring, error) { return ringOpen() }
@@ -75,12 +113,12 @@ func SetSessionUnlock(sessionID, secret string) error {
 // GetSessionUnlock returns stored unlock material for sessionID.
 // Returns the secret, or keyring open/Get errors (including keyring.ErrKeyNotFound).
 func GetSessionUnlock(sessionID string) (string, error) {
-	kr, err := openRing()
+	_, err := openRing()
 	if err != nil {
 		return "", err
 	}
 
-	item, err := kr.Get(sessionKey(sessionID))
+	item, err := getItem(sessionKey(sessionID))
 	if err != nil {
 		return "", err
 	}

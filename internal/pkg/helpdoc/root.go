@@ -22,9 +22,10 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/pkg/clihints"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// RootCommandEntry is one line in the root ait --help command list.
+// RootCommandEntry is one line in the root aitssh --help command list.
 type RootCommandEntry struct {
 	Name  string
 	Short string
@@ -38,11 +39,11 @@ func formatRootSubcommands(entries []RootCommandEntry) string {
 	return b.String()
 }
 
-// WriteRootHelp prints ait --help to w using entries for the command list.
+// WriteRootHelp prints aitssh --help to w using entries for the command list.
 func WriteRootHelp(w io.Writer, entries []RootCommandEntry) error {
-	const introMain = "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant."
-	const introHint = "Run 'ait <command> --help' for command-specific usage and examples."
-	const usage = "ait [command]"
+	introMain := "AiT is an AI-enhanced SSH client with session management, optional tmux persistence, and Deepseek assistant."
+	introHint := fmt.Sprintf("Run '%s <command> --help' for command-specific usage and examples.", toolname.AISsh)
+	usage := RootUsageLine() + "\n  " + toolname.AISsh + " [command]"
 
 	b := NewBody(w)
 	if err := b.WriteIntro(introMain, introHint); err != nil {
@@ -51,15 +52,18 @@ func WriteRootHelp(w io.Writer, entries []RootCommandEntry) error {
 	if err := b.WriteUsage(usage); err != nil {
 		return err
 	}
+	if err := WriteSSHConnectSection(w); err != nil {
+		return err
+	}
 	if err := b.WriteSection(SectionCommands, formatRootSubcommands(entries)); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
-		"ait shell",
-		"ait login myserver",
+		toolname.CLI("shell"),
+		toolname.CLI("myserver"),
 		clihints.TrySessionList,
 	); err != nil {
 		return err
 	}
-	return b.Finish("ait")
+	return b.Finish(toolname.AISsh)
 }
