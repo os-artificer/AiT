@@ -27,7 +27,7 @@ import (
 const maxLine = 4096
 
 // maxLook is the longest possible opener length; bounds the holding buf.
-const maxLook = 12 // len("!ait remote\n")
+const maxLook = 14 // len("!!ait remote\n") typo + len("!ait remote\n")
 
 type scannerState int
 
@@ -52,22 +52,29 @@ const (
 	csiFinalByteMax   = 0x7e
 )
 
-// Scanner is the byte-level state machine that detects !ait / !! meta
-// lines. It is intentionally free of side effects so it can be unit-tested
-// in isolation from the SSH session.
+// Scanner is the byte-level state machine that detects !ait / !! meta lines.
+// It performs no I/O; display context (prompt prefix, local-shell mode) is
+// injected via SyncFrom so tests can drive Feed in isolation.
 type Scanner struct {
-	state       scannerState
-	buf         []byte
-	atLineStart bool
-	aiAvailable bool
-	escState    escParseState
+	state            scannerState
+	buf              []byte
+	cursor           int
+	atLineStart      bool
+	aiAvailable      bool
+	escState         escParseState
+	escParams        []byte
+	echoPrefix       string
+	localShellActive bool
+	deferLocalEcho   bool
+	holdingRedraw    bool
 }
 
-// New returns a Scanner. aiAvailable controls whether !! and !ait prefixes
-// fall back to a "loose" capture mode when the AI client is missing
-// (otherwise the bash !! history expansion would leak to the remote shell).
-func New(aiAvailable bool) *Scanner {
-	return &Scanner{atLineStart: true, aiAvailable: aiAvailable}
+// New returns a Scanner configured for meta-line detection.
+// aiAvailable selects strict prefix matching; when false, loose capture prevents
+// bash !! history expansion from leaking to the remote shell.
+// echoPrefix is prepended on carriage-return line redraws (remote/local prompt).
+func New(aiAvailable bool, echoPrefix string) *Scanner {
+	return &Scanner{atLineStart: true, aiAvailable: aiAvailable, echoPrefix: echoPrefix}
 }
 
 // Feed consumes one input byte for meta-line detection (!ait, !!).
@@ -78,46 +85,50 @@ func (s *Scanner) Feed(b byte) (forward []byte, echo []byte, line string, hasLin
 }
 
 func (s *Scanner) feedOne(b byte, fwd, ech []byte) ([]byte, []byte, string, bool) {
-	if echOut, handled := s.applyLineEdit(b); handled {
+	if s.inEditState() {
+		if s.escState != escNone {
+			if echOut, handled := s.consumeEscForEdit(b); handled {
+				return fwd, append(ech, echOut...), "", false
+			}
+		}
+		if b == keyESC {
+			s.escState = escReceived
+			return fwd, ech, "", false
+		}
+	}
+
+	if echOut, handled := s.applyMetaLineEdit(b); handled {
 		return fwd, append(ech, echOut...), "", false
 	}
 
 	switch s.state {
 
 	case stateMeta:
-		if s.escState != escNone {
-			return s.consumeEscInMeta(b, fwd, ech)
-		}
-		if b == keyESC {
-			s.escState = escReceived
-			return fwd, ech, "", false
-		}
-		if isUTF8MultiByteStart(b) {
-			n := s.stripTrailingPinyin()
-			for i := 0; i < n; i++ {
-				ech = append(ech, 0x08, ' ', 0x08)
-			}
-		}
 		if len(s.buf) >= maxLine {
 			fwd = append(fwd, s.buf...)
 			s.buf = s.buf[:0]
-			s.state = stateIdle
+			s.cursor = 0
+			s.enterIdle()
 			s.atLineStart = false
 			return s.feedOne(b, fwd, ech)
 		}
-		s.buf = append(s.buf, b)
-		ech = append(ech, b)
 		if b == '\n' || b == '\r' {
-			line := strings.TrimRight(string(s.buf), "\r\n")
+			line := finalizeMetaLine(string(s.buf))
 			s.buf = s.buf[:0]
-			s.state = stateIdle
+			s.cursor = 0
+			s.enterIdle()
 			s.atLineStart = true
+			ech = append(ech, b)
 			return fwd, ech, line, true
 		}
+		ech = s.insertMetaByte(b, ech)
 		return fwd, ech, "", false
 
 	case stateHolding:
 		candidate := string(s.buf) + string([]byte{b})
+		if f, e, handled := s.tryLocalBangPassthrough(candidate, b, fwd, ech); handled {
+			return f, e, "", false
+		}
 		if f, e, line, hasLine, handled := s.feedHoldingLoose(candidate, b, fwd, ech); handled {
 			if hasLine {
 				return f, e, line, true
@@ -132,20 +143,36 @@ func (s *Scanner) feedOne(b byte, fwd, ech []byte) ([]byte, []byte, string, bool
 		}
 		if prefixCandidate(candidate) && len(s.buf)+1 < maxLook {
 			s.buf = append(s.buf, b)
-			return fwd, append(ech, b), "", false
+			s.cursor = len(s.runes())
+			if s.shouldDeferHoldingEcho(b) {
+				if s.localShellActive {
+					return fwd, ech, "", false
+				}
+				return fwd, s.noteHoldingRedraw(ech), "", false
+			}
+			if s.localShellActive {
+				return fwd, s.holdingAppendEcho(ech, b), "", false
+			}
+			return fwd, s.noteHoldingRedraw(ech), "", false
 		}
-		fwd = append(fwd, s.buf...)
+		ech, fwd = s.flushHoldingToForward(ech, fwd)
 		s.buf = s.buf[:0]
-		s.state = stateIdle
+		s.cursor = 0
+		s.enterIdle()
 		return s.feedOne(b, fwd, ech)
 
 	default: // stateIdle
-		// Always intercept '!' for !ait / !! meta. Requiring atLineStart breaks
-		// when the remote prompt has no trailing newline before user input.
 		if b == '!' {
 			s.buf = append(s.buf[:0], b)
+			s.cursor = 1
 			s.state = stateHolding
-			return fwd, append(ech, b), "", false
+			s.deferLocalEcho = true
+			return fwd, ech, "", false
+		}
+		if b == 0x15 { // Ctrl+U idle — forward to remote shell.
+			s.atLineStart = true
+			fwd = append(fwd, b)
+			return fwd, ech, "", false
 		}
 		fwd = append(fwd, b)
 		s.noteForwarded(b)
@@ -164,22 +191,6 @@ func (s *Scanner) looseBangCapture(candidate string, b byte) bool {
 	}
 
 	return strings.HasPrefix(candidate, toolname.MetaPrefix)
-}
-
-func (s *Scanner) applyLineEdit(b byte) (echo []byte, handled bool) {
-	switch b {
-	case 0x15: // Ctrl+U — kill line; remote should clear too.
-		s.buf = s.buf[:0]
-		s.state = stateIdle
-		s.atLineStart = true
-		return nil, false
-	case 0x7f, 0x08: // Backspace
-		return s.applyMetaBackspace()
-
-	case '\r':
-		s.atLineStart = true
-	}
-	return nil, false
 }
 
 func (s *Scanner) noteForwarded(b byte) {

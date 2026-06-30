@@ -40,7 +40,8 @@ const sectionTTYKeysCommon = `  Ctrl+A, Home     move cursor to start of line
 const sectionTTYKeysShellNote = "  clear            clear terminal screen (command)\n"
 
 var sectionTTYKeysAINote = `  clear            clear AI chat history (not the same as Ctrl+L)
-  In SSH remote shell or ` + toolname.MetaLine("local") + `, line editing follows the remote shell.
+  In SSH remote shell, meta line input (!ait / !!) supports the same editing keys as local REPL.
+  In ` + toolname.MetaLine("local") + ` mode, !! is passed to the local shell for bash/zsh history expansion.
 `
 
 // TTYKeysSurface selects shell vs AI key help notes.

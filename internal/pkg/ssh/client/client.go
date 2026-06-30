@@ -409,7 +409,7 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 // history (e.g. !!ls). When AI is unavailable, line-start !! is captured
 // locally so it never reaches remote histexpand.
 func (c *Client) forwardStdin(ctx context.Context, stdin io.Writer, stdinCh <-chan stdinByte, opts InteractiveOpts) error {
-	scan := newMetaScanner(opts.AI != nil)
+	scan := newMetaScanner(opts.AI != nil, c.metaLineEchoPrefix())
 	for {
 		select {
 		case <-ctx.Done():
