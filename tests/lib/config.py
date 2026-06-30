@@ -29,7 +29,7 @@ class SSHTarget:
         return self.host
 
     def login_argv(self, extra: list[str] | None = None) -> list[str]:
-        argv = ["login"]
+        argv: list[str] = []
         if self.port and self.port != 22:
             argv.extend(["-p", str(self.port)])
         if self.identity:
@@ -44,14 +44,7 @@ class SSHTarget:
         remote_cmd: Sequence[str],
         extra: list[str] | None = None,
     ) -> list[str]:
-        argv = ["login"]
-        if self.port and self.port != 22:
-            argv.extend(["-p", str(self.port)])
-        if self.identity:
-            argv.extend(["-i", os.path.expanduser(self.identity)])
-        if extra:
-            argv.extend(extra)
-        argv.append(self.destination)
+        argv = self.login_argv(extra)
         argv.extend(remote_cmd)
         return argv
 
