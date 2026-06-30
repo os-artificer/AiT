@@ -20,10 +20,12 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/os-artificer/AiT/internal/pkg/ssh/client/prompt"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -291,7 +293,7 @@ func TestProcessForwardStdin_FirstKeyEndsKeystrokeGrace(t *testing.T) {
 		context.Background(),
 		&stdin,
 		stdinByte{B: 'l'},
-		newMetaScanner(true),
+		newMetaScanner(true, ""),
 		InteractiveOpts{},
 	)
 	if res.action == fwdStdinReturn && res.err != nil {
@@ -320,7 +322,7 @@ func TestHandleRemoteOutput_EchoVisibleAfterKeystroke(t *testing.T) {
 		context.Background(),
 		&stdin,
 		stdinByte{B: 'l'},
-		newMetaScanner(true),
+		newMetaScanner(true, ""),
 		InteractiveOpts{},
 	)
 
@@ -385,7 +387,7 @@ func TestHandleRemoteOutput_FirstKeyStillFiltersLeak(t *testing.T) {
 		context.Background(),
 		&stdin,
 		stdinByte{B: '\r'},
-		newMetaScanner(true),
+		newMetaScanner(true, ""),
 		InteractiveOpts{},
 	)
 
@@ -464,5 +466,103 @@ func TestStripSetupLeakLines_DropsSingleCharNoise(t *testing.T) {
 	want := "Welcome to TencentOS Server 3 x86_64\r\nhello world"
 	if got != want {
 		t.Fatalf("StripSetupLeakLines = %q, want %q", got, want)
+	}
+}
+
+// TestProcessForwardStdin_MetaEchoEndsKeystrokeGrace (MD1) clears keystroke grace on meta local echo.
+func TestProcessForwardStdin_MetaEchoEndsKeystrokeGrace(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	c.setupKeystrokeGraceUntil.Store(time.Now().Add(setupLeakGraceMax).UnixNano())
+
+	var stdin bytes.Buffer
+	var stdout bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&stdout)
+
+	scan := newMetaScanner(true, "AiT u@h:/tmp> ")
+	for _, b := range []byte("!ait ") {
+		res := c.processForwardStdinByte(
+			context.Background(),
+			&stdin,
+			stdinByte{B: b},
+			scan,
+			InteractiveOpts{},
+		)
+		if res.action == fwdStdinReturn && res.err != nil {
+			t.Fatalf("unexpected return on %q: %v", b, res.err)
+		}
+	}
+	if stdout.Len() == 0 {
+		t.Fatal("meta echo should reach interactive stdout")
+	}
+	if c.setupKeystrokeGraceUntil.Load() != 0 {
+		t.Fatal("meta echo should end keystroke grace")
+	}
+}
+
+// TestProcessForwardStdin_LocalPassthroughEndsKeystrokeGrace (MD1b) clears grace on local PTY write.
+func TestProcessForwardStdin_LocalPassthroughEndsKeystrokeGrace(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	c.setupKeystrokeGraceUntil.Store(time.Now().Add(setupLeakGraceMax).UnixNano())
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pr.Close()
+	c.localShell.SetPTYForTest(pw)
+	defer c.localShell.SetPTYForTest(nil)
+
+	var stdin bytes.Buffer
+	scan := newMetaScanner(true, prompt.Local)
+	scan.SyncFrom(true, prompt.Local)
+
+	for _, b := range []byte("!!\n") {
+		res := c.processForwardStdinByte(
+			context.Background(),
+			&stdin,
+			stdinByte{B: b},
+			scan,
+			InteractiveOpts{},
+		)
+		if res.action == fwdStdinReturn && res.err != nil {
+			t.Fatalf("byte %q: %v", b, res.err)
+		}
+	}
+
+	if c.setupKeystrokeGraceUntil.Load() != 0 {
+		t.Fatal("local passthrough should end keystroke grace")
+	}
+
+	buf := make([]byte, 8)
+	n, _ := pr.Read(buf)
+	if string(buf[:n]) != "!!\n" {
+		t.Fatalf("local PTY got %q want !!\\n", buf[:n])
+	}
+}
+
+// TestProcessForwardStdin_MetaEchoCRLF (MD3) routes meta echo through interactiveOut with CRLF safety.
+func TestProcessForwardStdin_MetaEchoCRLF(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	var stdin bytes.Buffer
+	var stdout bytes.Buffer
+	c.interactiveOut = terminal.NewCRLFWriter(&stdout)
+
+	scan := newMetaScanner(true, "AiT u@h:/tmp> ")
+	for _, b := range []byte("!! how\n") {
+		_ = c.processForwardStdinByte(
+			context.Background(),
+			&stdin,
+			stdinByte{B: b},
+			scan,
+			InteractiveOpts{},
+		)
+	}
+
+	got := stdout.String()
+	if !strings.Contains(got, "\r\n") {
+		t.Fatalf("meta echo should use CRLF, stdout=%q", got)
+	}
+	if strings.Contains(got, "\r\r\n") {
+		t.Fatalf("meta echo must not double CRLF, stdout=%q", got)
 	}
 }

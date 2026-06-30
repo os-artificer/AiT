@@ -31,8 +31,31 @@ func AIPromptFromLine(line string) (prompt string, isAI bool) {
 	}
 }
 
+// normalizeBangAitTypo maps a common typo (!!ait → !ait) to the real meta opener.
+// Does not alter !! AI lines (those require a space or newline after !!).
+func normalizeBangAitTypo(s string) string {
+	if strings.HasPrefix(s, bangAitTypoPrefix) {
+		return "!" + s[2:]
+	}
+	// Partial bangAitTypoPrefix while the user is still typing.
+	if len(s) >= 3 && strings.HasPrefix(s, "!!a") && strings.HasPrefix(bangAitTypoPrefix, s) {
+		return "!" + s[2:]
+	}
+	return s
+}
+
+func isBangAitTypoPrefix(candidate string) bool {
+	return strings.HasPrefix(candidate, "!!") &&
+		normalizeBangAitTypo(candidate) != candidate
+}
+
+func finalizeMetaLine(candidate string) string {
+	return normalizeBangAitTypo(strings.TrimRight(candidate, "\r\n"))
+}
+
 // prefixCandidate reports whether s is a strict prefix of any opener.
 func prefixCandidate(s string) bool {
+	s = normalizeBangAitTypo(s)
 	for _, p := range prefixes {
 		if len(s) < len(p) && strings.HasPrefix(p, s) {
 			return true
@@ -43,6 +66,7 @@ func prefixCandidate(s string) bool {
 
 // prefixMatch returns the matched opener if s equals one exactly.
 func prefixMatch(s string) (string, bool) {
+	s = normalizeBangAitTypo(s)
 	for _, p := range prefixes {
 		if s == p {
 			return p, true
@@ -56,81 +80,23 @@ func lineEnd(b byte) bool {
 	return b == '\n' || b == '\r'
 }
 
-func (s *Scanner) applyMetaBackspace() ([]byte, bool) {
-	if s.state != stateHolding && s.state != stateMeta {
-		s.atLineStart = false
-		return nil, false
-	}
-	if len(s.buf) == 0 {
-		return nil, true
-	}
-
-	// Delete a complete UTF-8 character rather than a single byte.
-	n := 1
-	for n < len(s.buf) && s.buf[len(s.buf)-n]&0xC0 == 0x80 {
-		n++
-	}
-	s.buf = s.buf[:len(s.buf)-n]
-	if len(s.buf) == 0 {
-		s.state = stateIdle
-	}
-
-	return []byte{0x08, ' ', 0x08}, true
-}
-
-// consumeEscInMeta drops escape/CSI sequences received while in stateMeta so
-// that terminal control sequences (including IME cursor updates) do not pollute
-// the meta command buffer.
-func (s *Scanner) consumeEscInMeta(b byte, fwd, ech []byte) ([]byte, []byte, string, bool) {
-	switch s.escState {
-	case escReceived:
-		if b == csiIntroducerByte {
-			s.escState = escCSI
-			return fwd, ech, "", false
-		}
-		// Simple escape sequence (ESC + one char) — consume and resume.
-		s.escState = escNone
-		return fwd, ech, "", false
-	case escCSI:
-		if b >= csiFinalByteMin && b <= csiFinalByteMax {
-			// CSI sequence complete.
-			s.escState = escNone
-			return fwd, ech, "", false
-		}
-		if (b >= '0' && b <= '9') || b == ';' || b == ':' || b == '<' || b == '=' || b == '>' || b == '?' {
-			// Intermediate/parameter bytes — keep consuming.
-			return fwd, ech, "", false
-		}
-		// Unexpected byte — abort escape parsing.
-		s.escState = escNone
-		return fwd, ech, "", false
-	}
-	s.escState = escNone
-	return fwd, ech, "", false
-}
-
-// isUTF8MultiByteStart reports whether b is the first byte of a multi-byte
-// UTF-8 encoded character (CJK, emoji, etc.).
-func isUTF8MultiByteStart(b byte) bool {
-	return b >= 0xC2 && b <= 0xF4
-}
-
-// stripTrailingPinyin removes consecutive lowercase ASCII letters from the end
-// of s.buf and returns how many were removed. This heuristic clears IME preedit
-// (pinyin) text that precedes a confirmed Chinese character in raw TTY mode.
-func (s *Scanner) stripTrailingPinyin() int {
-	i := len(s.buf)
+// stripTrailingPinyinAtCursor removes consecutive lowercase ASCII letters before
+// the cursor and returns how many runes were removed.
+func (s *Scanner) stripTrailingPinyinAtCursor() int {
+	rs := s.runes()
+	i := s.cursor
 	for i > 0 {
-		c := s.buf[i-1]
+		c := rs[i-1]
 		if c >= 'a' && c <= 'z' {
 			i--
 		} else {
 			break
 		}
 	}
-	removed := len(s.buf) - i
+	removed := s.cursor - i
 	if removed > 0 {
-		s.buf = s.buf[:i]
+		s.setRunes(append(rs[:i], rs[s.cursor:]...))
+		s.cursor = i
 	}
 	return removed
 }
@@ -139,7 +105,7 @@ func completeLine(candidate string, b byte) (line string, done bool) {
 	if !lineEnd(b) {
 		return "", false
 	}
-	return strings.TrimRight(candidate, "\r\n"), true
+	return finalizeMetaLine(candidate), true
 }
 
 func (s *Scanner) feedHoldingLoose(candidate string, b byte, fwd, ech []byte) (outFwd, outEch []byte, line string, hasLine, handled bool) {
@@ -148,13 +114,17 @@ func (s *Scanner) feedHoldingLoose(candidate string, b byte, fwd, ech []byte) (o
 	}
 	if line, ok := completeLine(candidate, b); ok {
 		s.buf = s.buf[:0]
-		s.state = stateIdle
+		s.cursor = 0
+		s.enterIdle()
 		s.atLineStart = true
 		return fwd, ech, line, true, true
 	}
 	s.buf = append(s.buf, b)
-	s.state = stateMeta
-	return fwd, append(ech, b), "", false, true
+	s.cursor = len(s.runes())
+	if s.shouldDeferHoldingEcho(b) {
+		return fwd, ech, "", false, true
+	}
+	return fwd, s.echoEnteringStateMeta(ech, b), "", false, true
 }
 
 func (s *Scanner) feedHoldingStrict(candidate string, b byte, fwd, ech []byte) (outFwd, outEch []byte, line string, hasLine, handled bool) {
@@ -163,11 +133,15 @@ func (s *Scanner) feedHoldingStrict(candidate string, b byte, fwd, ech []byte) (
 	}
 	if line, ok := completeLine(candidate, b); ok {
 		s.buf = s.buf[:0]
-		s.state = stateIdle
+		s.cursor = 0
+		s.enterIdle()
 		s.atLineStart = true
 		return fwd, ech, line, true, true
 	}
 	s.buf = append(s.buf, b)
-	s.state = stateMeta
-	return fwd, append(ech, b), "", false, true
+	s.cursor = len(s.runes())
+	if s.shouldDeferHoldingEcho(b) {
+		return fwd, ech, "", false, true
+	}
+	return fwd, s.echoEnteringStateMeta(ech, b), "", false, true
 }

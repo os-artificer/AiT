@@ -41,7 +41,9 @@ def test_meta_suspend_lists_session(chain_env):
     )
     sess = AITExpectSession.spawn_login(cfg, env, extra_login_args=["--alias", alias])
     try:
-        out = sess.meta("session --list")
+        out = sess.visible_output(sess.meta("session --list"))
+        if alias not in out:
+            out = sess.visible_output(sess.meta("session --list"))
         assert alias in out
     finally:
         sess.close()

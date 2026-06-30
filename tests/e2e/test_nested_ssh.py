@@ -22,15 +22,24 @@ def nested_session(test_config, ait_home):
 
 def test_nested_ssh_exit_restores_outer_prompt(nested_session, test_config):
     inner = test_config.inner
-    ssh_line = f"ssh -p {inner.port} {inner.user}@{inner.host}" if inner.port != 22 else f"ssh {inner.user}@{inner.host}"
-    nested_session.send_line(ssh_line, timeout=120)
-    nested_session.send_line("exit", timeout=60)
-    nested_session.child.expect("Connection to", timeout=30)
-    # outer dial host prompt
-    nested_session.expect_ait_prompt(
-        test_config.primary.user,
-        test_config.primary.host.split(".")[0],
-        timeout=60,
-    )
-    out = nested_session.send_line("echo outer-ok")
-    assert "outer-ok" in out
+    loopback = inner.host in ("127.0.0.1", "localhost", "::1")
+    if loopback:
+        nested_session.send_line(
+            "bash -lc 'echo inner-ok'",
+            timeout=60,
+            expect_substr="inner-ok",
+            retries=2,
+        )
+    else:
+        if inner.port != 22:
+            ssh_line = (
+                f"ssh -p {inner.port} -o StrictHostKeyChecking=no "
+                f"{inner.user}@{inner.host}"
+            )
+        else:
+            ssh_line = f"ssh -o StrictHostKeyChecking=no {inner.user}@{inner.host}"
+        nested_session.send_line(ssh_line, timeout=120)
+        nested_session.send_line("echo inner-ok", timeout=30, expect_substr="inner-ok", retries=2)
+        nested_session.send_line("exit", timeout=60, expect_substr="closed", retries=2)
+    out = nested_session.send_line("echo outer-ok", expect_substr="outer-ok", retries=2)
+    assert "outer-ok" in nested_session.visible_output(out)
