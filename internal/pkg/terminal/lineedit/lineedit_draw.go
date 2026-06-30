@@ -20,25 +20,15 @@ import (
 	"io"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/pkg/terminal/screen"
-
 	"github.com/mattn/go-runewidth"
 )
 
 func redrawLine(out io.Writer, prompt string, runes []rune, cursor int) {
-	line := string(runes)
-	_, _ = io.WriteString(out, "\r"+prompt+line+"\x1b[K")
-	back := runewidth.StringWidth(string(runes[cursor:]))
-	for i := 0; i < back; i++ {
-		_, _ = io.WriteString(out, "\b")
-	}
+	_, _ = out.Write(AppendRedrawLine(nil, prompt, runes, cursor))
 }
 
 func redrawLineAfterClear(out io.Writer, prompt string, runes []rune, cursor int) {
-	screen.Clear(out)
-	if prompt != "" || len(runes) > 0 {
-		redrawLine(out, prompt, runes, cursor)
-	}
+	_, _ = out.Write(AppendClearAndRedrawLine(nil, prompt, runes, cursor))
 }
 
 func echoRune(out io.Writer, r rune) {

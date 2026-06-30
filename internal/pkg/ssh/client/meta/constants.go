@@ -24,6 +24,9 @@ const PrefixAitSpace = toolname.MetaPrefix + " "
 // PrefixAitAI is the "!ait ai" prefix used to detect the AI subcommand.
 const PrefixAitAI = toolname.MetaPrefix + " ai"
 
+// bangAitTypoPrefix is "!!" + MetaPrefix without leading "!" (!!ait). Keep in sync with toolname.MetaPrefix.
+const bangAitTypoPrefix = "!!ait"
+
 // Meta line constants — exact matches the scanner recognizes.
 const (
 	LineSuspend = toolname.MetaPrefix + " suspend"

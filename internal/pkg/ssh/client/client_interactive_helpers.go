@@ -130,9 +130,14 @@ func (c *Client) processForwardStdinByte(
 		return forwardStdinResult{action: fwdStdinReturn, err: sb.Err}
 	}
 
+	scan.SyncFrom(c.localShell.Active(), c.metaLineEchoPrefix())
+
 	fwd, echo, line, hasLine := scan.Feed(sb.B)
 	if len(echo) > 0 {
-		_, _ = os.Stdout.Write(echo)
+		_, _ = c.writeInteractiveStdout(echo)
+		if c.setupKeystrokeGraceUntil.Load() != 0 {
+			c.setupKeystrokeGraceUntil.Store(0)
+		}
 	}
 
 	if hasLine {
@@ -148,6 +153,9 @@ func (c *Client) processForwardStdinByte(
 	}
 
 	if c.localShell.Active() {
+		if c.setupKeystrokeGraceUntil.Load() != 0 {
+			c.setupKeystrokeGraceUntil.Store(0)
+		}
 		err := c.localShell.Write(fwd)
 		if err != nil {
 			return forwardStdinResult{action: fwdStdinReturn, err: err}

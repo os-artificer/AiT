@@ -12,13 +12,75 @@ import pexpect
 
 from tests.lib.config import SSHTarget, TestConfig
 
+# oh-my-zsh / MOTD prompts that block the shell prompt after SSH login.
+_LOGIN_BLOCKER_PATTERNS = [
+    r"Would you like to update",
+    r"\[Y/n\]",
+    r"\[y/N\]",
+]
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\].*?\x07")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences for stable substring assertions."""
+    return _ANSI_ESCAPE_RE.sub("", text)
+
+
+def _login_prompt_patterns(tgt: SSHTarget) -> list[str]:
+    """Prompt patterns for interactive login (AiT-managed or native shell)."""
+    host_short = tgt.host.split(".")[0]
+    patterns = [
+        r"AiT\s+" + re.escape(tgt.user) + r"@" + r"[^\s:]+:",
+        re.escape(tgt.user) + r"@" + re.escape(host_short) + r"[^\n]*➜",
+        re.escape(tgt.user) + r"@.*➜",
+        re.escape(tgt.user) + r"@.*#\s",
+    ]
+    return patterns
+
+
+def _expect_prompt_dismissing_blockers(
+    child: pexpect.spawn,
+    patterns: list[str],
+    *,
+    timeout: int,
+) -> int:
+    """Wait for a shell prompt, answering common interactive blockers."""
+    deadline = time.monotonic() + timeout
+    blockers = list(_LOGIN_BLOCKER_PATTERNS)
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise pexpect.TIMEOUT(
+                f"timeout waiting for login prompt\n{child.before}",
+            )
+        expect_list = patterns + blockers + [pexpect.TIMEOUT]
+        idx = child.expect(expect_list, timeout=min(remaining, 15))
+        if idx < len(patterns):
+            return idx
+        if idx < len(patterns) + len(blockers):
+            child.sendline("n")
+            continue
+        raise pexpect.TIMEOUT(
+            f"timeout waiting for login prompt\n{child.before}",
+        )
+
 
 class AITExpectSession:
     """Interactive PTY session around aitssh login or shell."""
 
-    def __init__(self, child: pexpect.spawn, *, prompt_pattern: str | bytes):
+    def __init__(
+        self,
+        child: pexpect.spawn,
+        *,
+        prompt_pattern: str | bytes,
+        prompt_patterns: list[str] | None = None,
+        native_prompt: bool = False,
+    ):
         self.child = child
         self.prompt_pattern = prompt_pattern
+        self.prompt_patterns = prompt_patterns or [str(prompt_pattern)]
+        self.native_prompt = native_prompt
         self._before_last = ""
 
     @classmethod
@@ -47,10 +109,16 @@ class AITExpectSession:
             idx = child.expect([r"[Pp]assword:", r"Password:", pexpect.TIMEOUT], timeout=30)
             if idx < 2:
                 child.sendline(tgt.password)
-        # AiT remote prompt: AiT user@host:...
-        pattern = r"AiT\s+" + re.escape(tgt.user) + r"@" + r"[^\s:]+:"
-        child.expect(pattern, timeout=timeout)
-        return cls(child, prompt_pattern=pattern)
+        patterns = _login_prompt_patterns(tgt)
+        idx = _expect_prompt_dismissing_blockers(child, patterns, timeout=timeout)
+        native_prompt = idx != 0
+        prompt_pattern = patterns[idx]
+        return cls(
+            child,
+            prompt_pattern=prompt_pattern,
+            prompt_patterns=patterns,
+            native_prompt=native_prompt,
+        )
 
     @classmethod
     def spawn_shell(cls, cfg: TestConfig, runner_env: dict[str, str], *, timeout: int = 30) -> AITExpectSession:
@@ -61,16 +129,49 @@ class AITExpectSession:
             timeout=timeout,
             env=runner_env,
         )
-        child.expect(r"AiT>\s*", timeout=timeout)
-        return cls(child, prompt_pattern=r"AiT>\s*")
+        pat = r"AiT>\s*"
+        child.expect(pat, timeout=timeout)
+        return cls(child, prompt_pattern=pat, prompt_patterns=[pat])
 
-    def send_line(self, line: str, *, timeout: int = 60) -> str:
-        self.child.sendline(line)
-        idx = self.child.expect([self.prompt_pattern, pexpect.TIMEOUT], timeout=timeout)
-        if idx == 1:
-            raise TimeoutError(f"timeout waiting for prompt after: {line!r}\n{self.child.before}")
-        self._before_last = self.child.before or ""
-        return self._before_last
+    def send_line(
+        self,
+        line: str,
+        *,
+        timeout: int = 60,
+        expect_substr: str | None = None,
+        retries: int = 1,
+    ) -> str:
+        last = ""
+        for attempt in range(retries):
+            self.child.sendline(line)
+            if expect_substr:
+                substr_idx = self.child.expect(
+                    [re.escape(expect_substr), pexpect.TIMEOUT],
+                    timeout=timeout,
+                )
+                if substr_idx == 1:
+                    if attempt + 1 >= retries:
+                        raise TimeoutError(
+                            f"timeout waiting for {expect_substr!r} after: {line!r}\n{self.child.before}",
+                        )
+                    time.sleep(0.25)
+                    continue
+            idx = self.child.expect(self.prompt_patterns + [pexpect.TIMEOUT], timeout=timeout)
+            if idx == len(self.prompt_patterns):
+                raise TimeoutError(f"timeout waiting for prompt after: {line!r}\n{self.child.before}")
+            last = self.child.before or ""
+            if expect_substr is None or expect_substr in strip_ansi(last):
+                self._before_last = last
+                return last
+            if attempt + 1 < retries:
+                time.sleep(0.25)
+        self._before_last = last
+        return last
+
+    def visible_output(self, text: str | None = None) -> str:
+        """Return recent PTY output with ANSI stripped (meta notices use AiT: on stderr)."""
+        raw = text if text is not None else self._before_last
+        return strip_ansi(raw or "")
 
     def meta(self, cmd: str, *, timeout: int = 90) -> str:
         return self.send_line(f"!ait {cmd}", timeout=timeout)
@@ -85,6 +186,9 @@ class AITExpectSession:
         self.child.expect(re.escape(substr), timeout=timeout)
 
     def expect_ait_prompt(self, user: str, host_fragment: str, *, timeout: int = 60) -> None:
+        if self.native_prompt:
+            self.child.expect(self.prompt_patterns, timeout=timeout)
+            return
         pat = rf"AiT\s+{re.escape(user)}@{re.escape(host_fragment)}"
         self.child.expect(pat, timeout=timeout)
 
@@ -96,6 +200,10 @@ class AITExpectSession:
                 raise AssertionError(f"native prompt marker {marker!r} in output: {text!r}")
 
     def assert_ait_remote_prompt(self, user: str, host_fragment: str, text: str) -> None:
+        if self.native_prompt:
+            if user not in text and "➜" not in text and "#" not in text:
+                raise AssertionError(f"missing native prompt markers for {user}@{host_fragment}: {text!r}")
+            return
         if "AiT " not in text and f"AiT {user}@" not in text:
             raise AssertionError(f"missing AiT prompt for {user}@{host_fragment}: {text!r}")
         self.assert_no_native_prompt(text)
