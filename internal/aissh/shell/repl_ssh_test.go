@@ -24,7 +24,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
 	"github.com/os-artificer/AiT/internal/aissh/shell/builtin"
 	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	"github.com/os-artificer/AiT/internal/pkg/config"
@@ -33,13 +32,32 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-func TestExecuteLine_LoginPrefixRejected(t *testing.T) {
+func TestExecuteLine_LoginNotFound(t *testing.T) {
+	t.Setenv("AIT_HOME", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+
+	prevCLI := cliExecutor
+	cliExecutor = func([]string, io.Writer, io.Writer) error {
+		return errors.New(fmt.Sprintf(`unknown command "login" for "%s"`, toolname.AISsh))
+	}
+	defer func() { cliExecutor = prevCLI }()
+
+	prevExt := externalRunner
+	SetExternalRunner(func(context.Context, string, []string) error {
+		t.Fatal("PATH login must not run")
+		return nil
+	})
+	defer SetExternalRunner(prevExt)
+
 	_, err := ExecuteLine(context.Background(), nil, "login devhost", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !errors.Is(err, login.ErrLoginPrefixRemoved) {
+	if !errors.Is(err, ErrCommandNotFound) {
 		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Try:") {
+		t.Fatalf("missing Try: %q", err.Error())
 	}
 }
 

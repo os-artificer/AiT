@@ -18,7 +18,6 @@ package aissh
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -26,6 +25,7 @@ import (
 	_ "github.com/os-artificer/AiT/internal/aissh/registry/all"
 
 	"github.com/os-artificer/AiT/internal/aissh/login"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
 func TestExecuteWriters_EmptyShowsRootHelp(t *testing.T) {
@@ -42,16 +42,13 @@ func TestExecuteWriters_EmptyShowsRootHelp(t *testing.T) {
 	}
 }
 
-func TestExecuteWriters_LoginPrefixRejected(t *testing.T) {
+func TestExecuteWriters_LoginUnknown(t *testing.T) {
 	err := ExecuteWriters([]string{"login", "user@host"}, io.Discard, io.Discard)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !errors.Is(err, login.ErrLoginPrefixRemoved) {
+	if !pkghelpdoc.IsUnknownCommand(err) {
 		t.Fatalf("got %v", err)
-	}
-	if !strings.Contains(err.Error(), "Try:") {
-		t.Fatalf("missing Try: %q", err.Error())
 	}
 }
 
@@ -69,9 +66,6 @@ func TestExecuteWriters_SSHDefaultConnect(t *testing.T) {
 	err := ExecuteWriters([]string{"user@example.com"}, io.Discard, io.Discard)
 	if err == nil {
 		t.Fatal("expected dial/resolve error without real host")
-	}
-	if errors.Is(err, login.ErrLoginPrefixRemoved) {
-		t.Fatal("must not treat user@host as removed login prefix")
 	}
 	if strings.Contains(err.Error(), `unknown command "user@example.com"`) {
 		t.Fatalf("must route to SSH connect, not Cobra: %v", err)

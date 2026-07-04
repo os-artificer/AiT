@@ -1,7 +1,5 @@
 # AiT — Agent orientation
 
-**Languages:** English (this page) · [简体中文](AGENTS.zh-CN.md)
-
 **AiT** is a Go **toolbox** (module `github.com/os-artificer/AiT`). The first shipped tool is **`aitssh`** — an AI-enhanced SSH client with SQLite session storage, optional remote tmux persistence, multi-provider AI (Deepseek, MiniMax, optional tiered Ollama), and SFTP file get/put. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
 
 ## Build and test
@@ -19,7 +17,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 
 ## What AiT does
 
-- **SSH sessions**: default OpenSSH-style connect (`aitssh [flags] destination`), `shell`, `session` (`--list`, `--load`, `--suspend`, `--switch`, `--delete`); no `login` subcommand
+- **SSH sessions**: default OpenSSH-style connect (`aitssh [flags] destination`), `shell`, `session` (`--list`, `--load`, `--suspend`, `--switch`, `--delete`)
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets); default `AppRoot` is `~/.local/share/ait` (Linux), `~/Library/Application Support/ait` (macOS), `%LOCALAPPDATA%\ait` (Windows); override with `AIT_HOME`
 - **Optional tmux**: `--tmux` on connect/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`); `--tmux` implies `--save` and stores `login_destination` for ssh config Host aliases
 - **AI**: Multi-provider (`internal/pkg/ai` router + `tiered.go`); `ai.providers.<id>.enabled` gates routing; `aitssh ai ask` / `aitssh ai agent` (one-shot); `aitssh ai provider enable|disable`; `aitssh ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`; install `[y/N]`); REPL `model` / `aitssh ai model list`; SSH `!ait ai ask` / `!! ask`; cloud keys `ai.<provider>.api_key`
@@ -27,7 +25,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe ZMODEM file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_zmodem.go`; `internal/pkg/tmux/remote_pty.go`)
 - **OpenSSH config**: default connect and `load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 
-Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
+Project structure: [`docs/architecture.md`](docs/architecture.md). aitssh guide: [`docs/tools/aitssh.md`](docs/tools/aitssh.md). aitssh internals: [`docs/tools/aitssh-internals.md`](docs/tools/aitssh-internals.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
 
 ## Where code lives
 
@@ -81,7 +79,7 @@ Full design: [`docs/design.md`](docs/design.md). Example config: [`configs/ait.e
 | `internal/pkg/pathsafe/` | Session ID and path validation (scrollback sidecars) |
 | `pkg/` | Public importable libs; [`pkg/third-party/`](pkg/third-party/) vendored upstream Go sources (e.g. xiwh ZMODEM) |
 | `configs/` | `ait.example.yaml` |
-| `docs/` | [`design.md`](docs/design.md), [`user-manual.md`](docs/user-manual.md) |
+| `docs/` | [`architecture.md`](docs/architecture.md), [`tools/aitssh.md`](docs/tools/aitssh.md), [`tools/aitssh-internals.md`](docs/tools/aitssh-internals.md) |
 | `.cursor/rules/` | Cursor rules; Go structure: [`go-structure.mdc`](.cursor/rules/go-structure.mdc) |
 | `scripts/` | Build and CI helpers |
 
@@ -93,7 +91,7 @@ Prefer extending `internal/pkg/*` and `internal/aissh` over new top-level direct
 |---------|------------------|
 | `aissh` (root) | `root.go` (`Run`, `ExitCode`); `cli_root.go` (`Execute`, `newRootCmd`); `manager.go` (`NewManager`, `runWithManager`); `context.go`, `runner.go`; `init_hooks.go` (meta/shell/ai inject); integration tests |
 | `registry` | `registry.go`, `top_level.go`, `deps.go`, `root_help.go`, `all/imports.go` |
-| `get`, `put`, `shell`, `session`, `version` | Top-level commands: `register.go`, `cmd.go`, `help.go`, `run.go` / flags; SSH connect via default route + `login` package |
+| `get`, `put`, `shell`, `session`, `version` | Top-level commands: `register.go`, `cmd.go`, `help.go`, `run.go` / flags; SSH connect via default route (`internal/aissh/login`) |
 | `ai` | `cmd.go`, `help.go`, `subregistry/`, `runner/`; nested `ask`, `agent`, `provider`, `ollama` each with `register.go` |
 | `ai/mode` | `repl.go`, `exec.go`, `scope.go`, … — AI REPL (`risk`, `approve`, `agent`, `chat`) |
 | `config` | `cmd.go`, `help.go`, `subregistry/`, `shared/`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
@@ -129,7 +127,7 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 
 - **Human contributors**: [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow and Go coding standards.
 - **Go coding standards**: when generating or refactoring Go, follow [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) — import groups (stdlib / module / third-party), one method-bearing struct per file, package-level functions in separate `*_helpers.go`, line width 150 (`.editorconfig`), nesting ≤2, blank line between responsibility blocks inside functions (§11), full godoc on exports.
-- **Package layering**: `cmd/aitssh` → `internal/aissh` (package `aissh`) / `<subcommand>` → shared code in `internal/pkg` (must not import `internal/aissh`); root `pkg/` for external, non-business libs. See [`docs/package-layering.md`](docs/package-layering.md) and [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc).
+- **Package layering**: `cmd/aitssh` → `internal/aissh` (package `aissh`) / `<subcommand>` → shared code in `internal/pkg` (must not import `internal/aissh`); root `pkg/` for external, non-business libs. See [`docs/tools/aitssh-internals.md#package-layering`](docs/tools/aitssh-internals.md#package-layering) and [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc).
 - **Reuse**: follow [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc) — search existing helpers/shared packages before duplicating logic.
 - **CLI help**: shared layout in [`internal/pkg/helpdoc`](internal/pkg/helpdoc) (`pkghelpdoc.Bind`); per-command body in `internal/aissh/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`); see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc).
 - **Formatting**: tabs for Go; run `make fmt` before finishing Go changes.
@@ -161,7 +159,7 @@ aitssh put [ssh-flags] <paths...>
 aitssh config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-Prompts: `AiT>` (`aitssh shell`), `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`), `AiT AI(Agent) user@host>` (SSH AI), `AiT user@host>` (SSH remote; shown immediately after login/load), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip; Agent read-only commands auto-run. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `aitssh shell` for nested connect/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
+Prompts: `AiT>` (`aitssh shell`), `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`), `AiT AI(Agent) user@host>` (SSH AI), `AiT user@host>` (SSH remote; shown immediately after connect/load), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip; Agent read-only commands auto-run. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `aitssh shell` for nested connect/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
 
 ## Pitfalls
 
@@ -171,5 +169,5 @@ Prompts: `AiT>` (`aitssh shell`), `AiT AI(Agent)>` by default (`mode ask` → `A
 - **`session --switch` from local shell** cannot suspend an active SSH; user must `!ait suspend` inside the session first, or use `--force` (does not save current scrollback/cwd).
 - `pkg/third-party/` is for vendored tools, not primary app code.
 
-- Top-level commands: add `internal/aissh/<cmd>/` with `register.go` (`registry.Register`) and a blank import in [`registry/all/imports.go`](internal/aissh/registry/all/imports.go). Nested commands: parent `subregistry` + `<parent>/registry/all/imports.go` (see [`docs/package-layering.md`](docs/package-layering.md)).
+- Top-level commands: add `internal/aissh/<cmd>/` with `register.go` (`registry.Register`) and a blank import in [`registry/all/imports.go`](internal/aissh/registry/all/imports.go). Nested commands: parent `subregistry` + `<parent>/registry/all/imports.go` (see [`docs/tools/aitssh-internals.md#package-layering`](docs/tools/aitssh-internals.md#package-layering)).
 - Do not add markdown files unless the user asks (except updating `README.md` / `AGENTS.md` / `docs/` when documenting the product).

@@ -1,16 +1,14 @@
 # Contributing
 
-**Languages:** English (this page) · [简体中文](CONTRIBUTING.zh-CN.md)
-
 Thank you for contributing to **AiT** (AI Terminal). This document summarizes the **development workflow** and **Go coding standards** for human contributors.
 
 - Module path: `github.com/os-artificer/AiT`
 - Requires **Go 1.25+** (see [`go.mod`](go.mod))
 - Before opening a PR, run the merge gate in [`.cursor/rules/change-acceptance.mdc`](.cursor/rules/change-acceptance.mdc): `make fmt`, `make vet`, `make test`, `make build`, `make test-cross`
 
-The canonical source for coding rules is [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc), [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc), and [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc). **When you change coding conventions, update those files and both CONTRIBUTING documents** ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`CONTRIBUTING.zh-CN.md`](CONTRIBUTING.zh-CN.md)).
+The canonical source for coding rules is [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc), [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc), and [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc). **When you change coding conventions, update those files and [`CONTRIBUTING.md`](CONTRIBUTING.md).**
 
-For CLI commands, `--help` text must match the login-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/aissh/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `aitssh login --help` before opening a PR.
+For CLI commands, `--help` text must match the SSH connect-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/aissh/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `aitssh --help` (SSH connect section) or [`internal/aissh/login/help.go`](internal/aissh/login/help.go) before opening a PR.
 
 ---
 
@@ -58,7 +56,7 @@ AiT is a Go CLI; directories follow [golang-standards/project-layout](https://gi
 | Path | Purpose |
 |------|---------|
 | [`cmd/aitssh`](cmd/aitssh) | Main entry; **only** a minimal `main` |
-| [`internal/aissh`](internal/aissh) | Application entry (`Run`, Cobra root); **one package per subcommand** (`internal/aissh/login`, `get`, …) with name, flags, parse, help, run in the same package |
+| [`internal/aissh`](internal/aissh) | Application entry (`Run`, Cobra root); **one package per registered subcommand** (`get`, `shell`, …) plus **`internal/aissh/login`** (SSH connect default route, not registered) with name, flags, parse, help, run in the same package |
 | [`internal/pkg/*`](internal/pkg) | Shared libraries (`store`, `session`, `ssh`, …); **must not** import `internal/aissh` |
 | [`pkg/`](pkg/) | Libraries for **external** modules; generic / non–AiT-business only |
 | [`configs/`](configs/) | Config templates (e.g. `ait.example.yaml`) |
@@ -66,9 +64,9 @@ AiT is a Go CLI; directories follow [golang-standards/project-layout](https://gi
 Conventions:
 
 - Prefer extending `internal/aissh/<cmd>` and `internal/pkg/*`; avoid adding top-level directories without reason.
-- **Package layering:** `cmd/aitssh` → `internal/aissh` → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/package-layering.md`](docs/package-layering.md) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
+- **Package layering:** `cmd/aitssh` → `internal/aissh` → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/tools/aitssh-internals.md#package-layering`](docs/tools/aitssh-internals.md#package-layering) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
 - `internal/` is module-private — **must not** be imported from outside this module.
-- See [`AGENTS.md`](AGENTS.md) for package layout; see [`docs/design.md`](docs/design.md) for product architecture.
+- See [`AGENTS.md`](AGENTS.md) for package layout; see [`docs/architecture.md`](docs/architecture.md) for toolbox structure, [`docs/tools/aitssh.md`](docs/tools/aitssh.md) for aitssh behavior, and [`docs/tools/aitssh-internals.md`](docs/tools/aitssh-internals.md) for aitssh implementation.
 
 
 ---
@@ -292,8 +290,9 @@ Run `make fmt` after Go changes. `make fmt` does **not** enforce line width ≤1
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | This page: workflow and Go standards |
 | [`CHANGELOG.md`](CHANGELOG.md) | Product and CLI changelog |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Code of conduct |
-| [`docs/user-manual.md`](docs/user-manual.md) | User manual |
+| [`docs/tools/aitssh.md`](docs/tools/aitssh.md) | aitssh user guide |
+| [`docs/tools/aitssh-internals.md`](docs/tools/aitssh-internals.md) | aitssh implementation (package layering, workflows) |
 | [`AGENTS.md`](AGENTS.md) | Code layout and agent orientation |
-| [`docs/design.md`](docs/design.md) | Product architecture and behavior |
+| [`docs/architecture.md`](docs/architecture.md) | AiT toolbox project structure |
 | [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) | Canonical Go rules (sync with Cursor / agents) |
 | [`.cursor/rules/project.mdc`](.cursor/rules/project.mdc) | Project scope and build conventions |

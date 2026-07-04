@@ -33,6 +33,8 @@ const (
 	ReplCmdSuspend = builtin.CmdSuspend
 )
 
+const shellPathSkipLogin = "login"
+
 // IO — error prefix and runner messages.
 const (
 	errShellCLIExecutorNotConfig    = "AiT: shell CLI executor not configured"

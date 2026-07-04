@@ -5,13 +5,13 @@ alwaysApply: true
 
 # Package layering (AiT toolbox — aitssh)
 
-Authoritative detail: [docs/package-layering.md](../../docs/package-layering.md) · [docs/package-layering.zh-CN.md](../../docs/package-layering.zh-CN.md). Keep this rule in sync when those docs change.
+Authoritative detail: [docs/tools/aitssh-internals.md#package-layering](../../docs/tools/aitssh-internals.md#package-layering). Keep this rule in sync when that section changes.
 
 ## Call chain
 
 `cmd/aitssh` → `internal/aissh` (package **`aissh`**: `Run`, `Execute`, `NewManager`) → `internal/aissh/<cmd>` (closed loop per subcommand) → `internal/pkg/*` (shared, no product subcommand ownership).
 
-**Directory vs package:** `internal/aissh/` uses Go package `aissh` (`aitssh` is not a valid identifier). Subcommand dirs still use package names matching Cobra (`login`, `shell`, …).
+**Directory vs package:** `internal/aissh/` uses Go package `aissh` (`aitssh` is not a valid identifier). Registered subcommand dirs use package names matching Cobra (`shell`, `session`, …). **`internal/aissh/login/`** is the SSH connect route package (not registered as a Cobra subcommand).
 
 ## Subcommand package (`internal/aissh/<cmd>/`)
 
@@ -29,7 +29,7 @@ One package per top-level command owns: `Name`, `flags.go`, `parse.go`, `cmd.go`
 
 ## Package name = command name
 
-**Exception:** `internal/aissh/` root is package **`aissh`** (directory `aissh`). Otherwise directory/package = Cobra name (`login`, `ai/ask`, `config/set`). No `*cmd` package suffix. AI REPL: `internal/aissh/ai/mode`. CLI `session`: `internal/aissh/session` (alias pkg session as `pkgsession`).
+**Exception:** `internal/aissh/` root is package **`aissh`** (directory `aissh`). Otherwise directory/package = Cobra name (`shell`, `session`, `ai/ask`, `config/set`). **`internal/aissh/login/`** is the connect route (not `registry.Register`). No `*cmd` package suffix. AI REPL: `internal/aissh/ai/mode`. CLI `session`: `internal/aissh/session` (alias pkg session as `pkgsession`).
 
 ## `helpdoc`
 

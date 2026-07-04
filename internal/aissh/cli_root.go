@@ -43,9 +43,6 @@ func ExecuteWriters(args []string, out, errOut io.Writer) error {
 	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {
 		return registry.WriteRootHelp(out)
 	}
-	if args[0] == login.Name {
-		return login.PrefixRejectedErr()
-	}
 	if cliroute.IsSSHConnectArgs(args) {
 		return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
 			return login.Run(ctx, mgr, args)

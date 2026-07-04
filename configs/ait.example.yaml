@@ -1,5 +1,5 @@
 # AiT example configuration
-# Copy to AppRoot as config.yaml (see docs/design.md); or: aitssh config init / aitssh config edit / aitssh config validate
+# Copy to AppRoot as config.yaml (see docs/tools/aitssh.md#data-directory); or: aitssh config init / aitssh config edit / aitssh config validate
 
 session:
   # Authentication cache TTL for load/switch without re-entering password

@@ -101,6 +101,38 @@ func TestDispatchShellCommand_AitCLIBeforePATH(t *testing.T) {
 	}
 }
 
+func TestDispatchShellCommand_LoginSkipsPATH(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("AIT_HOME", root)
+	pathDir := t.TempDir()
+	loginExe := filepath.Join(pathDir, "login")
+	if err := os.WriteFile(loginExe, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", pathDir)
+
+	prevCLI := cliExecutor
+	cliExecutor = func([]string, io.Writer, io.Writer) error {
+		return errors.New(fmt.Sprintf(`unknown command "login" for "%s"`, toolname.AISsh))
+	}
+	defer func() { cliExecutor = prevCLI }()
+
+	prevExt := externalRunner
+	SetExternalRunner(func(context.Context, string, []string) error {
+		t.Fatal("system PATH login must not run")
+		return nil
+	})
+	defer SetExternalRunner(prevExt)
+
+	err := dispatchShellCommand(context.Background(), nil, []string{"login", "devhost"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ErrCommandNotFound) {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestDispatchShellCommand_PATHFallback(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("AIT_HOME", root)
