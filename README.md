@@ -1,46 +1,50 @@
-<p align="center">
-  <img src="assets/logo.png" alt="AiT logo" width="420">
-</p>
-
-**Languages:** English (this page) · [简体中文](README.zh-CN.md)
 
 # AiT
 
-**AiT** — A cross-platform (Linux / macOS / Windows) AI-enhanced command-line **toolbox** that includes, but is not limited to, terminal and SSH workflows—built to be a practical everyday tool for operations engineers.
+**AiT** is a cross-platform (Linux / macOS / Windows) AI-enhanced command-line **toolbox** for operations engineers—terminal and SSH workflows today, more tools over time.
 
-**First tool:** [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (session management, in-terminal AI, file transfer). Binary: `bin/aitssh`; install with `go install github.com/os-artificer/AiT/cmd/aitssh@latest`.
+**First tool:** [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer).
 
-## Features
+Full CLI reference: [aitssh guide](docs/tools/aitssh.md).
 
-While remaining compatible with OpenSSH configuration and connection flags, AiT adds session management, recovery, and in-terminal collaboration beyond a typical interactive `ssh` session. Interactive connect and session load show the remote AiT prompt immediately; in-session `!ait get`/`put` accept optional destination defaults and report chain ZMODEM/SFTP progress through `done:` (details in the [user manual](docs/user-manual.md)).
+## What you get
 
-### Session management
+- OpenSSH-compatible connect (`-J`, config Host aliases, `ssh -G` resolution)
+- Session bookmarks: `--alias`, `session --load`, `session --switch`
+- In-session `!ait` meta commands (suspend, chain hop, transfer)
+- Remote AI with `!!` / `!ait ai` (Agent mode and read-only commands auto-run)
+- `!ait get` / `!ait put` on the live SSH session, standalone `aitssh get` / `put` via SFTP
+- Optional `--tmux` to keep remote shells alive after disconnect
+- Local `aitssh shell` and `aitssh ai` REPLs with history and UTF-8 line editing
 
-| Capability | AiT | Typical SSH client |
-|------------|-----|-------------------|
-| Session persistence | SQLite stores connection parameters, aliases, and authentication TTL (`session.auth_ttl`) | No session store; rely on shell history or external notes |
-| Fast resume | `aitssh session --load` / `--switch`; credential-free reconnect within auth TTL (TTL refreshes when you re-enter the password) | Must specify `user@host` and flags on each connect |
-| Suspend and context | `!ait suspend` saves scrollback and remote working directory | Terminal context is lost after disconnect |
+## Examples
 
-### Remote keep-alive
+```bash
+# 1) Bookmark a host and resume later (OpenSSH-style flags still work)
+aitssh deploy@prod --alias prod
+aitssh session --list
+aitssh session --load prod
 
-| Capability | AiT | Typical SSH client |
-|------------|-----|-------------------|
-| Process keep-alive | `--tmux` auto attach/detach `ait-<session_id>` | Manual tmux or screen session management |
+# 2) Jump host in one command (same as ssh -J)
+aitssh -J bastion app.internal
 
-### In-session collaboration
+# 3) Remote AI inside an SSH session (!! opens Agent REPL on the remote shell)
+# After you are connected:
+!!
+# Ask in natural language; read-only commands run automatically; writes need confirmation
 
-| Capability | AiT | Typical SSH client |
-|------------|-----|-------------------|
-| AI mode | Local `aitssh ai` (`AiT AI(Agent)>`) and in-SSH `!ait ai` / `!!` (remote `run` after confirm); Deepseek + MiniMax + optional tiered Ollama | No built-in assistant; separate tools required |
-| Local mode | `!ait local` / `!ait remote` switch input target while SSH stays connected | Local and remote work in separate terminals |
-| File transfer | `aitssh get` / `aitssh put` (SFTP, single file); `!ait get` / `!ait put` reuse the live SSH session | Must assemble scp/rsync SSH options manually |
+# 4) Transfer over the current session (single-arg defaults to ./basename)
+!ait get ./build/app-linux-amd64
+!ait put ./patch.tar.gz
 
-### Local entry point
+# 5) tmux keep-alive: remote work survives disconnect
+aitssh devhost --tmux
+# Later: aitssh session --load devhost --tmux
 
-| Capability | AiT | Typical SSH client |
-|------------|-----|-------------------|
-| Unified CLI | `aitssh shell` REPL for ssh-style connect / `session --list` / `session --load`; input `history` and Ctrl+R (see user manual) | No equivalent integrated REPL |
+# 6) One-shot local AI (non-interactive)
+aitssh config init
+aitssh ai ask "summarize this log pattern: connection reset"
+```
 
 ## Installation
 
@@ -64,15 +68,14 @@ aitssh --help
 
 Ensure `$(go env GOPATH)/bin` is on your PATH.
 
-> Configuration and usage: [User manual](docs/user-manual.md).
-
 ## Documentation
 
 | Document | Path |
 |----------|------|
-| User manual | [docs/user-manual.md](docs/user-manual.md) |
-| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+| Project structure | [docs/architecture.md](docs/architecture.md) |
+| aitssh internals | [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md) |
+| aitssh guide | [docs/tools/aitssh.md](docs/tools/aitssh.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Architecture | [docs/design.md](docs/design.md) |
 | Code layout | [AGENTS.md](AGENTS.md) |
+| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |

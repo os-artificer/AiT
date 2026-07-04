@@ -1,5 +1,5 @@
 ---
-description: 归档 Cursor 执行方案到 docs/ 根目录；架构见 design.md / design.zh-CN.md
+description: 归档 Cursor 执行方案到 docs/ 根目录；架构见 architecture.md
 alwaysApply: true
 ---
 
@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## 架构文档
 
-产品架构与行为以 [docs/design.md](docs/design.md)（英文）、[docs/design.zh-CN.md](docs/design.zh-CN.md)（中文）为准。
+产品工具箱结构以 [docs/architecture.md](docs/architecture.md) 为准；`aitssh` 用户可见行为以 [docs/tools/aitssh.md](docs/tools/aitssh.md) 为准；`aitssh` 实现与 package layering 以 [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md) 为准。
 
 常驻文档索引见 `docs/` 目录。
 
@@ -23,8 +23,9 @@ alwaysApply: true
 
 **禁止覆盖的保留文件名**（不得用作归档目标）：
 
-- `design.md`、`design.zh-CN.md`
-- `user-manual.md`、`user-manual.zh-CN.md`
-- `README.md`、`README.zh-CN.md`
+- `architecture.md`
+- `tools/aitssh.md`
+- `tools/aitssh-internals.md`
+- `README.md`
 
-更新 `design.md` / `design.zh-CN.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[README.zh-CN.md](README.zh-CN.md)、[AGENTS.md](AGENTS.md)、[AGENTS.zh-CN.md](AGENTS.zh-CN.md) 中的同语言链接。
+更新 `architecture.md`、`tools/aitssh.md` 或 `tools/aitssh-internals.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[AGENTS.md](AGENTS.md) 中的相关链接。

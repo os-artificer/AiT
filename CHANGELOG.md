@@ -1,7 +1,5 @@
 # Changelog
 
-**Languages:** English (this page) · [简体中文](CHANGELOG.zh-CN.md)
-
 This file records **product and CLI** functional changes only; documentation-only updates are not included. When a release is tagged, move items from `[Unreleased]` into a dated version section.
 
 ## [Unreleased]

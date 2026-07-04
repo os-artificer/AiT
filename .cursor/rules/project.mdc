@@ -17,7 +17,7 @@ Go CLI **toolbox** (**AiT**; first tool: **aitssh**). Module: `github.com/os-art
 - `cmd/aitssh`: minimal `main` only (delegates to `aissh.Run`)
 - `internal/aissh`: application entry (Go package `aissh`)
 - `pkg/`: only code meant for external import
-- Product docs: [AGENTS.md](AGENTS.md), [docs/design.md](docs/design.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
+- Product docs: [AGENTS.md](AGENTS.md), [docs/architecture.md](docs/architecture.md), [docs/tools/aitssh.md](docs/tools/aitssh.md), [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
 
 ## Scope
 
