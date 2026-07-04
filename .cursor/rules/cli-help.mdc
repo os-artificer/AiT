@@ -1,10 +1,10 @@
 ---
-description: CLI/Cobra --help 必须与 aitssh login 同版式；新命令 checklist
+description: CLI/Cobra --help 必须与 SSH connect 同版式；新命令 checklist
 globs: internal/aissh/*.go,internal/pkg/helpdoc/**,internal/aissh/**/help.go,internal/aissh/login/**,internal/aissh/shell/**,internal/aissh/meta/**
 alwaysApply: false
 ---
 
-# CLI 帮助版式（login 风格）
+# CLI 帮助版式（SSH connect 风格）
 
 须同时遵守 [code-reuse.mdc](code-reuse.mdc) 与 [go-structure.mdc](go-structure.mdc)。
 
@@ -34,7 +34,7 @@ alwaysApply: false
 
 首行说明 →（可选）说明段 → `Usage:` → `Arguments:` →（可选）`Flag order:` → 标志段 →（SSH 类）`Not supported:` → `Examples:` → 尾注 `  -h, --help      help for <cmd>`
 
-## 自定义 argv（login / get / put）
+## 自定义 argv（SSH connect / get / put）
 
 - `DisableFlagParsing: true`
 - `RunE`: `pkghelpdoc.HelpRequested(argv)` 早退

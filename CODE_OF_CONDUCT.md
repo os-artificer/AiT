@@ -1,7 +1,5 @@
 # Code of Conduct
 
-**Languages:** English (this page) · [简体中文](CODE_OF_CONDUCT.zh-CN.md)
-
 ## Scope
 
 This Code of Conduct applies to all participants in the AiT project, including contributors and maintainers, in project spaces such as issues, pull requests, code review, and related discussions.
@@ -41,4 +39,4 @@ Maintainers will review reports and may take actions including warnings, tempora
 
 ## Version
 
-This document is effective as of the date it is merged into the repository main branch. Amendments require maintainer review and update of both language versions ([`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), [`CODE_OF_CONDUCT.zh-CN.md`](CODE_OF_CONDUCT.zh-CN.md)).
+This document is effective as of the date it is merged into the repository main branch. Amendments require maintainer review and update of [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).

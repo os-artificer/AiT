@@ -199,7 +199,7 @@ github.com/cloudwego/eino-ext/components/model/ollama v0.x.x
 
 ### Phase 5：文档
 
-- `docs/design*.md`、`CHANGELOG [Unreleased]`、`AGENTS.md`
+- `docs/architecture.md`、`docs/tools/aitssh.md`、`CHANGELOG [Unreleased]`、`AGENTS.md`
 - `.cursor/rules/change-acceptance.mdc` 登记 **E1–E12**
 
 ---
@@ -314,7 +314,7 @@ timeout 5 ./bin/ait ai model list
 |---|-------------|----------------|---------|
 | C1 | `eino/prompt_builder` 直接迁 `chat_helpers` | `client` 将 import `eino`；`eino` 若 import `client` 取类型 → **import 循环** | Phase **1.0** 提取 `internal/pkg/ai/apitypes`；bridge 在 `client/eino_bridge.go` |
 | C2 | `ProviderRouteMeta` 新类型 | 现网已用 [`PromptMeta`](../../internal/pkg/ai/client/client_router.go) 且 facade 导出 | 复用 `apitypes.PromptMeta`，不新造类型名 |
-| C3 | Phase 2「Assist 同 Chat backend」 | [`Assist`](../../internal/pkg/ai/client/client_router.go) 走 `chatWithFailover`，**不**走 `completion()`/tiered；design.md 明确 cloud-only | Assist **仅**在 failover 路径接 eino；禁止接 `ClassifyPrompt` |
+| C3 | Phase 2「Assist 同 Chat backend」 | [`Assist`](../../internal/pkg/ai/client/client_router.go) 走 `chatWithFailover`，**不**走 `completion()`/tiered；[aitssh guide](../../tools/aitssh.md) 明确 cloud-only | Assist **仅**在 failover 路径接 eino；禁止接 `ClassifyPrompt` |
 | C4 | P3 `mode_test` 改用 `mock_chatmodel` | [`mode.Options.AI`](../../internal/ait/ai/mode/scope.go) 为 `*ai.Client`  concrete；现有 [`testAIClientHandler`](../../internal/ait/ai/mode/mode_test.go) 已够用 | mode 层保留 httptest；mock_chatmodel 限 client/eino 单测 |
 | C5 | P4「ListModels 不动」 | [`providerReachable`](../../internal/pkg/ai/client/client_helpers.go) / `NewClient` / `promptMetaForStatus` **依赖** `c.endpoints` | P4 先 refactor  keyed 检测（cfg+creds），再删 `endpoint` |
 | C6 | P4 直接删 `tools.go` 中 go-openai | [`ToolCallToJSON(openai.ToolCall)`](../../internal/pkg/ai/agent/tools.go) 签名绑死 | P4 **步 0** 引入 FC 中间 struct，再删 go-openai |
