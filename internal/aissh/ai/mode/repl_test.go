@@ -55,7 +55,7 @@ func TestPrompt_LocalAndRemote(t *testing.T) {
 	if got := Prompt(ai.ScopeLocal, "", ModeAgent); got != "AiT AI(Agent)> " {
 		t.Fatalf("local agent prompt %q", got)
 	}
-	if got := Prompt(ai.ScopeRemote, "u@h", ModeAgent); got != "AiT AI(Agent) u@h> " {
+	if got := Prompt(ai.ScopeRemote, "u@h", ModeAgent); got != "AiT AI(Agent)> " {
 		t.Fatalf("remote prompt %q", got)
 	}
 }
@@ -287,7 +287,7 @@ func TestRunREPL_InitialEmptyAgentEntersREPL(t *testing.T) {
 	if strings.Contains(out.String(), "ask requires a message") {
 		t.Fatal("bare agent must not trigger ask-required hint")
 	}
-	if !strings.Contains(out.String(), "AiT AI(Agent) u@h>") {
+	if !strings.Contains(out.String(), "AiT AI(Agent)>") {
 		t.Fatalf("expected remote Agent REPL prompt, got %q", out.String())
 	}
 }

@@ -140,15 +140,13 @@ func newSessionState(opt Options) *sessionState {
 	return st
 }
 
-// Prompt returns the AI mode prompt for scope, host label, and interaction mode.
+// Prompt returns the AI mode REPL prompt for scope and interaction mode.
+// hostLabel is retained for API stability; TTY display is the same for local and remote.
+// Remote host context for the model uses Options.HostLabel via AssistEnv, not this string.
 func Prompt(scope ai.Scope, hostLabel string, mode InteractionMode) string {
+	_ = scope
+	_ = hostLabel
 	modeLabel := interactionPromptLabel(mode)
-	if scope == ai.ScopeRemote {
-		if hostLabel != "" {
-			return fmt.Sprintf("AiT AI(%s) %s> ", modeLabel, hostLabel)
-		}
-		return fmt.Sprintf("AiT AI(%s) remote> ", modeLabel)
-	}
 	return fmt.Sprintf("AiT AI(%s)> ", modeLabel)
 }
 

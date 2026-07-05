@@ -39,7 +39,7 @@ type Result struct {
 type Inputs struct {
 	// Trust mutates as the user makes choices; must be non-nil for stateful confirms.
 	Trust *Trust
-	// ScopeLabel is the bracketed scope string in the prompt header ("local"/"remote"/host).
+	// ScopeLabel is the bracketed scope string in the prompt header ("local" or "remote").
 	ScopeLabel string
 	// CmdLabel is the command text shown to the user.
 	CmdLabel string

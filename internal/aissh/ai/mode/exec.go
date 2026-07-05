@@ -233,9 +233,6 @@ func confirmExecRisk(opt Options, st *sessionState, cmdLabel, patternKey string,
 
 func scopeLabel(opt Options) string {
 	if opt.Scope == ai.ScopeRemote {
-		if opt.HostLabel != "" {
-			return opt.HostLabel
-		}
 		return "remote"
 	}
 	return "local"
