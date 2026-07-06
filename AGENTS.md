@@ -159,7 +159,7 @@ aitssh put [ssh-flags] <paths...>
 aitssh config init|view|edit|validate|set|get <key> [<value>]
 ```
 
-Prompts: `AiT>` (`aitssh shell`), `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`), `AiT AI(Agent) user@host>` (SSH AI), `AiT user@host>` (SSH remote; shown immediately after connect/load), `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip; Agent read-only commands auto-run. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `aitssh shell` for nested connect/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
+Prompts: `AiT>` (`aitssh shell`), `AiT AI(Agent)>` by default (`mode ask` → `AiT AI(Ask)>`; local and SSH AI REPL share the same format), native shell PS1 for SSH remote interactive, `AiT Local>` (`!ait local`). Run confirm: `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip; Agent read-only commands auto-run. In SSH: `!ait help`; `!ait <subcmd>` for local CLI (not `ai`); `!ait ai` / `!!` for remote AI REPL; `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `aitssh shell` for nested connect/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**R1–R18**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
 
 ## Pitfalls
 

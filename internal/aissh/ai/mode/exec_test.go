@@ -248,3 +248,12 @@ func TestDefaultLocalRunner_Echo(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestScopeLabel_RemoteUsesRemoteNotHost(t *testing.T) {
+	if got := scopeLabel(Options{Scope: ai.ScopeRemote, HostLabel: "root@dev.example"}); got != "remote" {
+		t.Fatalf("scopeLabel = %q want remote", got)
+	}
+	if got := scopeLabel(Options{Scope: ai.ScopeLocal}); got != "local" {
+		t.Fatalf("scopeLabel = %q want local", got)
+	}
+}

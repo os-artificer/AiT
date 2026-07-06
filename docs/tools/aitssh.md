@@ -65,7 +65,7 @@ aitssh config init|view|edit|validate|set|get ...   # YAML config; edit uses $VI
 **Scope behavior**
 
 - Local AI mode: `aitssh ai` or `ai` inside `aitssh shell`, default prompt `AiT AI(Agent)>`.
-- Remote AI mode: `!ait ai` or `!!` in an SSH session, prompt `AiT AI(Agent) user@host>`.
+- Remote AI mode: `!ait ai` or `!!` in an SSH session, prompt `AiT AI(Agent)>` (same format as local).
 - `!ait ai` as a plain local CLI subcommand is blocked in meta dispatch; use the `!ait ai` line form.
 
 **Important connect parsing note**
@@ -244,7 +244,7 @@ Local REPL behavior applies to `aitssh shell` and local `aitssh ai`.
 | `aitssh ai` | `AiT AI(Agent)> ` by default; `mode ask` shows `AiT AI(Ask)> ` |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` |
 | SSH nested | same format on active nested host |
-| SSH AI mode (`!ait ai`, `!!`) | `AiT AI(Ask) user@host> ` or `AiT AI(Agent) user@host> ` |
+| SSH AI mode (`!ait ai`, `!!`) | `AiT AI(Ask)> ` or `AiT AI(Agent)> ` (same as local) |
 | `!ait local` | `AiT Local> ` |
 
 Prompt path mode is controlled by `session.remote_prompt.path`:

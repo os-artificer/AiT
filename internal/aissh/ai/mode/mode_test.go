@@ -322,13 +322,19 @@ func TestParseAgentAction_Run(t *testing.T) {
 	}
 }
 
-// A21a: prompt reflects interaction mode (Ask vs Agent).
+// A21a: prompt reflects interaction mode (Ask vs Agent); local and remote share the same format.
 func TestPrompt_ShowsInteractionMode(t *testing.T) {
 	if !strings.Contains(Prompt(ai.ScopeLocal, "", ModeAgent), "(Agent)") {
 		t.Fatal("expected Agent in prompt")
 	}
 	if !strings.Contains(Prompt(ai.ScopeLocal, "", ModeAsk), "(Ask)") {
 		t.Fatal("expected Ask in prompt")
+	}
+	if got := Prompt(ai.ScopeRemote, "u@h", ModeAgent); got != "AiT AI(Agent)> " {
+		t.Fatalf("remote prompt should match local format, got %q", got)
+	}
+	if got := Prompt(ai.ScopeRemote, "u@h", ModeAsk); got != "AiT AI(Ask)> " {
+		t.Fatalf("remote ask prompt should match local format, got %q", got)
 	}
 }
 
