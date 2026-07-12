@@ -24,22 +24,35 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
 	"github.com/os-artificer/AiT/internal/aissh/shell/builtin"
 	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	"github.com/os-artificer/AiT/internal/pkg/config"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/store"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-func TestExecuteLine_LoginPrefixRejected(t *testing.T) {
+func TestExecuteLine_LoginUnknown(t *testing.T) {
+	prevCLI := cliExecutor
+	cliExecutor = func(args []string, _, _ io.Writer) error {
+		return fmt.Errorf(`unknown command "%s" for "%s"`, args[0], toolname.AISsh)
+	}
+	defer func() { cliExecutor = prevCLI }()
+
+	prevExt := externalRunner
+	SetExternalRunner(func(context.Context, string, []string) error {
+		t.Fatal("external runner should not run for removed login word")
+		return nil
+	})
+	defer SetExternalRunner(prevExt)
+
 	_, err := ExecuteLine(context.Background(), nil, "login devhost", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !errors.Is(err, login.ErrLoginPrefixRemoved) {
-		t.Fatalf("got %v", err)
+	if !pkghelpdoc.IsUnknownCommand(err) {
+		t.Fatalf("want unknown command, got %v", err)
 	}
 }
 

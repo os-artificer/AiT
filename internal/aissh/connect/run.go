@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package login
+package connect
 
 import (
 	"context"

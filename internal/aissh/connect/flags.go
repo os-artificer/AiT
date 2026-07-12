@@ -14,14 +14,16 @@
  * limitations under the License.
 **/
 
-package login
+package connect
 
-import (
-	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+// AiT connect-specific flags (OpenSSH flags are in internal/pkg/ssh/openssh).
+const (
+	FlagAlias    = "--alias"
+	FlagSave     = "--save"
+	FlagTmux     = "--tmux"
+	FlagPassword = "--password"
+	FlagHost     = "--host"
+	FlagUser     = "--user"
+	FlagPort     = "--port"
+	FlagIdentity = "--identity"
 )
-
-// HelpFull is the canonical SSH connect help text (shared with root --help).
-var HelpFull = pkghelpdoc.SSHConnectHelpFull
-
-// LoginHelpFull is a deprecated alias for HelpFull (tests and golden).
-var LoginHelpFull = HelpFull

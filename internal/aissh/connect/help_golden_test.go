@@ -14,14 +14,19 @@
  * limitations under the License.
 **/
 
-package login
+package connect
 
 import (
-	"github.com/os-artificer/AiT/internal/pkg/session"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/resolve"
+	"bytes"
+	"testing"
 )
 
-// OptsFromResolved maps ssh resolve.Resolved to session.LoginOpts.
-func OptsFromResolved(r resolve.Resolved) session.LoginOpts {
-	return session.LoginOptsFromResolved(r)
+func TestConnectHelpFullGolden(t *testing.T) {
+	var buf bytes.Buffer
+	if err := WriteHelp(&buf); err != nil {
+		t.Fatal(err)
+	}
+	if got := buf.String(); got != HelpFull {
+		t.Fatalf("connect help changed (%d bytes); update golden only if intentional", len(got))
+	}
 }

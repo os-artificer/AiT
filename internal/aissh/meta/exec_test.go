@@ -18,13 +18,13 @@ package meta
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
@@ -78,16 +78,16 @@ func TestExecuteBlockedAI(t *testing.T) {
 	}
 }
 
-func TestExecuteBlockedLogin(t *testing.T) {
+func TestExecute_LoginUnknown(t *testing.T) {
+	SetExecutorWriters(func(args []string, _, _ io.Writer) error {
+		return fmt.Errorf(`unknown command "%s" for "%s"`, args[0], toolname.AISsh)
+	})
 	err := Execute([]string{"login", "--host", "h"})
 	if err == nil {
 		t.Fatal("expected error for login prefix in session")
 	}
-	if !errors.Is(err, login.ErrLoginPrefixRemoved) {
-		t.Fatalf("got %v", err)
-	}
-	if !strings.Contains(err.Error(), "Try:") {
-		t.Errorf("expected Try block: %v", err)
+	if !pkghelpdoc.IsUnknownCommand(err) {
+		t.Fatalf("want unknown command, got %v", err)
 	}
 }
 

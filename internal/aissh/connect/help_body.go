@@ -14,19 +14,11 @@
  * limitations under the License.
 **/
 
-package login
+package connect
 
-import "github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
+import (
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+)
 
-// Spec holds parsed login argv (OpenSSH + AiT extensions).
-type Spec = openssh.Spec
-
-// Parse parses argv for aitssh login.
-func Parse(argv []string) (Spec, error) {
-	return openssh.ParseLogin(argv)
-}
-
-// TmuxWithRemoteCommandErr reports invalid --tmux with a one-shot remote command.
-func TmuxWithRemoteCommandErr() error {
-	return openssh.TmuxWithRemoteCommandErr()
-}
+// HelpFull is the canonical SSH connect help text (shared with root --help).
+var HelpFull = pkghelpdoc.SSHConnectHelpFull

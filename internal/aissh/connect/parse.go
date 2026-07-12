@@ -14,16 +14,19 @@
  * limitations under the License.
 **/
 
-package login
+package connect
 
-// AiT login-specific flags (OpenSSH flags are in internal/pkg/ssh/openssh).
-const (
-	FlagAlias    = "--alias"
-	FlagSave     = "--save"
-	FlagTmux     = "--tmux"
-	FlagPassword = "--password"
-	FlagHost     = "--host"
-	FlagUser     = "--user"
-	FlagPort     = "--port"
-	FlagIdentity = "--identity"
-)
+import "github.com/os-artificer/AiT/internal/pkg/ssh/openssh"
+
+// Spec holds parsed SSH connect argv (OpenSSH + AiT extensions).
+type Spec = openssh.Spec
+
+// Parse parses argv for the SSH connect default route.
+func Parse(argv []string) (Spec, error) {
+	return openssh.ParseLogin(argv)
+}
+
+// TmuxWithRemoteCommandErr reports invalid --tmux with a one-shot remote command.
+func TmuxWithRemoteCommandErr() error {
+	return openssh.TmuxWithRemoteCommandErr()
+}

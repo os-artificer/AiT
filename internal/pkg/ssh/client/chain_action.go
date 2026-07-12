@@ -63,8 +63,6 @@ func ParseMetaChainLine(line string, lookup cliroute.AliasLookup) (*ChainActionE
 	}
 
 	switch args[0] {
-	case "login":
-		return nil, false
 	case "load":
 		return &ChainActionError{Op: ChainOpLoad, Args: append([]string(nil), args[1:]...)}, true
 	case "session":
@@ -77,7 +75,7 @@ func ParseMetaChainLine(line string, lookup cliroute.AliasLookup) (*ChainActionE
 		return nil, false
 	}
 
-	if cliroute.IsMetaCLIFirstWord(args[0]) {
+	if cliroute.IsMetaCLIFirstWord(args[0]) || cliroute.IsRemovedTopLevelWord(args[0]) {
 		return nil, false
 	}
 	if !cliroute.IsMetaChainConnectArgs(args, lookup) {

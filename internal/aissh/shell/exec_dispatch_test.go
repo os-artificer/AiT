@@ -158,6 +158,32 @@ func TestDispatchShellCommand_PATHSkipsCLIError(t *testing.T) {
 	}
 }
 
+func TestDispatchShellCommand_LoginSkipsPATH(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("AIT_HOME", root)
+
+	prevCLI := cliExecutor
+	cliExecutor = func(args []string, _, _ io.Writer) error {
+		return errors.New(fmt.Sprintf(`unknown command "%s" for "%s"`, args[0], toolname.AISsh))
+	}
+	defer func() { cliExecutor = prevCLI }()
+
+	prevExt := externalRunner
+	SetExternalRunner(func(context.Context, string, []string) error {
+		t.Fatal("PATH must not run system login for removed top-level word")
+		return nil
+	})
+	defer SetExternalRunner(prevExt)
+
+	err := dispatchShellCommand(context.Background(), nil, []string{"login", "devhost"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), `unknown command "login"`) {
+		t.Fatalf("want unknown command, got %v", err)
+	}
+}
+
 func TestDispatchShellCommand_NotFoundHint(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("AIT_HOME", root)

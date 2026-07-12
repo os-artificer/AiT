@@ -21,7 +21,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
+	"github.com/os-artificer/AiT/internal/aissh/connect"
 	"github.com/os-artificer/AiT/internal/aissh/registry"
 	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -38,17 +38,14 @@ func Execute(args []string) error {
 }
 
 // ExecuteWriters runs the top-level aitssh CLI with custom stdout and stderr.
-// Empty argv and -h/--help print root help; ssh-style argv run login; else Cobra subcommands.
+// Empty argv and -h/--help print root help; ssh-style argv run connect; else Cobra subcommands.
 func ExecuteWriters(args []string, out, errOut io.Writer) error {
 	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {
 		return registry.WriteRootHelp(out)
 	}
-	if args[0] == login.Name {
-		return login.PrefixRejectedErr()
-	}
 	if cliroute.IsSSHConnectArgs(args) {
 		return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-			return login.Run(ctx, mgr, args)
+			return connect.Run(ctx, mgr, args)
 		})
 	}
 	return executeCobraRoot(args, out, errOut)

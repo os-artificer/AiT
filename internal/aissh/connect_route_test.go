@@ -18,14 +18,13 @@ package aissh
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 	"testing"
 
 	_ "github.com/os-artificer/AiT/internal/aissh/registry/all"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
 func TestExecuteWriters_EmptyShowsRootHelp(t *testing.T) {
@@ -42,16 +41,13 @@ func TestExecuteWriters_EmptyShowsRootHelp(t *testing.T) {
 	}
 }
 
-func TestExecuteWriters_LoginPrefixRejected(t *testing.T) {
+func TestExecuteWriters_LoginUnknown(t *testing.T) {
 	err := ExecuteWriters([]string{"login", "user@host"}, io.Discard, io.Discard)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !errors.Is(err, login.ErrLoginPrefixRemoved) {
-		t.Fatalf("got %v", err)
-	}
-	if !strings.Contains(err.Error(), "Try:") {
-		t.Fatalf("missing Try: %q", err.Error())
+	if !pkghelpdoc.IsUnknownCommand(err) {
+		t.Fatalf("want unknown command, got %v", err)
 	}
 }
 
@@ -70,31 +66,10 @@ func TestExecuteWriters_SSHDefaultConnect(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected dial/resolve error without real host")
 	}
-	if errors.Is(err, login.ErrLoginPrefixRemoved) {
-		t.Fatal("must not treat user@host as removed login prefix")
+	if pkghelpdoc.IsUnknownCommand(err) {
+		t.Fatalf("must route to SSH connect, not Cobra: %v", err)
 	}
 	if strings.Contains(err.Error(), `unknown command "user@example.com"`) {
 		t.Fatalf("must route to SSH connect, not Cobra: %v", err)
-	}
-}
-
-func TestLoginCmdSilenceUsage(t *testing.T) {
-	cmd := login.New(testDeps().RunWithMgr)
-	if !cmd.SilenceUsage || !cmd.SilenceErrors {
-		t.Fatalf("login cmd SilenceUsage=%v SilenceErrors=%v", cmd.SilenceUsage, cmd.SilenceErrors)
-	}
-}
-
-func TestLoginCmdHelpRunE(t *testing.T) {
-	cmd := login.New(testDeps().RunWithMgr)
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	err := cmd.RunE(cmd, []string{"--help"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(buf.String(), "-p port") {
-		t.Fatalf("help output missing -p: %s", buf.String())
 	}
 }

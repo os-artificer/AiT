@@ -26,19 +26,18 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/store"
 )
 
-const loginSubcommand = "login"
-
 // replOnlyTopLevelWords are shell REPL builtins that must not trigger top-level SSH connect (Y10).
 var replOnlyTopLevelWords = map[string]struct{}{
 	"ll": {},
 }
 
-// removedTopLevelWords are legacy top-level verbs (S1/R17) routed to Cobra unknown, not SSH dial.
+// removedTopLevelWords are legacy top-level verbs (S1/R17/LC) routed to Cobra unknown, not SSH dial.
 var removedTopLevelWords = map[string]struct{}{
 	"list":    {},
 	"load":    {},
 	"suspend": {},
 	"models":  {},
+	"login":   {},
 }
 
 var reservedSubcommands map[string]struct{}
@@ -71,19 +70,22 @@ func IsReservedSubcommand(word string) bool {
 	return ok
 }
 
-// IsSSHConnectArgs reports whether top-level argv should run the SSH login path.
+// IsRemovedTopLevelWord reports whether word is a legacy top-level verb (not SSH connect, not PATH).
+func IsRemovedTopLevelWord(word string) bool {
+	_, ok := removedTopLevelWords[word]
+	return ok
+}
+
+// IsSSHConnectArgs reports whether top-level argv should run the SSH connect path.
 // Used only from ExecuteWriters; REPL and meta use narrower predicates.
 func IsSSHConnectArgs(args []string) bool {
 	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {
 		return false
 	}
-	if args[0] == loginSubcommand {
-		return false
-	}
 	if _, replOnly := replOnlyTopLevelWords[args[0]]; replOnly {
 		return false
 	}
-	if _, removed := removedTopLevelWords[args[0]]; removed {
+	if IsRemovedTopLevelWord(args[0]) {
 		return false
 	}
 	return !IsReservedSubcommand(args[0])
@@ -114,7 +116,7 @@ func IsMetaChainConnectArgs(args []string, lookup AliasLookup) bool {
 }
 
 func narrowSSHConnect(words []string, lookup AliasLookup) bool {
-	if len(words) == 0 || words[0] == loginSubcommand {
+	if len(words) == 0 || IsRemovedTopLevelWord(words[0]) {
 		return false
 	}
 

@@ -251,7 +251,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
-| H4a | meta `!ait login` → unknown command | `TestExecute_LoginUnknownCommand` |
+| H4a | meta `!ait login` → unknown command | `TestExecute_LoginUnknown` |
 | H4b | meta blocked ai 多行 + `Try:` | `TestExecuteBlockedAI` |
 | H4c | REPL 单行 err 仍单 `AiT:` | `TestShellPrintErr` |
 | H4d | `ai/mode` ask 空消息 | `TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage` |
@@ -526,7 +526,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | N3 | `!ait load id` 链式 load | `TestRunInteractive_ChainLoad` | SSH：`!ait load <alias>` |
 | N4 | `!ait session --switch alias` auto-suspend + switch | `TestRunInteractive_ChainSwitch` | SSH：`!ait session --switch hostA` |
 | N5 | 链式 login 后 DB：旧 session `suspended`，新 `active` + current meta | `TestChainLogin_DBSessionStates` | `!ait session --list` 见两行状态 |
-| N6 | `login` 首词 → unknown / not-found（非专用 Try；shell 不回落 PATH `login`） | `TestExecuteWriters_LoginUnknown`、`TestExecuteLine_LoginNotFound`、`TestExecute_LoginUnknownCommand`、`TestDispatchShellCommand_LoginSkipsPATH` | — |
+| N6 | `login` 首词 → unknown / not-found（非专用 Try；shell 不回落 PATH `login`） | `TestExecuteWriters_LoginUnknown`、`TestExecuteLine_LoginUnknown`、`TestExecute_LoginUnknown`、`TestDispatchShellCommand_LoginSkipsPATH` | — |
 | N7 | 本机 shell active 时 ssh 形 argv 仍 blocked（R4 不回退） | shell dispatch tests | `aitssh shell` 内 active 时 `devhost` → Try |
 | N8 | `!ait suspend`/`get`/`put`/AI meta 路径不变 | 现有 Z*/R19/H4* 仍过 | `!ait get`/`!!` 烟雾 |
 | N9 | ephemeral 会话 `!ait suspend` → auto-persist + suspended + scrollback | `TestEnsureSessionPersisted_Suspend` | ephemeral connect 后 `!ait suspend` → `session --list` 可见 |
@@ -583,7 +583,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 |----|----------|------------|
 | C23 | REPL help argv 与 `helpdoc` 一致 | `TestHelpRequested`、`TestREPLHelpArgs_FromHelpdoc` |
 | C24 | shell/mode 共享 REPL 核心动词不变 | `TestIsMetaREPLCommand_*`、`TestExecuteLineHistory_*` |
-| C25 | meta `list` → `session --list` 与 blocked 键不变 | `TestExecuteBlocked*`、`TestMetaCLIArgs_ListUsesSessionFlag`、`TestReplCmdLogin_MatchesLoginName` |
+| C25 | meta `list` → `session --list` 与 blocked 键不变 | `TestExecuteBlocked*`、`TestMetaCLIArgs_ListUsesSessionFlag` |
 | C26 | ask/agent/mode/approve 标签不变 | `TestSetMode_*`、`TestSetApprove_*`、`TestParseChatCommand` |
 | C27 | mode 内 ollama 字面量对齐 config | mode exec / `setModel` 相关测试 |
 | C28 | provider enable/disable 输出格式不变 | `TestProviderEnableDisable_MsgFormat` |
@@ -870,7 +870,7 @@ aitssh hostA                    # 无 --save
 | E* | 同主机多 alias 独立会话行 | `TestResolvePersistSessionID_SeparateAliasesSameHost`、`TestResolvePersistSessionID_SaveAndAliasSeparateRows`、`TestFindSessionByKey_DifferentAliasSameConnection`、`TestPlanLoginPersistence_NoFlagSkipsAliasedOnly` |
 | S* | `aitssh session` 统一 flag | `TestTopLevelListLoadSuspendRemoved`、`TestSessionCmd_*`、`TestExecuteLineList`、`TestWriteSessionHelpSections` |
 | B* | session 列表 `#` / load 交互 / `-v` FULL_ID | `TestSessionCmd_ListNumberColumn`、`TestSessionCmd_LoadPickNonTTY`、`TestPickSession_SelectByNumber`、`TestListVerbose_IncludesFullID` |
-| H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecute_LoginUnknownCommand`、`TestExecuteBlockedAI` |
+| H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecute_LoginUnknown`、`TestExecuteBlockedAI` |
 | K* | REPL 行编辑与 history | `TestReadLine_HistoryUpDown`、`TestHistoryCommand_List`、`TestReadLine_CtrlRSearch`、`TestExecuteLineHistory_Shell` |
 | K23–K24 | raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker） | `TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` |
 | P* | AppRoot / AIT_HOME 单目录 | `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig` |
@@ -884,7 +884,7 @@ aitssh hostA                    # 无 --save
 | TM9* | connect `--tmux` setup 抑制与 pre-attach 时序 | `TestRunInteractive_TmuxAttachBurstSuppressed`、`TestHandleRemoteOutput_TmuxLateSetupLeakFiltered`、`TestSetupOutputFilter_CRLines`、`TestBuildSendKeysLiteralCmd_Golden`、`TestPartitionInitialCommands` |
 | TM10* | `--tmux` 模式跟随 CLI + attach/pre-attach errhint | `TestLoginWithoutTmuxClearsTmuxEnabled`、`TestLoginWithTmuxSetsTmuxEnabled`、`TestWrapTmuxAttachExitErr_Format`、`TestWrapTmuxPreAttachErr_Format`、`TestBuildSessionForLogin_TmuxFollowsCLI` |
 | TM11* | 登录提示符 raw-TTY CRLF（`interactiveOut` + `stripSetupLeakStdout`） | `TestHandleRemoteOutput_InteractiveStdoutCRLF`、`TestStripSetupLeakStdout_PreservesCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCopyOutDropsDuplicatePromptAfterShown` |
-| TM12* | `login` 不吞 errhint（`login/run.go` 原样返回 err） | `TestLoginRun_PreservesTmuxAttachErrHint`、`TestLoginExitCode_WrappedSSHExit`、`TestLoginRun_ErrHintReachableCLI`、`TestWrapTmuxAttachExitErr_PreservesCause` |
+| TM12* | `login` 不吞 errhint（`connect/run.go` 原样返回 err） | `TestLoginRun_PreservesTmuxAttachErrHint`、`TestLoginExitCode_WrappedSSHExit`、`TestLoginRun_ErrHintReachableCLI`、`TestWrapTmuxAttachExitErr_PreservesCause` |
 | TM13* | pre-attach `send-keys -l` 单引号引号（`$(…)` 字面传递） | `TestBuildSendKeysLiteralCmd_PreservesDollarLiterals`、`TestShSingleQuote_EscapesEmbeddedSingleQuotes`、`TestTmuxPreAttachSetup_CommandGolden` |
 | TM14* | `send-keys` pre-attach + phantom 行清理 | `TestTmuxPreAttachSetup_ClearPaneGolden`、`TestCleanupOnTmuxFailure_NewRowDeletes`、`TestDeleteLoginSession_RemovesRow`、`TestCleanupOnTmuxFailure_ExistingRowSuspends` |
 | Z* | 链式 ZMODEM `!ait get/put`（lrzsz over PTY） | `TestZModemSession_ExclusiveIO`、`TestHandleTransferPTY_UsesZModem`、`TestBuildSzCmd_Heredoc` |

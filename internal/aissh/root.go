@@ -20,13 +20,13 @@ package aissh
 import (
 	"os"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
+	"github.com/os-artificer/AiT/internal/aissh/connect"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 )
 
 // Run is the application entry invoked from cmd/aitssh.
 // args are os.Args[1:] passed to the Cobra root command.
-// Returns Cobra RunE errors (login, session, get, put, etc.) printed to stderr before return.
+// Returns Cobra RunE errors (connect, session, get, put, etc.) printed to stderr before return.
 func Run(args []string) error {
 	if err := Execute(args); err != nil {
 		errhint.Print(os.Stderr, errhint.SurfaceCLI, err)
@@ -37,5 +37,5 @@ func Run(args []string) error {
 
 // ExitCode returns the process exit code if err is from a remote command.
 func ExitCode(err error) (int, bool) {
-	return login.ExitCode(err)
+	return connect.ExitCode(err)
 }

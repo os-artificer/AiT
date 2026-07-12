@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/aissh/ai"
-	"github.com/os-artificer/AiT/internal/aissh/login"
 	"github.com/os-artificer/AiT/internal/aissh/session"
 	"github.com/os-artificer/AiT/internal/aissh/shell"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -55,15 +54,11 @@ func PrintMetaHelp(w io.Writer) {
 
 // Execute runs aitssh subcommands from an SSH meta line (!ait <args>).
 // Empty args or "help" prints in-session help.
-// Returns fmt.Errorf when args[0] is blocked in-session (login/load/suspend), or errors from the executor.
+// Returns fmt.Errorf when args[0] is blocked in-session (load/suspend/ai), or errors from the executor.
 func Execute(args []string) error {
 	if len(args) == 0 || (len(args) == 1 && helpArgv(args[0])) {
 		PrintMetaHelp(os.Stdout)
 		return nil
-	}
-
-	if len(args) > 0 && args[0] == login.Name {
-		return login.PrefixRejectedErr()
 	}
 
 	if detail, blocked := metaBlockedInSession[args[0]]; blocked {

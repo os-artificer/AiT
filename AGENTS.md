@@ -35,7 +35,7 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). aitssh guide:
 | `internal/aissh/` | CLI entry (Go package **`aissh`**: `Run`, `ExitCode`, `Execute`, `NewManager`, Cobra root); subpackages below |
 | `internal/aissh/registry/` | Top-level command registry (OCP); root help via `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | Shared `--help` layout (`Body`, `Bind`, OpenSSH blocks, `WriteTransferHelp`, TTY keys) |
-| `internal/aissh/login/` | SSH connect parse/run (default top-level route; not a registered subcommand) |
+| `internal/aissh/connect/` | SSH connect parse/run (default top-level route; not a registered subcommand) |
 | `internal/aissh/get/` / `internal/aissh/put/` | `aitssh get` / `aitssh put` SFTP |
 | `internal/aissh/shell/` | `aitssh shell` REPL (`AiT>`) and top-level `aitssh shell` Cobra |
 | `internal/aissh/session/` | `aitssh session` (flags: `--list`, `--load`, …); use `pkgsession` for `internal/pkg/session` |
@@ -91,7 +91,7 @@ Prefer extending `internal/pkg/*` and `internal/aissh` over new top-level direct
 |---------|------------------|
 | `aissh` (root) | `root.go` (`Run`, `ExitCode`); `cli_root.go` (`Execute`, `newRootCmd`); `manager.go` (`NewManager`, `runWithManager`); `context.go`, `runner.go`; `init_hooks.go` (meta/shell/ai inject); integration tests |
 | `registry` | `registry.go`, `top_level.go`, `deps.go`, `root_help.go`, `all/imports.go` |
-| `get`, `put`, `shell`, `session`, `version` | Top-level commands: `register.go`, `cmd.go`, `help.go`, `run.go` / flags; SSH connect via default route (`internal/aissh/login`) |
+| `get`, `put`, `shell`, `session`, `version` | Top-level commands: `register.go`, `cmd.go`, `help.go`, `run.go` / flags; SSH connect via default route (`internal/aissh/connect`) |
 | `ai` | `cmd.go`, `help.go`, `subregistry/`, `runner/`; nested `ask`, `agent`, `provider`, `ollama` each with `register.go` |
 | `ai/mode` | `repl.go`, `exec.go`, `scope.go`, … — AI REPL (`risk`, `approve`, `agent`, `chat`) |
 | `config` | `cmd.go`, `help.go`, `subregistry/`, `shared/`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
