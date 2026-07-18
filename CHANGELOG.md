@@ -2,7 +2,7 @@
 
 This file records **product and CLI** functional changes only; documentation-only updates are not included. When a release is tagged, move items from `[Unreleased]` into a dated version section.
 
-## [Unreleased]
+## [v1.0.1]
 
 - 【Added】AI is experimental and off by default; enable via `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `--ai-experimental`.
 - 【Fixed】Default remote prompt is AiT-managed again; set `AIT_REMOTE_SYSTEM_PROMPT=1` for the native shell prompt.
