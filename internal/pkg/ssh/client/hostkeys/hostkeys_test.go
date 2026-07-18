@@ -59,7 +59,7 @@ func TestCallbackAskAccepts(t *testing.T) {
 
 	dir := t.TempDir()
 	path := dir + "/known_hosts"
-	cb, err := callbackAt(path, "example.com", 60528, "ask", false)
+	cb, err := callbackAt(path, "example.com", 2222, "ask", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,8 +71,8 @@ func TestCallbackAskAccepts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addr := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 60528}
-	if err := cb("example.com:60528", addr, signer.PublicKey()); err != nil {
+	addr := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 2222}
+	if err := cb("example.com:2222", addr, signer.PublicKey()); err != nil {
 		t.Fatalf("callback: %v", err)
 	}
 }

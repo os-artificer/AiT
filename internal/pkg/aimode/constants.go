@@ -14,10 +14,10 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/chat"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/chat"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )

@@ -68,13 +68,19 @@ type AgentConfig struct {
 	MaxSteps int `yaml:"max_steps"`
 }
 
+// ExperimentalConfig gates AI features that are opt-in for aitssh (default off).
+type ExperimentalConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
 // AIConfig groups default provider, optional fallback order, tiered routing, provider map, and agent settings.
 type AIConfig struct {
-	Default   string                    `yaml:"default"`
-	Fallback  []string                  `yaml:"fallback"`
-	Tiered    TieredConfig              `yaml:"tiered"`
-	Agent     AgentConfig               `yaml:"agent"`
-	Providers map[string]ProviderConfig `yaml:"providers"`
+	Default      string                    `yaml:"default"`
+	Fallback     []string                  `yaml:"fallback"`
+	Tiered       TieredConfig              `yaml:"tiered"`
+	Agent        AgentConfig               `yaml:"agent"`
+	Experimental ExperimentalConfig        `yaml:"experimental"`
+	Providers    map[string]ProviderConfig `yaml:"providers"`
 }
 
 // LocalProviderID returns the tiered local provider ID (default ollama).

@@ -74,8 +74,8 @@ func TestRemoveManagedNativePromptLines_MultiLine(t *testing.T) {
 	}
 }
 
-// TestFilterRemoteOutputChunkRepaint_SuppressesNativeAfterSetup: native prompt mode keeps
-// native prompt lines (no stripping) and does not request a repaint.
+// TestFilterRemoteOutputChunkRepaint_SuppressesNativeAfterSetup: after AiT setup, native
+// prompt lines are stripped and a client repaint is requested.
 func TestFilterRemoteOutputChunkRepaint_SuppressesNativeAfterSetup(t *testing.T) {
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
@@ -83,27 +83,27 @@ func TestFilterRemoteOutputChunkRepaint_SuppressesNativeAfterSetup(t *testing.T)
 
 	native := "\x1b[1mroot@remote\x1b[0m [~] \x1b[1;33m➜\x1b[0m \r\n"
 	out, repaint := c.filterRemoteOutputChunkRepaint([]byte(native), testSSHUser, testPrimaryHostFQDN)
-	if out == nil || !strings.Contains(string(out), "remote") {
-		t.Fatalf("native chunk should pass through in native prompt mode, got %q", out)
+	if out != nil && strings.Contains(string(out), "remote") {
+		t.Fatalf("native chunk should be stripped after AiT setup, got %q", out)
 	}
-	if repaint {
-		t.Fatal("native prompt mode should not request repaint")
+	if !repaint {
+		t.Fatal("expected client repaint after stripping native prompt")
 	}
 }
 
-// TestFilterRemoteOutputChunkRepaint_StripsNativeWhenPromptShownOnly: native prompt mode keeps
-// native prompt lines even when remotePromptShown is set.
+// TestFilterRemoteOutputChunkRepaint_StripsNativeWhenPromptShownOnly: when the AiT prompt
+// was shown, native prompt echoes are stripped even without the ready sentinel.
 func TestFilterRemoteOutputChunkRepaint_StripsNativeWhenPromptShownOnly(t *testing.T) {
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
 
 	native := "root@remote [~] ➜ \r\n"
 	out, repaint := c.filterRemoteOutputChunkRepaint([]byte(native), testSSHUser, testPrimaryHostFQDN)
-	if out == nil || !strings.Contains(string(out), "remote") {
-		t.Fatalf("native chunk should pass through in native prompt mode, got %q", out)
+	if out != nil && strings.Contains(string(out), "remote") {
+		t.Fatalf("native chunk should be stripped when prompt shown, got %q", out)
 	}
-	if repaint {
-		t.Fatal("native prompt mode should not request repaint")
+	if !repaint {
+		t.Fatal("expected client repaint after stripping native prompt")
 	}
 }
 
@@ -153,8 +153,8 @@ func TestStripUnwantedPromptLines_KeepsClearSequenceWithPrompt(t *testing.T) {
 	}
 }
 
-// TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip: native prompt mode does
-// not strip prompt lines, so command output and any trailing prompt pass through unchanged.
+// TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip: command output is kept
+// while a trailing native prompt is stripped and a client repaint is requested.
 func TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip(t *testing.T) {
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
@@ -166,11 +166,11 @@ func TestFilterRemoteOutputChunkRepaint_RepaintsAfterAITDuplicateStrip(t *testin
 	if out == nil || !strings.Contains(string(out), "go") {
 		t.Fatalf("command output should remain, got %q", out)
 	}
-	if !strings.Contains(string(out), "root@remote [~] ➜") {
-		t.Fatalf("native prompt mode should not strip prompt line, got %q", out)
+	if strings.Contains(string(out), "root@remote [~] ➜") {
+		t.Fatalf("native prompt should be stripped, got %q", out)
 	}
-	if repaint {
-		t.Fatal("native prompt mode should not request repaint")
+	if !repaint {
+		t.Fatal("expected client repaint after stripping native prompt")
 	}
 }
 
@@ -195,7 +195,8 @@ func TestLastNativePromptLineForHost_SkipsMismatchedHost(t *testing.T) {
 }
 
 // TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose (N7b) does not re-emit a stale
-// inner native prompt whose host does not match the active dial target.
+// inner native prompt whose host does not match the active dial target; AiT mode paints
+// the managed prompt for the dial host instead.
 func TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose(t *testing.T) {
 	c := testClientWithPrompt(testSSHUser, testDevHostFQDN)
 	c.remotePromptShown.Store(true)
@@ -204,16 +205,20 @@ func TestEmitMetaPromptStdout_SkipsInnerNativeAfterNestedClose(t *testing.T) {
 
 	var buf bytes.Buffer
 	c.interactiveOut = terminal.NewCRLFWriter(&buf)
-	if c.emitMetaPromptStdout(testSSHUser, testDevHostFQDN) {
-		t.Fatal("should not emit inner native prompt for mismatched host")
+	if !c.emitMetaPromptStdout(testSSHUser, testDevHostFQDN) {
+		t.Fatal("expected AiT prompt paint for dial host")
 	}
-	if strings.Contains(buf.String(), "root@remote") {
-		t.Fatalf("should not repaint inner native prompt, got %q", buf.String())
+	got := buf.String()
+	if strings.Contains(got, "root@remote") {
+		t.Fatalf("should not repaint inner native prompt, got %q", got)
+	}
+	if !strings.Contains(got, "AiT ") {
+		t.Fatalf("expected AiT-managed dial-host prompt, got %q", got)
 	}
 }
 
-// TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown: native prompt mode re-emits the
-// buffered native prompt from scrollback after meta (no AiT-managed prompt paint).
+// TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown (P11): when the AiT prompt is
+// managed, emit paints AiT instead of falling back to a native scrollback line alone.
 func TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown(t *testing.T) {
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
@@ -223,13 +228,10 @@ func TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown(t *testing.T) {
 	var buf bytes.Buffer
 	c.interactiveOut = terminal.NewCRLFWriter(&buf)
 	if !c.emitMetaPromptStdout(testSSHUser, testPrimaryHostFQDN) {
-		t.Fatal("expected native prompt emit")
+		t.Fatal("expected AiT prompt emit")
 	}
 	got := buf.String()
-	if !strings.Contains(got, "root@remote [~] ➜") {
-		t.Fatalf("expected native prompt re-emit, got %q", got)
-	}
-	if strings.Contains(got, "AiT ") {
-		t.Fatalf("should not paint AiT prompt in native mode, got %q", got)
+	if !strings.Contains(got, "AiT ") {
+		t.Fatalf("expected AiT-managed prompt paint, got %q", got)
 	}
 }

@@ -14,30 +14,13 @@
  * limitations under the License.
 **/
 
-package mode
+// Package replcmd holds shared REPL verb names used by shell and aimode (C24).
+package replcmd
 
-import (
-	"context"
-	"fmt"
-	"os/exec"
-	"runtime"
+// Core REPL verbs shared by aitssh shell and AI mode.
+const (
+	Exit    = "exit"
+	Quit    = "quit"
+	Clear   = "clear"
+	History = "history"
 )
-
-type localRunner struct{}
-
-// DefaultLocalRunner returns a LocalRunner that runs commands via sh -c or cmd /c.
-func DefaultLocalRunner() LocalRunner {
-	return localRunner{}
-}
-
-// Run executes cmd on the local machine using the platform shell wrapper.
-func (localRunner) Run(ctx context.Context, cmd string) error {
-	if cmd == "" {
-		return fmt.Errorf("empty command")
-	}
-
-	if runtime.GOOS == "windows" {
-		return exec.CommandContext(ctx, "cmd", "/c", cmd).Run()
-	}
-	return exec.CommandContext(ctx, "sh", "-c", cmd).Run()
-}

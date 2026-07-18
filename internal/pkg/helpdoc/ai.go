@@ -43,14 +43,17 @@ var (
 	AIHelpTieredRoutingBody = "When ai.tiered.enabled in config.yaml, short first-turn prompts use local Ollama; " +
 		"longer or complex prompts use cloud providers. Setup: " + toolname.CLI("ai ollama setup") +
 		". List: " + toolname.CLI("ai model list") + "\n"
-	AIHelpInSSHBody = "Use " + toolname.MetaLine("ai") + " or !! for interactive AI; " +
+	AIHelpInSSHBody = "Experimental (off by default). Use " + toolname.MetaLine("ai") + " or !! for interactive AI; " +
 		toolname.MetaLine("ai ask <msg>") + " or !! ask <msg> for one-shot; " +
 		toolname.MetaLine("ai agent") + " for interactive Agent REPL, or " +
 		toolname.MetaLine("ai agent <msg>") + " / !! agent <msg> for one-shot agent. " +
-		toolname.MetaLine("ai") + " as a meta subcommand is blocked."
+		toolname.MetaLine("ai") + " as a meta subcommand is blocked. " +
+		"Enable with --ai-experimental, AIT_AI_EXPERIMENTAL=1, or ai.experimental.enabled."
 
-	AIIntroLocal  = "Interactive AI mode on this machine (outside SSH). Commands run locally only after you confirm."
-	AIIntroRemote = "Interactive AI mode for the active SSH session. Shell commands run on the remote host via run after you confirm."
+	AIIntroLocal = "Interactive AI mode on this machine (outside SSH; experimental, off by default). " +
+		"Commands run locally only after you confirm."
+	AIIntroRemote = "Interactive AI mode for the active SSH session (experimental, off by default). " +
+		"Shell commands run on the remote host via run after you confirm."
 
 	AIReplCommands = `  help              show AI mode help
   exit, quit        leave AI mode

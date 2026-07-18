@@ -59,7 +59,7 @@ func TestDuplicatePromptOutput_ActiveHostAfterNested(t *testing.T) {
 
 // TestParseSSHCommandLine_PortAndUserHost (W13) parses ssh -p PORT user@host.
 func TestParseSSHCommandLine_PortAndUserHost(t *testing.T) {
-	user, host, ok := parseSSHCommandLine("ssh -p 60528 root@"+testInnerHostFQDN, testSSHUser)
+	user, host, ok := parseSSHCommandLine("ssh -p 2222 root@"+testInnerHostFQDN, testSSHUser)
 	if !ok {
 		t.Fatal("expected ok")
 	}
@@ -67,7 +67,7 @@ func TestParseSSHCommandLine_PortAndUserHost(t *testing.T) {
 		t.Fatalf("got %s@%s", user, host)
 	}
 
-	user, host, ok = parseSSHCommandLine("ssh -p60528 root@"+testInnerHostFQDN, testSSHUser)
+	user, host, ok = parseSSHCommandLine("ssh -p2222 root@"+testInnerHostFQDN, testSSHUser)
 	if !ok || user != testSSHUser || host != testInnerHostFQDN {
 		t.Fatalf("combined -p: %s@%s ok=%v", user, host, ok)
 	}
@@ -83,7 +83,8 @@ func TestParseSSHCommandLine_SkipComplex(t *testing.T) {
 	}
 }
 
-// TestForwardStdin_SSHEnablesChainMode (W14) arms nested await on ssh line submit.
+// TestForwardStdin_SSHEnablesChainMode (W14) arms nested await on ssh line submit;
+// chain stays off until shell-ready inject (W14b).
 func TestForwardStdin_SSHEnablesChainMode(t *testing.T) {
 	c := &Client{
 		opts:   Options{User: "root", Host: "proxy.example"},
@@ -99,6 +100,22 @@ func TestForwardStdin_SSHEnablesChainMode(t *testing.T) {
 	}
 	if c.ChainMode() {
 		t.Fatal("chain should stay off until inject completes")
+	}
+
+	c.nestedMu.Lock()
+	c.nestedMOTDSeen = true
+	c.nestedShellReadySeen = true
+	c.nestedMOTDAt = time.Now().Add(-shellReadyDelay - time.Second)
+	c.nestedMu.Unlock()
+	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
+	if !c.tryNestedPromptInject() {
+		t.Fatal("expected inject after shell ready")
+	}
+	if !c.ChainMode() {
+		t.Fatal("expected chain mode on after nested ready inject")
+	}
+	if c.promptHost() != "inner.example" {
+		t.Fatalf("active host = %q, want inner.example", c.promptHost())
 	}
 }
 
@@ -239,6 +256,7 @@ func TestOnNestedSSHSessionClosed_RestoresDial(t *testing.T) {
 // TestHandleRemoteOutput_NestedCloseNoRemoteInject (N6b) native prompt mode re-emits
 // from scrollback without injecting stty/print -Pn after nested ssh exit.
 func TestHandleRemoteOutput_NestedCloseNoRemoteInject(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testDevHostFQDN)
 	c.activePromptHost = testInnerHostFQDN
 	c.nestedRemoteHost = testInnerHostFQDN
@@ -260,6 +278,7 @@ func TestHandleRemoteOutput_NestedCloseNoRemoteInject(t *testing.T) {
 // TestRepaintAfterNestedSSHClose_NoSyncWhenScrollbackEmpty (N6c) does not inject a
 // remote redraw when scrollback lacks an outer prompt yet.
 func TestRepaintAfterNestedSSHClose_NoSyncWhenScrollbackEmpty(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testDevHostFQDN)
 	var stdin bytes.Buffer
 	c.interactiveStdin = &stdin
@@ -285,5 +304,111 @@ func TestScrollChunkLooksLikeShellPrompt(t *testing.T) {
 	}
 	if scrollChunkLooksLikeShellPrompt([]byte("Welcome to TencentOS\n")) {
 		t.Fatal("welcome banner must not match shell prompt")
+	}
+}
+
+// TestNestedPrompt_QuietIdleInjectsWithoutExtraChunk (NP1/W14b): after a prompt chunk and
+// wall quiet, tryNestedPromptInject enables chain/host without another PTY chunk.
+func TestNestedPrompt_QuietIdleInjectsWithoutExtraChunk(t *testing.T) {
+	c := &Client{
+		opts:               Options{User: "root", Host: "proxy.example"},
+		scroll:             &terminal.Buffer{},
+		remotePromptDirAbs: false,
+	}
+	c.initActivePrompt()
+	var stdin bytes.Buffer
+	c.interactiveStdin = &stdin
+
+	c.onInteractiveLineSubmitted("ssh root@inner.example")
+	_, _ = c.scroll.Write([]byte("Last login: Thu\nroot@inner.example [~] ➜ \n"))
+	c.nestedMu.Lock()
+	c.nestedMOTDSeen = true
+	c.nestedShellReadySeen = true
+	c.nestedMOTDAt = time.Now().Add(-shellReadyDelay - time.Second)
+	c.nestedMu.Unlock()
+	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
+
+	if !c.tryNestedPromptInject() {
+		t.Fatal("expected inject on quiet idle without extra chunk")
+	}
+	if !c.ChainMode() {
+		t.Fatal("expected chain on")
+	}
+	if c.promptHost() != "inner.example" {
+		t.Fatalf("host = %q", c.promptHost())
+	}
+}
+
+// TestNestedPrompt_ANSIZshPromptReady (NP2/W11b): CSI-wrapped zsh prompts count as ready.
+func TestNestedPrompt_ANSIZshPromptReady(t *testing.T) {
+	chunk := []byte("\x1b[01;33mroot@" + testInnerHostShort + "\x1b[00m [\x1b[01;36m~\x1b[00m] \x1b[33m➜ \x1b[00m")
+	if !scrollChunkLooksLikeShellPrompt(chunk) {
+		t.Fatal("ANSI zsh prompt should match shell-ready heuristics")
+	}
+}
+
+// TestNestedPrompt_MOTDTimeoutFallback (NP3): MOTD without shell-ready still injects after fallback.
+func TestNestedPrompt_MOTDTimeoutFallback(t *testing.T) {
+	c := &Client{
+		opts:               Options{User: "root", Host: "proxy.example"},
+		scroll:             &terminal.Buffer{},
+		remotePromptDirAbs: false,
+	}
+	c.initActivePrompt()
+	var stdin bytes.Buffer
+	c.interactiveStdin = &stdin
+
+	c.onInteractiveLineSubmitted("ssh root@inner.example")
+	c.maybeInjectNestedPrompt([]byte("Last login: Thu\nWelcome to TencentOS\n"))
+	if c.ChainMode() {
+		t.Fatal("must not inject immediately on MOTD alone")
+	}
+
+	c.nestedMu.Lock()
+	c.nestedMOTDAt = time.Now().Add(-nestedMOTDReadyFallback - time.Second)
+	c.nestedMu.Unlock()
+	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
+
+	if !c.tryNestedPromptInject() {
+		t.Fatal("expected MOTD timeout fallback inject")
+	}
+	if !c.ChainMode() {
+		t.Fatal("expected chain on after MOTD fallback")
+	}
+}
+
+// TestNestedPrompt_NativeModeChainWithoutPS1 (NP4/W14c): native prompt mode still enables
+// chain/host without writing AiT PS1 setup to stdin.
+func TestNestedPrompt_NativeModeChainWithoutPS1(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
+	c := &Client{
+		opts:               Options{User: "root", Host: "proxy.example"},
+		scroll:             &terminal.Buffer{},
+		remotePromptDirAbs: false,
+	}
+	c.initActivePrompt()
+	var stdin bytes.Buffer
+	c.interactiveStdin = &stdin
+
+	c.onInteractiveLineSubmitted("ssh root@inner.example")
+	c.nestedMu.Lock()
+	c.nestedMOTDSeen = true
+	c.nestedShellReadySeen = true
+	c.nestedMOTDAt = time.Now().Add(-shellReadyDelay - time.Second)
+	c.nestedMu.Unlock()
+	c.lastRemoteOut.Store(time.Now().Add(-5 * time.Second).UnixNano())
+
+	if !c.tryNestedPromptInject() {
+		t.Fatal("expected identity/chain update in native mode")
+	}
+	if !c.ChainMode() {
+		t.Fatal("expected chain on in native mode")
+	}
+	if c.promptHost() != "inner.example" {
+		t.Fatalf("host = %q", c.promptHost())
+	}
+	out := stdin.String()
+	if strings.Contains(out, "export PROMPT=") || strings.Contains(out, "AiT root@inner") {
+		t.Fatalf("native mode must not inject AiT PS1, stdin = %q", out)
 	}
 }

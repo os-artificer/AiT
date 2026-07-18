@@ -138,8 +138,11 @@ func lineLooksLikeShellPrompt(line string) bool {
 }
 
 func scrollChunkLooksLikeShellPrompt(chunk []byte) bool {
-	for _, line := range strings.Split(string(chunk), "\n") {
-		if lineLooksLikeShellPrompt(line) {
+	text := strings.ReplaceAll(string(chunk), "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	for _, line := range strings.Split(text, "\n") {
+		// Prefer ANSI-aware heuristics (OMZ/P10k); keep the simpler suffix match as fallback.
+		if isLikelyShellPromptLine(line) || lineLooksLikeShellPrompt(line) {
 			return true
 		}
 	}

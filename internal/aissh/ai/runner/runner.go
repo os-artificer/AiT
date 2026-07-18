@@ -23,9 +23,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/agent"
 	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/agent"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
 	"github.com/spf13/cobra"
@@ -65,11 +65,11 @@ func ResolveChatMessage(cmd *cobra.Command, args []string) (string, error) {
 }
 
 // LocalAIModeOptions builds REPL options for local AI mode.
-func LocalAIModeOptions(aiClient *pkgai.Client, maxSteps int, exec func([]string, io.Writer, io.Writer) error) mode.Options {
-	return mode.Options{
+func LocalAIModeOptions(aiClient *pkgai.Client, maxSteps int, exec func([]string, io.Writer, io.Writer) error) aimode.Options {
+	return aimode.Options{
 		Scope:    pkgai.ScopeLocal,
 		AI:       aiClient,
-		Local:    mode.DefaultLocalRunner(),
+		Local:    aimode.DefaultLocalRunner(),
 		Capture:  agent.DefaultLocalCaptureRunner(),
 		CLI:      func(argv []string, out, errOut io.Writer) error { return exec(argv, out, errOut) },
 		In:       os.Stdin,

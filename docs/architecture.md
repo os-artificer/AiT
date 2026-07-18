@@ -11,7 +11,9 @@ Go module path: `github.com/os-artificer/AiT`.
 
 Current shipped tool:
 
-- `aitssh`: AI-enhanced SSH client with session persistence, AI mode, transfer support, and shell/meta workflows.
+- `aitssh`: SSH client with session persistence, optional experimental AI mode (off by default), transfer support, and shell/meta workflows.
+
+Shared capabilities (not separate binaries) live under `internal/pkg/` and are consumed by tools. AI REPL/agent UX is `internal/pkg/aimode` (engine: `internal/pkg/ai`); tools gate experimental AI via config/env/CLI before calling it.
 
 ---
 

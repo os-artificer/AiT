@@ -25,14 +25,47 @@ import (
 
 // dialProxyJumpChain stays in the client package because it recursively calls
 // DialChain, which depends on private Client construction.
-func dialProxyJumpChain(targetOpts Options, jumps []string, targetAddr string) (net.Conn, error) {
+//
+// The returned via slice must stay open for as long as conn is used; the
+// caller attaches it to the final Client and closes hops in Client.Close.
+func dialProxyJumpChain(targetOpts Options, jumps []string, targetAddr string) (net.Conn, []*Client, error) {
 	if len(jumps) == 0 {
-		return nil, fmt.Errorf("empty proxy jump chain")
+		return nil, nil, fmt.Errorf("empty proxy jump chain")
 	}
 	jumpDest := jumps[0]
+
+	jumpOpts, err := jumpOptionsForHop(jumpDest, targetOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	jumpOpts.ProxyJump = jumps[1:]
+	jumpOpts.ProxyCommand = ""
+
+	jumpClient, err := DialChain(jumpOpts)
+	if err != nil {
+		return nil, nil, fmt.Errorf("proxy jump %s: %w", jumpDest, err)
+	}
+
+	conn, err := jumpClient.conn.Dial("tcp", targetAddr)
+	if err != nil {
+		_ = jumpClient.Close()
+		return nil, nil, fmt.Errorf("forward to %s via %s: %w", targetAddr, jumpDest, err)
+	}
+	return conn, []*Client{jumpClient}, nil
+}
+
+func jumpOptionsForHop(jumpDest string, targetOpts Options) (Options, error) {
+	if JumpDialResolver != nil {
+		opts, err := JumpDialResolver(jumpDest, targetOpts)
+		if err != nil {
+			return Options{}, err
+		}
+		return opts, nil
+	}
+
 	jumpUser, jumpHost, jumpPort, err := dial.ParseJumpDestination(jumpDest)
 	if err != nil {
-		return nil, err
+		return Options{}, err
 	}
 
 	jumpOpts := targetOpts
@@ -44,20 +77,7 @@ func dialProxyJumpChain(targetOpts Options, jumps []string, targetAddr string) (
 	if jumpUser != "" {
 		jumpOpts.User = jumpUser
 	}
-	jumpOpts.ProxyJump = jumps[1:]
-	jumpOpts.ProxyCommand = ""
-
-	jumpClient, err := DialChain(jumpOpts)
-	if err != nil {
-		return nil, fmt.Errorf("proxy jump %s: %w", jumpDest, err)
-	}
-	defer jumpClient.Close()
-
-	conn, err := jumpClient.conn.Dial("tcp", targetAddr)
-	if err != nil {
-		return nil, fmt.Errorf("forward to %s via %s: %w", targetAddr, jumpDest, err)
-	}
-	return conn, nil
+	return jumpOpts, nil
 }
 
 func parsePortString(s string) (int, error) {
@@ -66,4 +86,10 @@ func parsePortString(s string) (int, error) {
 
 func dialProxyCommand(proxyCommand, targetAddr string) (net.Conn, error) {
 	return dial.ProxyCommand(proxyCommand, targetAddr)
+}
+
+func closeJumpClients(via []*Client) {
+	for i := len(via) - 1; i >= 0; i-- {
+		_ = via[i].Close()
+	}
 }

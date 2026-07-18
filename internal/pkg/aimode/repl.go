@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"bufio"
@@ -23,9 +23,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/chat"
-	"github.com/os-artificer/AiT/internal/aissh/shell"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/chat"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 
 	"golang.org/x/term"
@@ -159,7 +158,7 @@ func runAITTY(ctx context.Context, opt Options, st *sessionState, fd int, initia
 
 		prompt := Prompt(opt.Scope, opt.HostLabel, st.interaction)
 		_, _ = io.WriteString(opt.Out, prompt)
-		line, err := shell.ReadTTYLine(br, opt.Out, prompt, hist)
+		line, err := terminal.ReadTTYLine(br, opt.Out, prompt, hist)
 		if err != nil {
 			if err == io.EOF {
 				return nil

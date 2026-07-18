@@ -43,11 +43,15 @@ func NewManager(metaCLI func([]string) error, onRemoteAI sshclient.RemoteAIRunne
 	}
 
 	var aiClient *pkgai.Client
-	if c, err := pkgai.NewClient(cfg); err == nil {
+	remoteAI := onRemoteAI
+	if !config.AIExperimentalEnabled(cfg) {
+		aiClient = nil
+		remoteAI = disabledRemoteAIRunner
+	} else if c, err := pkgai.NewClient(cfg); err == nil {
 		aiClient = c
 	}
 
-	mgr := &session.Manager{Store: st, Config: cfg, AI: aiClient, OnRemoteAI: onRemoteAI}
+	mgr := &session.Manager{Store: st, Config: cfg, AI: aiClient, OnRemoteAI: remoteAI}
 	mgr.MetaCLI = metaCLI
 	return mgr, nil
 }

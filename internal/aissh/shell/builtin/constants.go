@@ -21,17 +21,18 @@ import (
 
 	"github.com/os-artificer/AiT/internal/aissh/session"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/replcmd"
 	pkgsession "github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 )
 
 // AiT shell REPL built-in command names.
 const (
-	CmdExit    = "exit"
-	CmdQuit    = "quit"
-	CmdClear   = "clear"
-	CmdHistory = "history"
-	CmdAI      = "ai" // matches ai.Name (shell cannot import ai: cycle via mode)
+	CmdExit    = replcmd.Exit
+	CmdQuit    = replcmd.Quit
+	CmdClear   = replcmd.Clear
+	CmdHistory = replcmd.History
+	CmdAI      = "ai" // matches ai.Name (shell cannot import aissh/ai: import cycle)
 	CmdLoad    = "load"
 	CmdList    = session.ReplAliasList
 	CmdLL      = "ll"

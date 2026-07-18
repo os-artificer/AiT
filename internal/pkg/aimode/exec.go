@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"bytes"
@@ -23,12 +23,12 @@ import (
 	"io"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/risk"
-	"github.com/os-artificer/AiT/internal/aissh/shell"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/approve"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/risk"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/replcmd"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
@@ -50,17 +50,17 @@ func ExecuteLine(ctx context.Context, opt Options, st *sessionState, line string
 
 	word, rest := firstWord(line)
 	switch word {
-	case shell.ReplCmdExit, shell.ReplCmdQuit:
+	case replcmd.Exit, replcmd.Quit:
 		st.Trust.Clear()
 		return true, nil
 	case pkghelpdoc.HelpArgCmd, pkghelpdoc.HelpArgH, pkghelpdoc.HelpArgHelp:
 		PrintHelp(opt.Out, opt.Scope)
 		return false, nil
-	case shell.ReplCmdClear:
+	case replcmd.Clear:
 		st.history = nil
 		aimWrite(opt.Out, msgConversationClearedCRLF)
 		return false, nil
-	case shell.ReplCmdHistory:
+	case replcmd.History:
 		parts := strings.Fields(line)
 		var args []string
 		if len(parts) > 1 {

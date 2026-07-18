@@ -53,18 +53,16 @@ func remoteOutAt(last int64) time.Time {
 
 // waitRemoteOutputQuietAfter blocks until remote stdout/stderr has been quiet for quiet
 // after injectAt, or maxWait elapses. Ignores lastRemoteOut timestamps before injectAt.
+// When no post-inject output arrives, returns once quiet has elapsed since injectAt
+// (SuppressEcho / test stubs often produce no PTY bytes after the write).
 func (c *Client) waitRemoteOutputQuietAfter(injectAt time.Time, quiet, maxWait time.Duration) {
 	deadline := time.Now().Add(maxWait)
 	for time.Now().Before(deadline) {
 		last := c.lastRemoteOut.Load()
-		if last == 0 {
+		if last == 0 || remoteOutAt(last).Before(injectAt) {
 			if time.Since(injectAt) >= quiet {
 				return
 			}
-			time.Sleep(remoteOutputQuietPollStep)
-			continue
-		}
-		if remoteOutAt(last).Before(injectAt) {
 			time.Sleep(remoteOutputQuietPollStep)
 			continue
 		}

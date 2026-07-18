@@ -22,7 +22,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/risk"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/risk"
 )
 
 // Result is the parsed user answer to a confirmation prompt.

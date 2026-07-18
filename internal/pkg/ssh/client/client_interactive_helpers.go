@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
@@ -176,10 +177,26 @@ func (c *Client) processForwardStdinByte(
 }
 
 func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQuestion string, opts InteractiveOpts) error {
+	// When AI is nil but OnRemoteAI is set (experimental-disabled stub, or runner that
+	// reports not-configured), call the runner first so the correct hint is shown.
 	if opts.AI == nil {
-		errhint.Print(os.Stderr, errhint.SurfaceTTY, ai.NotConfiguredErr())
+		if opts.OnRemoteAI == nil {
+			errhint.Print(os.Stderr, errhint.SurfaceTTY, ai.NotConfiguredErr())
+			c.finishMetaInteraction(stdin)
+			return nil
+		}
+		err := opts.OnRemoteAI(RemoteAIParams{
+			Ctx:             ctx,
+			Stdin:           stdin,
+			InitialQuestion: initialQuestion,
+			AI:              nil,
+			HostLabel:       c.opts.User + "@" + c.opts.Host,
+			RemoteCwd:       c.remoteCwd,
+			Scrollback:      func() string { return c.scroll.RecentLines(50) },
+			MaxSteps:        opts.AgentMaxSteps,
+		})
 		c.finishMetaInteraction(stdin)
-		return nil
+		return swallowAIMetaREPLRecoverable(err)
 	}
 
 	c.pauseRemoteOut.Store(true)
@@ -225,6 +242,7 @@ func swallowAIMetaREPLRecoverable(err error) error {
 	}
 	if errors.Is(err, ai.ErrChatMessageRequired) ||
 		errors.Is(err, ai.ErrNotConfigured) ||
+		errors.Is(err, config.ErrAIExperimentalDisabled) ||
 		errors.Is(err, context.Canceled) ||
 		errors.Is(err, context.DeadlineExceeded) {
 		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)

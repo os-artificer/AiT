@@ -29,7 +29,7 @@ One package per top-level command owns: `Name`, `flags.go`, `parse.go`, `cmd.go`
 
 ## Package name = command name
 
-**Exception:** `internal/aissh/` root is package **`aissh`** (directory `aissh`). Otherwise directory/package = Cobra name (`shell`, `session`, `ai/ask`, `config/set`). **`internal/aissh/connect/`** is the connect route (not `registry.Register`). No `*cmd` package suffix. AI REPL: `internal/aissh/ai/mode`. CLI `session`: `internal/aissh/session` (alias pkg session as `pkgsession`).
+**Exception:** `internal/aissh/` root is package **`aissh`** (directory `aissh`). Otherwise directory/package = Cobra name (`shell`, `session`, `ai/ask`, `config/set`). **`internal/aissh/connect/`** is the connect route (not `registry.Register`). No `*cmd` package suffix. AI REPL/agent UX: shared **`internal/pkg/aimode`** (aitssh adapter: `internal/aissh/ai`). CLI `session`: `internal/aissh/session` (alias pkg session as `pkgsession`).
 
 ## `helpdoc`
 

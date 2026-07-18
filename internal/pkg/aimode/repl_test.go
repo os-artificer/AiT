@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"bufio"
@@ -30,7 +30,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/os-artificer/AiT/internal/aissh/shell"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
@@ -428,12 +427,12 @@ func TestAIMode_ConfirmNoHistory(t *testing.T) {
 	hist.Add("run ls")
 
 	br := bufio.NewReader(bytes.NewReader([]byte("y\r\x1b[A\r")))
-	_, err := shell.ReadTTYLineNoHistory(br, io.Discard, "")
+	_, err := terminal.ReadTTYLineNoHistory(br, io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	line, err := shell.ReadTTYLine(br, io.Discard, "AiT AI> ", hist)
+	line, err := terminal.ReadTTYLine(br, io.Discard, "AiT AI> ", hist)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,15 +14,15 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"context"
 	"io"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/agent"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/agent"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/approve"
 )
 
 // LocalRunner runs a shell command on the local machine.
@@ -30,7 +30,7 @@ type LocalRunner interface {
 	Run(ctx context.Context, cmd string) error
 }
 
-// RemoteRunner sends a command to the active SSH session (PTY stdin).
+// RemoteRunner sends a command on the host session channel (e.g. remote PTY stdin).
 type RemoteRunner interface {
 	Run(cmd string) error
 }

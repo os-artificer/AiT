@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"context"
@@ -22,8 +22,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/approve"
 )
 
 // InteractionMode is Ask (Q&A only) or Agent (plan and execute commands).

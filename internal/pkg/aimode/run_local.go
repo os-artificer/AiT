@@ -14,18 +14,30 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
-import "github.com/os-artificer/AiT/internal/aissh/ai/mode/chat"
-
-const (
-	labelModeAsk           = chat.Verb
-	labelModeAgent         = chat.AgentVerb
-	labelApproveEach       = "each"
-	labelApproveSession    = "session"
-	labelApproveTrust      = "trust"
-	labelPolicyPerCmd      = "per-cmd"
-	labelPolicyPerCmdAlt   = "per_cmd"
-	labelPolicyOnce        = "once"
-	labelPolicySessionOnce = "session_once"
+import (
+	"context"
+	"fmt"
+	"os/exec"
+	"runtime"
 )
+
+type localRunner struct{}
+
+// DefaultLocalRunner returns a LocalRunner that runs commands via sh -c or cmd /c.
+func DefaultLocalRunner() LocalRunner {
+	return localRunner{}
+}
+
+// Run executes cmd on the local machine using the platform shell wrapper.
+func (localRunner) Run(ctx context.Context, cmd string) error {
+	if cmd == "" {
+		return fmt.Errorf("empty command")
+	}
+
+	if runtime.GOOS == "windows" {
+		return exec.CommandContext(ctx, "cmd", "/c", cmd).Run()
+	}
+	return exec.CommandContext(ctx, "sh", "-c", cmd).Run()
+}

@@ -21,6 +21,7 @@ const (
 	keySessionRemotePromptPath = "session.remote_prompt.path"
 	keyAIDefault               = "ai.default"
 	keyAIFallback              = "ai.fallback"
+	keyAIExperimentalEnabled   = "ai.experimental.enabled"
 	keyAIProvidersPrefix       = "ai.providers."
 	keyAITieredPrefix          = "ai.tiered."
 )

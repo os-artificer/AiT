@@ -33,7 +33,7 @@ import (
 var metaBlockedInSession = map[string]string{
 	shell.ReplCmdLoad:    "Exit the SSH session first, then load a saved session locally.",
 	shell.ReplCmdSuspend: "Use " + toolname.MetaLine("suspend") + " inside this SSH session.",
-	ai.Name:              "Use " + toolname.MetaLine("ai") + " or !! for AI mode inside SSH.",
+	ai.Name:              "Use " + toolname.MetaLine("ai") + " or !! for experimental AI mode inside SSH (off by default).",
 }
 
 var executor func([]string, io.Writer, io.Writer) error

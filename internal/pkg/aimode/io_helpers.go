@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"bufio"
@@ -22,21 +22,22 @@ import (
 	"os"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
-	"github.com/os-artificer/AiT/internal/aissh/shell"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/approve"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/replcmd"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 func aimWrite(w io.Writer, s string) {
-	shell.WriteTTY(w, s)
+	terminal.WriteTTY(w, s)
 }
 
 func aimPrintErr(w io.Writer, msg string) {
-	shell.PrintErr(w, msg)
+	terminal.PrintErr(w, msg)
 }
 
 func normalizeLine(line string) string {
-	return shell.NormalizeLine(line)
+	return terminal.NormalizeLine(line)
 }
 
 func firstWord(line string) (word, rest string) {
@@ -56,7 +57,7 @@ func isMetaREPLCommand(line string) bool {
 	word, _ := firstWord(normalizeLine(line))
 	switch word {
 	case pkghelpdoc.HelpArgCmd, pkghelpdoc.HelpArgH, pkghelpdoc.HelpArgHelp,
-		shell.ReplCmdClear, shell.ReplCmdHistory,
+		replcmd.Clear, replcmd.History,
 		replCmdMode, replCmdApprove, replCmdTrust, replCmdPolicy, replCmdModel, replCmdRun, replCmdAISsh:
 		return true
 	default:
@@ -76,7 +77,7 @@ func (o Options) withTTYConfirm(br *bufio.Reader) Options {
 
 	o.ConfirmRead = func(prompt string) (approve.Result, error) {
 		aimWrite(out, prompt)
-		line, err := shell.ReadTTYLineNoHistory(br, out, "")
+		line, err := terminal.ReadTTYLineNoHistory(br, out, "")
 		if err != nil {
 			return approve.Result{}, err
 		}

@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"bufio"
@@ -29,10 +29,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/agent"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/risk"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/agent"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/approve"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/risk"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/pty"

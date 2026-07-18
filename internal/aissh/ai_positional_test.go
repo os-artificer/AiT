@@ -30,6 +30,8 @@ import (
 
 func TestMain(m *testing.M) {
 	_ = os.Setenv("AIT_KEYRING_BACKEND", "file")
+	// Integration tests exercise aitssh ai via ExecuteWriters; enable experimental AI by default.
+	_ = os.Setenv(config.EnvAIExperimental, "1")
 	os.Exit(m.Run())
 }
 
@@ -85,7 +87,8 @@ func TestAICmd_PositionalClearNoTTY(t *testing.T) {
 
 	select {
 	case err := <-done:
-		if err != nil {
+		// R15: must not hang. Missing cloud keys or not-configured are acceptable exits.
+		if err != nil && !isAllowedChatCLIErr(err) {
 			t.Fatal(err)
 		}
 	case <-time.After(5 * time.Second):

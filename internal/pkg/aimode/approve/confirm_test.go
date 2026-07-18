@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/risk"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/risk"
 )
 
 // A21b: RenderPrompt produces newlines that, after CRLF conversion, contain the

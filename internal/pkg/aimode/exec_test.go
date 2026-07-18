@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"bytes"
@@ -24,8 +24,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/approve"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )

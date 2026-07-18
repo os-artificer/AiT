@@ -25,6 +25,7 @@ func unknownConfigKeyErr(key string) error {
 	return errhint.WithTryMsg("unknown config key: "+key,
 		"Use a dotted key from configs/ait.example.yaml.",
 		toolname.CLI("config get ai.default"),
+		toolname.CLI("config get ai.experimental.enabled"),
 		toolname.CLI("config get session.auth_ttl"),
 		toolname.CLI("config set --help"),
 	)

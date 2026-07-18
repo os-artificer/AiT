@@ -22,10 +22,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/agent"
 	"github.com/os-artificer/AiT/internal/aissh/ai/runner"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/agent"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 )
@@ -49,7 +49,7 @@ func localAIClient(mgr *session.Manager, modelOverride string) (*ai.Client, erro
 	return runner.LocalAIClient(mgr, modelOverride)
 }
 
-func localAIModeOptions(aiClient *ai.Client, maxSteps int, exec CLIExecutor) mode.Options {
+func localAIModeOptions(aiClient *ai.Client, maxSteps int, exec CLIExecutor) aimode.Options {
 	return runner.LocalAIModeOptions(aiClient, maxSteps, exec)
 }
 
@@ -65,7 +65,7 @@ func runRemoteAIMode(p sshclient.RemoteAIParams, exec CLIExecutor) error {
 		useTTY = true
 	}
 
-	opts := mode.Options{
+	opts := aimode.Options{
 		Scope:          ai.ScopeRemote,
 		AI:             p.AI,
 		HostLabel:      p.HostLabel,
@@ -84,5 +84,5 @@ func runRemoteAIMode(p sshclient.RemoteAIParams, exec CLIExecutor) error {
 			return p.RunCapture(cmd)
 		})
 	}
-	return mode.RunREPL(p.Ctx, opts, p.InitialQuestion)
+	return aimode.RunREPL(p.Ctx, opts, p.InitialQuestion)
 }

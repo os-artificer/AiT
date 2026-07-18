@@ -14,19 +14,19 @@
  * limitations under the License.
 **/
 
-package mode
+package aimode
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/agent"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/approve"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/risk"
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 	pkgagent "github.com/os-artificer/AiT/internal/pkg/ai/agent"
 	"github.com/os-artificer/AiT/internal/pkg/ai/client"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/agent"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/approve"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/risk"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 

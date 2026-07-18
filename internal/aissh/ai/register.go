@@ -34,9 +34,11 @@ func init() {
 	registry.Register(topLevel{})
 }
 
-func (topLevel) Name() string  { return Name }
-func (topLevel) Short() string { return "local AI REPL; provider enable/disable; ollama setup/status" }
-func (topLevel) Order() int    { return 20 }
+func (topLevel) Name() string { return Name }
+func (topLevel) Short() string {
+	return "experimental AI REPL; provider enable/disable; ollama (off by default)"
+}
+func (topLevel) Order() int { return 20 }
 func (topLevel) NewCobra(d registry.Deps) *cobra.Command {
 	return New(Deps{
 		Exec:       deps.CLIExecutor(d.ExecuteCobraOnly),

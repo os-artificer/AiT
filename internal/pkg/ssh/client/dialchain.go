@@ -53,12 +53,13 @@ func DialChain(opts Options) (*Client, error) {
 	targetAddr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 
 	var conn net.Conn
+	var via []*Client
 	var err error
 
 	if opts.ProxyCommand != "" && !strings.EqualFold(opts.ProxyCommand, "none") {
 		conn, err = dialProxyCommand(opts.ProxyCommand, targetAddr)
 	} else if len(opts.ProxyJump) > 0 {
-		conn, err = dialProxyJumpChain(opts, opts.ProxyJump, targetAddr)
+		conn, via, err = dialProxyJumpChain(opts, opts.ProxyJump, targetAddr)
 	} else {
 		return Dial(opts)
 	}
@@ -70,6 +71,7 @@ func DialChain(opts Options) (*Client, error) {
 	cfg, agentConn, err := buildSSHClientConfig(opts)
 	if err != nil {
 		_ = conn.Close()
+		closeJumpClients(via)
 		return nil, err
 	}
 
@@ -77,11 +79,12 @@ func DialChain(opts Options) (*Client, error) {
 	if err != nil {
 		abortSSHSetup(agentConn)
 		_ = conn.Close()
+		closeJumpClients(via)
 		return nil, err
 	}
 	client := ssh.NewClient(ncc, chans, reqs)
 
-	c := &Client{conn: client, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}}
+	c := &Client{conn: client, agentConn: agentConn, opts: opts, scroll: &terminal.Buffer{}, via: via}
 	return c, nil
 }
 
