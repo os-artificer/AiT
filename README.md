@@ -1,4 +1,3 @@
-
 # AiT
 
 **AiT** is a cross-platform (Linux / macOS / Windows) AI-enhanced command-line **toolbox** for operations engineers—terminal and SSH workflows today, more tools over time.
@@ -12,10 +11,11 @@ Full CLI reference: [aitssh guide](docs/tools/aitssh.md).
 - OpenSSH-compatible connect (`-J`, config Host aliases, `ssh -G` resolution)
 - Session bookmarks: `--alias`, `session --load`, `session --switch`
 - In-session `!ait` meta commands (suspend, chain hop, transfer)
-- Remote AI with `!!` / `!ait ai` (Agent mode and read-only commands auto-run)
+- Default AiT-managed remote prompt (`AiT user@host:…>`); set `AIT_REMOTE_SYSTEM_PROMPT=1` for the native shell prompt
+- Experimental AI (`!!` / `!ait ai` / `aitssh ai`) — **off by default**; enable with `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `--ai-experimental`
 - `!ait get` / `!ait put` on the live SSH session, standalone `aitssh get` / `put` via SFTP
 - Optional `--tmux` to keep remote shells alive after disconnect
-- Local `aitssh shell` and `aitssh ai` REPLs with history and UTF-8 line editing
+- Local `aitssh shell` REPL (and optional AI REPL) with history and UTF-8 line editing
 
 ## Examples
 
@@ -25,11 +25,13 @@ aitssh deploy@prod --alias prod
 aitssh session --list
 aitssh session --load prod
 
-# 2) Jump host in one command (same as ssh -J)
+# 2) Jump host in one command (same as ssh -J; Host aliases resolve via ssh -G)
 aitssh -J bastion app.internal
 
-# 3) Remote AI inside an SSH session (!! opens Agent REPL on the remote shell)
-# After you are connected:
+# 3) Enable experimental AI once, then use it locally or inside SSH
+aitssh config init
+aitssh config set ai.experimental.enabled true
+# Inside an SSH session:
 !!
 # Ask in natural language; read-only commands run automatically; writes need confirmation
 
@@ -41,8 +43,7 @@ aitssh -J bastion app.internal
 aitssh devhost --tmux
 # Later: aitssh session --load devhost --tmux
 
-# 6) One-shot local AI (non-interactive)
-aitssh config init
+# 6) One-shot local AI (non-interactive; requires experimental AI enabled)
 aitssh ai ask "summarize this log pattern: connection reset"
 ```
 
@@ -75,6 +76,7 @@ Ensure `$(go env GOPATH)/bin` is on your PATH.
 | Project structure | [docs/architecture.md](docs/architecture.md) |
 | aitssh internals | [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md) |
 | aitssh guide | [docs/tools/aitssh.md](docs/tools/aitssh.md) |
+| Python E2E tests | [tests/README.md](tests/README.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Code layout | [AGENTS.md](AGENTS.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
