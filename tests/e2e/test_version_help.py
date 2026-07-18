@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.lib.hints import assert_contains, assert_hint, assert_unknown_command
+from tests.lib.hints import assert_contains, assert_unknown_command
 
 pytestmark = pytest.mark.smoke
 
@@ -18,7 +18,7 @@ TOP_LEVEL_COMMANDS = [
     "version",
 ]
 
-REMOVED_TOP_LEVEL = ["list", "load", "suspend", "models", "ll"]
+REMOVED_TOP_LEVEL = ["list", "load", "suspend", "models", "ll", "login"]
 
 
 def test_version(runner):
@@ -39,16 +39,6 @@ def test_root_help(runner):
 def test_subcommand_help(runner, cmd):
     proc = runner.run_ok([cmd, "--help"])
     assert_contains(proc, "Usage:")
-
-
-def test_login_prefix_removed(runner):
-    proc = runner.run(["login", "--help"])
-    assert_hint(
-        proc,
-        explanation_substr="Omit the login prefix",
-        try_commands=("aitssh user@host", "aitssh --help"),
-        sentinel="login subcommand removed",
-    )
 
 
 @pytest.mark.parametrize("cmd", REMOVED_TOP_LEVEL)

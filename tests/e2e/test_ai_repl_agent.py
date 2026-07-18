@@ -11,11 +11,15 @@ pytestmark = [pytest.mark.ai]
 
 
 @pytest.fixture
-def ai_repl_session(test_config, ait_home, runner):
-    runner.run_ok(["config", "init"])
+def ai_repl_session(test_config, ait_home, ai_runner):
+    ai_runner.run_ok(["config", "init"])
     if test_config.ai.deepseek_key:
-        runner.run_ok(["config", "set", "ai.deepseek.api_key", test_config.ai.deepseek_key])
-    env = runner_env_from(test_config, __import__("pathlib").Path(ait_home))
+        ai_runner.run_ok(["config", "set", "ai.deepseek.api_key", test_config.ai.deepseek_key])
+    env = runner_env_from(
+        test_config,
+        __import__("pathlib").Path(ait_home),
+        ai_experimental=True,
+    )
     child = pexpect.spawn(
         str(test_config.binary),
         ["ai"],

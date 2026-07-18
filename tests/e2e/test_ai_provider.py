@@ -12,24 +12,24 @@ def test_ai_provider_help(runner):
     assert "enable" in proc.stdout and "disable" in proc.stdout
 
 
-def test_ai_ollama_status(runner):
-    runner.run_ok(["config", "init"])
-    proc = runner.run(["ai", "ollama", "status"], timeout=30)
+def test_ai_ollama_status(ai_runner):
+    ai_runner.run_ok(["config", "init"])
+    proc = ai_runner.run(["ai", "ollama", "status"], timeout=30)
     assert proc.returncode in (0, 1)
 
 
-def test_ai_ollama_setup_dry_run(runner):
-    runner.run_ok(["config", "init"])
-    proc = runner.run(["ai", "ollama", "setup", "--dry-run"], timeout=30)
+def test_ai_ollama_setup_dry_run(ai_runner):
+    ai_runner.run_ok(["config", "init"])
+    proc = ai_runner.run(["ai", "ollama", "setup", "--dry-run"], timeout=30)
     assert proc.returncode in (0, 1)
 
 
 @pytest.mark.ai
-def test_ai_provider_disable_enable_ollama(runner, test_config):
-    runner.run_ok(["config", "init"])
-    proc_off = runner.run(["ai", "provider", "disable", "ollama"], timeout=30)
+def test_ai_provider_disable_enable_ollama(ai_runner, test_config):
+    ai_runner.run_ok(["config", "init"])
+    proc_off = ai_runner.run(["ai", "provider", "disable", "ollama"], timeout=30)
     assert proc_off.returncode in (0, 1)
-    proc_on = runner.run(
+    proc_on = ai_runner.run(
         ["ai", "provider", "enable", "ollama", "--yes", "--no-install", "--no-pull"],
         timeout=30,
     )

@@ -58,12 +58,14 @@ check-generate:
 	go generate ./internal/aissh/registry/...
 	git diff --exit-code -- internal/aissh/registry/all/imports.go
 
+# Full E2E including real SSH hosts from tests/config.local.yaml (local only; skipped on CI).
 test-e2e:
 	@test -x $(BUILD_DIR)/$(BINARY_NAME) || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
 
+# CI-safe smoke: help / config / session CLI / experimental-AI gate. Never dials real hosts.
 test-e2e-smoke:
 	@test -x $(BUILD_DIR)/$(BINARY_NAME) || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
