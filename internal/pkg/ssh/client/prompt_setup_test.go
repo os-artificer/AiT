@@ -81,6 +81,7 @@ func TestFlushPendingNativePrompt_MultiLinePending(t *testing.T) {
 }
 
 func TestHandleRemoteOutput_EmitsNativePromptFromGracePending(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	graceEnd := time.Now().Add(setupLeakGraceMax)
 	c.setupLeakGraceUntil.Store(graceEnd.UnixNano())
@@ -112,6 +113,7 @@ func TestEndGrace_FlushesNativePrompt(t *testing.T) {
 }
 
 func TestFinishNativePromptAfterAttach_FlushesGracePending(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	graceEnd := time.Now().Add(setupLeakGraceMax)
 	c.setupLeakGraceUntil.Store(graceEnd.UnixNano())
@@ -134,6 +136,7 @@ func TestFinishNativePromptAfterAttach_FlushesGracePending(t *testing.T) {
 // TestFinishNativePromptAfterAttach_EmitsPrompt (N20b) load/switch cwd inject must
 // still paint the native prompt without requiring Enter.
 func TestFinishNativePromptAfterAttach_EmitsPrompt(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	_, _ = c.scroll.Write([]byte("Last login: Thu\nroot@remote [~] ->\r\n"))
 	c.lastRemoteOut.Store(time.Now().UnixNano())
@@ -153,6 +156,7 @@ func TestFinishNativePromptAfterAttach_EmitsPrompt(t *testing.T) {
 // TestNativeLoadSwitchPath_FiltersInjectAndEmitsPrompt (N20c) end-to-end native
 // load/switch tail: inject cd with leak grace, then finish paints prompt.
 func TestNativeLoadSwitchPath_FiltersInjectAndEmitsPrompt(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	_, _ = c.scroll.Write([]byte("Welcome\nroot@remote [~] ->\r\n"))
 	var stdin bytes.Buffer

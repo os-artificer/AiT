@@ -96,6 +96,10 @@ type Client struct {
 	transferCancel             context.CancelFunc
 	transferActive             atomic.Bool
 
+	// via holds ProxyJump hop clients that must stay open for the lifetime of
+	// this client's forwarded TCP channel. Closed after c.conn in Close.
+	via []*Client
+
 	activePromptUser      string
 	activePromptHost      string
 	forwardLineBuf        []byte
@@ -558,16 +562,26 @@ func (c *Client) captureRemoteCwd(stdin io.Writer, opts InteractiveOpts) string 
 	return pwd
 }
 
-// Close closes the SSH agent connection (if any) and the underlying ssh.Client.
+// Close closes the SSH agent connection (if any), the underlying ssh.Client,
+// then any ProxyJump hop clients retained in via (innermost hop first).
 // Returns the ssh.Client Close error when a connection was open.
 func (c *Client) Close() error {
+	if c == nil {
+		return nil
+	}
+
+	var err error
 	if c.agentConn != nil {
 		_ = c.agentConn.Close()
 		c.agentConn = nil
 	}
-
 	if c.conn != nil {
-		return c.conn.Close()
+		err = c.conn.Close()
+		c.conn = nil
 	}
-	return nil
+	for i := len(c.via) - 1; i >= 0; i-- {
+		_ = c.via[i].Close()
+	}
+	c.via = nil
+	return err
 }

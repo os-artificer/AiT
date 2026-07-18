@@ -30,7 +30,9 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-const aiNote = "Requires ai.<provider>.api_key for cloud providers. " +
+const aiNote = "Experimental (off by default): enable with --ai-experimental, " +
+	"AIT_AI_EXPERIMENTAL=1, or ai.experimental.enabled=true. " +
+	"Requires ai.<provider>.api_key for cloud providers. " +
 	"With ai.tiered.enabled, simple prompts use local Ollama. " +
 	"Use --model to override cloud provider for this session."
 

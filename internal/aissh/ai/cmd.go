@@ -23,8 +23,9 @@ import (
 	"strings"
 
 	"github.com/os-artificer/AiT/internal/aissh/ai/deps"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode"
 	"github.com/os-artificer/AiT/internal/aissh/ai/subregistry"
+	"github.com/os-artificer/AiT/internal/pkg/aimode"
+	"github.com/os-artificer/AiT/internal/pkg/config"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
@@ -47,10 +48,16 @@ type RunWithMgr = deps.RunWithMgr
 func New(d Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           Name,
-		Short:         "Interactive local AI mode (AiT AI(Agent)> prompt)",
+		Short:         "experimental AI REPL; provider enable/disable; ollama (off by default)",
 		Long:          pkghelpdoc.LongHint("ai"),
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if skipAIExperimentalRequire(cmd, args) {
+				return nil
+			}
+			return config.RequireAIExperimental(nil)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if pkghelpdoc.HasHelpArg(args) {
 				return WriteAIHelp(cmd.OutOrStdout())
@@ -70,12 +77,20 @@ func New(d Deps) *cobra.Command {
 // RunLocal starts the local AI REPL with optional model override and initial line.
 // modelOverride may be "" (use mgr.AI); initialLine is fed as the first REPL input.
 func RunLocal(ctx context.Context, mgr *session.Manager, modelOverride, initialLine string, exec CLIExecutor) error {
+	var cfg *config.Config
+	if mgr != nil {
+		cfg = mgr.Config
+	}
+	if err := config.RequireAIExperimental(cfg); err != nil {
+		return err
+	}
+
 	modelOverride = strings.ToLower(strings.TrimSpace(modelOverride))
 	aiClient, err := localAIClient(mgr, modelOverride)
 	if err != nil {
 		return err
 	}
-	return mode.RunREPL(ctx, localAIModeOptions(aiClient, mgr.Config.AgentMaxSteps(), exec), initialLine)
+	return aimode.RunREPL(ctx, localAIModeOptions(aiClient, mgr.Config.AgentMaxSteps(), exec), initialLine)
 }
 
 // RunLocalFromShell is the shell.SetAIModeRunner callback (no model override, empty initial line).

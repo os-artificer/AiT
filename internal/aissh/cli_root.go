@@ -21,9 +21,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
+	"github.com/os-artificer/AiT/internal/aissh/connect"
 	"github.com/os-artificer/AiT/internal/aissh/registry"
 	"github.com/os-artificer/AiT/internal/pkg/cliroute"
+	"github.com/os-artificer/AiT/internal/pkg/config"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
@@ -38,17 +39,19 @@ func Execute(args []string) error {
 }
 
 // ExecuteWriters runs the top-level aitssh CLI with custom stdout and stderr.
-// Empty argv and -h/--help print root help; ssh-style argv run login; else Cobra subcommands.
+// Empty argv and -h/--help print root help; ssh-style argv run connect; else Cobra subcommands.
 func ExecuteWriters(args []string, out, errOut io.Writer) error {
+	args, saw := config.StripAIExperimentalFlag(args)
+	if saw {
+		config.SetAIExperimentalCLI(true)
+	}
+
 	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {
 		return registry.WriteRootHelp(out)
 	}
-	if args[0] == login.Name {
-		return login.PrefixRejectedErr()
-	}
 	if cliroute.IsSSHConnectArgs(args) {
 		return runWithManager(func(ctx context.Context, mgr *session.Manager) error {
-			return login.Run(ctx, mgr, args)
+			return connect.Run(ctx, mgr, args)
 		})
 	}
 	return executeCobraRoot(args, out, errOut)
@@ -57,6 +60,9 @@ func ExecuteWriters(args []string, out, errOut io.Writer) error {
 // ExecuteCobraOnly runs registered subcommands without the top-level SSH default route.
 // Used from shell REPL, meta !ait, and local AI Agent ait_cli injection.
 func ExecuteCobraOnly(args []string, out, errOut io.Writer) error {
+	// Strip without flipping CLI gate (nested argv must not enable mid-process).
+	args, _ = config.StripAIExperimentalFlag(args)
+
 	if len(args) == 0 || pkghelpdoc.HelpRequested(args) {
 		return registry.WriteRootHelp(out)
 	}
@@ -67,7 +73,7 @@ func ExecuteCobraOnly(args []string, out, errOut io.Writer) error {
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           toolname.AISsh,
-		Short:         "AiT aitssh — AI-enhanced SSH client",
+		Short:         "AiT aitssh — SSH client (AI features experimental, off by default)",
 		Long:          pkghelpdoc.LongHint(toolname.AISsh),
 		SilenceUsage:  true,
 		SilenceErrors: true,

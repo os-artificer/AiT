@@ -26,9 +26,9 @@
 - OpenSSH-style connect and argument compatibility (`-p`, `-i`, `-J`, `-o`, and more)
 - session persistence in SQLite with optional alias bookmarks
 - optional remote `tmux` keep-alive mode
-- in-session meta commands (`!ait`) and remote AI mode (`!ait ai`, `!!`)
+- in-session meta commands (`!ait`) and optional remote AI mode (`!ait ai`, `!!`; experimental)
 - standalone and in-session file transfer (`get`, `put`)
-- local shell and AI REPLs with UTF-8 line editing and history
+- local shell REPL; optional AI REPL with UTF-8 line editing and history
 
 Toolbox structure: [`../architecture.md`](../architecture.md). Implementation details (package layering, workflows, source map): [`aitssh-internals.md`](aitssh-internals.md).
 
@@ -39,7 +39,7 @@ Toolbox structure: [`../architecture.md`](../architecture.md). Implementation de
 ```text
 aitssh shell                                    # AiT> REPL (ssh-style connect, list/load, etc.)
 aitssh                                          # no args: root help (not SSH connect)
-aitssh ai                                       # Local AI mode (AiT AI(Agent)>); also "ai" inside aitssh shell
+aitssh [--ai-experimental] ai …                 # Local AI (experimental; off by default)
 aitssh ai model list                            # List configured AI providers (ENABLED column)
 aitssh ai ask [message...]                      # One-shot AI question (stdin if no args); SSH: !ait ai ask / !! ask
 aitssh ai agent [message...]                    # One-shot agent with tool execution
@@ -64,9 +64,14 @@ aitssh config init|view|edit|validate|set|get ...   # YAML config; edit uses $VI
 
 **Scope behavior**
 
+- AI features are **experimental and off by default**. Enable with any of:
+  1. `aitssh config set ai.experimental.enabled true` (persistent)
+  2. `AIT_AI_EXPERIMENTAL=1` (process environment)
+  3. `aitssh --ai-experimental …` (current process only; also applies to nested SSH/`shell` in that process)
 - Local AI mode: `aitssh ai` or `ai` inside `aitssh shell`, default prompt `AiT AI(Agent)>`.
 - Remote AI mode: `!ait ai` or `!!` in an SSH session, prompt `AiT AI(Agent)>` (same format as local).
 - `!ait ai` as a plain local CLI subcommand is blocked in meta dispatch; use the `!ait ai` line form.
+- `aitssh ai --help` remains available when experimental AI is disabled (shows how to enable).
 
 **Important connect parsing note**
 
@@ -256,6 +261,7 @@ Expected connect/load UX:
 
 - After `aitssh user@host` or `aitssh session --load`, the remote `AiT user@host:...>` prompt should appear immediately.
 - No extra Enter should be required to reveal first prompt.
+- Default is AiT-managed remote prompt. Set `AIT_REMOTE_SYSTEM_PROMPT=1` to keep the remote shell's native prompt instead (meta/`!ait` still work; nested `ssh` still auto-enables chain mode).
 
 ---
 
@@ -276,7 +282,7 @@ Credential storage model:
 
 ## AI mode
 
-AI can run in local scope or remote scope.
+AI features in `aitssh` are experimental and disabled by default (see enable options under [CLI surface](#cli-surface)). When enabled, AI can run in local scope or remote scope.
 
 ### Entry points
 
@@ -433,13 +439,15 @@ Risk watch items:
 
 ### Direct connect path
 
-- `aitssh -J jump final` dials the final host through jump chain.
+- `aitssh -J jump final` dials the final host through jump chain (OpenSSH-compatible: each `-J` hop is resolved via `ssh -G`, including `Host` aliases such as `devhost`).
+- Jump SSH clients stay open for the lifetime of the final connection (required for direct-tcpip forwarding).
 - For this direct dial target, in-session transfer prefers direct path behavior.
 
 ### Chain mode trigger
 
 Chain mode is for deeper interactive hops, usually after manual nested `ssh` in a running AiT session.
 
+- after nested `ssh` settles (MOTD/prompt quiet, including idle shells), AiT updates the active host and turns chain **on** automatically
 - if active shell host differs from dial target, `!ait get`/`!ait put` can auto-enable chain mode
 - manual control: `!ait chain on` / `!ait chain off`
 

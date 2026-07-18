@@ -54,6 +54,15 @@ func (c *Config) SetKey(key, value string) error {
 		return nil
 	}
 
+	if key == keyAIExperimentalEnabled {
+		v, err := parseBool(value)
+		if err != nil {
+			return fmt.Errorf("%s: %w", keyAIExperimentalEnabled, err)
+		}
+		c.AI.Experimental.Enabled = v
+		return nil
+	}
+
 	if field, ok := parseTieredKey(key); ok {
 		return c.setTieredField(field, value)
 	}
@@ -79,6 +88,11 @@ func (c *Config) GetKey(key string) (string, error) {
 		return c.DefaultProviderID(), nil
 	case keyAIFallback:
 		return strings.Join(c.AI.Fallback, ","), nil
+	case keyAIExperimentalEnabled:
+		if c.AI.Experimental.Enabled {
+			return "true", nil
+		}
+		return "false", nil
 	}
 
 	if field, ok := parseTieredKey(key); ok {

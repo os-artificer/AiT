@@ -19,7 +19,6 @@ package resolve
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -86,13 +85,9 @@ func Resolve(spec openssh.Spec) (Resolved, error) {
 	}
 	args = append(args, spec.Destination)
 
-	cmd := exec.Command(sshPath, args...)
-	out, err := cmd.Output()
+	out, err := sshGOutput(sshPath, args)
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
-			return Resolved{}, fmt.Errorf("ssh -G: %s", strings.TrimSpace(string(ee.Stderr)))
-		}
-		return Resolved{}, fmt.Errorf("ssh -G: %w", err)
+		return Resolved{}, err
 	}
 
 	cfg := parseSSHGOutput(out)
@@ -149,6 +144,14 @@ func Resolve(spec openssh.Spec) (Resolved, error) {
 				r.ProxyJump = append(r.ProxyJump, j)
 			}
 		}
+	}
+
+	if len(r.ProxyJump) > 0 {
+		expanded, err := expandProxyJumpList(sshPath, spec, r.ProxyJump)
+		if err != nil {
+			return Resolved{}, err
+		}
+		r.ProxyJump = expanded
 	}
 
 	if pc := cfg.single["proxycommand"]; pc != "" && !strings.EqualFold(pc, "none") {

@@ -18,49 +18,24 @@ package shell
 
 import (
 	"io"
-	"strings"
 
-	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
 // NormalizeLine trims space and an optional trailing ';' (Enter submits, ';' not required).
 func NormalizeLine(line string) string {
-	line = strings.TrimSpace(line)
-	line = strings.TrimSuffix(line, ";")
-
-	return strings.TrimSpace(line)
-}
-
-// formatShellMsg collapses multi-line messages to one line for raw TTY display.
-func formatShellMsg(msg string) string {
-	msg = strings.TrimSpace(msg)
-	msg = strings.ReplaceAll(msg, "\r\n", "\n")
-	msg = strings.ReplaceAll(msg, "\r", "\n")
-	msg = strings.Join(strings.Fields(msg), " ")
-
-	return msg
+	return terminal.NormalizeLine(line)
 }
 
 // WriteTTY writes s to w with LF converted to CRLF (raw TTY safe).
 func WriteTTY(w io.Writer, s string) {
-	s = strings.ReplaceAll(s, "\n", "\r\n")
-	_, _ = io.WriteString(w, s)
+	terminal.WriteTTY(w, s)
 }
 
 // PrintErr writes user-facing errors with AiT: prefix and CRLF line endings.
 // Multi-line hint errors keep their layout; single-line messages are collapsed for TTY width.
 func PrintErr(w io.Writer, msg string) {
-	msg = strings.TrimSpace(msg)
-	if msg == "" {
-		return
-	}
-	if strings.Contains(msg, "\n") {
-		errhint.Print(w, errhint.SurfaceTTY, errhint.NewSentinel(msg))
-		return
-	}
-
-	msg = formatShellMsg(msg)
-	WriteTTY(w, errhint.PrefixAiT+msg+"\r\n")
+	terminal.PrintErr(w, msg)
 }
 
 func normalizeShellLine(line string) string {

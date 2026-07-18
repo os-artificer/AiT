@@ -84,16 +84,18 @@ func TestInjectInitialCommandsSingleLine(t *testing.T) {
 	}
 }
 
+// TestWaitRemoteOutputQuietAfterIgnoresPreInject: pre-inject lastRemoteOut is ignored; when
+// no post-inject bytes arrive, return after quiet since injectAt (not maxWait).
 func TestWaitRemoteOutputQuietAfterIgnoresPreInject(t *testing.T) {
 	c := &Client{}
 	injectAt := time.Now()
 	c.lastRemoteOut.Store(injectAt.Add(-time.Second).UnixNano())
 
 	start := time.Now()
-	c.waitRemoteOutputQuietAfter(injectAt, 50*time.Millisecond, 120*time.Millisecond)
+	c.waitRemoteOutputQuietAfter(injectAt, 50*time.Millisecond, 500*time.Millisecond)
 	elapsed := time.Since(start)
-	if elapsed < 100*time.Millisecond || elapsed > 200*time.Millisecond {
-		t.Fatalf("expected max wait ~120ms, got %v", elapsed)
+	if elapsed < 45*time.Millisecond || elapsed > 200*time.Millisecond {
+		t.Fatalf("expected quiet-since-inject ~50ms, got %v", elapsed)
 	}
 }
 
@@ -277,10 +279,10 @@ func TestFinishRemoteSetup_RefreshPromptReachStdout(t *testing.T) {
 	if !strings.Contains(got, "AiT u@h:") {
 		t.Fatalf("stdout should contain client-painted prompt, got %q", got)
 	}
-	// Native prompt mode (UseRemoteSystemPrompt) does not strip/drop AiT-style prompts.
+	// After the AiT prompt is shown, duplicate AiT prompt chunks are dropped (W4).
 	promptLine := "AiT u@h:/data> "
-	if got := c.filterRemoteOutputChunk([]byte(promptLine), "u", "h"); got == nil {
-		t.Fatal("native prompt mode should not drop prompt chunk")
+	if got := c.filterRemoteOutputChunk([]byte(promptLine), "u", "h"); got != nil {
+		t.Fatalf("duplicate AiT prompt should be dropped after shown, got %q", got)
 	}
 }
 
@@ -303,15 +305,15 @@ func TestFinishRemoteSetup_EmitFailFallsBackRefresh(t *testing.T) {
 	}
 }
 
-// TestCopyOutDropsDuplicatePromptAfterShown: native prompt mode (UseRemoteSystemPrompt)
-// does not drop duplicate AiT prompts — it never paints them — so chunks pass through.
+// TestCopyOutDropsDuplicatePromptAfterShown (TM11d/W4): after the AiT prompt is shown,
+// duplicate prompt chunks are dropped while normal command output passes through.
 func TestCopyOutDropsDuplicatePromptAfterShown(t *testing.T) {
 	c := &Client{}
 	c.remotePromptShown.Store(true)
 	user, host := "u", "h"
 
-	if got := c.filterRemoteOutputChunk([]byte("AiT u@h:/tmp:main> "), user, host); got == nil {
-		t.Fatal("native prompt mode should not drop prompt chunk")
+	if got := c.filterRemoteOutputChunk([]byte("AiT u@h:/tmp:main> "), user, host); got != nil {
+		t.Fatalf("duplicate AiT prompt should be dropped, got %q", got)
 	}
 	if got := c.filterRemoteOutputChunk([]byte("ls\r\n"), user, host); got == nil {
 		t.Fatal("normal command output should pass through")

@@ -20,9 +20,9 @@ import (
 	"context"
 
 	"github.com/os-artificer/AiT/internal/aissh/ai/deps"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/chat"
 	"github.com/os-artificer/AiT/internal/aissh/ai/runner"
+	"github.com/os-artificer/AiT/internal/pkg/aimode"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/chat"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
@@ -50,7 +50,7 @@ func New(d deps.Deps) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return mode.RunAgentOnce(ctx, runner.LocalAIModeOptions(aiClient, mgr.Config.AgentMaxSteps(), d.Exec), msg)
+				return aimode.RunAgentOnce(ctx, runner.LocalAIModeOptions(aiClient, mgr.Config.AgentMaxSteps(), d.Exec), msg)
 			})
 		},
 	}

@@ -43,7 +43,7 @@ flowchart TB
 
   subgraph App["internal/aissh (application)"]
     Route["cli_root routing"]
-    ConnectPkg["connect route: internal/aissh/login"]
+    ConnectPkg["connect route: internal/aissh/connect"]
     Registry["registry + subcommands"]
     Shell["shell REPL"]
     Meta["meta !ait"]
@@ -103,7 +103,7 @@ Routing surfaces:
 | Input | Handler | Notes |
 |-------|---------|-------|
 | `aitssh` with no args | Root help via `ExecuteWriters` | Not an implicit SSH connect |
-| `aitssh [flags] destination` | `internal/aissh/login` connect route | Not a registered Cobra subcommand |
+| `aitssh [flags] destination` | `internal/aissh/connect` connect route | Not a registered Cobra subcommand |
 | `aitssh <registered-cmd> …` | Cobra tree via `registry` | Subcommands register in `init()` |
 | `aitssh shell` REPL line | `shell` dispatch chain | Builtins → `AppRoot/bin` → Cobra → PATH → connect route |
 
@@ -111,7 +111,7 @@ Directory/package note:
 
 - Root app lives at `internal/aissh/` with Go package `aissh`.
 - Registered command packages should match Cobra command names (`shell`, `session`, `ai`, `config`, …).
-- `internal/aissh/login/` is the SSH connect route package (not a registered Cobra top-level command).
+- `internal/aissh/connect/` is the SSH connect route package (not a registered Cobra top-level command).
 
 Key files: [`../../internal/aissh/cli_root.go`](../../internal/aissh/cli_root.go), [`../../internal/aissh/root.go`](../../internal/aissh/root.go), [`../../internal/pkg/cliroute/route.go`](../../internal/pkg/cliroute/route.go).
 
@@ -195,9 +195,9 @@ AiT product behavior should remain in `internal/*`.
 
 - Use command-name package names where possible (`shell`, `ai`, `session`, `config`).
 - Keep the root package exception: directory `internal/aissh`, package `aissh`.
-- Keep the connect-route exception: `internal/aissh/login` for default SSH route.
+- Keep the connect-route exception: `internal/aissh/connect` for default SSH route.
 - Avoid `*cmd` package suffixes.
-- Keep AI REPL implementation under `internal/aissh/ai/mode`.
+- Keep AI REPL/agent UX under `internal/pkg/aimode` (shared capability). `internal/aissh/ai` is the aitssh Cobra adapter and remote runner wiring only.
 
 ### Nested subcommands
 
@@ -294,16 +294,16 @@ This section captures end-to-end behavior used most often in production usage.
 sequenceDiagram
   participant User
   participant CLI as aissh.ExecuteWriters
-  participant Login as internal/aissh/login
+  participant Connect as internal/aissh/connect
   participant Resolve as ssh args resolve
   participant Mgr as session.Manager
   participant Client as ssh/client
   participant Remote
 
   User->>CLI: aitssh [flags] destination
-  CLI->>Login: route as connect argv
-  Login->>Resolve: parse + ssh -G resolve
-  Login->>Mgr: Manager.Login(opts)
+  CLI->>Connect: route as connect argv
+  Connect->>Resolve: parse + ssh -G resolve
+  Connect->>Mgr: Manager.Login(opts)
   Mgr->>Client: DialChain
   alt one-shot command
     Mgr->>Client: RunRemoteCommand
@@ -419,7 +419,7 @@ sequenceDiagram
   participant Handler as handleMetaLine
   participant Meta as meta.Execute
   participant Mgr as session.Manager
-  participant AI as ai/mode
+  participant AI as OnRemoteAI callback
 
   User->>Scanner: typed line
   Scanner->>Handler: meta line tokenized
@@ -428,7 +428,7 @@ sequenceDiagram
   else !ait get/put
     Handler->>Handler: transfer route
   else !ait ai / !!
-    Handler->>AI: run remote AI REPL
+    Handler->>AI: RemoteAIParams (aitssh wires aimode)
   else !ait suspend
     Handler->>Mgr: suspend current
   else !ait chain on/off
@@ -607,16 +607,18 @@ Core fields and meanings:
 | [`../../internal/aissh/`](../../internal/aissh/) | CLI entry and root routing | `root.go`, `cli_root.go`, `manager.go`, `init_hooks.go` |
 | [`../../internal/aissh/registry/`](../../internal/aissh/registry/) | top-level command registry | `registry.go`, `root_help.go`, `all/imports.go` |
 | [`../../internal/pkg/helpdoc/`](../../internal/pkg/helpdoc/) | shared CLI help layout | `body.go`, `bind.go`, `common.go` |
-| [`../../internal/aissh/login/`](../../internal/aissh/login/) | default connect route adapter | `run.go`, `help.go` |
+| [`../../internal/aissh/connect/`](../../internal/aissh/connect/) | default connect route adapter | `run.go`, `help.go` |
 | [`../../internal/aissh/shell/`](../../internal/aissh/shell/) | `aitssh shell` REPL and dispatch | `repl.go`, `exec.go`, `exec_dispatch.go` |
 | [`../../internal/aissh/session/`](../../internal/aissh/session/) | session command surface | `cmd.go`, `flags.go`, `run.go` |
 | [`../../internal/aissh/meta/`](../../internal/aissh/meta/) | in-session local CLI execution | `exec.go` |
-| [`../../internal/aissh/ai/`](../../internal/aissh/ai/) | AI command tree | `cmd.go`, `help.go`, `register.go` |
-| [`../../internal/aissh/ai/mode/`](../../internal/aissh/ai/mode/) | AI REPL runtime | `repl.go`, `exec.go`, `run_local.go` |
+| [`../../internal/aissh/ai/`](../../internal/aissh/ai/) | AI command tree + remote runner adapter | `cmd.go`, `help.go`, `register.go`, `runner/` |
+| [`../../internal/pkg/aimode/`](../../internal/pkg/aimode/) | shared AI REPL/agent UX (approve/risk/agent/chat) | `repl.go`, `exec.go`, `approve/`, `risk/` |
+| [`../../internal/pkg/ai/`](../../internal/pkg/ai/) | provider routing and chat facade | `chat.go`, `router`, `models`, provider clients |
 | [`../../internal/pkg/session/`](../../internal/pkg/session/) | connect/load/switch/suspend orchestration | `manager.go`, `manager_login.go`, `manager_helpers.go` |
 | [`../../internal/pkg/store/`](../../internal/pkg/store/) | SQLite storage + migrations | `store.go`, `store_sessions.go`, `store_meta.go`, `open_helpers.go` |
 | [`../../internal/pkg/ssh/args/`](../../internal/pkg/ssh/args/) | SSH argv parsing and `ssh -G` resolve | `parse.go`, `resolve.go` |
-| [`../../internal/pkg/ssh/client/`](../../internal/pkg/ssh/client/) | dial, interactive PTY, meta, prompt, transfer, injection | `client.go`, `client_dial.go`, `dialchain.go`, `transfer_zmodem.go` |
+| [`../../internal/pkg/ssh/client/`](../../internal/pkg/ssh/client/) | dial, interactive PTY, meta, prompt, transfer, injection | `client.go`, `client_dial.go`, `dialchain.go`, `nested_prompt.go`, `prompt_mode.go`, `transfer_zmodem.go` |
+| [`../../internal/pkg/ssh/resolve/`](../../internal/pkg/ssh/resolve/) | `ssh -G` resolve + ProxyJump hop expansion | `resolve.go`, `jump_expand.go` |
 | [`../../internal/pkg/ssh/client/meta/`](../../internal/pkg/ssh/client/meta/) | byte-level meta scanner | `scanner.go` |
 | [`../../internal/pkg/ssh/client/localmode/`](../../internal/pkg/ssh/client/localmode/) | local shell in SSH session | `shell.go` |
 | [`../../internal/pkg/ssh/client/prompt/`](../../internal/pkg/ssh/client/prompt/) | prompt format and setup scripts | `prompt.go` |
@@ -626,8 +628,7 @@ Core fields and meanings:
 | [`../../internal/pkg/transfer/route/`](../../internal/pkg/transfer/route/) | in-session transfer backend routing | route helpers |
 | [`../../internal/pkg/transfer/zmodem/`](../../internal/pkg/transfer/zmodem/) | zmodem protocol engine | receive/send/session files |
 | [`../../internal/pkg/lrzsz/`](../../internal/pkg/lrzsz/) | remote lrzsz probe/install helpers | probe/install files |
-| [`../../internal/pkg/ai/`](../../internal/pkg/ai/) | provider routing and chat facade | `chat.go`, `router`, `models`, provider clients |
-| [`../../internal/pkg/config/`](../../internal/pkg/config/) | config load/save/validate/init | `config.go`, `config_load.go`, `config_validate.go` |
+| [`../../internal/pkg/config/`](../../internal/pkg/config/) | config load/save/validate/init (+ AI experimental gate SSOT) | `config.go`, `ai_experimental.go`, `config_validate.go` |
 | [`../../internal/pkg/platform/`](../../internal/pkg/platform/) | app-root paths, editor and OpenSSH helpers | `paths_appdir.go`, `editor.go`, `openssh.go` |
 | [`../../internal/pkg/creds/`](../../internal/pkg/creds/) | keyring abstraction | `keyring.go` |
 | [`../../configs/ait.example.yaml`](../../configs/ait.example.yaml) | example config template | YAML sample |
@@ -638,12 +639,13 @@ Core fields and meanings:
 
 | Caller | Callee | Why |
 |--------|--------|-----|
-| `internal/aissh/login` | `internal/pkg/session` | connect route delegates orchestration |
+| `internal/aissh/connect` | `internal/pkg/session` | connect route delegates orchestration |
 | `internal/pkg/session` | `internal/pkg/ssh/args` | parse/resolve OpenSSH-compatible options |
 | `internal/pkg/session` | `internal/pkg/store` | persist session lifecycle state |
 | `internal/pkg/session` | `internal/pkg/ssh/client` | dial and interactive execution |
-| `internal/pkg/ssh/client` | `internal/aissh/meta` | in-session local CLI execution |
-| `internal/pkg/ssh/client` | `internal/aissh/ai/mode` | remote AI REPL runtime |
+| `internal/pkg/ssh/client` | `internal/aissh/meta` | in-session local CLI execution (callback) |
+| `internal/pkg/ssh/client` | `RemoteAIRunner` callback (wired by `internal/aissh`) | remote AI REPL; client does **not** import `aimode` or `aissh/ai` |
+| `internal/aissh/ai` | `internal/pkg/aimode` | assemble Options / RunREPL for local and remote AI |
 | `internal/aissh/shell` | `internal/aissh` root/cobra runner | dispatch to local CLI subcommands |
 | `internal/pkg/ssh/client` | `internal/pkg/transfer` / transfer route | transfer path selection and execution |
 | `internal/pkg/ai` | `internal/pkg/config` + `internal/pkg/creds` | provider config + key retrieval |
@@ -656,12 +658,13 @@ Core fields and meanings:
 | Task | Start here |
 |------|------------|
 | Add a top-level command | `../../internal/aissh/<cmd>/register.go` and `../../internal/aissh/registry/all/imports.go` |
-| Change connect flag behavior | `../../internal/pkg/ssh/openssh/login_parse.go` and `../../internal/aissh/login/help.go` |
+| Change connect flag behavior | `../../internal/pkg/ssh/openssh/login_parse.go` and `../../internal/aissh/connect/help.go` |
 | Adjust persistence logic | `../../internal/pkg/session/manager_login_persist_helpers.go` |
 | Understand interactive SSH loop | `../../internal/pkg/ssh/client/client.go` (`RunInteractive`) |
 | Trace in-session meta handling | `../../internal/pkg/ssh/client/client_interactive_helpers.go` |
 | Modify shell dispatch precedence | `../../internal/aissh/shell/exec_dispatch.go` |
-| Modify AI REPL verbs and policy | `../../internal/aissh/ai/mode/exec.go` and `../../internal/aissh/ai/mode/repl.go` |
+| Modify AI REPL verbs and policy | `../../internal/pkg/aimode/exec.go` and `../../internal/pkg/aimode/repl.go` |
+| Gate experimental AI | `../../internal/pkg/config/ai_experimental.go` and `../../internal/aissh/ai/cmd.go` (PreRun) |
 | Adjust root argv routing | `../../internal/aissh/cli_root.go` and `../../internal/pkg/cliroute/route.go` |
 | Understand transfer backend decisions | `../../internal/pkg/ssh/client/transfer_route.go` |
 | Understand prompt setup and repaint | `../../internal/pkg/ssh/client/client_init_helpers.go` and prompt helpers |

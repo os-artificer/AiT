@@ -40,7 +40,7 @@ func setPortFromString(s *Spec, flag, val string) error {
 }
 
 func appendProxyJumpFromString(s *Spec, val string) {
-	for _, j := range strings.Split(val, ",") {
+	for j := range strings.SplitSeq(val, ",") {
 		j = strings.TrimSpace(j)
 		if j != "" {
 			s.ProxyJump = append(s.ProxyJump, j)

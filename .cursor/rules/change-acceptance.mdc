@@ -21,7 +21,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 |------|------|
 | **语义不变** | 未改动路径：参数解析、拨号、SFTP、会话状态机、错误文案、退出码、提示符与改动前一致；**errhint 多行模板**路径首行 sentinel/`errors.Is` 须保持，排版与 `Try:` 块为预期变更（非回退） |
 | **范围最小** | 禁止 drive-by 重构、顺手改默认值或无关文件 |
-| **已修复不回退** | 全库 **R1–R19**、**A20–A22**（见下）须保持；相关测试不得删除或弱化断言 |
+| **已修复不回退** | 全库 **R1–R19**、**A20–A22**、**EX***（见下）须保持；相关测试不得删除或弱化断言 |
 | **跨平台** | 涉及 TTY/路径/exec 时须 `make test-cross` 通过 |
 
 ## 禁止
@@ -247,14 +247,14 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | H3c | AI not configured 统一文案 + `Try:` | `TestSetModel_ErrNoAI` |
 | H3d | ollama 非交互 install hint | `ollama` 包测试通过（`setup_confirm` 路径） |
 
-#### H4（REPL / meta / ai/mode）
+#### H4（REPL / meta / aimode）
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
-| H4a | meta `!ait login` → unknown command | `TestExecute_LoginUnknownCommand` |
+| H4a | meta `!ait login` → unknown command | `TestExecute_LoginUnknown` |
 | H4b | meta blocked ai 多行 + `Try:` | `TestExecuteBlockedAI` |
 | H4c | REPL 单行 err 仍单 `AiT:` | `TestShellPrintErr` |
-| H4d | `ai/mode` ask 空消息 | `TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage` |
+| H4d | `aimode` ask 空消息 | `TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage` |
 
 ### K* 明细（REPL 行编辑与历史）
 
@@ -465,6 +465,22 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | W15 | setup pause 期间 prompt 仅入 scroll 时，`finishRemoteSetup` **立即**写 stdout；stdin 无 `\r`；无双 prompt | `TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused` | `aitssh devhost` 无需 Enter 即见 `AiT user@host:…>` |
 | W16 | `\r` refresh 首条 prompt 不被 premature `remotePromptShown` 丢弃；emit 失败回退 refresh | `TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestFinishRemoteSetup_EmitFailFallsBackRefresh` | 同 W15；无 marker 路径亦无需 Enter |
 
+### NP* 明细（嵌套 SSH idle poll / chain·host）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| NP1 | prompt chunk + wall quiet 后无需额外 PTY chunk 即可 inject；`chain on` + active host 更新 | `TestNestedPrompt_QuietIdleInjectsWithoutExtraChunk` | nested `ssh` 后 idle 再 `!ait chain` → on |
+| NP2 | CSI 包裹的 zsh 提示符算 shell-ready | `TestNestedPrompt_ANSIZshPromptReady` | — |
+| NP3 | MOTD 后长期无 ready → fallback inject | `TestNestedPrompt_MOTDTimeoutFallback` | — |
+| NP4 | `AIT_REMOTE_SYSTEM_PROMPT=1` 时仍 `chain on`/更新 host，stdin 无 AiT PS1 | `TestNestedPrompt_NativeModeChainWithoutPS1` | — |
+
+### PJ* 明细（ProxyJump keep-alive / hop Resolve）
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| PJ1 | jump client 在终跳握手前保持打开；`Client.Close` 再关 via | `TestDialProxyJumpChain_KeepsJumpAlive`、`TestClient_CloseClosesNestedViaChain` | `aitssh -J root@jump.example:2222 -p 2222 root@final.example hostname` |
+| PJ2 | 每个 `-J` hop 经 `ssh -G` 解析 Host 别名/端口/用户 | `TestResolve_ProxyJumpHostAlias`、`TestDialChain_JumpUsesResolvedHostPort`、`TestResolveJumpDialOptions_UsesSSHG` | `aitssh -J jump -p 2222 root@final.example hostname` |
+
 ### P11 明细（meta 结束提示符 repaint）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
@@ -526,7 +542,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | N3 | `!ait load id` 链式 load | `TestRunInteractive_ChainLoad` | SSH：`!ait load <alias>` |
 | N4 | `!ait session --switch alias` auto-suspend + switch | `TestRunInteractive_ChainSwitch` | SSH：`!ait session --switch hostA` |
 | N5 | 链式 login 后 DB：旧 session `suspended`，新 `active` + current meta | `TestChainLogin_DBSessionStates` | `!ait session --list` 见两行状态 |
-| N6 | `login` 首词 → unknown / not-found（非专用 Try；shell 不回落 PATH `login`） | `TestExecuteWriters_LoginUnknown`、`TestExecuteLine_LoginNotFound`、`TestExecute_LoginUnknownCommand`、`TestDispatchShellCommand_LoginSkipsPATH` | — |
+| N6 | `login` 首词 → unknown / not-found（非专用 Try；shell 不回落 PATH `login`） | `TestExecuteWriters_LoginUnknown`、`TestExecuteLine_LoginUnknown`、`TestExecute_LoginUnknown`、`TestDispatchShellCommand_LoginSkipsPATH` | — |
 | N7 | 本机 shell active 时 ssh 形 argv 仍 blocked（R4 不回退） | shell dispatch tests | `aitssh shell` 内 active 时 `devhost` → Try |
 | N8 | `!ait suspend`/`get`/`put`/AI meta 路径不变 | 现有 Z*/R19/H4* 仍过 | `!ait get`/`!!` 烟雾 |
 | N9 | ephemeral 会话 `!ait suspend` → auto-persist + suspended + scrollback | `TestEnsureSessionPersisted_Suspend` | ephemeral connect 后 `!ait suspend` → `session --list` 可见 |
@@ -553,13 +569,32 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 |----|----------|------------|----------|
 | M1 | `go.mod`/`go.sum` 无外部 `github.com/xiwh/zmodem`；空 cache 可 build | `TestGoMod_NoExternalXiwhZmodem`、`TestBuild_FreshModCache`（`cmd/aitssh/build_gate_test.go`） | macOS：`go install github.com/os-artificer/AiT/cmd/aitssh@latest` |
 
+### EX* 明细（AI 公共能力剥离 + 实验门禁）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| EX1 | 默认（无 CLI/env/config）全部 AI 入口拒绝，多行 Try | `TestAIExperimental_DefaultOff` |
+| EX2 | `AIT_AI_EXPERIMENTAL=1` 开启 | `TestAIExperimental_EnvOn` |
+| EX3 | `ai.experimental.enabled: true` 开启 | `TestAIExperimental_ConfigOn` |
+| EX4 | `aitssh ai` / `ai ask` / `ai provider` / `ai ollama status` / 父参 `model list` 关闭时均门禁；help 仍可用 | `TestAICmd_ExperimentalDisabled`、`TestAIHelp_AllowedWhenDisabled` |
+| EX4b | 实验关 + 已配置 API key：`ai ask` 仍拒绝（防 `LocalAIClient` 绕过） | `TestAIAsk_ExperimentalDisabledWithKeys` |
+| EX5 | `!!`/`!ait ai` 关闭时 hint、SSH 不断开 | `TestHandleAIMetaLine_ExperimentalDisabled` |
+| EX6 | shell `ai` 关闭时同 hint | `TestShellAI_ExperimentalDisabled` |
+| EX7 | `config set/get ai.experimental.enabled` | `TestSetGetKey_AIExperimental` |
+| EX8 | `aimode` 不 import `internal/aissh` | `TestAimode_NoAisshImport` |
+| EX9 | 开启后门禁不回退 R15–R19 / A20–A22 | 现有套件 + `aissh` `TestMain` 默认 `AIT_AI_EXPERIMENTAL=1` |
+| EX10 | 进程入口 `--ai-experimental` 剥离且开启；不写 config | `TestAIExperimental_CLIFlag`、`TestAIExperimental_CLIFlag_ExecuteWriters`、`TestStripAIExperimentalFlag` |
+| EX11 | 实验关闭时 `!!` 为 ExperimentalDisabled，**不是** NotConfigured | `TestHandleAIMetaLine_ExperimentalDisabledNotNotConfigured` |
+| EX12 | `ExecuteCobraOnly` 嵌套携带该旗**不**翻转进程门禁 | `TestExecuteCobraOnly_AIExperimentalFlagNoFlip` |
+| EX13 | 新增 ai 子命令仅挂 subregistry 即继承门禁 | `TestAISubtree_NewChildInheritsExperimentalGate` |
+
 ### 测试名等价说明（规则名与仓库实现）
 
 部分验收 ID 在规则中使用历史名称；下列实现视为等价，不得因名称不同判定回归缺失：
 
 | 规则引用名 | 仓库等价测试 |
 |------------|----------------|
-| `TestClassifyRisk_*` | `TestClassify_*`（`internal/aissh/ai/mode/risk/risk_test.go`） |
+| `TestClassifyRisk_*` | `TestClassify_*`（`internal/pkg/aimode/risk/risk_test.go`） |
 | `TestConfirmPrompt_UsesCRLF` | `TestConfirmPromptCRLFConversion`（`mode_test.go`） |
 | `TestApproveSession_LowRiskSkipsSecond` | `TestConfirm_ApproveSessionLowRiskSkipsSecond` |
 | `TestConfirm_PatternTrustSkipsSamePrefix` | `TestConfirm_PatternTrustFirstToken` |
@@ -583,7 +618,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 |----|----------|------------|
 | C23 | REPL help argv 与 `helpdoc` 一致 | `TestHelpRequested`、`TestREPLHelpArgs_FromHelpdoc` |
 | C24 | shell/mode 共享 REPL 核心动词不变 | `TestIsMetaREPLCommand_*`、`TestExecuteLineHistory_*` |
-| C25 | meta `list` → `session --list` 与 blocked 键不变 | `TestExecuteBlocked*`、`TestMetaCLIArgs_ListUsesSessionFlag`、`TestReplCmdLogin_MatchesLoginName` |
+| C25 | meta `list` → `session --list` 与 blocked 键不变 | `TestExecuteBlocked*`、`TestMetaCLIArgs_ListUsesSessionFlag` |
 | C26 | ask/agent/mode/approve 标签不变 | `TestSetMode_*`、`TestSetApprove_*`、`TestParseChatCommand` |
 | C27 | mode 内 ollama 字面量对齐 config | mode exec / `setModel` 相关测试 |
 | C28 | provider enable/disable 输出格式不变 | `TestProviderEnableDisable_MsgFormat` |
@@ -591,7 +626,8 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
-- [ ] R15 未回退（`aitssh ai model list` / `aitssh ai help` 不挂起；`aitssh ai` 仍进 REPL）
+- [ ] R15 未回退（`aitssh ai model list` / `aitssh ai help` 不挂起；`aitssh ai` 仍进 REPL；需实验开关开启）
+- [ ] EX1–EX13 + EX4b：AI 实验门禁默认关；CLI/env/config 开启；help 可用；无 LocalAIClient 绕过；aimode 不 import aissh（见 **EX***）
 - [ ] R16 未回退（Save 无根级 `deepseek`；`TestSaveYAML_NoRootDeepseek` 等通过）
 - [ ] R17 未回退（`aitssh models` unknown；`TestTopLevelModelsRemoved`；`models_dir`/`OLLAMA_MODELS` 测试通过）
 - [ ] R18a：`aitssh ai ask` 带参或 stdin 单轮，5s 内不挂起（`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`）
@@ -662,6 +698,8 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] W1–W16：远程提示符 cwd + Git + 目录显示模式 + nested ssh + login stdout flush（见 **W\*** 明细）；触及 prompt/session/login/load/config/链式拨号时 R1/R2/W4/W5/W6 未回退
 - [ ] W15：`finishRemoteSetup` 缓冲 prompt 刷 stdout、stdin 无 `\r`（`TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused`）
 - [ ] W16：refresh 首条 prompt 可达 stdout、emit 失败回退（`TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestFinishRemoteSetup_EmitFailFallsBackRefresh`）
+- [ ] NP1–NP4：嵌套 idle poll / MOTD fallback / ANSI ready / native-mode chain（见 **NP\*** 明细）
+- [ ] PJ1–PJ2：ProxyJump keep-alive + hop `ssh -G` Resolve（见 **PJ\*** 明细）
 - [ ] P11：meta 结束不回退原生提示符（`TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown`、`TestFinishMetaInteraction_PaintsAITWhenManaged`）
 - [ ] TM9a–d：connect `--tmux` setup 无泄漏、pre-attach 时序与过滤（见 **TM\*** 明细）
 - [ ] TM10a–d：`TmuxEnabled` 跟随 CLI、tmux 失败多行 Try（`TestLoginWithoutTmuxClearsTmuxEnabled`、`TestLoginWithTmuxSetsTmuxEnabled`、`TestWrapTmuxAttachExitErr_Format`、`TestBuildSessionForLogin_TmuxFollowsCLI`）
@@ -775,7 +813,7 @@ aitssh -J jump user@final # 提示符 user@final:…
 
 # nested manual ssh（W11–W14）
 aitssh root@proxy
-ssh root@final -p60528        # W11：final 上 AiT 提示符；W14：!ait chain → on
+ssh root@final -p2222         # W11：final 上 AiT 提示符；W14：!ait chain → on
 ```
 
 对比：`aitssh -J proxy,final` 应直接在内层出现 AiT 提示符（无 proxy 提示符阶段）。
@@ -870,21 +908,24 @@ aitssh hostA                    # 无 --save
 | E* | 同主机多 alias 独立会话行 | `TestResolvePersistSessionID_SeparateAliasesSameHost`、`TestResolvePersistSessionID_SaveAndAliasSeparateRows`、`TestFindSessionByKey_DifferentAliasSameConnection`、`TestPlanLoginPersistence_NoFlagSkipsAliasedOnly` |
 | S* | `aitssh session` 统一 flag | `TestTopLevelListLoadSuspendRemoved`、`TestSessionCmd_*`、`TestExecuteLineList`、`TestWriteSessionHelpSections` |
 | B* | session 列表 `#` / load 交互 / `-v` FULL_ID | `TestSessionCmd_ListNumberColumn`、`TestSessionCmd_LoadPickNonTTY`、`TestPickSession_SelectByNumber`、`TestListVerbose_IncludesFullID` |
-| H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecute_LoginUnknownCommand`、`TestExecuteBlockedAI` |
+| H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecute_LoginUnknown`、`TestExecuteBlockedAI` |
 | K* | REPL 行编辑与 history | `TestReadLine_HistoryUpDown`、`TestHistoryCommand_List`、`TestReadLine_CtrlRSearch`、`TestExecuteLineHistory_Shell` |
 | K23–K24 | raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker） | `TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` |
 | P* | AppRoot / AIT_HOME 单目录 | `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig` |
 | G* | `aitssh config init/view/edit/validate` | `TestConfigEnsureFile_Creates`、`TestConfigInitCmd`、`TestConfigViewCmd`、`TestConfigEditCmd`、`TestConfigValidateCmd_*`、`TestValidate_*`、`TestOpenEditor_Unix` |
 | RA* | SSH 远程 AI REPL 入口 / Agent 执行 | `TestRunREPL_InitialEmptyAgentEntersREPL`、`TestHandleAIMetaLine_ErrHintNoDisconnect`、`TestRunAgentOnce_ScopeRemote_Capture`、`TestParseAction_XMLFallback`、`TestMetaScanner_AitAIBareLine` |
+| EX* | AI 公共能力剥离 + 实验门禁（默认关） | `TestAIExperimental_*`、`TestAICmd_ExperimentalDisabled`、`TestAimode_NoAisshImport`、`TestHandleAIMetaLine_ExperimentalDisabled*` |
 | A20* | AI REPL Ask/Agent + approve | `TestSessionState_Defaults`、`TestSetMode_*`、`TestAgentTurn_RunActionMock`、`TestAgent_SkipsVim` |
 | A21* | AI REPL 提示符 / 确认 / y·c·s·n | `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestConfirm_PatternTrustSkipsSamePrefix` |
 | A22* | Read 风险级别 / 只读自动放行 / 默认 Agent | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |
 | W* | 远程提示符 cwd + Git + 目录显示模式 + nested ssh + login stdout flush | `TestRemoteFormat_WithAndWithoutBranch`、`TestFinishRemoteSetup_RefreshOnly`、`TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestRemotePromptInitialCommands_LoginLoadSamePath`、`TestForwardStdin_SSHTriggersNestedPrompt`、`TestParseSSHCommandLine_PortAndUserHost`、`TestSingleHopPromptIdentityEqualsDial` |
+| NP* | 嵌套 SSH idle poll / MOTD fallback / ANSI / native-mode chain | `TestNestedPrompt_QuietIdleInjectsWithoutExtraChunk`、`TestNestedPrompt_ANSIZshPromptReady`、`TestNestedPrompt_MOTDTimeoutFallback`、`TestNestedPrompt_NativeModeChainWithoutPS1` |
+| PJ* | ProxyJump keep-alive + hop Resolve | `TestDialProxyJumpChain_KeepsJumpAlive`、`TestResolve_ProxyJumpHostAlias`、`TestDialChain_JumpUsesResolvedHostPort` |
 | P11 | meta 结束 `emitMetaPromptStdout` 不回退原生提示符 | `TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown`、`TestFinishMetaInteraction_PaintsAITWhenManaged` |
 | TM9* | connect `--tmux` setup 抑制与 pre-attach 时序 | `TestRunInteractive_TmuxAttachBurstSuppressed`、`TestHandleRemoteOutput_TmuxLateSetupLeakFiltered`、`TestSetupOutputFilter_CRLines`、`TestBuildSendKeysLiteralCmd_Golden`、`TestPartitionInitialCommands` |
 | TM10* | `--tmux` 模式跟随 CLI + attach/pre-attach errhint | `TestLoginWithoutTmuxClearsTmuxEnabled`、`TestLoginWithTmuxSetsTmuxEnabled`、`TestWrapTmuxAttachExitErr_Format`、`TestWrapTmuxPreAttachErr_Format`、`TestBuildSessionForLogin_TmuxFollowsCLI` |
 | TM11* | 登录提示符 raw-TTY CRLF（`interactiveOut` + `stripSetupLeakStdout`） | `TestHandleRemoteOutput_InteractiveStdoutCRLF`、`TestStripSetupLeakStdout_PreservesCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCopyOutDropsDuplicatePromptAfterShown` |
-| TM12* | `login` 不吞 errhint（`login/run.go` 原样返回 err） | `TestLoginRun_PreservesTmuxAttachErrHint`、`TestLoginExitCode_WrappedSSHExit`、`TestLoginRun_ErrHintReachableCLI`、`TestWrapTmuxAttachExitErr_PreservesCause` |
+| TM12* | `login` 不吞 errhint（`connect/run.go` 原样返回 err） | `TestLoginRun_PreservesTmuxAttachErrHint`、`TestLoginExitCode_WrappedSSHExit`、`TestLoginRun_ErrHintReachableCLI`、`TestWrapTmuxAttachExitErr_PreservesCause` |
 | TM13* | pre-attach `send-keys -l` 单引号引号（`$(…)` 字面传递） | `TestBuildSendKeysLiteralCmd_PreservesDollarLiterals`、`TestShSingleQuote_EscapesEmbeddedSingleQuotes`、`TestTmuxPreAttachSetup_CommandGolden` |
 | TM14* | `send-keys` pre-attach + phantom 行清理 | `TestTmuxPreAttachSetup_ClearPaneGolden`、`TestCleanupOnTmuxFailure_NewRowDeletes`、`TestDeleteLoginSession_RemovesRow`、`TestCleanupOnTmuxFailure_ExistingRowSuspends` |
 | Z* | 链式 ZMODEM `!ait get/put`（lrzsz over PTY） | `TestZModemSession_ExclusiveIO`、`TestHandleTransferPTY_UsesZModem`、`TestBuildSzCmd_Heredoc` |
@@ -896,6 +937,7 @@ aitssh hostA                    # 无 --save
 | N* | SSH 会话内 connect/load/switch 链式切换 + auto-persist | `TestHandleMetaLine_ChainLogin`、`TestEnsureSessionPersisted_*`、`TestRunInteractive_ChainLoad`、`TestRunInteractive_ChainSwitch`、`TestParseMetaChainLine_*` |
 | LC* | 去掉 `login` 子命令 / SSH 默认路由 | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestParseMetaChainLine_*` | 见 plan LC1–LC11 |
 | V* | 传输收尾 / 可取消 / ZEOF / ZFIN / send put 100% | `TestSession_Wait_TeardownAfterDone`、`TestSession_Wait_TeardownTimeout`、`TestSession_Wait_TeardownAfterZFINWithPrefix`、`TestSession_Wait_TeardownChainTimeout`、`TestSession_Wait_SendTeardownAfterUpload`、`TestZModem_ResyncSkipsPrefix`、`TestZModemReceive_ZEOFOffsetMismatch`、`TestBlockBuffer_CloseLargeSlowReader`、`TestZModemTransfer_FinishingPhase`、`TestZModemTransfer_PutWaitAfterProgress100`、`TestPTYZModemErrHint_TeardownTimeout`、`TestTransferProgress_SFTPClosingPhase`、`TestProcessForwardStdin_TransferCtrlC`、`TestSession_Wait_ContextCancelAborts`、`TestCopyWithContext_CancelDuringBlockedRead` |
+| EX* | AI 公共能力剥离 + 实验门禁（默认关） | `TestAIExperimental_*`、`TestAICmd_ExperimentalDisabled`、`TestAIAsk_ExperimentalDisabledWithKeys`、`TestHandleAIMetaLine_ExperimentalDisabled*`、`TestAimode_NoAisshImport`、`TestExecuteCobraOnly_AIExperimentalFlagNoFlip` |
 
 ## 索引
 

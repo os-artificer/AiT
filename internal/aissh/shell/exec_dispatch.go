@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/os-artificer/AiT/internal/aissh/login"
 	"github.com/os-artificer/AiT/internal/aissh/shell/builtin"
 	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -46,13 +45,11 @@ func dispatchShellCommand(ctx context.Context, mgr *session.Manager, words []str
 		return runExternal(ctx, path, words)
 	}
 
-	if len(words) > 0 && words[0] == login.Name {
-		return login.PrefixRejectedErr()
-	}
-
 	if err := runCLI(words); err == nil {
 		return nil
 	} else if !pkghelpdoc.IsUnknownCommand(err) {
+		return err
+	} else if cliroute.IsRemovedTopLevelWord(words[0]) {
 		return err
 	}
 

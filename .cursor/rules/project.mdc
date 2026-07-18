@@ -28,3 +28,4 @@ Go CLI **toolbox** (**AiT**; first tool: **aitssh**). Module: `github.com/os-art
 - No drive-by refactors; no new markdown unless asked
 - Do not commit unless the user requests it
 - Do not edit `.git/` or add secrets
+- **No personal infra in the repo**: do not add real personal hostnames, FQDNs, SSH ports, or IP addresses to code, tests, docs, or project `.cursor/rules`. Use fictional placeholders (`*.example.com`, Host alias `devhost`, port `2222`). Real sandbox/E2E hosts belong in **user-level** Cursor rules (`~/.cursor/rules/`), skills, or local notes — never in the AiT tree.

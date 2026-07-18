@@ -8,7 +8,7 @@ Thank you for contributing to **AiT** (AI Terminal). This document summarizes th
 
 The canonical source for coding rules is [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc), [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc), and [`.cursor/rules/code-reuse.mdc`](.cursor/rules/code-reuse.mdc). **When you change coding conventions, update those files and [`CONTRIBUTING.md`](CONTRIBUTING.md).**
 
-For CLI commands, `--help` text must match the SSH connect-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/aissh/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `aitssh --help` (SSH connect section) or [`internal/aissh/login/help.go`](internal/aissh/login/help.go) before opening a PR.
+For CLI commands, `--help` text must match the SSH connect-style layout: shared helpers in [`internal/pkg/helpdoc`](internal/pkg/helpdoc), command body in `internal/aissh/<cmd>/help.go`; see [`.cursor/rules/cli-help.mdc`](.cursor/rules/cli-help.mdc). Compare with `aitssh --help` (SSH connect section) or [`internal/aissh/connect/help.go`](internal/aissh/connect/help.go) before opening a PR.
 
 ---
 
@@ -56,7 +56,7 @@ AiT is a Go CLI; directories follow [golang-standards/project-layout](https://gi
 | Path | Purpose |
 |------|---------|
 | [`cmd/aitssh`](cmd/aitssh) | Main entry; **only** a minimal `main` |
-| [`internal/aissh`](internal/aissh) | Application entry (`Run`, Cobra root); **one package per registered subcommand** (`get`, `shell`, …) plus **`internal/aissh/login`** (SSH connect default route, not registered) with name, flags, parse, help, run in the same package |
+| [`internal/aissh`](internal/aissh) | Application entry (`Run`, Cobra root); **one package per registered subcommand** (`get`, `shell`, …) plus **`internal/aissh/connect`** (SSH connect default route, not registered) with name, flags, parse, help, run in the same package |
 | [`internal/pkg/*`](internal/pkg) | Shared libraries (`store`, `session`, `ssh`, …); **must not** import `internal/aissh` |
 | [`pkg/`](pkg/) | Libraries for **external** modules; generic / non–AiT-business only |
 | [`configs/`](configs/) | Config templates (e.g. `ait.example.yaml`) |

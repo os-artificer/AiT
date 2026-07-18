@@ -1,6 +1,6 @@
 ---
 description: CLI/Cobra --help 必须与 SSH connect 同版式；新命令 checklist
-globs: internal/aissh/*.go,internal/pkg/helpdoc/**,internal/aissh/**/help.go,internal/aissh/login/**,internal/aissh/shell/**,internal/aissh/meta/**
+globs: internal/aissh/*.go,internal/pkg/helpdoc/**,internal/aissh/**/help.go,internal/aissh/connect/**,internal/aissh/shell/**,internal/aissh/meta/**
 alwaysApply: false
 ---
 
@@ -50,4 +50,4 @@ alwaysApply: false
 
 ## 回归
 
-仅改 help 展示；不得改 `Run`/`RunE` 业务逻辑。参考 [`login/help.go`](internal/aissh/login/help.go)（`HelpFull` golden）与 [`internal/pkg/helpdoc`](internal/pkg/helpdoc) 共用块。
+仅改 help 展示；不得改 `Run`/`RunE` 业务逻辑。参考 [`connect/help.go`](internal/aissh/connect/help.go)（`HelpFull` golden）与 [`internal/pkg/helpdoc`](internal/pkg/helpdoc) 共用块。

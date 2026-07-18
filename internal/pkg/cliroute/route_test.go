@@ -65,4 +65,7 @@ func TestRoute_LoginPrefixNotSSH(t *testing.T) {
 	if IsSSHConnectArgs([]string{"login", "user@host"}) {
 		t.Fatal("login prefix must not be SSH connect at top level")
 	}
+	if !IsRemovedTopLevelWord("login") {
+		t.Fatal("login must be a removed top-level word")
+	}
 }

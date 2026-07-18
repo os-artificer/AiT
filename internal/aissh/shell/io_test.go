@@ -31,16 +31,6 @@ func TestNormalizeShellLine(t *testing.T) {
 	}
 }
 
-func TestFormatShellMsg(t *testing.T) {
-	msg := formatShellMsg("line one\nline two")
-	if strings.Contains(msg, "\n") {
-		t.Errorf("want single line, got %q", msg)
-	}
-	if !strings.Contains(msg, "line one") || !strings.Contains(msg, "line two") {
-		t.Errorf("got %q", msg)
-	}
-}
-
 func TestShellPrintErrMultiline(t *testing.T) {
 	var buf bytes.Buffer
 	msg := "session not found\n\nThe list ID column is for display only.\n\nTry:\n  aitssh session --load"

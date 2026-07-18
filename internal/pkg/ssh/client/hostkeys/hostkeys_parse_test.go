@@ -48,7 +48,7 @@ func TestAppendKnownHostWritesNewline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := appendKnownHost(path, "example.com", 60528, signer.PublicKey()); err != nil {
+	if err := appendKnownHost(path, "example.com", 2222, signer.PublicKey()); err != nil {
 		t.Fatal(err)
 	}
 	if err := appendKnownHost(path, "other.com", 22, signer.PublicKey()); err != nil {
@@ -62,7 +62,7 @@ func TestAppendKnownHostWritesNewline(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("want 2 lines, got %d: %q", len(lines), data)
 	}
-	if !strings.HasPrefix(lines[0], "[example.com]:60528") {
+	if !strings.HasPrefix(lines[0], "[example.com]:2222") {
 		t.Fatalf("line0: %q", lines[0])
 	}
 }

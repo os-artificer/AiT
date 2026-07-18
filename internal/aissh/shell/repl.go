@@ -45,16 +45,12 @@ func RunREPL(ctx context.Context, mgr *session.Manager, in io.Reader, out io.Wri
 // out receives echoed input and editing control output.
 // hist, when non-nil, enables Up/Down recall and records submitted lines.
 func ReadTTYLine(br *bufio.Reader, out io.Writer, prompt string, hist *terminal.LineHistory) (string, error) {
-	return terminal.ReadLine(br, out, terminal.LineEditOptions{
-		Prompt:        prompt,
-		History:       hist,
-		RecordHistory: hist != nil,
-	})
+	return terminal.ReadTTYLine(br, out, prompt, hist)
 }
 
 // ReadTTYLineNoHistory reads one line without history recall or recording (confirm prompts, pickers).
 func ReadTTYLineNoHistory(br *bufio.Reader, out io.Writer, prompt string) (string, error) {
-	return terminal.ReadLine(br, out, terminal.LineEditOptions{Prompt: prompt})
+	return terminal.ReadTTYLineNoHistory(br, out, prompt)
 }
 
 func reportShellError(err error) {

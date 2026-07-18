@@ -17,11 +17,16 @@
 package client
 
 import (
+	"io"
 	"strings"
 	"time"
 )
 
-const nestedPromptMaxWait = 30 * time.Second
+const (
+	nestedPromptMaxWait      = 30 * time.Second
+	nestedMOTDReadyFallback  = 2 * time.Second
+	nestedPromptPollInterval = remoteOutputQuietPollStep
+)
 
 // initActivePrompt sets active prompt identity to the dial target (single-hop default).
 func (c *Client) initActivePrompt() {
@@ -84,9 +89,8 @@ func (c *Client) onInteractiveLineSubmitted(line string) {
 	}
 
 	c.nestedMu.Lock()
-	defer c.nestedMu.Unlock()
-
 	if c.nestedState != nestedPromptIdle {
+		c.nestedMu.Unlock()
 		return
 	}
 
@@ -99,6 +103,31 @@ func (c *Client) onInteractiveLineSubmitted(line string) {
 	c.nestedMOTDAt = time.Time{}
 	c.nestedShellReadySeen = false
 	c.nestedPasswordPending = false
+	c.nestedMu.Unlock()
+
+	// Poll readiness so idle shells (MOTD + prompt, then silence) still get
+	// chain/host updates without waiting for another PTY chunk (NP1).
+	go c.pollNestedPromptReady()
+}
+
+// pollNestedPromptReady waits until nestedReadyToInject, then applies chain/host
+// (and optional AiT PS1). Exits when inject runs or the await is cancelled.
+func (c *Client) pollNestedPromptReady() {
+	if c == nil {
+		return
+	}
+
+	ticker := time.NewTicker(nestedPromptPollInterval)
+	defer ticker.Stop()
+	deadline := time.Now().Add(nestedPromptMaxWait)
+
+	for time.Now().Before(deadline) {
+		<-ticker.C
+		if c.tryNestedPromptInject() {
+			return
+		}
+	}
+	_ = c.tryNestedPromptInject()
 }
 
 func (c *Client) maybeInjectNestedPrompt(chunk []byte) {
@@ -107,12 +136,62 @@ func (c *Client) maybeInjectNestedPrompt(chunk []byte) {
 	}
 
 	c.nestedMu.Lock()
-	defer c.nestedMu.Unlock()
-
 	if c.nestedState != nestedPromptAwaitingShell {
+		c.nestedMu.Unlock()
 		return
 	}
 
+	c.observeNestedChunkLocked(chunk)
+	c.nestedMu.Unlock()
+
+	_ = c.tryNestedPromptInject()
+}
+
+// tryNestedPromptInject applies nested identity/chain when ready. Returns true when
+// the await is finished (injected, skipped, or no longer awaiting).
+func (c *Client) tryNestedPromptInject() bool {
+	if c == nil {
+		return true
+	}
+
+	c.nestedMu.Lock()
+	if c.nestedState != nestedPromptAwaitingShell {
+		c.nestedMu.Unlock()
+		return true
+	}
+
+	c.observeNestedScrollLocked()
+	if !c.nestedReadyToInject() {
+		c.nestedMu.Unlock()
+		return false
+	}
+
+	user := c.pendingNestedUser
+	host := c.pendingNestedHost
+	stdin := c.interactiveStdin
+	c.activePromptUser = user
+	c.activePromptHost = host
+	c.SetChainMode(true)
+	c.nestedState = nestedPromptInjecting
+	skipPS1 := UseRemoteSystemPrompt() || stdin == nil || user == "" || host == ""
+	if skipPS1 {
+		c.nestedState = nestedPromptIdle
+		c.nestedMu.Unlock()
+		return true
+	}
+	c.nestedMu.Unlock()
+
+	c.runNestedPS1Inject(stdin, user, host)
+
+	c.nestedMu.Lock()
+	if c.nestedState == nestedPromptInjecting {
+		c.nestedState = nestedPromptIdle
+	}
+	c.nestedMu.Unlock()
+	return true
+}
+
+func (c *Client) observeNestedChunkLocked(chunk []byte) {
 	if scrollChunkLooksLikePasswordPrompt(chunk) {
 		c.nestedPasswordPending = true
 		return
@@ -126,17 +205,27 @@ func (c *Client) maybeInjectNestedPrompt(chunk []byte) {
 		c.nestedPasswordPending = false
 	}
 
-	if c.nestedMOTDSeen && scrollChunkLooksLikeShellPrompt(chunk) {
+	if scrollChunkLooksLikeShellPrompt(chunk) {
 		c.nestedShellReadySeen = true
+		c.nestedPasswordPending = false
 	}
+}
 
-	if !c.nestedReadyToInject() {
+func (c *Client) observeNestedScrollLocked() {
+	if c.scroll == nil {
 		return
 	}
-
-	c.nestedState = nestedPromptInjecting
-	c.runNestedPromptInjectLocked()
-	c.nestedState = nestedPromptIdle
+	chunk := []byte(c.scroll.String())
+	if scrollChunkLooksLikeMOTD(chunk) {
+		if !c.nestedMOTDSeen {
+			c.nestedMOTDAt = time.Now()
+		}
+		c.nestedMOTDSeen = true
+	}
+	if scrollChunkLooksLikeShellPrompt(chunk) {
+		c.nestedShellReadySeen = true
+		c.nestedPasswordPending = false
+	}
 }
 
 func (c *Client) nestedReadyToInject() bool {
@@ -152,9 +241,11 @@ func (c *Client) nestedReadyToInject() bool {
 
 	if c.nestedMOTDSeen {
 		if !c.nestedShellReadySeen {
-			return false
-		}
-		if !c.nestedMOTDAt.IsZero() && time.Since(c.nestedMOTDAt) < shellReadyDelay {
+			// MOTD without a detected prompt: fall through after a short wait (NP3).
+			if c.nestedMOTDAt.IsZero() || time.Since(c.nestedMOTDAt) < nestedMOTDReadyFallback {
+				return false
+			}
+		} else if !c.nestedMOTDAt.IsZero() && time.Since(c.nestedMOTDAt) < shellReadyDelay {
 			return false
 		}
 	} else if time.Since(c.nestedAwaitingSince) < nestedPromptMaxWait {
@@ -168,21 +259,11 @@ func (c *Client) nestedReadyToInject() bool {
 	return time.Since(remoteOutAt(last)) >= remoteOutputQuietPeriod
 }
 
-func (c *Client) runNestedPromptInjectLocked() {
-	stdin := c.interactiveStdin
-	if stdin == nil {
+// runNestedPS1Inject installs AiT remote PS1 on the nested hop. Caller must not hold nestedMu.
+func (c *Client) runNestedPS1Inject(stdin io.Writer, user, host string) {
+	if stdin == nil || user == "" || host == "" {
 		return
 	}
-
-	user := c.pendingNestedUser
-	host := c.pendingNestedHost
-	if user == "" || host == "" {
-		return
-	}
-
-	c.activePromptUser = user
-	c.activePromptHost = host
-	c.SetChainMode(true)
 
 	c.beginRemotePromptSetup(c.remotePromptDirAbs, "")
 

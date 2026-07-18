@@ -32,7 +32,7 @@ var shellREPLCommands = fmt.Sprintf(`  help              show REPL help
   clear             clear terminal screen
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
-  ai                enter local AI mode (same as %s)
+  ai                enter local AI mode (experimental; same as %s)
   [flags] destination [command ...]  connect (ssh-style; --save or --alias to persist)
   load <id|alias> [--tmux] [--password]
   list              list saved sessions
@@ -53,7 +53,7 @@ var shellREPLCommandsNoLoad = fmt.Sprintf(`  help              show REPL help
   clear             clear terminal screen
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
-  ai                enter local AI mode (same as %s)
+  ai                enter local AI mode (experimental; same as %s)
   list              list saved sessions
   ll [path]         long directory listing (ls -la style; %s only)
   config, get, put  — same as: %s <command> ...

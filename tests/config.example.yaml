@@ -1,18 +1,19 @@
 # Copy to config.local.yaml and fill in your test environment.
-# config.local.yaml is gitignored; never commit secrets.
+# config.local.yaml is gitignored; never commit secrets or personal hostnames.
+# GitHub CI runs only `make test-e2e-smoke` (no SSH). Full host e2e is local-only.
 
 ait:
   binary: ../bin/aitssh
 
 ssh:
   primary:
-    host: dev.example.com
+    host: ""              # e.g. jump.example.com — required for @ssh tests locally
     port: 22
     user: root
     # identity: ~/.ssh/id_ed25519
     # password: ""   # prefer key auth; password appears in process list
   inner:
-    host: inner.example.com
+    host: ""              # nested hop FQDN for nested/zmodem tests
     port: 22
     user: root
   jump:

@@ -9,6 +9,11 @@ session:
     path: short
 
 ai:
+  # Experimental AI features (aitssh ai / !! / !ait ai) are off by default.
+  # Enable with: aitssh config set ai.experimental.enabled true
+  # Or for one process: aitssh --ai-experimental … / AIT_AI_EXPERIMENTAL=1
+  experimental:
+    enabled: false
   default: deepseek
   fallback: [minimax]
   tiered:

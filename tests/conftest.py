@@ -6,6 +6,7 @@ import pytest
 
 from tests.lib.cli import AITRunner
 from tests.lib.config import TestConfig, config_skip_reason, load_config
+from tests.lib.envflags import AI_EXPERIMENTAL_ENV, running_on_ci
 from tests.lib.expect import AITExpectSession, runner_env_from
 
 
@@ -34,10 +35,22 @@ def runner(test_config: TestConfig, ait_bin: str, ait_home: str) -> AITRunner:
         "LANG": test_config.lang,
         "LC_ALL": test_config.lang,
         "AIT_KEYRING_FILE_PASSWORD": test_config.keyring_password,
+        # Isolate from a developer shell that exported AIT_AI_EXPERIMENTAL=1.
+        "AIT_AI_EXPERIMENTAL": "",
     }
     if test_config.features.insecure_ssh:
         base["AIT_SSH_INSECURE"] = "1"
     return AITRunner(ait_bin, ait_home, base_env=base)
+
+
+@pytest.fixture
+def ai_runner(runner: AITRunner) -> AITRunner:
+    """Runner with experimental AI enabled (local AI smoke / @ai tests)."""
+    return AITRunner(
+        runner.binary,
+        runner.ait_home,
+        base_env={**runner.base_env, **AI_EXPERIMENTAL_ENV},
+    )
 
 
 @pytest.fixture
@@ -47,9 +60,17 @@ def expect_env(test_config: TestConfig, ait_home: str) -> dict[str, str]:
 
 def pytest_collection_modifyitems(config, items):
     cfg = load_config()
+    on_ci = running_on_ci()
     for item in items:
-        if item.get_closest_marker("ssh") and not cfg.is_ssh_configured():
-            item.add_marker(pytest.mark.skip(reason=config_skip_reason(cfg) or "SSH not configured"))
+        if item.get_closest_marker("ssh"):
+            if on_ci:
+                item.add_marker(
+                    pytest.mark.skip(reason="SSH/host e2e runs only locally (not on CI)"),
+                )
+            elif not cfg.is_ssh_configured():
+                item.add_marker(
+                    pytest.mark.skip(reason=config_skip_reason(cfg) or "SSH not configured"),
+                )
         if item.get_closest_marker("ai") and not cfg.is_ai_configured():
             item.add_marker(pytest.mark.skip(reason="AI not configured (keys or require_ollama)"))
         if item.get_closest_marker("tmux") and not cfg.features.tmux:
@@ -61,6 +82,8 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture(scope="module")
 def e2e_ssh_session(test_config: TestConfig, tmp_path_factory):
     """Shared login session for a module (one dial per file)."""
+    if running_on_ci():
+        pytest.skip("SSH/host e2e runs only locally (not on CI)")
     if not test_config.is_ssh_configured():
         pytest.skip(config_skip_reason(test_config))
     home = tmp_path_factory.mktemp("ssh_module_home")

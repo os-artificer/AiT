@@ -224,7 +224,12 @@ class AITExpectSession:
         return (self.child.before or "") + (self.child.after or "")
 
 
-def runner_env_from(cfg: TestConfig, ait_home: Path) -> dict[str, str]:
+def runner_env_from(
+    cfg: TestConfig,
+    ait_home: Path,
+    *,
+    ai_experimental: bool = False,
+) -> dict[str, str]:
     env = os.environ.copy()
     env["AIT_HOME"] = str(ait_home)
     env["AIT_KEYRING_BACKEND"] = "file"
@@ -232,6 +237,8 @@ def runner_env_from(cfg: TestConfig, ait_home: Path) -> dict[str, str]:
     env["AIT_KEYRING_FILE_PASSWORD"] = cfg.keyring_password
     env["LANG"] = cfg.lang
     env["LC_ALL"] = cfg.lang
+    # Clear inherited shell export so smoke/SSH fixtures control the gate explicitly.
+    env["AIT_AI_EXPERIMENTAL"] = "1" if ai_experimental else ""
     if cfg.features.insecure_ssh:
         env["AIT_SSH_INSECURE"] = "1"
     return env

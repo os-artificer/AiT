@@ -50,4 +50,9 @@ var (
 
 	// Shell REPL builtin shorthand (maps to session --list).
 	TryShellList = toolname.CLI("list")
+
+	// AI experimental gate (EX*): enable for current process / persist / env.
+	TryAIExperimentalCLI    = toolname.CLI("--ai-experimental ai")
+	TryAIExperimentalConfig = toolname.CLI("config set ai.experimental.enabled true")
+	TryAIExperimentalEnv    = "AIT_AI_EXPERIMENTAL=1 " + toolname.CLI("ai")
 )

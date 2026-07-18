@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -55,6 +56,7 @@ func TestRefreshRemotePrompt(t *testing.T) {
 }
 
 func TestHandleMetaLineCLI(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	var got []string
 	var stdin bytes.Buffer
 	c := testClientWithPrompt("u", "h")
@@ -101,6 +103,7 @@ func TestHandleMetaLineHelp(t *testing.T) {
 // TestHandleMetaLineUnknownRefreshesPrompt: native prompt mode re-emits from scrollback
 // without injecting a remote redraw when a prompt line is already buffered.
 func TestHandleMetaLineUnknownRefreshesPrompt(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt("u", "h")
 	_, _ = c.scroll.Write([]byte("u@h:~$ \r\n"))
 	var stdin bytes.Buffer
@@ -114,6 +117,7 @@ func TestHandleMetaLineUnknownRefreshesPrompt(t *testing.T) {
 }
 
 func TestRunMetaCLIFinishesStdout(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -159,6 +163,7 @@ func TestRunMetaCLIFinishesStdout(t *testing.T) {
 }
 
 func TestHandleMetaLineListFinishesStdout(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -203,6 +208,7 @@ func TestHandleMetaLineListFinishesStdout(t *testing.T) {
 // TestFinishMetaInteraction_ResyncsWhenPromptShown: native prompt mode re-emits the
 // native prompt from scrollback after meta, without injecting a remote redraw.
 func TestFinishMetaInteraction_ResyncsWhenPromptShown(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
@@ -228,6 +234,7 @@ func TestFinishMetaInteraction_ResyncsWhenPromptShown(t *testing.T) {
 // TestFinishMetaInteraction_SyncsRemotePS1WhenSetupSucceeded: native prompt mode re-emits
 // the buffered native prompt and never injects PS1 redraw into the remote shell.
 func TestFinishMetaInteraction_SyncsRemotePS1WhenSetupSucceeded(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
 	c.remotePromptReadySeen.Store(true)
@@ -253,6 +260,7 @@ func TestFinishMetaInteraction_SyncsRemotePS1WhenSetupSucceeded(t *testing.T) {
 // TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive: native prompt mode
 // re-emits the native prompt from scrollback after meta output, without a trailing newline.
 func TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
 	nativeLine := "root@remote [~] ➜ "
@@ -273,8 +281,8 @@ func TestFinishMetaInteraction_RepaintsPromptWhenDuplicateFilterActive(t *testin
 	}
 }
 
-// TestFinishMetaInteraction_PaintsAITWhenManaged: native prompt mode re-emits the native
-// oh-my-zsh prompt after meta and never paints an AiT-managed prompt.
+// TestFinishMetaInteraction_PaintsAITWhenManaged (P11): managed AiT prompt mode paints
+// AiT prompt after meta and does not leave only the native oh-my-zsh line on stdout.
 func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	c.remotePromptShown.Store(true)
@@ -291,11 +299,8 @@ func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
 	c.finishMetaInteraction(&stdin)
 
 	got := buf.String()
-	if !strings.Contains(got, nativeLine) {
-		t.Fatalf("expected native prompt re-emit, got %q", got)
-	}
-	if strings.Contains(got, "AiT ") {
-		t.Fatalf("should not paint AiT prompt in native mode, got %q", got)
+	if !strings.Contains(got, "AiT ") {
+		t.Fatalf("expected AiT-managed prompt paint, got %q", got)
 	}
 }
 
@@ -303,6 +308,7 @@ func TestFinishMetaInteraction_PaintsAITWhenManaged(t *testing.T) {
 // differs from the SSH dial target (e.g. root@devhost:~# via testPrimaryHostFQDN), meta must still
 // re-emit the buffered native prompt without waiting for Enter.
 func TestFinishMetaInteraction_NativePromptDialHostMismatch(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	nativeLine := "root@devhost:~# "
 	_, _ = c.scroll.Write([]byte(nativeLine))
@@ -325,6 +331,7 @@ func TestFinishMetaInteraction_NativePromptDialHostMismatch(t *testing.T) {
 // TestFinishNativePromptAfterMeta_SyncFallback: when scrollback has no prompt, meta falls
 // back to a silent remote redraw and re-emits the prompt captured while stdout is paused.
 func TestFinishNativePromptAfterMeta_SyncFallback(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	var stdin bytes.Buffer
 	var buf bytes.Buffer
@@ -347,6 +354,7 @@ func TestFinishNativePromptAfterMeta_SyncFallback(t *testing.T) {
 
 // TestFinishMetaInteraction_ShortBashPrompt: relaxed heuristics match short bash PS1 lines.
 func TestFinishMetaInteraction_ShortBashPrompt(t *testing.T) {
+	enableRemoteSystemPromptForTest(t)
 	c := testClientWithPrompt(testSSHUser, testPrimaryHostFQDN)
 	_, _ = c.scroll.Write([]byte("u@h:# "))
 
@@ -357,6 +365,66 @@ func TestFinishMetaInteraction_ShortBashPrompt(t *testing.T) {
 
 	if !strings.Contains(buf.String(), "u@h:#") {
 		t.Fatalf("stdout = %q, want short bash prompt re-emit", buf.String())
+	}
+}
+
+// EX5: experimental-disabled stub path returns nil so SSH stays connected.
+func TestHandleAIMetaLine_ExperimentalDisabled(t *testing.T) {
+	c := testClientWithPrompt("u", "h")
+	var stdin bytes.Buffer
+	called := false
+	err := c.handleAIMetaLine(context.Background(), &stdin, "ask hi", InteractiveOpts{
+		AI: nil,
+		OnRemoteAI: func(_ RemoteAIParams) error {
+			called = true
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected nil (SSH continues), got %v", err)
+	}
+	if !called {
+		t.Fatal("OnRemoteAI stub must be called when AI is nil")
+	}
+}
+
+// EX11: AI==nil + OnRemoteAI experimental error is ExperimentalDisabled, not NotConfigured.
+func TestHandleAIMetaLine_ExperimentalDisabledNotNotConfigured(t *testing.T) {
+	config.SetAIExperimentalCLI(false)
+	t.Setenv(config.EnvAIExperimental, "")
+	t.Cleanup(func() { config.SetAIExperimentalCLI(false) })
+
+	c := testClientWithPrompt("u", "h")
+	var stdin bytes.Buffer
+
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	defer func() { os.Stderr = old }()
+
+	runErr := c.handleAIMetaLine(context.Background(), &stdin, "!!", InteractiveOpts{
+		AI: nil,
+		OnRemoteAI: func(_ RemoteAIParams) error {
+			return config.RequireAIExperimental(&config.Config{})
+		},
+	})
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	os.Stderr = old
+
+	if runErr != nil {
+		t.Fatalf("expected nil (SSH continues), got %v", runErr)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "experimental") {
+		t.Fatalf("want experimental hint, got %q", out)
+	}
+	if strings.Contains(out, "AI not configured") {
+		t.Fatalf("must not show NotConfigured when experimental is disabled: %q", out)
 	}
 }
 

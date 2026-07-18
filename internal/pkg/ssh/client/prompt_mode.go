@@ -16,8 +16,14 @@
 
 package client
 
+import "os"
+
+const envRemoteSystemPrompt = "AIT_REMOTE_SYSTEM_PROMPT"
+
 // UseRemoteSystemPrompt reports whether SSH interactive mode should keep the
 // remote shell's native prompt unchanged instead of installing AiT prompt setup.
+// Default is false (AiT-managed prompt). Set AIT_REMOTE_SYSTEM_PROMPT=1 to opt into
+// native remote prompts.
 func UseRemoteSystemPrompt() bool {
-	return true
+	return os.Getenv(envRemoteSystemPrompt) == "1"
 }

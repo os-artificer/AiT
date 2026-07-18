@@ -21,9 +21,9 @@ import (
 	"os"
 
 	"github.com/os-artificer/AiT/internal/aissh/ai/deps"
-	"github.com/os-artificer/AiT/internal/aissh/ai/mode/chat"
 	"github.com/os-artificer/AiT/internal/aissh/ai/runner"
 	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
+	"github.com/os-artificer/AiT/internal/pkg/aimode/chat"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/session"
 
