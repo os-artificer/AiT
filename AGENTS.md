@@ -1,16 +1,17 @@
 # AiT — Agent orientation
 
-**AiT** is a Go **toolbox** (module `github.com/os-artificer/AiT`). The first shipped tool is **`aitssh`** — an SSH client with SQLite session storage, optional remote tmux persistence, optional **experimental** multi-provider AI (off by default; Deepseek, MiniMax, optional tiered Ollama), and SFTP file get/put. Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
+**AiT** is a Go **toolbox** (module `github.com/os-artificer/AiT`). Shipped tools: **`aitssh`** (SSH client with sessions, optional experimental AI, SFTP/ZMODEM transfer) and **`aitimg`** (image EXIF metadata + Nominatim reverse geocode). Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
 
 ## Build and test
 
 ```bash
-make build       # → bin/aitssh
+make build       # → bin/aitssh and bin/aitimg
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
 make test-cross  # five-platform go build ./... (linux/darwin/windows)
-./bin/aitssh        # run binary
+./bin/aitssh        # run SSH tool
+./bin/aitimg        # run image metadata tool
 ```
 
 Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARCH=amd64 go build -o bin/aitssh.exe ./cmd/aitssh`.
@@ -24,14 +25,19 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **Transfer**: `aitssh get` / `aitssh put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (unified router: lrzsz/ZMODEM first, SFTP fallback on direct hop, chain auto-install when missing lrzsz)
 - **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe ZMODEM file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_zmodem.go`; `internal/pkg/tmux/remote_pty.go`)
 - **OpenSSH config**: default connect and `load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
+- **Image metadata (`aitimg`)**: EXIF extract via `internal/pkg/imgmeta`; reverse geocode via `internal/pkg/geocode` (Nominatim)
 
-Project structure: [`docs/architecture.md`](docs/architecture.md). aitssh guide: [`docs/tools/aitssh.md`](docs/tools/aitssh.md). aitssh internals: [`docs/tools/aitssh-internals.md`](docs/tools/aitssh-internals.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
+Project structure: [`docs/architecture.md`](docs/architecture.md). aitssh: [`docs/tools/aitssh.md`](docs/tools/aitssh.md), [`docs/tools/aitssh-internals.md`](docs/tools/aitssh-internals.md). aitimg: [`docs/tools/aitimg.md`](docs/tools/aitimg.md), [`docs/tools/aitimg-internals.md`](docs/tools/aitimg-internals.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
 
 ## Where code lives
 
 | Path | Role |
 |------|------|
 | `cmd/aitssh/main.go` | Thin `main` — delegates to `aissh.Run` |
+| `cmd/aitimg/main.go` | Thin `main` — delegates to `aitimg.Run` |
+| `internal/aitimg/` | `aitimg` CLI (package **`aitimg`**: `Run`, `Execute`, help, version ldflags) |
+| `internal/pkg/imgmeta/` | Image EXIF extract + human/JSON formatters |
+| `internal/pkg/geocode/` | Nominatim reverse geocode HTTP client |
 | `internal/aissh/` | CLI entry (Go package **`aissh`**: `Run`, `ExitCode`, `Execute`, `NewManager`, Cobra root); subpackages below |
 | `internal/aissh/registry/` | Top-level command registry (OCP); root help via `registry/root_help.go` + `internal/pkg/helpdoc` |
 | `internal/pkg/helpdoc/` | Shared `--help` layout (`Body`, `Bind`, OpenSSH blocks, `WriteTransferHelp`, TTY keys) |

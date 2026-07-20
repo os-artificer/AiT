@@ -2,9 +2,10 @@
 
 **AiT** is a cross-platform (Linux / macOS / Windows) AI-enhanced command-line **toolbox** for operations engineers—terminal and SSH workflows today, more tools over time.
 
-**First tool:** [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer).
+**Tools:**
 
-Full CLI reference: [aitssh guide](docs/tools/aitssh.md).
+- [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer). Guide: [aitssh](docs/tools/aitssh.md).
+- [`aitimg`](cmd/aitimg) — image metadata extractor (EXIF, GPS, reverse-geocoded address). Guide: [aitimg](docs/tools/aitimg.md).
 
 ## What you get
 
@@ -58,13 +59,16 @@ git clone https://github.com/os-artificer/AiT.git
 cd AiT
 make build
 ./bin/aitssh --help
+./bin/aitimg --help
 ```
 
 **`go install`** (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
 
 ```bash
 go install github.com/os-artificer/AiT/cmd/aitssh@latest
+go install github.com/os-artificer/AiT/cmd/aitimg@latest
 aitssh --help
+aitimg --help
 ```
 
 Ensure `$(go env GOPATH)/bin` is on your PATH.
@@ -76,6 +80,8 @@ Ensure `$(go env GOPATH)/bin` is on your PATH.
 | Project structure | [docs/architecture.md](docs/architecture.md) |
 | aitssh internals | [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md) |
 | aitssh guide | [docs/tools/aitssh.md](docs/tools/aitssh.md) |
+| aitimg internals | [docs/tools/aitimg-internals.md](docs/tools/aitimg-internals.md) |
+| aitimg guide | [docs/tools/aitimg.md](docs/tools/aitimg.md) |
 | Python E2E tests | [tests/README.md](tests/README.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Code layout | [AGENTS.md](AGENTS.md) |

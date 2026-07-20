@@ -2,6 +2,10 @@
 
 This file records **product and CLI** functional changes only; documentation-only updates are not included. When a release is tagged, move items from `[Unreleased]` into a dated version section.
 
+## [Unreleased]
+
+- 【Added】`aitimg`: extract image EXIF metadata (device, time, GPS) with Nominatim reverse-geocoded Location; `--json` / `--no-geocode`.
+
 ## [v1.0.1]
 
 - 【Added】AI is experimental and off by default; enable via `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `--ai-experimental`.
