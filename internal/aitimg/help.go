@@ -17,39 +17,37 @@
 package aitimg
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
+	"github.com/os-artificer/AiT/internal/aitimg/extract"
+	"github.com/os-artificer/AiT/internal/aitimg/registry"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// WriteRootHelp prints aitimg --help to w.
+// WriteRootHelp prints aitimg --help to w (default extract usage + registered Commands).
 func WriteRootHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
-	if err := b.WriteIntro(
-		"Extract image metadata: device, capture time, GPS coordinates, and reverse-geocoded location.",
-		"Formats: JPEG, PNG (TIFF/WebP best-effort). Address lookup uses OpenStreetMap Nominatim (needs network).",
-	); err != nil {
+	if err := extract.WriteIntroUsageArgsFlags(b); err != nil {
 		return err
 	}
-	if err := b.WriteUsage("aitimg [flags] <file...>"); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionCommands, formatRootCommands(registry.RootHelpEntries())); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Arguments", "  <file...>    one or more image paths\n"); err != nil {
+
+	examples := append(extract.DefaultExamples(), toolname.AIImg+" version")
+	if err := b.WriteExamples(examples...); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Flags", ""+
-		"  --json           emit JSON array to stdout\n"+
-		"  --no-geocode     skip reverse geocode; Location shows 0 (GPS still shown)\n"+
-		"  -V, --version    print build version and exit\n"); err != nil {
-		return err
+	return b.Finish(toolname.AIImg)
+}
+
+func formatRootCommands(entries []pkghelpdoc.RootCommandEntry) string {
+	var b strings.Builder
+	for _, sc := range entries {
+		fmt.Fprintf(&b, "  %-10s %s\n", sc.Name, sc.Short)
 	}
-	if err := b.WriteExamples(
-		"aitimg photo.jpg",
-		"aitimg --json photo.jpg shot.png",
-		"aitimg --no-geocode photo.jpg",
-		"aitimg --version",
-	); err != nil {
-		return err
-	}
-	return b.Finish("aitimg")
+	return b.String()
 }

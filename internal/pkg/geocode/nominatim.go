@@ -30,16 +30,22 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://nominatim.openstreetmap.org/reverse"
-	acceptLanguage = "zh-CN,en"
-	httpTimeout    = 8 * time.Second
+	defaultBaseURL   = "https://nominatim.openstreetmap.org/reverse"
+	acceptLanguage   = "zh-CN,en"
+	httpTimeout      = 8 * time.Second
+	maxResponseBytes = 1 << 20
+	projectHomeURL   = "https://github.com/os-artificer/AiT"
+	defaultUserAgent = "AiT-aitimg/dev (" + projectHomeURL + ")"
 )
 
 // Client performs Nominatim reverse geocode requests.
 type Client struct {
-	BaseURL   string
+	// BaseURL overrides the Nominatim reverse endpoint (tests / mirrors).
+	BaseURL string
+	// UserAgent is sent on each request; empty uses defaultUserAgent.
 	UserAgent string
-	HTTP      *http.Client
+	// HTTP is the optional client; nil uses a client with httpTimeout.
+	HTTP *http.Client
 }
 
 // Reverse looks up a human-readable address for lat/lon.
@@ -49,10 +55,12 @@ func (c *Client) Reverse(ctx context.Context, lat, lon float64) (string, error) 
 	if base == "" {
 		base = defaultBaseURL
 	}
+
 	ua := c.UserAgent
 	if ua == "" {
-		ua = "AiT-aitimg/dev (https://github.com/os-artificer/AiT)"
+		ua = defaultUserAgent
 	}
+
 	httpClient := c.HTTP
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: httpTimeout}
@@ -81,7 +89,7 @@ func (c *Client) Reverse(ctx context.Context, lat, lon float64) (string, error) 
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return "", err
 	}
@@ -99,6 +107,7 @@ func (c *Client) Reverse(ctx context.Context, lat, lon float64) (string, error) 
 	if parsed.Error != "" {
 		return "", fmt.Errorf("nominatim: %s", parsed.Error)
 	}
+
 	name := strings.TrimSpace(parsed.DisplayName)
 	if name == "" {
 		return "", fmt.Errorf("nominatim: empty display_name")

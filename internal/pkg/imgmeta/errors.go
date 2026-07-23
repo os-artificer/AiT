@@ -23,4 +23,8 @@ var (
 	ErrUnsupported = errors.New("unsupported image format")
 	// ErrEmptyPath is returned when Extract is called with an empty path.
 	ErrEmptyPath = errors.New("image path required")
+	// ErrPartialFailure reports that one or more input files failed while others may have succeeded.
+	ErrPartialFailure = errors.New("one or more files failed")
+	// ErrNothingToChange is returned when Patch/Clear is called with an empty request.
+	ErrNothingToChange = errors.New("no metadata fields specified")
 )

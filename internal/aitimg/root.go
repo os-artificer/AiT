@@ -22,13 +22,14 @@ import (
 	"os"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	"github.com/os-artificer/AiT/internal/pkg/imgmeta"
 )
 
 // Run is the application entry invoked from cmd/aitimg.
-// args are os.Args[1:] passed to the Cobra root command.
+// args are os.Args[1:] passed to Execute.
 func Run(args []string) error {
 	if err := Execute(args); err != nil {
-		if !errors.Is(err, errPartialFailure) {
+		if !errors.Is(err, imgmeta.ErrPartialFailure) {
 			errhint.Print(os.Stderr, errhint.SurfaceCLI, err)
 		}
 		return err

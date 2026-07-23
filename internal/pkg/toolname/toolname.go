@@ -14,12 +14,14 @@
  * limitations under the License.
 **/
 
-// Package toolname holds SSOT strings for the aitssh CLI tool name and meta prefix.
+// Package toolname holds SSOT strings for AiT CLI tool names and the SSH meta prefix.
 package toolname
 
 const (
-	// AISsh is the Cobra root command name and installed binary name.
+	// AISsh is the aitssh Cobra root command name and installed binary name.
 	AISsh = "aitssh"
+	// AIImg is the aitimg Cobra root command name and installed binary name.
+	AIImg = "aitimg"
 	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ait).
 	MetaPrefix = "!ait"
 )

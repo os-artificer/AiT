@@ -14,12 +14,18 @@
  * limitations under the License.
 **/
 
+// Package imgmeta extracts best-effort image metadata (EXIF, dims, GPS) for aitimg.
 package imgmeta
 
-import "time"
+import (
+	"time"
+
+	"github.com/evanoberholster/imagemeta/meta/exif"
+)
 
 // Info holds extracted image metadata for display.
 // Address is filled by the caller after reverse geocode (formatters do not dial the network).
+// Exif, when non-nil, is the structured decode used by FormatFullHuman / --all JSON.
 type Info struct {
 	File         string
 	Format       string
@@ -36,6 +42,7 @@ type Info struct {
 	Latitude     *float64
 	Longitude    *float64
 	Altitude     *float64
+	Exif         *exif.Exif
 }
 
 // HasGPS reports whether EXIF GPS coordinates are present.

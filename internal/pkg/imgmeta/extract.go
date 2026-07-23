@@ -23,12 +23,10 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/evanoberholster/imagemeta"
-	"github.com/evanoberholster/imagemeta/imagetype"
 	"github.com/evanoberholster/imagemeta/meta/exif"
 )
 
@@ -49,7 +47,7 @@ func Extract(path string) (Info, error) {
 
 	ex, decodeErr := imagemeta.Decode(f)
 	if decodeErr == nil {
-		fillFromDecoded(&info, ex)
+		fillFromDecoded(&info, ex, f)
 		return info, nil
 	}
 
@@ -58,17 +56,18 @@ func Extract(path string) (Info, error) {
 	}
 
 	if errors.Is(decodeErr, imagemeta.ErrNoExif) {
+		attachExif(&info, ex)
 		info.Format = formatFromImageType(ex.ImageType)
 		if info.Format == "" {
 			info.Format = formatFromExt(path)
 		}
-		fillDimsFromConfig(&info, path)
+		fillDimsFromFile(&info, f)
 		return info, nil
 	}
 
 	// Partial decode with known type: keep available tags.
 	if !ex.ImageType.IsUnknown() {
-		fillFromDecoded(&info, ex)
+		fillFromDecoded(&info, ex, f)
 		return info, nil
 	}
 
@@ -97,7 +96,9 @@ func tryImageConfigFallback(f *os.File, path string, info Info, decodeErr error)
 	return info, nil
 }
 
-func fillFromDecoded(info *Info, ex exif.Exif) {
+func fillFromDecoded(info *Info, ex exif.Exif, f *os.File) {
+	attachExif(info, ex)
+
 	info.Format = formatFromImageType(ex.ImageType)
 	if info.Format == "" {
 		info.Format = formatFromExt(info.File)
@@ -149,58 +150,6 @@ func fillFromDecoded(info *Info, ex exif.Exif) {
 	}
 
 	if info.Width == 0 || info.Height == 0 {
-		fillDimsFromConfig(info, info.File)
-	}
-}
-
-func fillDimsFromConfig(info *Info, path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	cfg, _, err := image.DecodeConfig(f)
-	if err != nil {
-		return
-	}
-	if info.Width == 0 {
-		info.Width = cfg.Width
-	}
-	if info.Height == 0 {
-		info.Height = cfg.Height
-	}
-}
-
-func formatFromExt(path string) string {
-	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
-	switch ext {
-	case "jpg", "jpeg", "jpe", "jfif":
-		return "jpeg"
-	case "png":
-		return "png"
-	case "tif", "tiff":
-		return "tiff"
-	case "webp":
-		return "webp"
-	case "heic", "heif":
-		return "heic"
-	case "exif":
-		return "exif"
-	default:
-		return ext
-	}
-}
-
-func formatFromImageType(it imagetype.ImageType) string {
-	if it.IsUnknown() {
-		return ""
-	}
-	ext := it.Extension()
-	switch ext {
-	case "jpg", "jpeg":
-		return "jpeg"
-	default:
-		return ext
+		fillDimsFromFile(info, f)
 	}
 }
