@@ -6,7 +6,8 @@ This file records **product and CLI** functional changes only; documentation-onl
 
 - 【Added】`aitimg`: extract image EXIF metadata (device, time, GPS) with Nominatim reverse-geocoded Location; `--json` / `--no-geocode`.
 - 【Added】`aitimg --all`: print full structured EXIF (IFD0/ExifIFD/GPS/…) after the locked summary; `--json --all` embeds an `exif` object.
-- 【Added】`aitimg set` / `aitimg clear`: write or clear locked EXIF fields on JPEG (in place); `aitimg version` subcommand; OCP command registry.
+- 【Added】`aitimg set` / `aitimg clear`: write or clear locked EXIF fields on JPEG; `aitimg version` subcommand; OCP command registry.
+- 【Changed】**BREAKING** `aitimg set`/`clear`: default write target is a new sibling file (`*_aitimg.jpg`); TTY prompts to overwrite; use `--inplace`/`-y` or `-o` for explicit paths.
 
 ## [v1.0.1]
 

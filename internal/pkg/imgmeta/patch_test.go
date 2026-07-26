@@ -135,6 +135,50 @@ func TestPatch_Empty(t *testing.T) {
 	}
 }
 
+func TestPatchTo_WritesToDst(t *testing.T) {
+	src := copyTestdata(t, "with_exif.jpg")
+	before, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(filepath.Dir(src), "out.jpg")
+	makeVal := "DstOnlyMake"
+	if err := imgmeta.PatchTo(src, dst, imgmeta.PatchFields{Make: &makeVal}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("src bytes changed")
+	}
+	info, err := imgmeta.Extract(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(info.Make, makeVal) {
+		t.Fatalf("dst Make=%q", info.Make)
+	}
+	srcInfo, err := imgmeta.Extract(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.EqualFold(srcInfo.Make, makeVal) {
+		t.Fatal("src Make should be unchanged")
+	}
+}
+
+func TestPatchTo_EmptyPaths(t *testing.T) {
+	makeVal := "X"
+	if err := imgmeta.PatchTo("", "a.jpg", imgmeta.PatchFields{Make: &makeVal}); !errors.Is(err, imgmeta.ErrEmptyPath) {
+		t.Fatalf("got %v", err)
+	}
+	if err := imgmeta.PatchTo("a.jpg", "", imgmeta.PatchFields{Make: &makeVal}); !errors.Is(err, imgmeta.ErrEmptyPath) {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestParseDateTime(t *testing.T) {
 	t1, err := imgmeta.ParseDateTime("2020:06:07 01:30:00")
 	if err != nil {

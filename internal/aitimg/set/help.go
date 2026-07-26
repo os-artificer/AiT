@@ -27,8 +27,8 @@ import (
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(
-		"Set writable EXIF fields on JPEG images (in place).",
-		"Unsupported for PNG/TIFF/WebP in this version. Does not change image pixels.",
+		"Set writable EXIF fields on JPEG images.",
+		"By default writes a new sibling file (*_aitimg.jpg). On a TTY, asks whether to overwrite originals. JPEG only; does not change pixels.",
 	); err != nil {
 		return err
 	}
@@ -47,12 +47,16 @@ func WriteHelp(w io.Writer) error {
 		"  --serial string       body serial number\n"+
 		"  --datetime string     RFC3339 or YYYY:MM:DD HH:MM:SS\n"+
 		"  --gps lat,lon         decimal degrees\n"+
-		"  --altitude meters     altitude in meters\n"); err != nil {
+		"  --altitude meters     altitude in meters\n"+
+		"  -o, --output path     write to path (single input; no prompt)\n"+
+		"  --inplace             overwrite original file(s)\n"+
+		"  -y, --yes             same as --inplace\n"); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		toolname.AIImg+" set --make Canon photo.jpg",
-		toolname.AIImg+" set --gps 31.2304,121.4737 --altitude 12 photo.jpg",
+		toolname.AIImg+" set --make Canon --inplace photo.jpg",
+		toolname.AIImg+" set --gps 31.2304,121.4737 -o out.jpg photo.jpg",
 		toolname.AIImg+` set --datetime "2020:06:07 01:30:00" photo.jpg`,
 	); err != nil {
 		return err

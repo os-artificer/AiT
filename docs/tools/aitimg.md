@@ -1,6 +1,6 @@
 # aitimg
 
-`aitimg` extracts image metadata (EXIF) from common formats and prints device, capture time, GPS coordinates, and a reverse-geocoded address. It can also **set** or **clear** writable EXIF fields on **JPEG** files in place.
+`aitimg` extracts image metadata (EXIF) from common formats and prints device, capture time, GPS coordinates, and a reverse-geocoded address. It can also **set** or **clear** writable EXIF fields on **JPEG** files (default: write a new sibling file).
 
 ## Build
 
@@ -20,11 +20,12 @@ aitimg --no-geocode photo.jpg       # skip network; Location shows 0; GPS still 
 aitimg --version                    # or -V; also: aitimg version
 aitimg version --help               # subcommand help (not: aitimg help version)
 
-aitimg set --make Canon photo.jpg
-aitimg set --gps 31.2304,121.4737 --altitude 12 photo.jpg
+aitimg set --make Canon photo.jpg                 # writes photo_aitimg.jpg by default
+aitimg set --make Canon --inplace photo.jpg       # overwrite original
+aitimg set --gps 31.2304,121.4737 -o out.jpg photo.jpg
 aitimg set --datetime "2020:06:07 01:30:00" photo.jpg
 aitimg clear --gps --make photo.jpg
-aitimg clear --all photo.jpg
+aitimg clear --all --inplace photo.jpg
 ```
 
 `aitimg version` prints build version (and takes precedence over a file named `version`).
@@ -39,7 +40,18 @@ Writable / clearable locked fields:
 
 Not writable: File, Format, Width, Height, Location (Address is reverse-geocode only).
 
-`set` requires at least one field flag. `clear` requires at least one field flag or `--all`. Writes are in place (temp file + rename). PNG/TIFF/WebP return unsupported.
+`set` requires at least one field flag. `clear` requires at least one field flag or `--all`.
+
+**Write target (BREAKING vs earlier in-place default):**
+
+- Default (non-TTY): write a sibling `*_aitimg.jpg` (or `*_aitimg_N.jpg` on collision); leave the source unchanged
+- Default (TTY): prompt once on stderr `Overwrite original file(s)? [y/N]` (`y` = overwrite; anything else = sibling file)
+- `-o` / `--output path`: write to that path (single input only; may overwrite an existing file; no prompt)
+- `--inplace` / `-y`: overwrite each input with no prompt
+- `-o` cannot combine with multiple inputs or with `--inplace`/`-y`
+- `-o` rejecting an existing directory
+
+PNG/TIFF/WebP return unsupported.
 
 ### Output
 

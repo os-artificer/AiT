@@ -21,6 +21,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/dsoprea/go-exif/v3"
@@ -37,7 +38,14 @@ const (
 // Patch writes the non-nil fields in p into path (JPEG only, in place).
 // Returns ErrEmptyPath, ErrNothingToChange, ErrUnsupported, or a write/parse error.
 func Patch(path string, p PatchFields) error {
-	if path == "" {
+	return PatchTo(path, path, p)
+}
+
+// PatchTo writes the non-nil fields in p by reading src and writing dst (JPEG only).
+// src and dst must be non-empty. When dst differs from src, src is left unchanged.
+// Returns ErrEmptyPath, ErrNothingToChange, ErrUnsupported, or a write/parse error.
+func PatchTo(src, dst string, p PatchFields) error {
+	if src == "" || dst == "" {
 		return ErrEmptyPath
 	}
 	if p.Empty() {
@@ -48,7 +56,7 @@ func Patch(path string, p PatchFields) error {
 			return fmt.Errorf("%w: --gps requires both latitude and longitude", ErrNothingToChange)
 		}
 	}
-	return mutateJPEG(path, func(rootIb *exif.IfdBuilder) error {
+	return mutateJPEG(src, dst, func(rootIb *exif.IfdBuilder) error {
 		return applyPatch(rootIb, p)
 	})
 }
@@ -56,24 +64,36 @@ func Patch(path string, p PatchFields) error {
 // Clear removes the selected writable EXIF fields from path (JPEG only, in place).
 // Returns ErrEmptyPath, ErrNothingToChange, ErrUnsupported, or a write/parse error.
 func Clear(path string, mask ClearMask) error {
-	if path == "" {
+	return ClearTo(path, path, mask)
+}
+
+// ClearTo removes the selected writable EXIF fields by reading src and writing dst (JPEG only).
+// src and dst must be non-empty. When dst differs from src, src is left unchanged.
+// Returns ErrEmptyPath, ErrNothingToChange, ErrUnsupported, or a write/parse error.
+func ClearTo(src, dst string, mask ClearMask) error {
+	if src == "" || dst == "" {
 		return ErrEmptyPath
 	}
 	if mask.Empty() {
 		return ErrNothingToChange
 	}
-	return mutateJPEG(path, func(rootIb *exif.IfdBuilder) error {
+	return mutateJPEG(src, dst, func(rootIb *exif.IfdBuilder) error {
 		return applyClear(rootIb, mask)
 	})
 }
 
-func mutateJPEG(path string, apply func(*exif.IfdBuilder) error) error {
-	if err := requireJPEG(path); err != nil {
+func mutateJPEG(src, dst string, apply func(*exif.IfdBuilder) error) error {
+	if err := requireJPEG(src); err != nil {
 		return err
 	}
 
+	var srcMode os.FileMode
+	if fi, err := os.Stat(src); err == nil {
+		srcMode = fi.Mode().Perm()
+	}
+
 	jmp := jpegstructure.NewJpegMediaParser()
-	intfc, err := jmp.ParseFile(path)
+	intfc, err := jmp.ParseFile(src)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrUnsupported, err)
 	}
@@ -93,7 +113,7 @@ func mutateJPEG(path string, apply func(*exif.IfdBuilder) error) error {
 		return err
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".aitimg-*.jpg")
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".aitimg-*.jpg")
 	if err != nil {
 		return err
 	}
@@ -107,7 +127,21 @@ func mutateJPEG(path string, apply func(*exif.IfdBuilder) error) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpName, path)
+	if err := replaceFile(tmpName, dst); err != nil {
+		return err
+	}
+	if srcMode != 0 {
+		_ = os.Chmod(dst, srcMode)
+	}
+	return nil
+}
+
+// replaceFile moves tmp onto dst. On Windows, removes dst first because Rename fails if dest exists.
+func replaceFile(tmp, dst string) error {
+	if runtime.GOOS == "windows" {
+		_ = os.Remove(dst)
+	}
+	return os.Rename(tmp, dst)
 }
 
 func requireJPEG(path string) error {

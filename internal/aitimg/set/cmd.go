@@ -37,6 +37,10 @@ type setFlags struct {
 	datetime     string
 	gps          string
 	altitude     string
+	output       string
+	inplace      bool
+	yes          bool
+	outputSet    bool
 	sawMake      bool
 	sawModel     bool
 	sawSoftware  bool
@@ -68,6 +72,7 @@ func New() *cobra.Command {
 			f.sawDatetime = c.Flags().Changed("datetime")
 			f.sawGPS = c.Flags().Changed("gps")
 			f.sawAltitude = c.Flags().Changed("altitude")
+			f.outputSet = c.Flags().Changed("output")
 			return runSet(c.OutOrStdout(), c.ErrOrStderr(), args, f)
 		},
 	}
@@ -81,6 +86,9 @@ func New() *cobra.Command {
 	cmd.Flags().StringVar(&f.datetime, "datetime", "", "capture time (RFC3339 or YYYY:MM:DD HH:MM:SS)")
 	cmd.Flags().StringVar(&f.gps, "gps", "", "latitude,longitude (decimal degrees)")
 	cmd.Flags().StringVar(&f.altitude, "altitude", "", "altitude in meters")
+	cmd.Flags().StringVarP(&f.output, "output", "o", "", "write result to this path (single input)")
+	cmd.Flags().BoolVar(&f.inplace, "inplace", false, "overwrite original file(s)")
+	cmd.Flags().BoolVarP(&f.yes, "yes", "y", false, "same as --inplace (yes, overwrite originals)")
 
 	pkghelpdoc.Bind(cmd, WriteHelp)
 	return cmd

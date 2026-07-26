@@ -10,13 +10,14 @@ internal/aitimg/registry/all      → blank-imports command registrars
 internal/aitimg/extract           → default route (not registry.Register); package name ≠ CLI verb
 internal/aitimg/set               → registered `aitimg set` (JPEG EXIF write)
 internal/aitimg/clear             → registered `aitimg clear` (JPEG EXIF clear)
+internal/aitimg/outpath           → set/clear destination resolve (AutoName, -o, confirm); not a command
 internal/aitimg/version           → VERSION + ldflags + registered `aitimg version`
 internal/pkg/toolname             → AIImg (and AISsh) SSOT
-internal/pkg/imgmeta              → Extract + Patch/Clear (JPEG write) + formatters
+internal/pkg/imgmeta              → Extract + Patch/PatchTo + Clear/ClearTo (JPEG write) + formatters
 internal/pkg/geocode              → Nominatim HTTP reverse geocode
 ```
 
-Import direction: `cmd` → `internal/aitimg` → `extract` / `set` / `clear` / `registry` / `version` → `internal/pkg/*`.  
+Import direction: `cmd` → `internal/aitimg` → `extract` / `set` / `clear` / `outpath` / `registry` / `version` → `internal/pkg/*`.  
 `internal/pkg` must not import `internal/aitimg`.  
 `registry` must not import `extract`.
 
@@ -38,9 +39,11 @@ Command names that collide with common filenames (e.g. `version`) take precedenc
 
 ### EXIF write path
 
-- `imgmeta.Patch` / `imgmeta.Clear` use `dsoprea/go-exif/v3` + `dsoprea/go-jpeg-image-structure/v2`
+- `imgmeta.PatchTo` / `ClearTo` use `dsoprea/go-exif/v3` + `dsoprea/go-jpeg-image-structure/v2`
+- `Patch` / `Clear` are in-place wrappers (`dst == src`)
 - JPEG only (SOI check); other formats → `ErrUnsupported`
-- In-place via temp file + `os.Rename`
+- Write via temp in `Dir(dst)` + `replaceFile` (Windows-safe rename)
+- CLI default: sibling `*_aitimg.jpg` via `outpath.Resolve` (TTY overwrite prompt; `-o` / `--inplace` / `-y`)
 - Writable fields: Make, Model, Software, LensMake, LensModel, SerialNumber, DateTime, GPS, Altitude
 
 ## File layout
@@ -56,6 +59,7 @@ Command names that collide with common filenames (e.g. `version`) take precedenc
 | `registry/` | Register, AttachRoot, Entries, IsRegistered, RootHelpEntries, Deps |
 | `extract/` | Default-route Cobra, `Run`, `WriteHelp`, geocode test hooks |
 | `set/` / `clear/` | Registered write/clear subcommands |
+| `outpath/` | AutoName, Resolve, confirm, output sentinels (not registered) |
 | `version/` | `Version()` / `Short()` + registered subcommand |
 
 ### `internal/pkg/imgmeta`
@@ -65,7 +69,7 @@ Command names that collide with common filenames (e.g. `version`) take precedenc
 | `types.go` | `Info`, package comment |
 | `errors.go` | `ErrEmptyPath`, `ErrUnsupported`, `ErrPartialFailure`, `ErrNothingToChange` |
 | `extract.go` / `extract_helpers.go` | `Extract` + dims/format helpers |
-| `patch.go` / `patch_jpeg.go` | `PatchFields`, `ClearMask`, `Patch`, `Clear` |
+| `patch.go` / `patch_jpeg.go` | `PatchFields`, `ClearMask`, `Patch`/`PatchTo`, `Clear`/`ClearTo` |
 | `format_human.go` / `format_helpers.go` | locked summary fields |
 | `format_json.go` | JSON array (+ optional nested `"exif"`) |
 | `format_full.go` / helpers | `--all` Field/Value tables |
@@ -82,10 +86,12 @@ Command names that collide with common filenames (e.g. `version`) take precedenc
 2. Successful/partial decode retains `Info.Exif` (`*exif.Exif`) for `--all`.
 3. If GPS is present and `--no-geocode` is unset, CLI calls `geocode.Client.Reverse`.
 4. Formatters print locked `Info` fields; `--all` adds `FormatFullHuman` / nested JSON `"exif"` from the library marshal of `Info.Exif`.
-5. `set`/`clear` call `imgmeta.Patch`/`Clear` then write JPEG segments back.
+5. `set`/`clear` validate flags → `outpath.Resolve` → `imgmeta.PatchTo`/`ClearTo`.
 
 ## Acceptance
 
 **IM\*** / **IM-FULL\*** / **IM-TABLE\***: extract and `--all` formatting (unchanged).
 
-**SC1–SC10**: set/clear JPEG write (`TestPatch_*`, `TestClear_*`, `TestSetCmd_NoFlags`, `TestClearCmd_NoFlags`, `TestCLI_SetAndClearMake`, `TestCLI_SetPartialFailure`, root help Commands).
+**SC1–SC10**: set/clear JPEG write (`TestPatch_*`, `TestClear_*`, `TestSetCmd_NoFlags`, `TestClearCmd_NoFlags`, `TestCLI_SetAndClearMake` / `TestCLI_SetPartialFailure` with `--inplace`, root help Commands).
+
+**OW1–OW14**: default sibling write + overwrite prompt (`TestCLI_SetDefaultNewFile_NonTTY`, `TestOutpath_Confirm*`, `TestCLI_SetOutput*`, `TestAutoName_Collision`, `TestCLI_ClearDefaultNewFile_NonTTY`, `TestPatchTo_WritesToDst`, help output-flag tests, `TestCLI_SetOutputEmpty`).

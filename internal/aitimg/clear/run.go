@@ -20,7 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
+	"github.com/os-artificer/AiT/internal/aitimg/outpath"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/imgmeta"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
@@ -38,14 +40,27 @@ func runClear(stdout, stderr io.Writer, paths []string, f clearFlags) error {
 		)
 	}
 
+	dsts, err := outpath.Resolve(outpath.ResolveOpts{
+		Paths:     paths,
+		Output:    f.output,
+		OutputSet: f.outputSet,
+		Inplace:   f.inplace || f.yes,
+		PromptOut: stderr,
+		ConfirmIn: os.Stdin,
+	})
+	if err != nil {
+		return err
+	}
+
 	var anyFailed bool
-	for _, path := range paths {
-		if err := imgmeta.Clear(path, mask); err != nil {
+	for i, src := range paths {
+		dst := dsts[i]
+		if err := imgmeta.ClearTo(src, dst, mask); err != nil {
 			anyFailed = true
-			errhint.Print(stderr, errhint.SurfaceCLI, wrapClearErr(path, err))
+			errhint.Print(stderr, errhint.SurfaceCLI, wrapClearErr(src, err))
 			continue
 		}
-		_, _ = fmt.Fprintf(stdout, "cleared %s\n", path)
+		outpath.PrintResult(stdout, "cleared", src, dst)
 	}
 	if anyFailed {
 		return imgmeta.ErrPartialFailure

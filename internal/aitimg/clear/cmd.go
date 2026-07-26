@@ -38,6 +38,10 @@ type clearFlags struct {
 	gps       bool
 	altitude  bool
 	all       bool
+	output    string
+	inplace   bool
+	yes       bool
+	outputSet bool
 }
 
 // New builds the `aitimg clear` cobra command.
@@ -51,6 +55,7 @@ func New() *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			f.outputSet = c.Flags().Changed("output")
 			return runClear(c.OutOrStdout(), c.ErrOrStderr(), args, f)
 		},
 	}
@@ -65,6 +70,9 @@ func New() *cobra.Command {
 	cmd.Flags().BoolVar(&f.gps, "gps", false, "clear GPS latitude/longitude")
 	cmd.Flags().BoolVar(&f.altitude, "altitude", false, "clear altitude")
 	cmd.Flags().BoolVar(&f.all, "all", false, "clear all writable fields")
+	cmd.Flags().StringVarP(&f.output, "output", "o", "", "write result to this path (single input)")
+	cmd.Flags().BoolVar(&f.inplace, "inplace", false, "overwrite original file(s)")
+	cmd.Flags().BoolVarP(&f.yes, "yes", "y", false, "same as --inplace (yes, overwrite originals)")
 
 	pkghelpdoc.Bind(cmd, WriteHelp)
 	return cmd

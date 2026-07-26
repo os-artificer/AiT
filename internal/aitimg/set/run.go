@@ -20,9 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/os-artificer/AiT/internal/aitimg/outpath"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/imgmeta"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
@@ -42,14 +44,27 @@ func runSet(stdout, stderr io.Writer, paths []string, f setFlags) error {
 		)
 	}
 
+	dsts, err := outpath.Resolve(outpath.ResolveOpts{
+		Paths:     paths,
+		Output:    f.output,
+		OutputSet: f.outputSet,
+		Inplace:   f.inplace || f.yes,
+		PromptOut: stderr,
+		ConfirmIn: os.Stdin,
+	})
+	if err != nil {
+		return err
+	}
+
 	var anyFailed bool
-	for _, path := range paths {
-		if err := imgmeta.Patch(path, patch); err != nil {
+	for i, src := range paths {
+		dst := dsts[i]
+		if err := imgmeta.PatchTo(src, dst, patch); err != nil {
 			anyFailed = true
-			errhint.Print(stderr, errhint.SurfaceCLI, wrapSetErr(path, err))
+			errhint.Print(stderr, errhint.SurfaceCLI, wrapSetErr(src, err))
 			continue
 		}
-		_, _ = fmt.Fprintf(stdout, "updated %s\n", path)
+		outpath.PrintResult(stdout, "updated", src, dst)
 	}
 	if anyFailed {
 		return imgmeta.ErrPartialFailure

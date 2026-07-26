@@ -29,7 +29,10 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/aitimg"
+	"github.com/os-artificer/AiT/internal/aitimg/clear"
 	"github.com/os-artificer/AiT/internal/aitimg/extract"
+	"github.com/os-artificer/AiT/internal/aitimg/outpath"
+	"github.com/os-artificer/AiT/internal/aitimg/set"
 	"github.com/os-artificer/AiT/internal/aitimg/version"
 	"github.com/os-artificer/AiT/internal/pkg/geocode"
 	"github.com/os-artificer/AiT/internal/pkg/imgmeta"
@@ -316,7 +319,7 @@ func TestCLI_SetAndClearMake(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if err := aitimg.ExecuteWriters([]string{"set", "--make", "CliMake", path}, &stdout, &stderr); err != nil {
+	if err := aitimg.ExecuteWriters([]string{"set", "--make", "CliMake", "--inplace", path}, &stdout, &stderr); err != nil {
 		t.Fatalf("set: %v stderr=%s", err, stderr.String())
 	}
 	info, err := imgmeta.Extract(path)
@@ -329,7 +332,7 @@ func TestCLI_SetAndClearMake(t *testing.T) {
 
 	stdout.Reset()
 	stderr.Reset()
-	if err := aitimg.ExecuteWriters([]string{"clear", "--make", path}, &stdout, &stderr); err != nil {
+	if err := aitimg.ExecuteWriters([]string{"clear", "--make", "--inplace", path}, &stdout, &stderr); err != nil {
 		t.Fatalf("clear: %v stderr=%s", err, stderr.String())
 	}
 	info, err = imgmeta.Extract(path)
@@ -354,7 +357,7 @@ func TestCLI_SetPartialFailure(t *testing.T) {
 	bad := filepath.Join("..", "pkg", "imgmeta", "testdata", "plain.png")
 
 	var stdout, stderr bytes.Buffer
-	err = aitimg.ExecuteWriters([]string{"set", "--make", "X", good, bad}, &stdout, &stderr)
+	err = aitimg.ExecuteWriters([]string{"set", "--make", "X", "--inplace", good, bad}, &stdout, &stderr)
 	if !errors.Is(err, imgmeta.ErrPartialFailure) {
 		t.Fatalf("want partial failure, got %v", err)
 	}
@@ -363,5 +366,217 @@ func TestCLI_SetPartialFailure(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "updated "+good) {
 		t.Fatalf("stdout=%q", stdout.String())
+	}
+}
+
+func TestCLI_SetDefaultNewFile_NonTTY(t *testing.T) {
+	outpath.SetStdinIsTTYForTest(t, false)
+	src := filepath.Join("..", "pkg", "imgmeta", "testdata", "with_exif.jpg")
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "photo.jpg")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := aitimg.ExecuteWriters([]string{"set", "--make", "NewFileMake", path}, &stdout, &stderr); err != nil {
+		t.Fatalf("set: %v stderr=%s", err, stderr.String())
+	}
+	dst := filepath.Join(dir, "photo_aitimg.jpg")
+	if !strings.Contains(stdout.String(), "wrote "+dst) {
+		t.Fatalf("stdout=%q", stdout.String())
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("source changed")
+	}
+	info, err := imgmeta.Extract(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(info.Make, "NewFileMake") {
+		t.Fatalf("Make=%q", info.Make)
+	}
+}
+
+func TestCLI_ClearDefaultNewFile_NonTTY(t *testing.T) {
+	outpath.SetStdinIsTTYForTest(t, false)
+	src := filepath.Join("..", "pkg", "imgmeta", "testdata", "with_exif.jpg")
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "photo.jpg")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := imgmeta.Patch(path, imgmeta.PatchFields{Make: strPtr("Temp")}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := aitimg.ExecuteWriters([]string{"clear", "--make", path}, &stdout, &stderr); err != nil {
+		t.Fatalf("clear: %v stderr=%s", err, stderr.String())
+	}
+	dst := filepath.Join(dir, "photo_aitimg.jpg")
+	if !strings.Contains(stdout.String(), "wrote "+dst) {
+		t.Fatalf("stdout=%q", stdout.String())
+	}
+	info, err := imgmeta.Extract(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Make != "" {
+		t.Fatalf("Make=%q", info.Make)
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
+func TestCLI_SetOutputFlag(t *testing.T) {
+	srcData, err := os.ReadFile(filepath.Join("..", "pkg", "imgmeta", "testdata", "no_exif.jpg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "photo.jpg")
+	out := filepath.Join(dir, "out.jpg")
+	if err := os.WriteFile(path, srcData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := aitimg.ExecuteWriters([]string{"set", "--make", "OutMake", "-o", out, path}, &stdout, &stderr); err != nil {
+		t.Fatalf("%v stderr=%s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "wrote "+out) {
+		t.Fatalf("stdout=%q", stdout.String())
+	}
+	info, err := imgmeta.Extract(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(info.Make, "OutMake") {
+		t.Fatalf("Make=%q", info.Make)
+	}
+}
+
+func TestCLI_SetInplace(t *testing.T) {
+	srcData, err := os.ReadFile(filepath.Join("..", "pkg", "imgmeta", "testdata", "no_exif.jpg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "photo.jpg")
+	if err := os.WriteFile(path, srcData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if err := aitimg.ExecuteWriters([]string{"set", "--make", "Y", "-y", path}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "updated "+path) {
+		t.Fatalf("stdout=%q", stdout.String())
+	}
+}
+
+func TestCLI_SetOutputMultiFileFails(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	err := aitimg.ExecuteWriters([]string{"set", "--make", "X", "-o", "out.jpg", "a.jpg", "b.jpg"}, &stdout, &stderr)
+	if !errors.Is(err, outpath.ErrOutputMultiFile) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestCLI_SetOutputInplaceConflict(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	err := aitimg.ExecuteWriters([]string{"set", "--make", "X", "-o", "out.jpg", "--inplace", "a.jpg"}, &stdout, &stderr)
+	if !errors.Is(err, outpath.ErrOutputInplaceConflict) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestCLI_SetOutputOverwritesExisting(t *testing.T) {
+	srcData, err := os.ReadFile(filepath.Join("..", "pkg", "imgmeta", "testdata", "no_exif.jpg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "photo.jpg")
+	out := filepath.Join(dir, "out.jpg")
+	if err := os.WriteFile(path, srcData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(out, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if err := aitimg.ExecuteWriters([]string{"set", "--make", "Ow", "-o", out, path}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	info, err := imgmeta.Extract(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(info.Make, "Ow") {
+		t.Fatalf("Make=%q", info.Make)
+	}
+}
+
+func TestCLI_SetOutputIsDir(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "photo.jpg")
+	if err := os.WriteFile(path, []byte{0xff, 0xd8, 0xff}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	err := aitimg.ExecuteWriters([]string{"set", "--make", "X", "-o", dir, path}, &stdout, &stderr)
+	if !errors.Is(err, outpath.ErrOutputIsDir) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestCLI_SetOutputEmpty(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	err := aitimg.ExecuteWriters([]string{"set", "--make", "X", "-o", "", "a.jpg"}, &stdout, &stderr)
+	if !errors.Is(err, outpath.ErrOutputEmpty) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestWriteSetHelp_OutputFlags(t *testing.T) {
+	var buf bytes.Buffer
+	if err := set.WriteHelp(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"--output", "--inplace", "-y", "_aitimg.jpg", "overwrite"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in help", want)
+		}
+	}
+}
+
+func TestWriteClearHelp_OutputFlags(t *testing.T) {
+	var buf bytes.Buffer
+	if err := clear.WriteHelp(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"--output", "--inplace", "-y", "_aitimg.jpg"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in help", want)
+		}
 	}
 }

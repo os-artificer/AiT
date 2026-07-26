@@ -27,8 +27,8 @@ import (
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(
-		"Clear writable EXIF fields on JPEG images (in place).",
-		"Use --all to clear every clearable field, or pass individual field flags. JPEG only.",
+		"Clear writable EXIF fields on JPEG images.",
+		"By default writes a new sibling file (*_aitimg.jpg). On a TTY, asks whether to overwrite originals. Use --all or field flags. JPEG only.",
 	); err != nil {
 		return err
 	}
@@ -48,12 +48,16 @@ func WriteHelp(w io.Writer) error {
 		"  --datetime      clear capture time\n"+
 		"  --gps           clear GPS latitude/longitude\n"+
 		"  --altitude      clear altitude\n"+
-		"  --all           clear all writable fields\n"); err != nil {
+		"  --all           clear all writable fields\n"+
+		"  -o, --output path  write to path (single input; no prompt)\n"+
+		"  --inplace       overwrite original file(s)\n"+
+		"  -y, --yes       same as --inplace\n"); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		toolname.AIImg+" clear --all photo.jpg",
-		toolname.AIImg+" clear --gps --make photo.jpg",
+		toolname.AIImg+" clear --all --inplace photo.jpg",
+		toolname.AIImg+" clear --gps --make -o out.jpg photo.jpg",
 	); err != nil {
 		return err
 	}
