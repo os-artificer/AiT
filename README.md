@@ -62,16 +62,15 @@ make build
 ./bin/aitimg --help
 ```
 
-**`go install`** (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
+**Install all tools** via `go install` (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
 
 ```bash
-go install github.com/os-artificer/AiT/cmd/aitssh@latest
-go install github.com/os-artificer/AiT/cmd/aitimg@latest
+go install github.com/os-artificer/AiT/cmd/aitssh@latest github.com/os-artificer/AiT/cmd/aitimg@latest
 aitssh --help
 aitimg --help
 ```
 
-Ensure `$(go env GOPATH)/bin` is on your PATH.
+Ensure `$(go env GOPATH)/bin` is on your PATH. When adding a new `cmd/<tool>`, append `github.com/os-artificer/AiT/cmd/<tool>@latest` to the `go install` line above.
 
 ## Documentation
 
