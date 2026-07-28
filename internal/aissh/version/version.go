@@ -18,114 +18,35 @@ package version
 
 import (
 	_ "embed"
-	"fmt"
-	"runtime/debug"
-	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/buildinfo"
 )
 
 //go:embed VERSION
 var embeddedVersion string
 
 // Build metadata injected via -ldflags at make build/install time.
-// When ldflags are not provided (e.g. plain go install), the code falls
-// back to the embedded VERSION file and runtime/debug.ReadBuildInfo().
 var (
 	version   = ""
 	gitCommit = ""
 	buildDate = ""
 )
 
-// resolveVersion returns the semantic version string using a priority chain.
-// The bool reports whether the value came from a real source (ldflags or
-// embedded VERSION file) rather than a fallback.
-//
-// Priority:
-//  1. ldflags injection  (make build/install)
-//  2. embedded VERSION file
-//  3. "" fallback (not real)
-func resolveVersion() (string, bool) {
-	if version != "" {
-		return version, true
+func inputs() buildinfo.Inputs {
+	return buildinfo.Inputs{
+		Version:   version,
+		GitCommit: gitCommit,
+		BuildDate: buildDate,
+		Embedded:  embeddedVersion,
 	}
-	if v := strings.TrimSpace(embeddedVersion); v != "" {
-		return v, true
-	}
-	return "", false
-}
-
-// resolveGitCommit returns the git commit hash using a priority chain.
-// The bool reports whether the value came from a real source rather than a fallback.
-//
-// Priority:
-//  1. ldflags injection
-//  2. debug.ReadBuildInfo vcs.revision
-//  3. "" fallback (not real)
-func resolveGitCommit() (string, bool) {
-	if gitCommit != "" {
-		return gitCommit, true
-	}
-	if info, ok := readBuildInfo(); ok {
-		for _, s := range info.Settings {
-			if s.Key == "vcs.revision" {
-				if len(s.Value) > 12 {
-					return s.Value[:12], true
-				}
-				return s.Value, true
-			}
-		}
-	}
-	return "", false
-}
-
-// resolveBuildDate returns the build date using a priority chain.
-// The bool reports whether the value came from a real source rather than a fallback.
-//
-// Priority:
-//  1. ldflags injection
-//  2. debug.ReadBuildInfo vcs.time
-//  3. "" fallback (not real)
-func resolveBuildDate() (string, bool) {
-	if buildDate != "" {
-		return buildDate, true
-	}
-	if info, ok := readBuildInfo(); ok {
-		for _, s := range info.Settings {
-			if s.Key == "vcs.time" {
-				return s.Value, true
-			}
-		}
-	}
-	return "", false
-}
-
-// readBuildInfo is a small wrapper for testability.
-func readBuildInfo() (*debug.BuildInfo, bool) {
-	info, ok := debug.ReadBuildInfo()
-	return info, ok
 }
 
 // Version returns a human-readable build version string.
-// Fields are only included when resolved from a real source
-// (ldflags, embedded VERSION file, or debug.BuildInfo);
-// fallback values are omitted.
 func Version() string {
-	var b strings.Builder
+	return buildinfo.Format(inputs())
+}
 
-	v, ok := resolveVersion()
-	if ok {
-		fmt.Fprintf(&b, "Version:   %s\n", v)
-	}
-
-	g, ok := resolveGitCommit()
-	if ok {
-		fmt.Fprintf(&b, "GitHash:   %s\n", g)
-	}
-
-	d, ok := resolveBuildDate()
-	if ok {
-		fmt.Fprintf(&b, "Build:     %s\n", d)
-	}
-
-	// Trim trailing newline so the caller uses Fprintln.
-	return strings.TrimSuffix(b.String(), "\n")
+// Short returns a compact version token for User-Agent.
+func Short() string {
+	return buildinfo.Short(inputs())
 }

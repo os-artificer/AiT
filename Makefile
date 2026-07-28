@@ -1,6 +1,6 @@
 .PHONY: all build build-cross install test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
-TOOLS     := aitssh aitimg
+TOOLS     := aitssh aitimg aitlog
 BUILD_DIR := bin
 
 MODULE := github.com/os-artificer/AiT
@@ -40,6 +40,7 @@ build:
 		case $$tool in \
 			aitssh) verfile=internal/aissh/version/VERSION; ldpkg=$(MODULE)/internal/aissh/version; main=./cmd/aitssh ;; \
 			aitimg) verfile=internal/aitimg/version/VERSION; ldpkg=$(MODULE)/internal/aitimg/version; main=./cmd/aitimg ;; \
+			aitlog) verfile=internal/aitlog/version/VERSION; ldpkg=$(MODULE)/internal/aitlog/version; main=./cmd/aitlog ;; \
 			*) echo "unknown tool $$tool"; exit 1 ;; \
 		esac; \
 		ver=$$(cat $$verfile 2>/dev/null | tr -d ' \n'); \
@@ -55,6 +56,7 @@ build-cross:
 		case $$tool in \
 			aitssh) verfile=internal/aissh/version/VERSION; ldpkg=$(MODULE)/internal/aissh/version; main=./cmd/aitssh ;; \
 			aitimg) verfile=internal/aitimg/version/VERSION; ldpkg=$(MODULE)/internal/aitimg/version; main=./cmd/aitimg ;; \
+			aitlog) verfile=internal/aitlog/version/VERSION; ldpkg=$(MODULE)/internal/aitlog/version; main=./cmd/aitlog ;; \
 			*) echo "unknown tool $$tool"; exit 1 ;; \
 		esac; \
 		ver=$$(cat $$verfile 2>/dev/null | tr -d ' \n'); \
@@ -75,6 +77,7 @@ install:
 		case $$tool in \
 			aitssh) verfile=internal/aissh/version/VERSION; ldpkg=$(MODULE)/internal/aissh/version; main=./cmd/aitssh ;; \
 			aitimg) verfile=internal/aitimg/version/VERSION; ldpkg=$(MODULE)/internal/aitimg/version; main=./cmd/aitimg ;; \
+			aitlog) verfile=internal/aitlog/version/VERSION; ldpkg=$(MODULE)/internal/aitlog/version; main=./cmd/aitlog ;; \
 			*) echo "unknown tool $$tool"; exit 1 ;; \
 		esac; \
 		ver=$$(cat $$verfile 2>/dev/null | tr -d ' \n'); \

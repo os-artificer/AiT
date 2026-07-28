@@ -623,6 +623,49 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | C27 | mode 内 ollama 字面量对齐 config | mode exec / `setModel` 相关测试 |
 | C28 | provider enable/disable 输出格式不变 | `TestProviderEnableDisable_MsgFormat` |
 
+### LG* 明细（`aitlog` CLI）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| LG1 | root help 含 Usage/Commands/Examples | `TestWriteRootHelp` |
+| LG2 | 无参打印 root help | `TestCLI_NoArgs` |
+| LG3 | 关键字 AND 匹配 | `TestCLI_BuiltinFileSearch` |
+| LG4 | `--json` NDJSON | `TestCLI_JSON` |
+| LG5 | `search` 需关键字 | `TestCLI_SearchRequiresKeyword` |
+| LG6 | `aitlog search version` 逃逸子命令名 | `TestCLI_SearchVersionEscape` |
+| LG7 | `sources` 列出 system | `TestCLI_Sources` |
+| LG8 | `version` / `-V` | `TestCLI_Version`、`TestCLI_VersionFlag` |
+| LG9 | 坏 `--since` Try hint | `TestCLI_BadSince` |
+| LG10 | `--head -n` 取前 N | `TestCLI_Head` |
+| LG11–LG18 | regex/case/utc/raw/quiet/limit 语义 | `logsrc` + `cli_test` 覆盖；见 docs/tools/aitlog-internals.md |
+| LG19 | 稀有关键字不挂起（macOS `--predicate` + 过滤窗口 ≤1h） | `TestCLI_NativeRareKeywordBounded`、`TestBuildLogShowArgs_IncludesPredicateAndLast`、`TestLogShowWindowsFiltered_CapsAtOneHour` |
+
+### PG* 明细（`internal/pkg/pager`）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| PG1 | 非 TTY / Disabled 直通 | `TestPage_Passthrough` |
+| PG2 | viewport 滚动/percent | `TestViewport_Scroll` |
+| PG3 | `/` 搜索 | `TestViewport_Search` |
+
+### FB* 明细（`aitlog` 兜底）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| FB1 | `--backend builtin` + `-S` 文件不调 LookPath | `TestResolver_BuiltinNoLookPath` |
+| FB2 | 内置文件源可读 | `TestFileSource_Builtin` |
+| FB3 | journalctl argv 无记录上限 | `TestBuildJournalctlArgs` |
+| FB4 | kmsg 行解析 | `TestParseKmsgLine` |
+
+### BI* 明细（`internal/pkg/buildinfo`）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| BI1 | Format ldflags 优先 | `TestFormat_LdflagsWin` |
+| BI2 | Short 无值 → `dev` | `TestShort_DevFallback` |
+| BI3 | Short 用 embedded | `TestShort_Embedded` |
+| BI4 | aitssh/aitimg version 仍可用 | `internal/aitimg` / `internal/aissh/version` 测试 |
+
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
@@ -915,6 +958,10 @@ aitssh hostA                    # 无 --save
 | G* | `aitssh config init/view/edit/validate` | `TestConfigEnsureFile_Creates`、`TestConfigInitCmd`、`TestConfigViewCmd`、`TestConfigEditCmd`、`TestConfigValidateCmd_*`、`TestValidate_*`、`TestOpenEditor_Unix` |
 | RA* | SSH 远程 AI REPL 入口 / Agent 执行 | `TestRunREPL_InitialEmptyAgentEntersREPL`、`TestHandleAIMetaLine_ErrHintNoDisconnect`、`TestRunAgentOnce_ScopeRemote_Capture`、`TestParseAction_XMLFallback`、`TestMetaScanner_AitAIBareLine` |
 | EX* | AI 公共能力剥离 + 实验门禁（默认关） | `TestAIExperimental_*`、`TestAICmd_ExperimentalDisabled`、`TestAimode_NoAisshImport`、`TestHandleAIMetaLine_ExperimentalDisabled*` |
+| LG* | `aitlog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources` |
+| PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
+| FB* | `aitlog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
+| BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |
 | A20* | AI REPL Ask/Agent + approve | `TestSessionState_Defaults`、`TestSetMode_*`、`TestAgentTurn_RunActionMock`、`TestAgent_SkipsVim` |
 | A21* | AI REPL 提示符 / 确认 / y·c·s·n | `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestConfirm_PatternTrustSkipsSamePrefix` |
 | A22* | Read 风险级别 / 只读自动放行 / 默认 Agent | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |

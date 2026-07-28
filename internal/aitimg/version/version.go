@@ -18,9 +18,8 @@ package version
 
 import (
 	_ "embed"
-	"fmt"
-	"runtime/debug"
-	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/buildinfo"
 )
 
 //go:embed VERSION
@@ -32,67 +31,21 @@ var (
 	buildDate = ""
 )
 
+func inputs() buildinfo.Inputs {
+	return buildinfo.Inputs{
+		Version:   version,
+		GitCommit: gitCommit,
+		BuildDate: buildDate,
+		Embedded:  embeddedVersion,
+	}
+}
+
 // Version returns a human-readable build version string.
 func Version() string {
-	var b strings.Builder
-
-	if v, ok := resolveVersion(); ok {
-		fmt.Fprintf(&b, "Version:   %s\n", v)
-	}
-	if g, ok := resolveGitCommit(); ok {
-		fmt.Fprintf(&b, "GitHash:   %s\n", g)
-	}
-	if d, ok := resolveBuildDate(); ok {
-		fmt.Fprintf(&b, "Build:     %s\n", d)
-	}
-	return strings.TrimSuffix(b.String(), "\n")
+	return buildinfo.Format(inputs())
 }
 
-// Short returns a compact version token for User-Agent (ldflags or embedded VERSION).
+// Short returns a compact version token for User-Agent.
 func Short() string {
-	if v, ok := resolveVersion(); ok {
-		return v
-	}
-	return "dev"
-}
-
-func resolveVersion() (string, bool) {
-	if version != "" {
-		return version, true
-	}
-	if v := strings.TrimSpace(embeddedVersion); v != "" {
-		return v, true
-	}
-	return "", false
-}
-
-func resolveGitCommit() (string, bool) {
-	if gitCommit != "" {
-		return gitCommit, true
-	}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, s := range info.Settings {
-			if s.Key == "vcs.revision" {
-				if len(s.Value) > 12 {
-					return s.Value[:12], true
-				}
-				return s.Value, true
-			}
-		}
-	}
-	return "", false
-}
-
-func resolveBuildDate() (string, bool) {
-	if buildDate != "" {
-		return buildDate, true
-	}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, s := range info.Settings {
-			if s.Key == "vcs.time" {
-				return s.Value, true
-			}
-		}
-	}
-	return "", false
+	return buildinfo.Short(inputs())
 }

@@ -22,6 +22,8 @@ const (
 	AISsh = "aitssh"
 	// AIImg is the aitimg Cobra root command name and installed binary name.
 	AIImg = "aitimg"
+	// AILog is the aitlog Cobra root command name and installed binary name.
+	AILog = "aitlog"
 	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ait).
 	MetaPrefix = "!ait"
 )
