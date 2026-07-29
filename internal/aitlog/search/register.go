@@ -29,7 +29,7 @@ func init() {
 }
 
 func (module) Name() string  { return Name }
-func (module) Short() string { return "search logs (requires at least one keyword)" }
+func (module) Short() string { return "search logs (keywords, --expr, or -e)" }
 func (module) Order() int    { return 20 }
 func (module) NewCobra() *cobra.Command {
 	return New()

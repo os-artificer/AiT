@@ -31,11 +31,12 @@ Import direction: `cmd` → `internal/aitlog` → `internal/pkg/*`. `logsrc` and
 ## logsrc
 
 - **Cursor** `{ Next, Err, Close }` — not a channel.
-- **Filter** — keyword AND, regex, level, time; single Go implementation for all backends.
-- **Limit** — last N *matches* (not N scanned). Reverse-capable backends stop after N newest matches.
+- **Filter** — keyword AND, regex, `--expr` (AND/OR/NOT), level, time; single Go implementation for all backends.
+- **Limit** — last N *matches* (not N scanned). Reverse-capable backends stop after N newest matches. `-f` ignores `-n`/`--head`.
 - **Resolver** — injectable `LookPath` / `Notice` / `Now` for tests (`--backend builtin` → zero LookPath).
 - **Chains** — `chains_linux.go` / `chains_darwin.go` / `chains_windows.go` / stub `chains_other.go`.
-- **macOS `log show`** — `WindowedSource` / `WindowedSourceFor`: unfiltered last-N widens `5m→1h→6h→24h→7d`; keyword/regex queries push `--predicate` and widen only through `1h` (use `--since` for more). `journalctl` gets `-g` for the same reason.
+- **macOS `log show`** — `WindowedSource` / `WindowedSourceFor`: unfiltered last-N widens `5m→1h→6h→24h→7d`; keyword/regex/`--expr` push `--predicate` and widen only through `1h` (use `--since` for more). `journalctl` gets `-g` for keywords/regex only (not `--expr`).
+- **`--expr`** — `ParseExpr` / `Expr.Eval` in `expr.go` + `expr_helpers.go`; mutual exclusion with keywords/`-e` in `queryflags`.
 - Stage B binary readers (`.journal` / `.asl` / `.evtx`) are listed as `Available: false, Reason: "not implemented"`.
 
 ## pager
@@ -44,4 +45,4 @@ Interactive raw-TTY viewer with progressive vs bounded modes. Non-TTY / `--no-pa
 
 ## Acceptance IDs
 
-See change-acceptance.mdc: **LG1–LG18**, **PG1–PG9**, **FB1–FB12**, **BI1–BI4**.
+See change-acceptance.mdc: **LG1–LG22**, **PG1–PG9**, **FB1–FB12**, **BI1–BI4**.

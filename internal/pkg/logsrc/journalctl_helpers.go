@@ -45,7 +45,11 @@ func journalGrepPattern(q Query) string {
 
 // appendJournalGrep adds -g when q has a regex or keywords, so journalctl
 // returns a smaller stream before Go applies the authoritative Filter.
+// --expr is skipped: journalctl -g cannot express AND/OR/NOT safely.
 func appendJournalGrep(args []string, q Query) []string {
+	if q.Expr != "" {
+		return args
+	}
 	pat := q.Regex
 	if pat == "" {
 		pat = journalGrepPattern(q)

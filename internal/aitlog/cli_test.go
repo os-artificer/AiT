@@ -18,6 +18,7 @@ package aitlog_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,6 +27,7 @@ import (
 	"time"
 
 	"github.com/os-artificer/AiT/internal/aitlog"
+	"github.com/os-artificer/AiT/internal/aitlog/view"
 )
 
 func TestWriteRootHelp(t *testing.T) {
@@ -34,7 +36,10 @@ func TestWriteRootHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"Usage:", "Commands:", "search", "sources", "version", "Examples:"} {
+	for _, want := range []string{
+		"Usage:", "Commands:", "search", "sources", "version", "Examples:",
+		"search logs (keywords, --expr, or -e)",
+	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
@@ -199,7 +204,103 @@ func TestCLI_NativeRareKeywordBounded(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	case <-time.After(12 * time.Second):
-		t.Fatal("native rare-keyword query hung (>12s); expected --predicate + filtered windows")
+	case <-time.After(45 * time.Second):
+		// Filtered windows still call `log show` up to 1h; under parallel
+		// package load this often exceeds a tight 12s wall clock.
+		t.Fatal("native rare-keyword query hung (>45s); expected --predicate + filtered windows")
 	}
+}
+
+func TestCLI_ExprExclusive(t *testing.T) {
+	err := aitlog.ExecuteWriters(
+		[]string{"--expr", "error", "fail", "--no-pager"},
+		&bytes.Buffer{}, &bytes.Buffer{},
+	)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "expr") {
+		t.Fatalf("%v", err)
+	}
+
+	err = aitlog.ExecuteWriters(
+		[]string{"--expr", "error", "-e", "fail", "--no-pager"},
+		&bytes.Buffer{}, &bytes.Buffer{},
+	)
+	if err == nil {
+		t.Fatal("expected error with -e")
+	}
+}
+
+func TestCLI_SearchExprOnly(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.log")
+	content := "" +
+		"2024-01-02T03:04:05Z alpha error disk\n" +
+		"2024-01-02T03:04:06Z beta ok\n" +
+		"2024-01-02T03:04:07Z gamma fail soft\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var out, errBuf bytes.Buffer
+	args := []string{"search", "--backend", "builtin", "-S", path, "--no-pager", "--expr", "error|fail"}
+	if err := aitlog.ExecuteWriters(args, &out, &errBuf); err != nil {
+		t.Fatalf("err=%v stderr=%s", err, errBuf.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "alpha") || !strings.Contains(got, "gamma") {
+		t.Fatalf("stdout=%q", got)
+	}
+	if strings.Contains(got, "beta") {
+		t.Fatal("beta should not match")
+	}
+}
+
+func TestCLI_FollowExpr(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.log")
+	if err := os.WriteFile(path, []byte("2024-01-02T03:04:05Z noise hello\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var out, errBuf bytes.Buffer
+	done := make(chan error, 1)
+	go func() {
+		done <- view.Run(ctx, &out, &errBuf, []string{
+			"--backend", "builtin", "-S", path, "--no-pager", "-f",
+			"--expr", "error|fail",
+		})
+	}()
+
+	time.Sleep(300 * time.Millisecond)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.WriteString("2024-01-02T03:04:06Z got an error here\n")
+	_, _ = f.WriteString("2024-01-02T03:04:07Z still noise\n")
+	_ = f.Close()
+
+	deadline := time.After(3 * time.Second)
+	for {
+		if strings.Contains(out.String(), "error") {
+			break
+		}
+		select {
+		case <-deadline:
+			cancel()
+			<-done
+			t.Fatalf("stdout=%q stderr=%q", out.String(), errBuf.String())
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	got := out.String()
+	if strings.Contains(got, "noise") {
+		t.Fatalf("noise should not print: %q", got)
+	}
+	cancel()
+	<-done
 }

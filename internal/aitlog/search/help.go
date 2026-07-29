@@ -27,17 +27,19 @@ import (
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(
-		"Search system logs. Requires at least one keyword (or --regex).",
+		"Search system logs. Requires at least one keyword, --expr, or --regex.",
 		"Same filters as the default route; use this when a keyword would collide with a subcommand (e.g. version).",
+		"Shell-quote --expr so | and ! are not interpreted by the shell.",
 	); err != nil {
 		return err
 	}
-	if err := b.WriteUsage(toolname.AILog + " search [flags] <keyword...>"); err != nil {
+	if err := b.WriteUsage(toolname.AILog + " search [flags] [keyword...]"); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(
 		toolname.AILog+" search error",
 		toolname.AILog+" search version",
+		toolname.AILog+` search --expr 'error|fail' --since 1h`,
 		toolname.AILog+" search -e 'fail(ed|ure)' --since 1h",
 	); err != nil {
 		return err

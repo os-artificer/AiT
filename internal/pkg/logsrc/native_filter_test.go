@@ -59,12 +59,47 @@ func TestBuildLogShowArgs_IncludesPredicateAndLast(t *testing.T) {
 	}
 }
 
+func TestBuildLogShowPredicate_ExprBoolean(t *testing.T) {
+	q := logsrc.Query{Expr: `(a|b) & !c`, IgnoreCase: true}
+	got := logsrc.BuildLogShowPredicate(q)
+	want := `((eventMessage CONTAINS[c] "a" OR eventMessage CONTAINS[c] "b") AND NOT (eventMessage CONTAINS[c] "c"))`
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
 func TestBuildLogStreamArgs_IncludesPredicate(t *testing.T) {
 	q := logsrc.Query{Keywords: []string{"x"}, IgnoreCase: true}
 	args := logsrc.BuildLogStreamArgs(q)
 	joined := strings.Join(args, " ")
 	if !strings.Contains(joined, "--predicate") {
 		t.Fatalf("%v", args)
+	}
+}
+
+func TestBuildLogShowArgs_PriorityUsesInfoDebugNotLevel(t *testing.T) {
+	errArgs := logsrc.BuildLogShowArgs(logsrc.Query{MinLevel: logsrc.LevelError}, time.Hour, true)
+	joined := strings.Join(errArgs, " ")
+	if strings.Contains(joined, "--level") {
+		t.Fatalf("macOS log show has no --level: %v", errArgs)
+	}
+	if strings.Contains(joined, "--info") || strings.Contains(joined, "--debug") {
+		t.Fatalf("error floor should not widen verbosity: %v", errArgs)
+	}
+
+	infoArgs := logsrc.BuildLogShowArgs(logsrc.Query{MinLevel: logsrc.LevelInfo}, time.Hour, true)
+	infoJoined := strings.Join(infoArgs, " ")
+	if !strings.Contains(infoJoined, "--info") || strings.Contains(infoJoined, "--debug") {
+		t.Fatalf("%v", infoArgs)
+	}
+
+	debugArgs := logsrc.BuildLogStreamArgs(logsrc.Query{MinLevel: logsrc.LevelDebug})
+	debugJoined := strings.Join(debugArgs, " ")
+	if !strings.Contains(debugJoined, "--info") || !strings.Contains(debugJoined, "--debug") {
+		t.Fatalf("%v", debugArgs)
+	}
+	if strings.Contains(debugJoined, "--level") {
+		t.Fatalf("%v", debugArgs)
 	}
 }
 
@@ -92,6 +127,15 @@ func TestBuildJournalctlArgs_CaseSensitive(t *testing.T) {
 	}
 	if !strings.Contains(joined, "--case-sensitive") {
 		t.Fatalf("%v", args)
+	}
+}
+
+func TestBuildJournalctlArgs_SkipsGrepForExpr(t *testing.T) {
+	q := logsrc.Query{Expr: "error|fail", IgnoreCase: true}
+	args := logsrc.BuildJournalctlArgs(q, true, false)
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "-g ") {
+		t.Fatalf("expr must not push -g: %v", args)
 	}
 }
 

@@ -50,6 +50,7 @@ type Record struct {
 type Query struct {
 	Keywords   []string
 	Regex      string
+	Expr       string // raw --expr; when set, replaces Keywords/Regex text match
 	IgnoreCase bool
 	Since      time.Time
 	Until      time.Time

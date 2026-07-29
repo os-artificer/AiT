@@ -21,14 +21,27 @@ import (
 )
 
 // BuildLogShowPredicate builds an NSPredicate for `log show`/`log stream`
-// that narrows eventMessage to q's keywords and/or regex. An empty string
-// means no --predicate should be passed (scan the full window).
+// that narrows eventMessage to q's text filters. An empty string means no
+// --predicate should be passed (scan the full window).
 //
-// Filtering remains authoritative in Go; this only reduces native volume so
-// rare-keyword last-N queries finish instead of scanning the unified log.
+// When q.Expr is set, the boolean AST is compiled to CONTAINS/AND/OR/NOT.
+// Otherwise keywords AND together and Regex uses MATCHES. Filtering remains
+// authoritative in Go; this only reduces native volume.
 func BuildLogShowPredicate(q Query) string {
-	var parts []string
+	contains := "CONTAINS"
+	if q.IgnoreCase {
+		contains = "CONTAINS[c]"
+	}
 
+	if q.Expr != "" {
+		e, err := ParseExpr(q.Expr)
+		if err != nil {
+			return ""
+		}
+		return exprToPredicate(e, contains)
+	}
+
+	var parts []string
 	if q.Regex != "" {
 		pat := q.Regex
 		if q.IgnoreCase && !strings.HasPrefix(pat, "(?") {
@@ -36,24 +49,18 @@ func BuildLogShowPredicate(q Query) string {
 		}
 		parts = append(parts, "eventMessage MATCHES "+quoteNSPredicate(pat))
 	}
-
-	contains := "CONTAINS"
-	if q.IgnoreCase {
-		contains = "CONTAINS[c]"
-	}
 	for _, kw := range q.Keywords {
 		if kw == "" {
 			continue
 		}
 		parts = append(parts, "eventMessage "+contains+" "+quoteNSPredicate(kw))
 	}
-
 	return strings.Join(parts, " AND ")
 }
 
-// hasTextFilter reports whether q asks for keyword or regex matching.
+// hasTextFilter reports whether q asks for keyword, regex, or --expr matching.
 func hasTextFilter(q Query) bool {
-	if q.Regex != "" {
+	if q.Expr != "" || q.Regex != "" {
 		return true
 	}
 	for _, kw := range q.Keywords {

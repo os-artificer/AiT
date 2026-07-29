@@ -19,6 +19,7 @@ package view
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/logsrc"
@@ -53,11 +54,13 @@ func formatRecord(rec logsrc.Record, q logsrc.Query, asJSON bool) string {
 }
 
 func formatHuman(rec logsrc.Record, q logsrc.Query) string {
+	// One record must be one stdout line so -n N matches `wc -l` and the pager
+	// never splits a single match across frames.
 	return fmt.Sprintf("%s %s [%s] %s",
 		orUnknown(formatTime(rec.Time, q.UTC, humanTimeLayout)),
 		orUnknown(rec.Unit),
 		orUnknown(levelName(rec.Level)),
-		rec.Message)
+		flattenMessageLine(rec.Message))
 }
 
 func formatJSON(rec logsrc.Record, q logsrc.Query) string {
@@ -106,4 +109,15 @@ func orUnknown(s string) string {
 		return unknownField
 	}
 	return s
+}
+
+// flattenMessageLine replaces embedded newlines so human output stays one line
+// per record. JSON keeps the original Message (including newlines).
+func flattenMessageLine(s string) string {
+	if !strings.ContainsAny(s, "\r\n") {
+		return s
+	}
+	s = strings.ReplaceAll(s, "\r\n", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	return strings.ReplaceAll(s, "\r", " ")
 }

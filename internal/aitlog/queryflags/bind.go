@@ -32,6 +32,7 @@ import (
 // Flags holds the shared query flag values.
 type Flags struct {
 	Regex         string
+	Expr          string
 	CaseSensitive bool
 	Lines         int
 	Head          bool
@@ -53,7 +54,8 @@ type Flags struct {
 // Bind attaches the shared query flags to cmd.
 func Bind(cmd *cobra.Command, f *Flags) {
 	cmd.Flags().StringVarP(&f.Regex, "regex", "e", "", "match message with regular expression")
-	cmd.Flags().BoolVar(&f.CaseSensitive, "case-sensitive", false, "case-sensitive keyword/regex match")
+	cmd.Flags().StringVar(&f.Expr, "expr", "", "boolean keyword/phrase expression (&|! or AND/OR/NOT)")
+	cmd.Flags().BoolVar(&f.CaseSensitive, "case-sensitive", false, "case-sensitive keyword/regex/expr match")
 	cmd.Flags().IntVarP(&f.Lines, "lines", "n", logsrc.DefaultLimit, "last N matching records")
 	cmd.Flags().BoolVar(&f.Head, "head", false, "take first N matches instead of last N")
 	cmd.Flags().StringVar(&f.Since, "since", "", "show entries not older than (15m, 2h, today, RFC3339)")
@@ -61,7 +63,7 @@ func Bind(cmd *cobra.Command, f *Flags) {
 	cmd.Flags().StringVarP(&f.Priority, "priority", "p", "", "minimum priority (emerg…debug)")
 	cmd.Flags().StringVarP(&f.Unit, "unit", "u", "", "filter by unit/service name")
 	cmd.Flags().StringVarP(&f.Source, "source", "S", "", "logical source name or file path/glob")
-	cmd.Flags().BoolVarP(&f.Follow, "follow", "f", false, "follow new entries (implies --no-pager)")
+	cmd.Flags().BoolVarP(&f.Follow, "follow", "f", false, "follow new entries (implies --no-pager; -n/--head ignored)")
 	cmd.Flags().BoolVar(&f.JSON, "json", false, "emit NDJSON to stdout")
 	cmd.Flags().BoolVar(&f.Raw, "raw", false, "include original line in JSON output")
 	cmd.Flags().BoolVar(&f.UTC, "utc", false, "format timestamps in UTC")
@@ -80,12 +82,13 @@ func BindVersion(cmd *cobra.Command, f *Flags) {
 // now as the reference point for relative --since/--until values.
 //
 // Returns an error carrying Try hints for a non-positive -n, an unknown
-// --backend, an unparsable priority or time expression, or a --since that is
-// later than --until.
+// --backend, an unparsable priority or time expression, a --since that is
+// later than --until, a bad --expr, or --expr combined with keywords/-e.
 func BuildQuery(f Flags, keywords []string, now time.Time) (logsrc.Query, error) {
 	q := logsrc.Query{
 		Keywords:   keywords,
 		Regex:      f.Regex,
+		Expr:       f.Expr,
 		IgnoreCase: !f.CaseSensitive,
 		Unit:       f.Unit,
 		Source:     f.Source,
@@ -104,6 +107,18 @@ func BuildQuery(f Flags, keywords []string, now time.Time) (logsrc.Query, error)
 			toolname.AILog+" -n 50",
 			toolname.AILog+" --head -n 200",
 		)
+	}
+	if err := checkExprExclusive(f, keywords); err != nil {
+		return q, err
+	}
+	if f.Expr != "" {
+		if _, err := logsrc.ParseExpr(f.Expr); err != nil {
+			return q, errhint.WithTry(err,
+				"Could not parse --expr.",
+				toolname.AILog+` -f --expr '(error|fail) & !debug'`,
+				toolname.AILog+` --expr '(error OR fail) AND NOT timeout' -n 50`,
+			)
+		}
 	}
 
 	backend, err := parseBackend(f.Backend)
@@ -125,6 +140,22 @@ func BuildQuery(f Flags, keywords []string, now time.Time) (logsrc.Query, error)
 // machine-readable output always stream.
 func UsePager(f Flags) bool {
 	return !f.Follow && !f.NoPager && !f.JSON
+}
+
+// checkExprExclusive rejects combining --expr with positional keywords or -e.
+func checkExprExclusive(f Flags, keywords []string) error {
+	if f.Expr == "" {
+		return nil
+	}
+	if len(keywords) == 0 && f.Regex == "" {
+		return nil
+	}
+	return errhint.WithTry(
+		fmt.Errorf("%w: --expr cannot be combined with keywords or -e/--regex", logsrc.ErrBadExpr),
+		"Use --expr alone for boolean matching, or keywords/-e without --expr.",
+		toolname.AILog+` -f --expr '(error|fail) & !debug'`,
+		toolname.AILog+" error fail --since 1h",
+	)
 }
 
 func parseBackend(name string) (logsrc.Backend, error) {

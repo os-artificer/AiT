@@ -40,4 +40,6 @@ var (
 	// ErrEmptyRecord means a backend document held no usable record and the
 	// cursor should skip it.
 	ErrEmptyRecord = errors.New("empty log record")
+	// ErrBadExpr means --expr could not be parsed.
+	ErrBadExpr = errors.New("invalid match expression")
 )

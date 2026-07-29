@@ -40,7 +40,7 @@ func WriteIntroUsageArgsFlags(b *pkghelpdoc.Body) error {
 	if err := b.WriteIntro(
 		"View and search system logs on Linux, macOS, and Windows.",
 		"Uses native tools when available and falls back to built-in readers so all features keep working without external binaries.",
-		"Keyword matching is case-insensitive AND; use search when a keyword collides with a subcommand name (e.g. version).",
+		"Keywords are case-insensitive AND; use --expr for AND/OR/NOT (quote the value for shell). Use search when a keyword collides with a subcommand (e.g. version).",
 	); err != nil {
 		return err
 	}
@@ -52,15 +52,16 @@ func WriteIntroUsageArgsFlags(b *pkghelpdoc.Body) error {
 	}
 	return b.WriteSection("Flags", ""+
 		"  -e, --regex string         match with regular expression\n"+
+		"      --expr string          boolean match (&|! or AND/OR/NOT; phrases in \"…\")\n"+
 		"      --case-sensitive       case-sensitive matching\n"+
-		"  -n, --lines int            last N matching records (default 1000)\n"+
-		"      --head                 take first N matches instead of last N\n"+
+		"  -n, --lines int            last N matching records (default 1000; ignored with -f)\n"+
+		"      --head                 take first N matches instead of last N (ignored with -f)\n"+
 		"      --since string         not older than (15m, 2h, today, RFC3339)\n"+
 		"      --until string         not newer than\n"+
 		"  -p, --priority string      minimum priority (emerg…debug)\n"+
 		"  -u, --unit string          filter by unit/service\n"+
 		"  -S, --source string        source name or file path/glob\n"+
-		"  -f, --follow               follow new entries\n"+
+		"  -f, --follow               follow new entries (watch; silent until match)\n"+
 		"      --json                 NDJSON output\n"+
 		"      --raw                  include original line in JSON\n"+
 		"      --utc                  timestamps in UTC\n"+
@@ -76,6 +77,7 @@ func DefaultExamples() []string {
 		toolname.AILog + " -n 50",
 		toolname.AILog + " error --since 1h",
 		toolname.AILog + " -e 'fail(ed|ure)' -n 100",
+		toolname.AILog + ` -f --expr '(error|fail) & !debug'`,
 		toolname.AILog + " --backend builtin -S /var/log/system.log -n 20",
 		toolname.AILog + " --json --no-pager -n 5",
 		toolname.AILog + " sources",

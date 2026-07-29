@@ -22,16 +22,30 @@ import (
 	"strings"
 )
 
-// Filter applies Go-side keyword/regex/level/time predicates to a record.
+// Filter applies Go-side keyword/regex/expr/level/time predicates to a record.
 type Filter struct {
 	keywords []string
 	re       *regexp.Regexp
+	expr     *Expr
 	q        Query
 }
 
-// NewFilter builds a Filter from q. Returns an error if Regex is invalid.
+// NewFilter builds a Filter from q.
+//
+// When q.Expr is set, it is parsed once and used for text matching instead of
+// Keywords and Regex. Returns a wrapped ErrBadExpr if Expr is invalid, or a
+// compile error if Regex is invalid.
 func NewFilter(q Query) (*Filter, error) {
 	f := &Filter{q: q}
+	if q.Expr != "" {
+		e, err := ParseExpr(q.Expr)
+		if err != nil {
+			return nil, err
+		}
+		f.expr = e
+		return f, nil
+	}
+
 	if q.IgnoreCase {
 		for _, k := range q.Keywords {
 			f.keywords = append(f.keywords, strings.ToLower(k))
@@ -39,6 +53,7 @@ func NewFilter(q Query) (*Filter, error) {
 	} else {
 		f.keywords = append(f.keywords, q.Keywords...)
 	}
+
 	if q.Regex != "" {
 		pat := q.Regex
 		if q.IgnoreCase && !strings.HasPrefix(pat, "(?") {
@@ -54,7 +69,8 @@ func NewFilter(q Query) (*Filter, error) {
 }
 
 // Match reports whether rec satisfies all filter predicates. Keywords match
-// with AND semantics.
+// with AND semantics unless --expr is set, in which case the boolean
+// expression is used instead.
 //
 // Unknown record attributes never exclude a record: a zero Time passes the
 // --since/--until range and a LevelUnset record passes the --priority floor,
@@ -95,12 +111,15 @@ func (f *Filter) matchUnit(rec Record) bool {
 	return f.q.Unit == "" || strings.EqualFold(rec.Unit, f.q.Unit)
 }
 
-// matchText applies --grep and the keyword AND set to the message, falling back
-// to the raw line when a backend produced no message.
+// matchText applies --expr, or --regex and the keyword AND set, to the
+// message (falling back to the raw line when a backend produced no message).
 func (f *Filter) matchText(rec Record) bool {
 	hay := rec.Message
 	if hay == "" {
 		hay = rec.Raw
+	}
+	if f.expr != nil {
+		return f.expr.Eval(hay, f.q.IgnoreCase)
 	}
 	if f.re != nil && !f.re.MatchString(hay) {
 		return false

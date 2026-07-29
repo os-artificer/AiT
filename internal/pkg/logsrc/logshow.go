@@ -58,12 +58,6 @@ const (
 	// logShowSyslogTimeLayout is the timestamp format the syslog style prints.
 	logShowSyslogTimeLayout = "2006-01-02 15:04:05.000000-0700"
 
-	// macOS --level names, coarser than syslog severities.
-	macLevelFault = "fault"
-	macLevelError = "error"
-	macLevelInfo  = "info"
-	macLevelDebug = "debug"
-
 	// logShowSyslogMinFields is the smallest field count that can hold a
 	// two-field timestamp plus a message.
 	logShowSyslogMinFields = 3
@@ -87,9 +81,7 @@ func BuildLogShowArgs(q Query, window time.Duration, ndjson bool) []string {
 	if !q.Until.IsZero() {
 		args = append(args, "--end", q.Until.Format(logShowTimeLayout))
 	}
-	if q.MinLevel != LevelUnset {
-		args = append(args, "--level", macOSLevelName(q.MinLevel))
-	}
+	args = appendLogShowVerbosity(args, q)
 	return appendLogShowPredicate(args, q)
 }
 
@@ -97,26 +89,24 @@ func BuildLogShowArgs(q Query, window time.Duration, ndjson bool) []string {
 // Streaming always uses the structured style.
 func BuildLogStreamArgs(q Query) []string {
 	args := []string{"stream", "--style", LogShowStyleNDJSON}
-	if q.MinLevel != LevelUnset {
-		args = append(args, "--level", macOSLevelName(q.MinLevel))
-	}
+	args = appendLogShowVerbosity(args, q)
 	return appendLogShowPredicate(args, q)
 }
 
-// macOSLevelName maps a syslog severity floor onto the nearest `log` level.
-// The mapping widens rather than narrows, so the Go filter still has every
-// record it needs to apply the exact --priority floor.
-func macOSLevelName(lv Level) string {
-	switch {
-	case lv <= LevelCritical:
-		return macLevelFault
-	case lv <= LevelError:
-		return macLevelError
-	case lv <= LevelInfo:
-		return macLevelInfo
-	default:
-		return macLevelDebug
+// appendLogShowVerbosity adds --info/--debug when the priority floor needs those
+// macOS message types. There is no `log show --level`; exact --priority filtering
+// still happens in Go.
+func appendLogShowVerbosity(args []string, q Query) []string {
+	if q.MinLevel == LevelUnset {
+		return args
 	}
+	if q.MinLevel >= LevelInfo {
+		args = append(args, "--info")
+	}
+	if q.MinLevel >= LevelDebug {
+		args = append(args, "--debug")
+	}
+	return args
 }
 
 type logShowNDJSON struct {

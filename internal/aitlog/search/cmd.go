@@ -35,8 +35,8 @@ const Name = "search"
 func New() *cobra.Command {
 	var f queryflags.Flags
 	cmd := &cobra.Command{
-		Use:           Name + " [flags] <keyword...>",
-		Short:         "Search system logs (requires keywords)",
+		Use:           Name + " [flags] [keyword...]",
+		Short:         "Search system logs (keywords, --expr, or -e)",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.ArbitraryArgs,
@@ -44,13 +44,13 @@ func New() *cobra.Command {
 			if pkghelpdoc.HasHelpArg(args) {
 				return WriteHelp(c.OutOrStdout())
 			}
-			if len(args) == 0 && f.Regex == "" {
+			if len(args) == 0 && f.Regex == "" && f.Expr == "" {
 				return errhint.WithTryMsg(
 					"search requires a keyword",
-					"Provide at least one keyword (or use -e/--regex).",
+					"Provide at least one keyword, --expr, or -e/--regex.",
 					toolname.AILog+" search error",
+					toolname.AILog+` search --expr 'error|fail'`,
 					toolname.AILog+" search version",
-					toolname.AILog+" --help",
 				)
 			}
 			return view.RunSearch(c.Context(), c.OutOrStdout(), c.ErrOrStderr(), f, args)
