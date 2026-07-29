@@ -1,11 +1,11 @@
 # AiT — Agent orientation
 
-**AiT** is a Go **toolbox** (module `github.com/os-artificer/AiT`). Shipped tools: **`aitssh`** (SSH client with sessions, optional experimental AI, SFTP/ZMODEM transfer), **`aitimg`** (image EXIF metadata + Nominatim reverse geocode), and **`aitlog`** (system log viewer/search). Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
+**AiT** is a Go **toolbox** (module `github.com/os-artificer/AiT`). Shipped tools: **`aitssh`** (SSH client with sessions, optional experimental AI, SFTP/ZMODEM transfer), **`aitimg`** (image EXIF metadata + Nominatim reverse geocode), **`aitlog`** (system log viewer/search), and **`aithost`** (live host CPU/mem/disk/net/process monitor). Layout follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout).
 
 ## Build and test
 
 ```bash
-make build       # → bin/aitssh, bin/aitimg, bin/aitlog
+make build       # → bin/aitssh, bin/aitimg, bin/aitlog, bin/aithost
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
@@ -13,6 +13,7 @@ make test-cross  # five-platform go build ./... (linux/darwin/windows)
 ./bin/aitssh        # run SSH tool
 ./bin/aitimg        # run image metadata tool
 ./bin/aitlog        # run log viewer tool
+./bin/aithost       # run host monitor
 ```
 
 Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARCH=amd64 go build -o bin/aitssh.exe ./cmd/aitssh`.
@@ -28,8 +29,9 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **OpenSSH config**: default connect and `load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
 - **Image metadata (`aitimg`)**: EXIF extract via `internal/pkg/imgmeta`; reverse geocode via `internal/pkg/geocode` (Nominatim)
 - **System logs (`aitlog`)**: view/search via `internal/pkg/logsrc` (native tools + builtin fallbacks) and less-like paging via `internal/pkg/pager`
+- **Host monitor (`aithost`)**: live multi-panel dashboard via Bubble Tea; metrics via `internal/pkg/hoststats` + panels in `internal/pkg/hostdash`
 
-Project structure: [`docs/architecture.md`](docs/architecture.md). aitssh: [`docs/tools/aitssh.md`](docs/tools/aitssh.md), [`docs/tools/aitssh-internals.md`](docs/tools/aitssh-internals.md). aitimg: [`docs/tools/aitimg.md`](docs/tools/aitimg.md), [`docs/tools/aitimg-internals.md`](docs/tools/aitimg-internals.md). aitlog: [`docs/tools/aitlog.md`](docs/tools/aitlog.md), [`docs/tools/aitlog-internals.md`](docs/tools/aitlog-internals.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
+Project structure: [`docs/architecture.md`](docs/architecture.md). aitssh: [`docs/tools/aitssh.md`](docs/tools/aitssh.md), [`docs/tools/aitssh-internals.md`](docs/tools/aitssh-internals.md). aitimg: [`docs/tools/aitimg.md`](docs/tools/aitimg.md), [`docs/tools/aitimg-internals.md`](docs/tools/aitimg-internals.md). aitlog: [`docs/tools/aitlog.md`](docs/tools/aitlog.md), [`docs/tools/aitlog-internals.md`](docs/tools/aitlog-internals.md). aithost: [`docs/tools/aithost.md`](docs/tools/aithost.md), [`docs/tools/aithost-internals.md`](docs/tools/aithost-internals.md). Example config: [`configs/ait.example.yaml`](configs/ait.example.yaml). Archive Cursor plans to `docs/<kebab-case>.md` per [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc).
 
 ## Where code lives
 
@@ -38,11 +40,15 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). aitssh: [`doc
 | `cmd/aitssh/main.go` | Thin `main` — delegates to `aissh.Run` |
 | `cmd/aitimg/main.go` | Thin `main` — delegates to `aitimg.Run` |
 | `cmd/aitlog/main.go` | Thin `main` — delegates to `aitlog.Run` |
+| `cmd/aithost/main.go` | Thin `main` — delegates to `aithost.Run` |
 | `internal/aitimg/` | `aitimg` CLI (package **`aitimg`**: `Run`, `Execute`, help, version ldflags) |
 | `internal/aitlog/` | `aitlog` CLI (package **`aitlog`**: `Run`, `Execute`, view/search/sources/version) |
+| `internal/aithost/` | `aithost` CLI (package **`aithost`**: `Run`, `Execute`, top/cpu/mem/disk/net/proc/snapshot) |
 | `internal/pkg/logsrc/` | System log sources, filters, native/builtin backends, chain resolution |
+| `internal/pkg/hoststats/` | Host CPU/mem/disk/net/process sampling and Section formatters |
+| `internal/pkg/hostdash/` | aithost dashboard Panel primitives (sparklines) |
 | `internal/pkg/pager/` | Less-like interactive pager |
-| `internal/pkg/buildinfo/` | Shared version string formatting (aitssh/aitimg/aitlog) |
+| `internal/pkg/buildinfo/` | Shared version string formatting (aitssh/aitimg/aitlog/aithost) |
 | `internal/pkg/imgmeta/` | Image EXIF extract + human/JSON formatters |
 | `internal/pkg/geocode/` | Nominatim reverse geocode HTTP client |
 | `internal/aissh/` | CLI entry (Go package **`aissh`**: `Run`, `ExitCode`, `Execute`, `NewManager`, Cobra root); subpackages below |

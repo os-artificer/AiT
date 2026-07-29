@@ -638,7 +638,15 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | LG9 | 坏 `--since` Try hint | `TestCLI_BadSince` |
 | LG10 | `--head -n` 取前 N | `TestCLI_Head` |
 | LG11–LG18 | regex/case/utc/raw/quiet/limit 语义 | `logsrc` + `cli_test` 覆盖；见 docs/tools/aitlog-internals.md |
-| LG19 | 稀有关键字不挂起（macOS `--predicate` + 过滤窗口 ≤1h） | `TestCLI_NativeRareKeywordBounded`、`TestBuildLogShowArgs_IncludesPredicateAndLast`、`TestLogShowWindowsFiltered_CapsAtOneHour` |
+| LG19 | 稀有关键字不挂起（macOS `--predicate` + 过滤窗口 ≤1h；墙钟 ≤45s） | `TestCLI_NativeRareKeywordBounded`、`TestBuildLogShowArgs_IncludesPredicateAndLast`、`TestLogShowWindowsFiltered_CapsAtOneHour` |
+| LG20a | `--expr` 解析 `&\|!` / `AND OR NOT` / 括号 / 短语 / `"AND"` 字面量 | `TestParseExpr_*` |
+| LG20b | `--expr` Eval 与大小写 | `TestParseExpr_CaseSensitiveEval`、`TestParseExpr_WordOps` |
+| LG20c | `-f --expr` builtin 文件仅输出匹配行 | `TestCLI_FollowExpr` |
+| LG20d | `--expr` 与关键字/`-e` 互斥 + Try | `TestCLI_ExprExclusive` |
+| LG20e | Expr → macOS predicate golden | `TestBuildLogShowPredicate_ExprBoolean` |
+| LG20f | `search --expr` 无需位置关键字 | `TestCLI_SearchExprOnly` |
+| LG21 | 人类可读输出每条记录单行（嵌入换行展平；JSON 保留原文） | `TestFormatHuman_CollapsesNewlines`、`TestFormatJSON_KeepsNewlines` |
+| LG22 | macOS `log show`/`stream` 不用非法 `--level`；`-p info/debug` 用 `--info`/`--debug` | `TestBuildLogShowArgs_PriorityUsesInfoDebugNotLevel` |
 
 ### PG* 明细（`internal/pkg/pager`）
 
@@ -664,11 +672,34 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | BI1 | Format ldflags 优先 | `TestFormat_LdflagsWin` |
 | BI2 | Short 无值 → `dev` | `TestShort_DevFallback` |
 | BI3 | Short 用 embedded | `TestShort_Embedded` |
-| BI4 | aitssh/aitimg version 仍可用 | `internal/aitimg` / `internal/aissh/version` 测试 |
+| BI4 | aitssh/aitimg/aitlog/aithost version 仍可用 | `internal/aitimg` / `internal/aissh/version` / `internal/aithost` 测试 |
+
+### AH* 明细（`aithost` CLI）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|------------|
+| AH1 | root help 含 Usage/Commands/Examples | `TestWriteRootHelp` |
+| AH2 | `-h` 仍 help | `TestCLI_HelpFlag` |
+| AH3 | `version` / `-V` | `TestCLI_Version`、`TestCLI_VersionFlag` |
+| AH4 | `snapshot` human 含 cpu/mem/disk/net | `TestCLI_Snapshot` |
+| AH5 | `snapshot --json` 可解析 | `TestCLI_SnapshotJSON` |
+| AH6–AH9 | `cpu`/`mem`/`disk`/`net` 与 `--json` | `TestCLI_CPU`、`TestCLI_MemJSON`、`TestCLI_Disk`、`TestCLI_Net` |
+| AH10 | `sources` 列出 cpu/mem/disk/net/proc | `TestCLI_Sources` |
+| AH11 | 非 TTY `top` → errhint | `TestCLI_TopNonTTY` |
+| AH12 | hoststats 进程排序/limit | `TestProcessQuery_DefaultSortLimit` |
+| AH13 | `make test-cross` 含 aithost | merge gate |
+| AH14 | 各命令 help 可用 | `pkghelpdoc.Bind` + WriteHelp |
+| AH15 | 命令包互不 import；仅 `registry/all` blank-import | `TestCommandPackages_NoSiblingImports`、`TestRegistryAll_BlankImportsCommands` |
+| AH16 | registry Entries 含 top/cpu/proc/version | `TestRegistry_EntriesIncludeTop` |
+| AH17 | 默认排序 CPU→MEM→NET→DISK，Limit=10 | `TestProcessQuery_DefaultSortLimit` |
+| AH18 | `aithost proc` human / `--json` | `TestCLI_Proc`、`TestCLI_ProcJSON` |
+| AH19 | `--sort mem` / `--limit 5` | `TestCLI_ProcSortLimit`、`TestProcessQuery_SortMemLimit` |
+| AH20 | top/hostdash 含 ProcPanel | `TestTopModel_IncludesProcPanel`、`TestDefaultPanels_IncludesProc` |
 
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
+- [ ] AH1–AH20：`aithost` 主机监控（见 **AH\*** 明细）
 - [ ] R15 未回退（`aitssh ai model list` / `aitssh ai help` 不挂起；`aitssh ai` 仍进 REPL；需实验开关开启）
 - [ ] EX1–EX13 + EX4b：AI 实验门禁默认关；CLI/env/config 开启；help 可用；无 LocalAIClient 绕过；aimode 不 import aissh（见 **EX***）
 - [ ] R16 未回退（Save 无根级 `deepseek`；`TestSaveYAML_NoRootDeepseek` 等通过）
@@ -958,7 +989,8 @@ aitssh hostA                    # 无 --save
 | G* | `aitssh config init/view/edit/validate` | `TestConfigEnsureFile_Creates`、`TestConfigInitCmd`、`TestConfigViewCmd`、`TestConfigEditCmd`、`TestConfigValidateCmd_*`、`TestValidate_*`、`TestOpenEditor_Unix` |
 | RA* | SSH 远程 AI REPL 入口 / Agent 执行 | `TestRunREPL_InitialEmptyAgentEntersREPL`、`TestHandleAIMetaLine_ErrHintNoDisconnect`、`TestRunAgentOnce_ScopeRemote_Capture`、`TestParseAction_XMLFallback`、`TestMetaScanner_AitAIBareLine` |
 | EX* | AI 公共能力剥离 + 实验门禁（默认关） | `TestAIExperimental_*`、`TestAICmd_ExperimentalDisabled`、`TestAimode_NoAisshImport`、`TestHandleAIMetaLine_ExperimentalDisabled*` |
-| LG* | `aitlog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources` |
+| LG* | `aitlog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources`、`TestCLI_FollowExpr`、`TestCLI_SearchExprOnly` |
+| AH* | `aithost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、`TestCLI_TopNonTTY`、`TestCommandPackages_NoSiblingImports`、`TestProcessQuery_DefaultSortLimit` |
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
 | FB* | `aitlog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |
