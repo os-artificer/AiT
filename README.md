@@ -2,9 +2,12 @@
 
 **AiT** is a cross-platform (Linux / macOS / Windows) AI-enhanced command-line **toolbox** for operations engineers—terminal and SSH workflows today, more tools over time.
 
-**First tool:** [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer).
+**Tools:**
 
-Full CLI reference: [aitssh guide](docs/tools/aitssh.md).
+- [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer). Guide: [aitssh](docs/tools/aitssh.md).
+- [`aitimg`](cmd/aitimg) — image metadata extractor (EXIF, GPS, reverse-geocoded address). Guide: [aitimg](docs/tools/aitimg.md).
+- [`aitlog`](cmd/aitlog) — system log viewer and search (Linux/macOS/Windows). Guide: [aitlog](docs/tools/aitlog.md).
+- [`aithost`](cmd/aithost) — live host CPU/mem/disk/net/process monitor. Guide: [aithost](docs/tools/aithost.md).
 
 ## What you get
 
@@ -58,16 +61,22 @@ git clone https://github.com/os-artificer/AiT.git
 cd AiT
 make build
 ./bin/aitssh --help
+./bin/aitimg --help
+./bin/aitlog --help
+./bin/aithost --help
 ```
 
-**`go install`** (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
+**Install all tools** via `go install` (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
 
 ```bash
-go install github.com/os-artificer/AiT/cmd/aitssh@latest
+go install github.com/os-artificer/AiT/cmd/aitssh@latest github.com/os-artificer/AiT/cmd/aitimg@latest github.com/os-artificer/AiT/cmd/aitlog@latest github.com/os-artificer/AiT/cmd/aithost@latest
 aitssh --help
+aitimg --help
+aitlog --help
+aithost --help
 ```
 
-Ensure `$(go env GOPATH)/bin` is on your PATH.
+Ensure `$(go env GOPATH)/bin` is on your PATH. When adding a new `cmd/<tool>`, append `github.com/os-artificer/AiT/cmd/<tool>@latest` to the `go install` line above.
 
 ## Documentation
 
@@ -76,6 +85,12 @@ Ensure `$(go env GOPATH)/bin` is on your PATH.
 | Project structure | [docs/architecture.md](docs/architecture.md) |
 | aitssh internals | [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md) |
 | aitssh guide | [docs/tools/aitssh.md](docs/tools/aitssh.md) |
+| aitimg internals | [docs/tools/aitimg-internals.md](docs/tools/aitimg-internals.md) |
+| aitimg guide | [docs/tools/aitimg.md](docs/tools/aitimg.md) |
+| aitlog internals | [docs/tools/aitlog-internals.md](docs/tools/aitlog-internals.md) |
+| aitlog guide | [docs/tools/aitlog.md](docs/tools/aitlog.md) |
+| aithost internals | [docs/tools/aithost-internals.md](docs/tools/aithost-internals.md) |
+| aithost guide | [docs/tools/aithost.md](docs/tools/aithost.md) |
 | Python E2E tests | [tests/README.md](tests/README.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Code layout | [AGENTS.md](AGENTS.md) |

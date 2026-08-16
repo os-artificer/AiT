@@ -9,9 +9,12 @@ This document is the structure overview for the AiT repository: what lives where
 AiT is a Go CLI toolbox.  
 Go module path: `github.com/os-artificer/AiT`.
 
-Current shipped tool:
+Shipped tools:
 
 - `aitssh`: SSH client with session persistence, optional experimental AI mode (off by default), transfer support, and shell/meta workflows.
+- `aitimg`: Image metadata extractor (EXIF device/time/GPS + Nominatim reverse-geocoded address).
+- `aitlog`: System log viewer and search (Linux/macOS/Windows) with native tools and built-in fallbacks.
+- `aithost`: Live host CPU, memory, disk, network, and process monitor (Bubble Tea dashboard).
 
 Shared capabilities (not separate binaries) live under `internal/pkg/` and are consumed by tools. AI REPL/agent UX is `internal/pkg/aimode` (engine: `internal/pkg/ai`); tools gate experimental AI via config/env/CLI before calling it.
 
@@ -25,6 +28,12 @@ Shared capabilities (not separate binaries) live under `internal/pkg/` and are c
 | [architecture.md](architecture.md) | Toolbox structure and generic layering rules (this page) |
 | [tools/aitssh.md](tools/aitssh.md) | `aitssh` user guide (CLI, prompts, behavior) |
 | [tools/aitssh-internals.md](tools/aitssh-internals.md) | `aitssh` implementation (package layering, workflows, source map) |
+| [tools/aitimg.md](tools/aitimg.md) | `aitimg` user guide |
+| [tools/aitimg-internals.md](tools/aitimg-internals.md) | `aitimg` implementation (package layering) |
+| [tools/aitlog.md](tools/aitlog.md) | `aitlog` user guide |
+| [tools/aitlog-internals.md](tools/aitlog-internals.md) | `aitlog` implementation (package layering) |
+| [tools/aithost.md](tools/aithost.md) | `aithost` user guide |
+| [tools/aithost-internals.md](tools/aithost-internals.md) | `aithost` implementation (package layering) |
 | [AGENTS.md](../AGENTS.md) | Agent-oriented build/test/layout orientation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor workflow and coding standards |
 | [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) | Merge gates and regression acceptance checklist |
@@ -37,13 +46,16 @@ Shared capabilities (not separate binaries) live under `internal/pkg/` and are c
 ## 3. Tools catalog
 
 
-| Tool     | Status  | Entry binary | App package      | User guide                         | Internals                                              |
-| -------- | ------- | ------------ | ---------------- | ---------------------------------- | ------------------------------------------------------ |
-| `aitssh` | Shipped | `bin/aitssh` | `internal/aissh` | [tools/aitssh.md](tools/aitssh.md) | [tools/aitssh-internals.md](tools/aitssh-internals.md) |
+| Tool     | Status  | Entry binary | App package       | User guide                         | Internals                                              |
+| -------- | ------- | ------------ | ----------------- | ---------------------------------- | ------------------------------------------------------ |
+| `aitssh` | Shipped | `bin/aitssh` | `internal/aissh`  | [tools/aitssh.md](tools/aitssh.md) | [tools/aitssh-internals.md](tools/aitssh-internals.md) |
+| `aitimg` | Shipped | `bin/aitimg` | `internal/aitimg` | [tools/aitimg.md](tools/aitimg.md) | [tools/aitimg-internals.md](tools/aitimg-internals.md) |
+| `aitlog` | Shipped | `bin/aitlog` | `internal/aitlog` | [tools/aitlog.md](tools/aitlog.md) | [tools/aitlog-internals.md](tools/aitlog-internals.md) |
+| `aithost` | Shipped | `bin/aithost` | `internal/aithost` | [tools/aithost.md](tools/aithost.md) | [tools/aithost-internals.md](tools/aithost-internals.md) |
 
 
 AiT is intentionally toolbox-first: each tool gets a thin `cmd/<tool>/main.go` entry, an app layer under `internal/<tool>/`, and shared primitives in `internal/pkg/*`.  
-Today the toolbox has one tool (`aitssh`), but the repository layout is already prepared for additional tools without collapsing boundaries.
+The toolbox currently ships `aitssh`, `aitimg`, `aitlog`, and `aithost`.
 
 ---
 
@@ -168,6 +180,12 @@ For a future toolbox tool `<tool>`:
 | -------- | ----- |
 | [tools/aitssh.md](tools/aitssh.md) | `aitssh` operator-facing CLI guide |
 | [tools/aitssh-internals.md](tools/aitssh-internals.md) | `aitssh` code layout and workflows |
+| [tools/aitimg.md](tools/aitimg.md) | `aitimg` operator-facing CLI guide |
+| [tools/aitimg-internals.md](tools/aitimg-internals.md) | `aitimg` code layout |
+| [tools/aitlog.md](tools/aitlog.md) | `aitlog` operator-facing CLI guide |
+| [tools/aitlog-internals.md](tools/aitlog-internals.md) | `aitlog` code layout |
+| [tools/aithost.md](tools/aithost.md) | `aithost` operator-facing CLI guide |
+| [tools/aithost-internals.md](tools/aithost-internals.md) | `aithost` code layout |
 | [AGENTS.md](../AGENTS.md) | Agent entry point and codebase orientation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor process and standards |
 | [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) | Acceptance and regression checklist |
