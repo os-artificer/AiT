@@ -113,6 +113,7 @@ type logShowNDJSON struct {
 	Timestamp   string `json:"timestamp"`
 	EventType   string `json:"eventType"`
 	EventMsg    string `json:"eventMessage"`
+	ProcessID   int64  `json:"processID"`
 	ProcessImg  string `json:"processImagePath"`
 	Subsystem   string `json:"subsystem"`
 	Category    string `json:"category"`
@@ -128,6 +129,8 @@ func ParseLogShowNDJSON(line []byte) (Record, error) {
 	rec := Record{
 		Raw:     string(line),
 		Message: j.EventMsg,
+		PID:     int(j.ProcessID),
+		Process: processBaseName(j.ProcessImg),
 		Unit:    firstNonEmpty(j.Subsystem, j.ProcessImg, j.Category),
 		Level:   FromMacOS(j.MessageType),
 		Source:  SourceNameSystem,
@@ -157,6 +160,7 @@ func ParseLogShowSyslog(line string) (Record, bool) {
 	}
 	rec.Time = t
 	rec.Message = strings.TrimPrefix(line, stamp+" ")
+	applySyslogProcess(rec.Message, &rec)
 	return rec, true
 }
 

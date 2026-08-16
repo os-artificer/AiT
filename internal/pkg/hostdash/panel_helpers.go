@@ -16,18 +16,37 @@
 
 package hostdash
 
-import "strings"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
 
-// DefaultPanels returns the five dashboard panels in layout order:
-// CPU, MEM, DISK, NET, PROC.
+	"github.com/charmbracelet/lipgloss"
+)
+
+// DefaultPanels returns the dashboard panels in layout order:
+// CPU, MEM, DISK, NET, TCP, UDP, ARP, ICMP, PROC.
 func DefaultPanels() []Panel {
 	return []Panel{
 		NewCPUPanel(),
 		NewMemPanel(),
 		NewDiskPanel(),
 		NewNetPanel(),
+		NewTCPPanel(),
+		NewUDPPanel(),
+		NewARPPanel(),
+		NewICMPPanel(),
 		NewProcPanel(),
 	}
+}
+
+// ProcPanelRowCapacity is how many process rows fit in a PROC panel of outerH cells
+// (including the rounded border). The result is at least 1.
+func ProcPanelRowCapacity(outerH int) int {
+	_, ch := contentBoxSize(minContentW, outerH)
+	return procRowCapacity(ch)
 }
 
 // contentBoxSize converts outer terminal cells to lipgloss Width/Height
@@ -35,73 +54,155 @@ func DefaultPanels() []Panel {
 func contentBoxSize(outerW, outerH int) (w, h int) {
 	w = outerW - boxBorder
 	h = outerH - boxBorder
-	if w < 8 {
-		w = 8
+	if w < minContentW {
+		w = minContentW
 	}
-	if h < 3 {
-		h = 3
+	if h < minContentH {
+		h = minContentH
 	}
 	return w, h
 }
 
+func procRowCapacity(contentH int) int {
+	rows := contentH - procPanelTextLines
+	if rows < 1 {
+		return 1
+	}
+	return rows
+}
+
 func sparkInnerWidth(contentW int) int {
-	// Padding(0, 1) eats 2 cells inside Width.
-	inner := contentW - 2
-	if inner < 8 {
-		inner = 8
+	inner := contentW - sparkBoxPad
+	if inner < minContentW {
+		inner = minContentW
 	}
 	return inner
 }
 
-func appendSpark(hist []float64, v float64) []float64 {
-	hist = append(hist, v)
-	if len(hist) > sparkLen {
-		return hist[len(hist)-sparkLen:]
-	}
-	return hist
+func formatPercentValue(pct float64) string {
+	return fmt.Sprintf("%.1f%%", pct)
 }
 
 // renderBox paints body into an outer width x height cell box (border outside Width/Height).
 func renderBox(body string, outerW, outerH int) string {
 	cw, ch := contentBoxSize(outerW, outerH)
-	return boxStyle.Width(cw).Height(ch).MaxHeight(ch).Render(body)
+	return boxStyle.Width(cw).MaxWidth(outerW).Height(ch).MaxHeight(outerH).Render(body)
 }
 
-func renderSpark(hist []float64, width int) string {
-	if width <= 0 {
-		return ""
+func countTextLines(s string) int {
+	if s == "" {
+		return 0
 	}
-	bars := []rune("▁▂▃▄▅▆▇█")
-	if len(hist) == 0 {
-		return strings.Repeat(" ", width)
+	return strings.Count(s, "\n") + 1
+}
+
+// formatPanelHeadline joins a panel type and primary value (e.g. "CPU   15.0%").
+func formatPanelHeadline(title, value string) string {
+	return title + panelHeadlineSep + value
+}
+
+// centerPanelLine pads s so it is centered in width display cells (ANSI-aware).
+// When s is longer than width, s is returned unchanged.
+func centerPanelLine(s string, width int) string {
+	n := lipgloss.Width(s)
+	if width < 1 || n >= width {
+		return s
 	}
-	start := 0
-	if len(hist) > width {
-		start = len(hist) - width
+	pad := width - n
+	left := pad / 2
+	return strings.Repeat(" ", left) + s + strings.Repeat(" ", pad-left)
+}
+
+func colorANSI(s, code string) string {
+	if s == "" || code == "" {
+		return s
 	}
-	slice := hist[start:]
-	max := 0.0
-	for _, v := range slice {
-		if v > max {
-			max = v
-		}
+	return code + s + ansiReset
+}
+
+func colorSparkSide(s string, left bool) string {
+	if left {
+		return colorANSI(s, ansiIn)
 	}
-	if max <= 0 {
-		max = 1
+	return colorANSI(s, ansiOut)
+}
+
+func colorSparkUint(n uint64, left bool) string {
+	return colorSparkSide(strconv.FormatUint(n, 10), left)
+}
+
+func colorInOutPair(in, out uint64) string {
+	return colorSparkUint(in, true) + inOutSlash + colorSparkUint(out, false)
+}
+
+func formatInOutHeadline(inRate, outRate string) (plain, styled string) {
+	inLbl := glyphIn + inRate
+	outLbl := glyphOut + outRate
+	plain = inLbl + sparkValueSep + outLbl
+	styled = colorSparkSide(inLbl, true) + sparkValueSep + colorSparkSide(outLbl, false)
+	return plain, styled
+}
+
+func yTickPaint(label, tint string) string {
+	if tint != "" {
+		return colorANSI(label, tint)
 	}
-	var b strings.Builder
-	for _, v := range slice {
-		idx := int(v / max * float64(len(bars)-1))
-		if idx < 0 {
-			idx = 0
-		}
-		if idx >= len(bars) {
-			idx = len(bars) - 1
-		}
-		b.WriteRune(bars[idx])
+	return axisStyle.Render(label)
+}
+
+// renderPanelHeadline returns a centered "TITLE   value" line with a bold title.
+// Padding is based on the plain (unstyled) headline width so ANSI codes do not skew centering.
+func renderPanelHeadline(title, value string, width int) string {
+	return renderPanelHeadlineStyled(title, value, axisStyle.Render(value), width)
+}
+
+// renderPanelHeadlineStyled is renderPanelHeadline with a pre-colored value (plainValue is used for width).
+func renderPanelHeadlineStyled(title, plainValue, styledValue string, width int) string {
+	plain := formatPanelHeadline(title, plainValue)
+	styled := titleStyle.Render(title) + panelHeadlineSep + styledValue
+	n := utf8.RuneCountInString(plain)
+	if width < 1 || n >= width {
+		return styled
 	}
-	for b.Len() < width {
-		b.WriteByte(' ')
+	left := (width - n) / 2
+	return strings.Repeat(" ", left) + styled
+}
+
+func sparkPanelBody(headline, detail string, inner int) string {
+	if detail == "" {
+		return headline
 	}
-	return b.String()
+	return headline + "\n" + centerPanelLine(detail, inner)
+}
+
+func renderDualSparkView(
+	title, plain, styled, detail string,
+	histL, histR []float64, times []time.Time,
+	width, height int,
+) string {
+	cw, ch := contentBoxSize(width, height)
+	inner := sparkInnerWidth(cw)
+	headline := renderPanelHeadline(title, plain, inner)
+	if styled != "" {
+		headline = renderPanelHeadlineStyled(title, plain, styled, inner)
+	}
+	body := sparkPanelBody(headline, detail, inner)
+	chart := renderSparkChartDual(
+		histL, histR, times, inner, sparkCurveHeight(ch, countTextLines(body)), rateSparkScale())
+	return renderBox(body+"\n"+chart, width, height)
+}
+
+func renderTintedSparkView(
+	title, value, detail, tint string,
+	hist []float64, times []time.Time,
+	scale sparkScale, width, height int,
+) string {
+	cw, ch := contentBoxSize(width, height)
+	inner := sparkInnerWidth(cw)
+	body := sparkPanelBody(
+		renderPanelHeadlineStyled(title, value, colorANSI(value, tint), inner),
+		detail, inner)
+	chart := renderSparkChartTinted(
+		hist, times, inner, sparkCurveHeight(ch, countTextLines(body)), scale, tint)
+	return renderBox(body+"\n"+chart, width, height)
 }

@@ -30,6 +30,9 @@ import (
 	"time"
 )
 
+// isoLayouts are the timestamp layouts tried for ISO-style log prefixes.
+var isoLayouts = []string{time.RFC3339Nano, time.RFC3339}
+
 const (
 	// gzipSuffix marks a compressed rotation file.
 	gzipSuffix = ".gz"
@@ -53,9 +56,6 @@ const (
 	// liveFileOrderKey sorts the un-rotated file after its rotations.
 	liveFileOrderKey = "/zzzzz"
 )
-
-// isoLayouts are the timestamp layouts tried for ISO-style log prefixes.
-var isoLayouts = []string{time.RFC3339Nano, time.RFC3339}
 
 // ResolveLogFiles expands globs, adds sibling rotations of non-glob paths, and
 // returns absolute paths ordered oldest → newest. Returns a filepath.Glob
@@ -164,6 +164,7 @@ func parseRFC3164(line string) (Record, bool) {
 	}
 	if len(fields) >= 2 {
 		rec.Unit, rec.PID = parseSyslogTag(fields[1])
+		rec.Process = rec.Unit
 	}
 	if len(fields) >= 3 {
 		rec.Message = fields[2]

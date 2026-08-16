@@ -18,13 +18,12 @@ package hoststats
 
 import (
 	"context"
-	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/shirou/gopsutil/v4/cpu"
-	"github.com/shirou/gopsutil/v4/disk"
-	"github.com/shirou/gopsutil/v4/mem"
-	"github.com/shirou/gopsutil/v4/net"
+	"github.com/os-artificer/AiT/internal/pkg/logsrc"
+
 	"github.com/shirou/gopsutil/v4/process"
 )
 
@@ -34,9 +33,15 @@ type Collector struct {
 	prevDiskWrite uint64
 	prevNetRx     uint64
 	prevNetTx     uint64
+	prevProto     protoRaw
 	prevProcIO    map[int32]uint64
 	prevTime      time.Time
 	havePrev      bool
+
+	logMu   sync.Mutex
+	logRecs []logsrc.Record
+	logAt   time.Time
+	logBusy atomic.Bool
 }
 
 // NewCollector returns a Collector ready for Sample calls.
@@ -54,71 +59,30 @@ func (c *Collector) Sample(ctx context.Context, opts ProcessQuery) (Snapshot, er
 	}
 
 	now := time.Now()
-	snap := Snapshot{Time: now}
-
-	cpuPct, err := cpu.PercentWithContext(ctx, DefaultCPUInterval, false)
-	if err != nil {
-		return Snapshot{}, fmt.Errorf("cpu: %w", err)
+	snap := Snapshot{Time: now, Host: CollectHostIdent()}
+	if err := fillCPUStat(ctx, &snap); err != nil {
+		return Snapshot{}, err
 	}
-	if len(cpuPct) > 0 {
-		snap.CPU.Percent = cpuPct[0]
+	if err := fillMemStat(ctx, &snap); err != nil {
+		return Snapshot{}, err
 	}
-
-	vm, err := mem.VirtualMemoryWithContext(ctx)
-	if err != nil {
-		return Snapshot{}, fmt.Errorf("mem: %w", err)
-	}
-	snap.Mem = MemStat{
-		Total:       vm.Total,
-		Used:        vm.Used,
-		Available:   vm.Available,
-		UsedPercent: vm.UsedPercent,
+	if err := fillDiskUsage(ctx, &snap); err != nil {
+		return Snapshot{}, err
 	}
 
-	mount := defaultMount()
-	usage, err := disk.UsageWithContext(ctx, mount)
-	if err != nil {
-		return Snapshot{}, fmt.Errorf("disk usage: %w", err)
-	}
-	snap.Disk.Mount = mount
-	snap.Disk.Total = usage.Total
-	snap.Disk.Used = usage.Used
-	snap.Disk.UsedPercent = usage.UsedPercent
-
-	diskIO, _ := disk.IOCountersWithContext(ctx)
-	var dRead, dWrite uint64
-	for _, io := range diskIO {
-		dRead += io.ReadBytes
-		dWrite += io.WriteBytes
-	}
-
-	netIO, _ := net.IOCountersWithContext(ctx, false)
-	var nRx, nTx, errIn, errOut, dropIn, dropOut uint64
-	netName := "all"
-	if len(netIO) > 0 {
-		nRx = netIO[0].BytesRecv
-		nTx = netIO[0].BytesSent
-		errIn = netIO[0].Errin
-		errOut = netIO[0].Errout
-		dropIn = netIO[0].Dropin
-		dropOut = netIO[0].Dropout
-		if netIO[0].Name != "" {
-			netName = netIO[0].Name
-		}
-	}
-	snap.Net.Name = netName
-	snap.Net.ErrIn = errIn
-	snap.Net.ErrOut = errOut
-	snap.Net.DropIn = dropIn
-	snap.Net.DropOut = dropOut
+	dRead, dWrite := sumDiskIO(ctx)
+	net := sampleNetCounters(ctx)
+	applyNetCounters(&snap, net)
+	protoCur, _ := sampleProtoRaw(ctx)
 
 	dt := now.Sub(c.prevTime).Seconds()
 	if c.havePrev && dt > 0 {
 		snap.Disk.ReadBytesPerSec = float64(dRead-c.prevDiskRead) / dt
 		snap.Disk.WriteBytesPerSec = float64(dWrite-c.prevDiskWrite) / dt
-		snap.Net.RxBytesPerSec = float64(nRx-c.prevNetRx) / dt
-		snap.Net.TxBytesPerSec = float64(nTx-c.prevNetTx) / dt
+		snap.Net.RxBytesPerSec = float64(net.rx-c.prevNetRx) / dt
+		snap.Net.TxBytesPerSec = float64(net.tx-c.prevNetTx) / dt
 	}
+	snap.Proto = protoStatsFromRaw(protoCur, c.prevProto, dt, c.havePrev)
 
 	procs, err := c.sampleProcesses(ctx, opts, dt)
 	if err != nil {
@@ -131,8 +95,9 @@ func (c *Collector) Sample(ctx context.Context, opts ProcessQuery) (Snapshot, er
 
 	c.prevDiskRead = dRead
 	c.prevDiskWrite = dWrite
-	c.prevNetRx = nRx
-	c.prevNetTx = nTx
+	c.prevNetRx = net.rx
+	c.prevNetTx = net.tx
+	c.prevProto = protoCur
 	c.prevTime = now
 	c.havePrev = true
 
@@ -160,10 +125,13 @@ func (c *Collector) sampleProcesses(ctx context.Context, opts ProcessQuery, dt f
 		name, _ := p.NameWithContext(ctx)
 		cpuPct, _ := p.CPUPercentWithContext(ctx)
 		memPct, _ := p.MemoryPercentWithContext(ctx)
+		ppid, _ := p.PpidWithContext(ctx)
 		diskRate := c.diskRateForPID(pid, p, ctx, dt, nextIO)
 		raw = append(raw, ProcStat{
 			PID:             pid,
+			PPID:            ppid,
 			Name:            name,
+			Cmdline:         processCmdline(ctx, p),
 			CPUPercent:      cpuPct,
 			MemPercent:      float64(memPct),
 			DiskBytesPerSec: diskRate,
@@ -171,7 +139,41 @@ func (c *Collector) sampleProcesses(ctx context.Context, opts ProcessQuery, dt f
 		})
 	}
 	c.prevProcIO = nextIO
+	attachProcPeers(ctx, raw)
+	c.attachCachedProcLogs(raw)
 	return SortAndLimitProcesses(raw, opts), nil
+}
+
+func (c *Collector) attachCachedProcLogs(procs []ProcStat) {
+	c.logMu.Lock()
+	recs := append([]logsrc.Record(nil), c.logRecs...)
+	c.logMu.Unlock()
+	attachProcLogs(procs, recs)
+	c.refreshProcLogsAsync()
+}
+
+func (c *Collector) refreshProcLogsAsync() {
+	c.logMu.Lock()
+	stale := c.logAt.IsZero() || time.Since(c.logAt) >= procLogMinInterval
+	c.logMu.Unlock()
+	if !stale {
+		return
+	}
+	if !c.logBusy.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer c.logBusy.Store(false)
+		ctx, cancel := context.WithTimeout(context.Background(), procLogCollectTimeout)
+		defer cancel()
+		recs, err := collectSystemLogs(ctx)
+		c.logMu.Lock()
+		if err == nil {
+			c.logRecs = recs
+		}
+		c.logAt = time.Now()
+		c.logMu.Unlock()
+	}()
 }
 
 func (c *Collector) diskRateForPID(pid int32, p *process.Process, ctx context.Context, dt float64, nextIO map[int32]uint64) float64 {

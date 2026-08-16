@@ -18,21 +18,132 @@ package logsrc
 
 import (
 	"encoding/xml"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 )
 
+const (
+	wevtQueryFmt     = "qe"
+	wevtFormatXML    = "/f:xml"
+	wevtReverseTrue  = "/rd:true"
+	wevtReverseFalse = "/rd:false"
+
+	winEvtProcessName = "processname"
+	winEvtImageName   = "imagename"
+	winEvtApplication = "application"
+
+	winChannelApplication = "Application"
+	winChannelSecurity    = "Security"
+	winChannelSetup       = "Setup"
+	winChannelSystem      = "System"
+)
+
+type wevtEvent struct {
+	XMLName xml.Name `xml:"Event"`
+	System  struct {
+		Provider struct {
+			Name string `xml:"Name,attr"`
+		} `xml:"Provider"`
+		EventID     int `xml:"EventID"`
+		Level       int `xml:"Level"`
+		TimeCreated struct {
+			SystemTime string `xml:"SystemTime,attr"`
+		} `xml:"TimeCreated"`
+		Computer  string `xml:"Computer"`
+		Execution struct {
+			ProcessID uint32 `xml:"ProcessID,attr"`
+		} `xml:"Execution"`
+	} `xml:"System"`
+	EventData struct {
+		Data []struct {
+			Name  string `xml:"Name,attr"`
+			Value string `xml:",chardata"`
+		} `xml:"Data"`
+	} `xml:"EventData"`
+	RenderingInfo struct {
+		Message string `xml:"Message"`
+	} `xml:"RenderingInfo"`
+}
+
 // BuildWevtutilArgs builds argv for wevtutil qe (without the binary name).
 func BuildWevtutilArgs(channel string, q Query, reverse bool) []string {
-	args := []string{"qe", channel, "/f:xml", "/rd:true"}
+	rd := wevtReverseTrue
 	if !reverse {
-		args[len(args)-1] = "/rd:false"
+		rd = wevtReverseFalse
 	}
+	args := []string{wevtQueryFmt, channel, wevtFormatXML, rd}
 	if !q.Since.IsZero() || !q.Until.IsZero() || q.MinLevel != LevelUnset {
 		args = append(args, "/q:"+buildEventXPath(q))
 	}
 	return args
+}
+
+// ParseEventXML parses one Windows Event XML document into a Record.
+func ParseEventXML(data []byte) (Record, error) {
+	var ev wevtEvent
+	if err := xml.Unmarshal(data, &ev); err != nil {
+		return Record{}, err
+	}
+	rec := Record{
+		Raw:     string(data),
+		Host:    ev.System.Computer,
+		Unit:    ev.System.Provider.Name,
+		Message: eventDataMessage(ev),
+		Level:   FromWindowsLevel(ev.System.Level),
+		Source:  SourceNameSystem,
+		PID:     int(ev.System.Execution.ProcessID),
+		Process: windowsEventProcessName(ev),
+		Time:    parseEventSystemTime(ev.System.TimeCreated.SystemTime),
+	}
+	return rec, nil
+}
+
+// ChannelForSource maps logical source names to Windows Event Log channels.
+func ChannelForSource(name string) string {
+	switch strings.ToLower(name) {
+	case "application":
+		return winChannelApplication
+	case "security":
+		return winChannelSecurity
+	case "setup":
+		return winChannelSetup
+	default:
+		return winChannelSystem
+	}
+}
+
+func eventDataMessage(ev wevtEvent) string {
+	if msg := strings.TrimSpace(ev.RenderingInfo.Message); msg != "" {
+		return msg
+	}
+	var b strings.Builder
+	for i, d := range ev.EventData.Data {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		if d.Name != "" {
+			b.WriteString(d.Name)
+			b.WriteByte('=')
+		}
+		b.WriteString(d.Value)
+	}
+	return b.String()
+}
+
+func parseEventSystemTime(ts string) time.Time {
+	if ts == "" {
+		return time.Time{}
+	}
+	if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+		return t
+	}
+	t, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 func buildEventXPath(q Query) string {
@@ -67,79 +178,19 @@ func syslogToWindowsLevel(lv Level) int {
 	}
 }
 
-type wevtEvent struct {
-	XMLName xml.Name `xml:"Event"`
-	System  struct {
-		Provider struct {
-			Name string `xml:"Name,attr"`
-		} `xml:"Provider"`
-		EventID     int `xml:"EventID"`
-		Level       int `xml:"Level"`
-		TimeCreated struct {
-			SystemTime string `xml:"SystemTime,attr"`
-		} `xml:"TimeCreated"`
-		Computer string `xml:"Computer"`
-	} `xml:"System"`
-	EventData struct {
-		Data []struct {
-			Name  string `xml:"Name,attr"`
-			Value string `xml:",chardata"`
-		} `xml:"Data"`
-	} `xml:"EventData"`
-	RenderingInfo struct {
-		Message string `xml:"Message"`
-	} `xml:"RenderingInfo"`
-}
-
-// ParseEventXML parses one Windows Event XML document into a Record.
-func ParseEventXML(data []byte) (Record, error) {
-	var ev wevtEvent
-	if err := xml.Unmarshal(data, &ev); err != nil {
-		return Record{}, err
-	}
-	msg := strings.TrimSpace(ev.RenderingInfo.Message)
-	if msg == "" {
-		var b strings.Builder
-		for i, d := range ev.EventData.Data {
-			if i > 0 {
-				b.WriteByte(' ')
-			}
-			if d.Name != "" {
-				b.WriteString(d.Name)
-				b.WriteByte('=')
-			}
-			b.WriteString(d.Value)
+func windowsEventProcessName(ev wevtEvent) string {
+	for _, d := range ev.EventData.Data {
+		if d.Value == "" {
+			continue
 		}
-		msg = b.String()
-	}
-	rec := Record{
-		Raw:     string(data),
-		Host:    ev.System.Computer,
-		Unit:    ev.System.Provider.Name,
-		Message: msg,
-		Level:   FromWindowsLevel(ev.System.Level),
-		Source:  "system",
-	}
-	if ts := ev.System.TimeCreated.SystemTime; ts != "" {
-		if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
-			rec.Time = t
-		} else if t, err := time.Parse(time.RFC3339, ts); err == nil {
-			rec.Time = t
+		switch strings.ToLower(d.Name) {
+		case winEvtProcessName, winEvtImageName, winEvtApplication:
+			return windowsBaseName(d.Value)
 		}
 	}
-	return rec, nil
+	return ""
 }
 
-// ChannelForSource maps logical source names to Windows Event Log channels.
-func ChannelForSource(name string) string {
-	switch strings.ToLower(name) {
-	case "application":
-		return "Application"
-	case "security":
-		return "Security"
-	case "setup":
-		return "Setup"
-	default:
-		return "System"
-	}
+func windowsBaseName(p string) string {
+	return path.Base(strings.ReplaceAll(strings.TrimSpace(p), "\\", "/"))
 }

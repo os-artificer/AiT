@@ -30,5 +30,5 @@ const SectionFlagsProc = SectionFlagsJSONWatch +
 // SectionFlagsTop is the Flags help body for the live dashboard.
 const SectionFlagsTop = "" +
 	"      --interval duration  refresh interval (default 1s)\n" +
-	"      --limit int          max process rows in PROC panel (default 10)\n" +
+	"      --limit int          optional PROC sample cap (default: all processes)\n" +
 	"      --sort string        PROC primary sort: cpu|mem|net|disk (default cpu)\n"

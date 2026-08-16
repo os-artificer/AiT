@@ -25,6 +25,7 @@ func ListSources() []SourceDesc {
 		{ID: IDMem, Name: "Memory usage", Status: "available", Notes: "virtual memory used/total"},
 		{ID: IDDisk, Name: "Disk usage and IO", Status: "available", Notes: "default mount + IO byte rates"},
 		{ID: IDNet, Name: "Network traffic", Status: "available", Notes: "aggregate iface rates, errs, drops"},
+		{ID: IDProto, Name: "Protocol stats", Status: "available", Notes: protoNotes()},
 		{
 			ID:     IDProc,
 			Name:   "Process list",
@@ -35,11 +36,24 @@ func ListSources() []SourceDesc {
 }
 
 func procNotes() string {
-	base := "top processes by CPU/MEM/NET/DISK; default limit 10"
+	base := "top processes by CPU/MEM/DISK + PEER listen/remote; default limit 10"
 	switch runtime.GOOS {
 	case "linux", "darwin", "windows":
-		return base + "; per-process net rate is best-effort (often 0)"
+		return base + "; TCP peer summary best-effort"
 	default:
 		return base + "; limited support on " + runtime.GOOS
+	}
+}
+
+func protoNotes() string {
+	switch runtime.GOOS {
+	case "linux":
+		return "TCP/UDP/ICMP via /proc; ARP table + lookup rates (best-effort)"
+	case "darwin":
+		return "TCP/UDP/ICMP via netstat -s; TCP estab via netstat -an; ARP via arp -an (no lookup rate)"
+	case "windows":
+		return "TCP/UDP/ICMP via iphlpapi (IPv4+IPv6); ARP via GetIpNetTable (no lookup rate)"
+	default:
+		return "protocol counters unavailable on " + runtime.GOOS
 	}
 }

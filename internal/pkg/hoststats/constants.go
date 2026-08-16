@@ -29,11 +29,12 @@ const (
 
 // Metric section IDs (aligned with aithost subcommand names).
 const (
-	IDCPU  = "cpu"
-	IDMem  = "mem"
-	IDDisk = "disk"
-	IDNet  = "net"
-	IDProc = "proc"
+	IDCPU   = "cpu"
+	IDMem   = "mem"
+	IDDisk  = "disk"
+	IDNet   = "net"
+	IDProto = "proto"
+	IDProc  = "proc"
 )
 
 // Sort key names accepted by ProcessQuery / CLI --sort.
@@ -44,8 +45,38 @@ const (
 	SortDisk = IDDisk
 )
 
-// ProcTableHeader is the human-readable process table column header (no trailing newline).
-const ProcTableHeader = "PID      NAME                 CPU%   MEM%   DISK/s    NET/s"
-
 // ProcNameColWidth is the display width for process names in tables.
 const ProcNameColWidth = 20
+
+// ProcPeerColWidth is the display width for the PEER column.
+const ProcPeerColWidth = 24
+
+// ProcLogColWidth is the default display width for the LOG column.
+const ProcLogColWidth = 36
+
+// ProcLogTimeLayout is the HH:MM:SS stamp used in the PROC detail log list.
+const ProcLogTimeLayout = "15:04:05"
+
+const (
+	procPIDColWidth    = 8
+	procMetricColWidth = 5
+	procDiskColWidth   = 8
+	procColSep         = 1
+	procMetricSep      = 2
+	procLogSep         = 2
+)
+
+// ProcRowMetaWidth is the fixed prefix of a process row before the LOG column
+// (PID/NAME/CPU/MEM/DISK/PEER plus separators).
+const ProcRowMetaWidth = procPIDColWidth + procColSep +
+	ProcNameColWidth + procColSep +
+	procMetricColWidth + procMetricSep +
+	procMetricColWidth + procMetricSep +
+	procDiskColWidth + procMetricSep +
+	ProcPeerColWidth + procLogSep
+
+// ProcLogDetailMax is how many matching log records are kept per process for detail.
+const ProcLogDetailMax = 12
+
+// ProcCmdlineMaxRunes caps stored cmdline length for match/detail.
+const ProcCmdlineMaxRunes = 120

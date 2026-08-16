@@ -72,10 +72,11 @@ func ParseJournalJSON(line []byte) (Record, error) {
 	rec := Record{
 		Host:    j.Hostname,
 		Unit:    firstNonEmpty(j.Unit, j.SyslogID),
+		Process: firstNonEmpty(j.SyslogID, strings.TrimSuffix(j.Unit, ".service")),
 		Raw:     string(line),
 		Message: stringifyMessage(j.Message),
 		Level:   LevelInfo,
-		Source:  "system",
+		Source:  SourceNameSystem,
 	}
 	if j.Priority != "" {
 		if n, err := strconv.Atoi(j.Priority); err == nil {
@@ -115,7 +116,7 @@ func ParseJournalShortISO(line string) (Record, bool) {
 		Host:    parts[1],
 		Message: parts[3],
 		Level:   LevelInfo,
-		Source:  "system",
+		Source:  SourceNameSystem,
 	}
 	if err == nil {
 		rec.Time = t
@@ -123,6 +124,7 @@ func ParseJournalShortISO(line string) (Record, bool) {
 	unit := parts[2]
 	if i := strings.IndexByte(unit, '['); i >= 0 {
 		rec.Unit = unit[:i]
+		rec.Process = rec.Unit
 		pidStr := strings.TrimSuffix(unit[i+1:], "]:")
 		pidStr = strings.TrimSuffix(pidStr, "]")
 		if n, err := strconv.Atoi(pidStr); err == nil {
@@ -130,6 +132,7 @@ func ParseJournalShortISO(line string) (Record, bool) {
 		}
 	} else {
 		rec.Unit = strings.TrimSuffix(unit, ":")
+		rec.Process = rec.Unit
 	}
 	return rec, true
 }

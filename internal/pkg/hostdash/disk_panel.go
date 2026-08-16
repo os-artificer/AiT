@@ -18,14 +18,18 @@ package hostdash
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/hoststats"
 )
 
 // DiskPanel shows disk usage and IO rates.
 type DiskPanel struct {
-	text string
-	hist []float64
+	value  string
+	detail string
+	histR  []float64
+	histW  []float64
+	times  []time.Time
 }
 
 // NewDiskPanel returns a disk panel.
@@ -36,16 +40,22 @@ func (p *DiskPanel) Title() string { return titleDISK }
 
 // Update implements Panel.
 func (p *DiskPanel) Update(s hoststats.Snapshot) {
-	p.text = fmt.Sprintf("%s  %.1f%%\nr %s/s  w %s/s",
-		s.Disk.Mount, s.Disk.UsedPercent,
-		hoststats.FormatBytes(uint64(s.Disk.ReadBytesPerSec)),
-		hoststats.FormatBytes(uint64(s.Disk.WriteBytesPerSec)))
-	p.hist = appendSpark(p.hist, s.Disk.UsedPercent)
+	p.value = formatPercentValue(s.Disk.UsedPercent)
+	readRate := diskReadPrefix + hoststats.FormatBytes(uint64(s.Disk.ReadBytesPerSec)) + rateUnit
+	writeRate := diskWritePrefix + hoststats.FormatBytes(uint64(s.Disk.WriteBytesPerSec)) + rateUnit
+	p.detail = fmt.Sprintf("%s  %s  %s",
+		s.Disk.Mount,
+		colorSparkSide(readRate, true),
+		colorSparkSide(writeRate, false))
+
+	p.histR, p.histW, p.times = appendSparkDual(
+		p.histR, p.histW, p.times,
+		s.Disk.ReadBytesPerSec, s.Disk.WriteBytesPerSec, s.Time)
 }
 
 // View implements Panel. width/height are outer terminal cells including border.
 func (p *DiskPanel) View(width, height int) string {
-	cw, _ := contentBoxSize(width, height)
-	body := titleStyle.Render(titleDISK) + "\n" + p.text + "\n" + renderSpark(p.hist, sparkInnerWidth(cw))
-	return renderBox(body, width, height)
+	return renderDualSparkView(
+		titleDISK, p.value, "", p.detail,
+		p.histR, p.histW, p.times, width, height)
 }

@@ -37,7 +37,7 @@ func TestWriteRootHelp(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"Usage:", "Commands:", "Examples:",
-		"top", "cpu", "mem", "disk", "net", "proc", "snapshot", "sources", "version",
+		"top", "cpu", "mem", "disk", "net", "proto", "proc", "snapshot", "sources", "version",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
@@ -81,10 +81,13 @@ func TestCLI_Snapshot(t *testing.T) {
 		t.Fatalf("err=%v stderr=%s", err, errBuf.String())
 	}
 	got := out.String()
-	for _, want := range []string{"cpu:", "mem:", "disk", "net", "PID"} {
+	for _, want := range []string{"USER:", "OS:", "CPU:", "MEM:", "KERNEL:", "cpu:", "mem:", "disk", "net", "tcp:", "udp:", "arp:", "icmp:", "PID"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "HOST:") {
+		t.Fatalf("hostname must be omitted from header:\n%s", got)
 	}
 }
 
@@ -97,6 +100,10 @@ func TestCLI_SnapshotJSON(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &snap); err != nil {
 		t.Fatalf("json: %v\n%s", err, out.String())
 	}
+	if snap.Host.OS == "" || snap.Host.Arch == "" || snap.Host.CPUs < 1 {
+		t.Fatalf("json host: %+v", snap.Host)
+	}
+	_ = snap.Proto.TCP.Estab
 }
 
 func TestCLI_CPU(t *testing.T) {
@@ -139,6 +146,32 @@ func TestCLI_Net(t *testing.T) {
 	}
 }
 
+func TestCLI_Proto(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aithost.ExecuteWriters([]string{"proto"}, &out, &errBuf); err != nil {
+		t.Fatalf("err=%v stderr=%s", err, errBuf.String())
+	}
+	got := out.String()
+	for _, want := range []string{"tcp:", "udp:", "arp:", "icmp:"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestCLI_ProtoJSON(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aithost.ExecuteWriters([]string{"proto", "--json"}, &out, &errBuf); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{`"tcp"`, `"udp"`, `"arp"`, `"icmp"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
 func TestCLI_Proc(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	if err := aithost.ExecuteWriters([]string{"proc"}, &out, &errBuf); err != nil {
@@ -147,6 +180,15 @@ func TestCLI_Proc(t *testing.T) {
 	got := out.String()
 	if !strings.Contains(got, "PID") || !strings.Contains(got, "CPU%") {
 		t.Fatalf("%q", got)
+	}
+	if !strings.Contains(got, "PEER") {
+		t.Fatalf("missing PEER header:\n%s", got)
+	}
+	if !strings.Contains(got, "LOG") {
+		t.Fatalf("missing LOG header:\n%s", got)
+	}
+	if strings.Contains(got, "NET/s") {
+		t.Fatalf("NET/s should be replaced by PEER:\n%s", got)
 	}
 	lines := strings.Split(strings.TrimSpace(got), "\n")
 	// header + at most 10 data rows
@@ -183,7 +225,7 @@ func TestCLI_Sources(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := out.String()
-	for _, want := range []string{"cpu", "mem", "disk", "net", "proc"} {
+	for _, want := range []string{"cpu", "mem", "disk", "net", "proto", "proc"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in %q", want, got)
 		}
@@ -239,7 +281,7 @@ func TestTopModel_IncludesProcPanel(t *testing.T) {
 	for _, p := range m.panels {
 		p.Update(snap)
 	}
-	view := panels[4].View(100, 12)
+	view := panels[hostdash.PanelPROC].View(100, 12)
 	if !strings.Contains(view, "PROC") || !strings.Contains(view, "PID") || !strings.Contains(view, "tester") {
 		t.Fatalf("%q", view)
 	}

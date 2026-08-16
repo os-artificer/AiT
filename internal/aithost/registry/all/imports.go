@@ -23,6 +23,7 @@ import (
 	_ "github.com/os-artificer/AiT/internal/aithost/mem"
 	_ "github.com/os-artificer/AiT/internal/aithost/net"
 	_ "github.com/os-artificer/AiT/internal/aithost/proc"
+	_ "github.com/os-artificer/AiT/internal/aithost/proto"
 	_ "github.com/os-artificer/AiT/internal/aithost/snapshot"
 	_ "github.com/os-artificer/AiT/internal/aithost/sources"
 	_ "github.com/os-artificer/AiT/internal/aithost/top"

@@ -30,7 +30,7 @@ import (
 func WriteRootHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(
-		"Monitor host CPU, memory, disk, network, and top processes.",
+		"Monitor host CPU, memory, disk, network, protocols, and top processes.",
 		"With no arguments, opens a live multi-panel dashboard (requires a TTY).",
 	); err != nil {
 		return err

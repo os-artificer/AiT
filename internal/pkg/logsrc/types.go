@@ -35,12 +35,15 @@ const DefaultLimit = 1000
 
 // Record is one normalized log entry from any backend.
 type Record struct {
-	Time    time.Time
-	Host    string
-	Source  string
-	Unit    string
-	Level   Level
-	PID     int
+	Time   time.Time
+	Host   string
+	Source string
+	Unit   string
+	Level  Level
+	PID    int
+	// Process is the emitting process name when known (basename of
+	// processImagePath, SYSLOG_IDENTIFIER, or syslog tag).
+	Process string
 	Message string
 	Raw     string
 }

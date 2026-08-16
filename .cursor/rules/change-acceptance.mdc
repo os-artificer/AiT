@@ -684,7 +684,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | AH4 | `snapshot` human 含 cpu/mem/disk/net | `TestCLI_Snapshot` |
 | AH5 | `snapshot --json` 可解析 | `TestCLI_SnapshotJSON` |
 | AH6–AH9 | `cpu`/`mem`/`disk`/`net` 与 `--json` | `TestCLI_CPU`、`TestCLI_MemJSON`、`TestCLI_Disk`、`TestCLI_Net` |
-| AH10 | `sources` 列出 cpu/mem/disk/net/proc | `TestCLI_Sources` |
+| AH10 | `sources` 列出 cpu/mem/disk/net/proto/proc | `TestCLI_Sources` |
 | AH11 | 非 TTY `top` → errhint | `TestCLI_TopNonTTY` |
 | AH12 | hoststats 进程排序/limit | `TestProcessQuery_DefaultSortLimit` |
 | AH13 | `make test-cross` 含 aithost | merge gate |
@@ -695,11 +695,54 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | AH18 | `aithost proc` human / `--json` | `TestCLI_Proc`、`TestCLI_ProcJSON` |
 | AH19 | `--sort mem` / `--limit 5` | `TestCLI_ProcSortLimit`、`TestProcessQuery_SortMemLimit` |
 | AH20 | top/hostdash 含 ProcPanel | `TestTopModel_IncludesProcPanel`、`TestDefaultPanels_IncludesProc` |
+| AH21 | `FormatHostHeader` 含 USER/OS/CPU/MEM/KERNEL，无 HOST | `TestFormatHostHeader_IncludesUserAndHost`、`TestFormatHostHeader_SkipsEmpty` |
+| AH22 | `CollectHostIdent` 有 OS/arch/CPUs | `TestCollectHostIdent_HasOSArch` |
+| AH23 | `Sample` 填充 `Host` | `TestSample_FillsHost` |
+| AH24 | top View 首部含本机与登录账号 | `TestView_IncludesHostHeader` |
+| AH25 | snapshot human/JSON 含 host | `TestCLI_Snapshot`、`TestCLI_SnapshotJSON` |
+| AH26 | 窄屏 header 换行且左对齐；宽屏时间右对齐 | `TestWrapHostHeader_Narrow`、`TestView_HeaderWrapsNarrow`、`TestRenderHostHeader_ClockRight` |
+| AH27 | CPU/MEM/DISK/NET sparkline 为 Braille 曲线 | `TestRenderSparkCurve`、`TestRenderSparkCurve_Empty`、`TestSparklinePanel_CPUView` |
+| AH28 | 曲线图含 Y 刻度与 X 时间轴 | `TestRenderSparkChart_Axes`、`TestSparklinePanel_CPUView` |
+| AH29 | 面板标题 `TYPE   value` 同行居中 | `TestFormatPanelHeadline`、`TestCenterPanelLine`、`TestSparklinePanel_CPUView`、`TestMemDiskNet_Headlines` |
+| AH30 | X 轴 HH:MM:SS 淡色；Y 刻度与曲线/同类数值同色 | `TestRenderSparkChart_Axes`、`TestFormatXAxis_HHMMSS`、`TestSparklinePanel_CPUView`、`TestMemDiskNet_Headlines` |
+| AH31 | top PROC 行数随窗口高度填满（默认不限 10） | `TestProcPanel_FillsAvailableRows`、`TestProcSampleLimit_AllByDefault`、`TestView_ProcFillsTallWindow` |
+| AH32 | `Sample` 填充 `Proto` | `TestSample_FillsProto`、`TestProtoStatsFromRaw_Rates` |
+| AH33 | `aithost proto` / snapshot 含协议段 | `TestCLI_Proto`、`TestCLI_ProtoJSON`、`TestCLI_Snapshot` |
+| AH34 | top 含 TCP/UDP/ARP/ICMP 四协议面板 | `TestDefaultPanels_IncludesProto`、`TestView_NoVerticalOverflow` |
+| AH35 | 各协议 detail 含特征字段 | `TestProtoPanel_Details` |
+| AH36 | PROC PEER 列：服务器 `:port×N`、客户端 remote | `TestFormatProcPeer_*`、`TestFormatProcRow` |
+| AH37 | TCP 连接聚合 LISTEN/ESTABLISHED | `TestAggregateProcPeers_*` |
+| AH38 | `aithost proc` 表头含 PEER、无 NET/s | `TestCLI_Proc` |
+| AH39 | `MatchProc` / `FilterProcs`（子串、子序列、PID、大小写） | `TestMatchProc_*`、`TestFilterProcs_PreservesOrder` |
+| AH40 | 祖先/子进程聚合 | `TestProcAncestors_*`、`TestProcChildren_*` |
+| AH41 | ProcPanel 搜索过滤与 Esc 回到列表 | `TestProcPanel_SearchFilter` |
+| AH42 | 详情含资源 + 树片段；top 页脚含 search 提示 | `TestProcPanel_DetailTree`、`TestView_FooterSearchHint` |
+| AH43 | `KillProc` 非法 pid / 缺失进程报错 | `TestKillProc_InvalidPID`、`TestKillProc_MissingProcess` |
+| AH44 | search/detail `x` 进确认；`n`/`esc` 取消；`y` 发 SIGTERM | `TestProcPanel_KillConfirmSearch`、`TestProcPanel_KillConfirmDetail` |
+| AH45 | TERM 失败后询问 SIGKILL；页脚含 `x kill` | `TestProcPanel_KillForcePrompt`、`TestView_FooterSearchHint` |
+| AH46 | 搜索/详情态刷新不重排进程，仅更新数值 | `TestProcPanel_SearchPreservesOrder` |
+| AH47 | DISK 曲线为读写速率；标题仍为使用率 | `TestDiskPanel_ReadWriteCurves`、`TestMemDiskNet_Headlines` |
+| AH48 | DISK 读写分色 + 左右独立 Y 轴（刻度色同 r/w） | `TestRenderSparkChartDual_IndependentAxes`、`TestRenderSparkChartDual_AxisMatchesRWColors`、`TestDiskPanel_ReadWriteCurves` |
+| AH49 | 搜索/详情态 KeepPIDs 持续刷新焦点进程数值 | `TestProcessQuery_KeepPIDsOutsideTopN`、`TestProcPanel_DetailRefreshesStats` |
+| AH50 | top PROC 默认采集全部进程（`--limit` 可选封顶） | `TestProcessQuery_AllReturnsEveryProcess`、`TestProcSampleLimit_AllByDefault` |
+| AH51 | PROC 表头含 LOG；行含最新日志 | `TestFormatProcRow_IncludesLog`、`TestFormatProcRow` |
+| AH52 | 按 PID 关联系统日志；无 PID 时精确进程名回退；PID 优先于同名 | `TestAttachProcLogs_PIDMatch`、`TestAttachProcLogs_NameFallback`、`TestAttachProcLogs_PIDBeatsName` |
+| AH53 | 详情浮窗展示该进程多条匹配日志 | `TestProcPanel_DetailLogs`、`TestProcPanel_DetailTree` |
+| AH54 | macOS `log show` ndjson 解析 processID / 进程名 | `TestParseLogShowNDJSON_ProcessID` |
+| AH55 | `aithost proc` 表头含 LOG | `TestCLI_Proc` |
+| AH56 | 日志消息展平换行后写入 LOG 列 | `TestFlattenLogMessage_Newlines` |
+| AH57 | 详情 peer 一行一条完整记录；窗口不足时 `… +N more` | `TestFormatProcPeerLines_OnePerRecord`、`TestProcPanel_DetailPeers`、`TestProcPanel_DetailPeers_TruncatesToWindow` |
+| AH58 | NET 入/出双曲线 + 左右独立 Y 轴（色同 ↓/↑） | `TestNetPanel_RxTxCurves`、`TestMemDiskNet_Headlines` |
+| AH59 | 同类数值与曲线同色（DISK 速率、NET errs/drops、协议 ↓↑、CPU/MEM） | `TestSparklinePanel_CPUView`、`TestMemDiskNet_Headlines`、`TestProtoPanel_Details`、`TestProtoPanel_InOutCurves` |
+| AH60 | Windows Event XML 解析 `Execution ProcessID` 与进程映像名 | `TestParseEventXML_ProcessID` |
+| AH61 | macOS `netstat -s` 单复数行 + `netstat -an` ESTABLISHED | `TestFillDarwinNetstat`、`TestFillDarwinNetstat_Singular`、`TestCountEstablishedTCP` |
+| AH62 | Linux proto counters 映射 InSegs/OutSegs 等 | `TestApplyLinuxProtoStat` |
+| AH63 | 默认磁盘挂载：Unix `/`、Windows `C:\` | `TestDefaultMount_Platform`、`TestSample_DiskMountMatchesPlatform` |
 
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
-- [ ] AH1–AH20：`aithost` 主机监控（见 **AH\*** 明细）
+- [ ] AH1–AH63：`aithost` 主机监控（见 **AH\*** 明细）
 - [ ] R15 未回退（`aitssh ai model list` / `aitssh ai help` 不挂起；`aitssh ai` 仍进 REPL；需实验开关开启）
 - [ ] EX1–EX13 + EX4b：AI 实验门禁默认关；CLI/env/config 开启；help 可用；无 LocalAIClient 绕过；aimode 不 import aissh（见 **EX***）
 - [ ] R16 未回退（Save 无根级 `deepseek`；`TestSaveYAML_NoRootDeepseek` 等通过）
@@ -990,7 +1033,7 @@ aitssh hostA                    # 无 --save
 | RA* | SSH 远程 AI REPL 入口 / Agent 执行 | `TestRunREPL_InitialEmptyAgentEntersREPL`、`TestHandleAIMetaLine_ErrHintNoDisconnect`、`TestRunAgentOnce_ScopeRemote_Capture`、`TestParseAction_XMLFallback`、`TestMetaScanner_AitAIBareLine` |
 | EX* | AI 公共能力剥离 + 实验门禁（默认关） | `TestAIExperimental_*`、`TestAICmd_ExperimentalDisabled`、`TestAimode_NoAisshImport`、`TestHandleAIMetaLine_ExperimentalDisabled*` |
 | LG* | `aitlog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources`、`TestCLI_FollowExpr`、`TestCLI_SearchExprOnly` |
-| AH* | `aithost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、`TestCLI_TopNonTTY`、`TestCommandPackages_NoSiblingImports`、`TestProcessQuery_DefaultSortLimit` |
+| AH* | `aithost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、`TestCLI_Proto`、`TestCLI_TopNonTTY`、`TestCommandPackages_NoSiblingImports`、`TestProcessQuery_DefaultSortLimit`、`TestProcessQuery_AllReturnsEveryProcess`、`TestProcSampleLimit_AllByDefault`、`TestView_IncludesHostHeader`、`TestFormatHostHeader_IncludesUserAndHost`、`TestWrapHostHeader_Narrow`、`TestView_HeaderWrapsNarrow`、`TestRenderSparkCurve`、`TestRenderSparkChart_Axes`、`TestFormatPanelHeadline`、`TestView_ProcFillsTallWindow`、`TestProtoPanel_Details`、`TestFormatProcPeer_*`、`TestAggregateProcPeers_*`、`TestMatchProc_*`、`TestProcAncestors_*`、`TestProcPanel_SearchFilter`、`TestProcPanel_DetailTree`、`TestProcPanel_DetailLogs`、`TestProcPanel_DetailPeers`、`TestProcPanel_DetailPeers_TruncatesToWindow`、`TestView_FooterSearchHint`、`TestKillProc_*`、`TestProcPanel_KillConfirm*`、`TestProcPanel_KillForcePrompt`、`TestProcPanel_SearchPreservesOrder`、`TestDiskPanel_ReadWriteCurves`、`TestRenderSparkChartDual_IndependentAxes`、`TestRenderSparkChartDual_AxisMatchesRWColors`、`TestNetPanel_RxTxCurves`、`TestProtoPanel_InOutCurves`、`TestProcessQuery_KeepPIDsOutsideTopN`、`TestAttachProcLogs_*`、`TestParseLogShowNDJSON_ProcessID`、`TestParseEventXML_ProcessID`、`TestFillDarwinNetstat`、`TestApplyLinuxProtoStat`、`TestDefaultMount_Platform` |
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
 | FB* | `aitlog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |

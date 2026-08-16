@@ -57,7 +57,7 @@ func New() *cobra.Command {
 		},
 	}
 	shared.BindJSONInterval(cmd, &f)
-	shared.BindProcessQuery(cmd, &f)
+	shared.BindProcessQueryLimit(cmd, &f, 0)
 	_ = cmd.Flags().MarkHidden("json")
 	_ = cmd.Flags().MarkHidden("watch")
 	pkghelpdoc.Bind(cmd, WriteHelp)

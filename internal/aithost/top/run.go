@@ -49,6 +49,9 @@ type model struct {
 	pq       hoststats.ProcessQuery
 	col      *hoststats.Collector
 	panels   []hostdash.Panel
+	host     hoststats.HostIdent
+	memTotal uint64
+	clock    time.Time
 	width    int
 	height   int
 	err      error
@@ -67,10 +70,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
-		return m, nil
+		return m, m.sampleCmd()
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
+		if m.handleDashKey(msg.String()) {
+			return m, nil
+		}
+		if msg.String() == keyQuit || msg.String() == keyCtrlC {
 			return m, tea.Quit
 		}
 	case tickMsg:
@@ -80,6 +85,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
+		m.host = msg.snap.Host
+		m.memTotal = msg.snap.Mem.Total
+		m.clock = msg.snap.Time
 		for _, p := range m.panels {
 			p.Update(msg.snap)
 		}
@@ -94,7 +102,7 @@ func (m model) View() string {
 		return fmt.Sprintf("error: %v\n(press q to quit)\n", m.err)
 	}
 	if !m.ready && m.width == 0 {
-		return "loading…"
+		return viewLoading
 	}
 	w, h := m.width, m.height
 	if w < 1 {
@@ -103,21 +111,39 @@ func (m model) View() string {
 	if h < 1 {
 		h = fallbackHeight
 	}
+	header, headerH := renderHostHeader(m.host, m.memTotal, m.clock, w)
+
 	halfW := w / 2
-	topH, midH, procH := panelRowHeights(h)
+	qW := w / 4
+	topH, midH, protoH, procH := panelRowHeights(h, headerH)
 
 	cpu := m.panels[hostdash.PanelCPU].View(halfW, topH)
 	mem := m.panels[hostdash.PanelMEM].View(w-halfW, topH)
 	disk := m.panels[hostdash.PanelDISK].View(halfW, midH)
 	net := m.panels[hostdash.PanelNET].View(w-halfW, midH)
+	tcp := m.panels[hostdash.PanelTCP].View(qW, protoH)
+	udp := m.panels[hostdash.PanelUDP].View(qW, protoH)
+	arp := m.panels[hostdash.PanelARP].View(qW, protoH)
+	icmp := m.panels[hostdash.PanelICMP].View(w-3*qW, protoH)
 	proc := m.panels[hostdash.PanelPROC].View(w, procH)
+	rowsLabel := m.procRowsLabel()
 
 	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
 		lipgloss.JoinHorizontal(lipgloss.Top, cpu, mem),
 		lipgloss.JoinHorizontal(lipgloss.Top, disk, net),
+		lipgloss.JoinHorizontal(lipgloss.Top, tcp, udp, arp, icmp),
 		proc,
-		fmt.Sprintf(" q quit · interval %s · limit %d · sort %s", m.interval, m.pq.Limit, m.pq.Sort),
+		fmt.Sprintf(footerHintFmt, m.interval, rowsLabel, m.pq.Sort),
 	)
+}
+
+func (m model) handleDashKey(key string) bool {
+	proc, ok := m.panels[hostdash.PanelPROC].(*hostdash.ProcPanel)
+	if !ok {
+		return false
+	}
+	return proc.HandleKey(key)
 }
 
 func (m model) tickCmd() tea.Cmd {
@@ -125,9 +151,29 @@ func (m model) tickCmd() tea.Cmd {
 }
 
 func (m model) sampleCmd() tea.Cmd {
-	col, pq, ctx := m.col, m.pq, m.ctx
+	col, pq, ctx := m.col, m.sampleProcessQuery(), m.ctx
 	return func() tea.Msg {
 		snap, err := col.Sample(ctx, pq)
 		return sampleMsg{snap: snap, err: err}
 	}
+}
+
+func (m model) sampleProcessQuery() hoststats.ProcessQuery {
+	pq := m.pq
+	if proc, ok := m.panels[hostdash.PanelPROC].(*hostdash.ProcPanel); ok {
+		pq.KeepPIDs = proc.SampleKeepPIDs()
+	}
+	return pq
+}
+
+func (m model) procRowsLabel() string {
+	if pp, ok := m.panels[hostdash.PanelPROC].(*hostdash.ProcPanel); ok {
+		if n := pp.ProcessCount(); n > 0 {
+			return fmt.Sprintf("%d", n)
+		}
+	}
+	if m.pq.All {
+		return "all"
+	}
+	return fmt.Sprintf("%d", m.pq.Limit)
 }

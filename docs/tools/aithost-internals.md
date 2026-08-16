@@ -7,7 +7,7 @@ cmd/aithost/main.go
   → internal/aithost (package aithost: Run, Execute, WriteRootHelp)
        → registry (wraps internal/pkg/subregistry)  ← OCP registration
        → top (default empty-argv route + registered)
-       → cpu / mem / disk / net / proc / snapshot / sources / version
+       → cpu / mem / disk / net / proto / proc / snapshot / sources / version
        → shared (flags facade; not registered)
   → internal/pkg/hoststats   (Collector, Section, process sort/limit)
   → internal/pkg/hostdash    (Panel + sparkline; Bubble Tea-free primitives)
@@ -40,17 +40,25 @@ New top-level command:
 
 ### hoststats
 
-- `Collector.Sample` fills system CPU/Mem/Disk/Net and sorted `Processes`
+- `Collector.Sample` fills `Host` (user, hostname, OS/arch, kernel, CPUs), system CPU/Mem/Disk/Net/Proto, and sorted `Processes`
+- `FormatHostHeader` / `WrapHostHeader` build the dashboard and full-snapshot header (`USER` / `OS` / `CPU` / `MEM` / `KERNEL` + datetime; no hostname; wraps on narrow width)
 - Default process sort: CPU% → Mem% → NetRate → DiskIORate; `--sort` sets primary key
-- Default `--limit` 10 (cap 500)
-- `Section` strategy: CPU/Mem/Disk/Net/Proc Human + JSON
+- Default `--limit` 10 for `proc`/`snapshot` (cap 500); `top` defaults to `ProcessQuery.All` (every process, sorted) so `/` search covers the full table; optional `--limit` caps the sample (max 500); list mode still renders only window capacity rows; search/detail pass `KeepPIDs` so frozen rows (and the detail focus) keep refreshing outside the live top-N sort
+- PROC table columns: PID, NAME, CPU%, MEM%, DISK/s, PEER (`:port×N` for listeners, else remote `host:port`), LOG (latest matching system-log line)
+- Process logs come from `internal/pkg/logsrc` (same backends as `aitlog`); matching is by PID, then exact process name; collection is refreshed in the background so `Sample` stays responsive. PID comes from journalctl `_PID` (Linux), `log show` `processID` (macOS), and wevtutil `Execution ProcessID` (Windows).
+- Protocol sampling is OS-specific: Linux `/proc`, macOS `netstat -s` (plus `netstat -an` for current TCP ESTABLISHED) + `arp -an`, Windows `iphlpapi` (`GetTcpStatisticsEx`/`GetUdpStatisticsEx` IPv4+IPv6, `GetIcmpStatistics`, `GetIpNetTable`). ARP lookup rates exist on Linux only.
+- `ProcStat` includes `PPID`, truncated `Cmdline`, `LogLine`, and `Logs` for match/detail
+- Fuzzy match helpers: `MatchProc` / `FilterProcs`; tree helpers: `ProcAncestors` / `ProcChildren`
+- `KillProc(pid, force)` sends SIGTERM or SIGKILL (Windows: Terminate / Kill)
+- `Section` strategy: CPU/Mem/Disk/Net/Proto/Proc Human + JSON
 
 ### hostdash
 
 - `Panel` interface: Title / Update / View
-- `DefaultPanels()`: CPU, MEM, DISK, NET, PROC
-- Sparklines are Unicode block characters (no termui)
+- `ProcPanel` adds `/` search (frozen row order while searching; values still refresh), Enter detail overlay (resources, one full peer record per line with `… +N more` when the window is short, ancestors, children, matching system logs), `x` kill with SIGTERM confirm and optional SIGKILL on failure; Esc back; `HandleKey` is wired from `top.Update`
+- `DefaultPanels()`: CPU, MEM, DISK, NET, TCP, UDP, ARP, ICMP, PROC
+- Sparklines are Braille polylines with an `HH:MM:SS` X-axis (faint); Y ticks, legends, and matching values share the series color. CPU/MEM use a dedicated percent tint. DISK/NET/TCP/UDP/ARP/ICMP plot in (cyan) vs out (orange) with independent left/right Y axes (`r`/`w` or `↓`/`↑`, plus NET errs/drops in/out).
 
 ### Acceptance IDs
 
-See change-acceptance.mdc: **AH1–AH20**.
+See change-acceptance.mdc: **AH1–AH59**.

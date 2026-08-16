@@ -22,13 +22,14 @@ import (
 	"strings"
 )
 
-// DefaultSections returns CPU, Mem, Disk, Net, Proc sections in display order.
+// DefaultSections returns CPU, Mem, Disk, Net, Proto, Proc sections in display order.
 func DefaultSections() []Section {
 	return []Section{
 		CPUSection{},
 		MemSection{},
 		DiskSection{},
 		NetSection{},
+		ProtoSection{},
 		ProcSection{},
 	}
 }
@@ -48,6 +49,9 @@ func SectionByID(id string) Section {
 func WriteHuman(w io.Writer, snap Snapshot, sections []Section) error {
 	if len(sections) == 0 {
 		sections = DefaultSections()
+		if err := writeHostHeaderLine(w, snap); err != nil {
+			return err
+		}
 	}
 	for i, sec := range sections {
 		if err := writeHumanSection(w, sec, snap, i > 0); err != nil {
@@ -55,6 +59,30 @@ func WriteHuman(w io.Writer, snap Snapshot, sections []Section) error {
 		}
 	}
 	return nil
+}
+
+// WriteJSON encodes snap or a single section value as indented JSON to w.
+// When section is nil, the full Snapshot is encoded.
+func WriteJSON(w io.Writer, snap Snapshot, section Section) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if section == nil {
+		return enc.Encode(snap)
+	}
+	wrapper := map[string]any{
+		"time":       snap.Time,
+		section.ID(): section.JSONValue(snap),
+	}
+	return enc.Encode(wrapper)
+}
+
+func writeHostHeaderLine(w io.Writer, snap Snapshot) error {
+	line := FormatHostHeader(snap.Host, snap.Mem.Total, snap.Time)
+	if line == "" {
+		return nil
+	}
+	_, err := io.WriteString(w, line+"\n")
+	return err
 }
 
 func writeHumanSection(w io.Writer, sec Section, snap Snapshot, leadNL bool) error {
@@ -72,19 +100,4 @@ func writeHumanSection(w io.Writer, sec Section, snap Snapshot, leadNL bool) err
 	}
 	_, err := io.WriteString(w, "\n")
 	return err
-}
-
-// WriteJSON encodes snap or a single section value as indented JSON to w.
-// When section is nil, the full Snapshot is encoded.
-func WriteJSON(w io.Writer, snap Snapshot, section Section) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if section == nil {
-		return enc.Encode(snap)
-	}
-	wrapper := map[string]any{
-		"time":       snap.Time,
-		section.ID(): section.JSONValue(snap),
-	}
-	return enc.Encode(wrapper)
 }

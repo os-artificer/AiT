@@ -22,11 +22,26 @@ import "time"
 // Snapshot is a point-in-time host metrics sample.
 type Snapshot struct {
 	Time      time.Time  `json:"time"`
+	Host      HostIdent  `json:"host"`
 	CPU       CPUStat    `json:"cpu"`
 	Mem       MemStat    `json:"mem"`
 	Disk      DiskStat   `json:"disk"`
 	Net       NetStat    `json:"net"`
+	Proto     ProtoStats `json:"proto"`
 	Processes []ProcStat `json:"processes,omitempty"`
+}
+
+// HostIdent is local machine and logged-in account identity for headers and JSON.
+type HostIdent struct {
+	Hostname        string `json:"hostname,omitempty"`
+	User            string `json:"user,omitempty"`
+	UID             string `json:"uid,omitempty"`
+	OS              string `json:"os,omitempty"`
+	Arch            string `json:"arch,omitempty"`
+	Platform        string `json:"platform,omitempty"`
+	PlatformVersion string `json:"platform_version,omitempty"`
+	Kernel          string `json:"kernel,omitempty"`
+	CPUs            int    `json:"cpus,omitempty"`
 }
 
 // CPUStat holds aggregate CPU usage.
@@ -63,23 +78,93 @@ type NetStat struct {
 	DropOut       uint64  `json:"drop_out"`
 }
 
+// ProtoStats holds TCP/UDP/ARP/ICMP packet rates and protocol-specific gauges.
+type ProtoStats struct {
+	TCP  TCPStat  `json:"tcp"`
+	UDP  UDPStat  `json:"udp"`
+	ARP  ARPStat  `json:"arp"`
+	ICMP ICMPStat `json:"icmp"`
+}
+
+// TCPStat holds TCP segment rates and connection features.
+type TCPStat struct {
+	InPerSec      float64 `json:"in_per_sec"`
+	OutPerSec     float64 `json:"out_per_sec"`
+	Estab         uint64  `json:"estab"`
+	RetransPerSec float64 `json:"retrans_per_sec"`
+	Opens         uint64  `json:"opens"`
+}
+
+// UDPStat holds UDP datagram rates and error features.
+type UDPStat struct {
+	InPerSec  float64 `json:"in_per_sec"`
+	OutPerSec float64 `json:"out_per_sec"`
+	NoPort    uint64  `json:"noport"`
+	InErr     uint64  `json:"inerr"`
+}
+
+// ARPStat holds ARP/neighbor rates and table features.
+type ARPStat struct {
+	InPerSec      float64 `json:"in_per_sec"`
+	OutPerSec     float64 `json:"out_per_sec"`
+	Entries       uint64  `json:"ents"`
+	Incomplete    uint64  `json:"incomp"`
+	LookupsPerSec float64 `json:"lookup_per_sec,omitempty"`
+}
+
+// ICMPStat holds ICMP message rates and error features.
+type ICMPStat struct {
+	InPerSec  float64 `json:"in_per_sec"`
+	OutPerSec float64 `json:"out_per_sec"`
+	InErr     uint64  `json:"inerr"`
+	OutErr    uint64  `json:"outerr"`
+}
+
+// ProcListen is one listening TCP port and its established connection count.
+type ProcListen struct {
+	Port  uint32 `json:"port"`
+	Conns int    `json:"conns"`
+}
+
+// ProcLog is one system-log record attributed to a process.
+type ProcLog struct {
+	Time    time.Time `json:"time"`
+	Message string    `json:"message"`
+}
+
 // ProcStat is one process row for lists and the dashboard panel.
 type ProcStat struct {
-	PID             int32   `json:"pid"`
-	Name            string  `json:"name"`
-	CPUPercent      float64 `json:"cpu_percent"`
-	MemPercent      float64 `json:"mem_percent"`
-	DiskBytesPerSec float64 `json:"disk_bytes_per_sec"`
-	NetBytesPerSec  float64 `json:"net_bytes_per_sec"`
+	PID             int32        `json:"pid"`
+	PPID            int32        `json:"ppid,omitempty"`
+	Name            string       `json:"name"`
+	Cmdline         string       `json:"cmdline,omitempty"`
+	CPUPercent      float64      `json:"cpu_percent"`
+	MemPercent      float64      `json:"mem_percent"`
+	DiskBytesPerSec float64      `json:"disk_bytes_per_sec"`
+	NetBytesPerSec  float64      `json:"net_bytes_per_sec"`
+	Listen          []ProcListen `json:"listen,omitempty"`
+	Remotes         []string     `json:"remotes,omitempty"` // "host:port" for client connections
+	// LogLine is the newest matching system-log message for the table LOG column.
+	LogLine string `json:"log_line,omitempty"`
+	// Logs are the newest matching system-log records (oldest first) for detail.
+	Logs []ProcLog `json:"logs,omitempty"`
 }
 
 // ProcessQuery controls process list sorting and truncation.
 type ProcessQuery struct {
 	// Limit is max rows (default DefaultProcessLimit; capped at MaxProcessLimit).
+	// Ignored when All is true.
 	Limit int
 	// Sort is primary key: cpu|mem|net|disk (default cpu). Secondary keys follow
 	// the fixed order CPU → MEM → NET → DISK excluding the primary.
 	Sort string
+	// KeepPIDs, when non-empty, are preferred in the result (fresh stats) before
+	// filling remaining slots from the normal sort order. Used by aithost top
+	// search/detail so frozen rows keep refreshing outside the current top-N.
+	KeepPIDs []int32
+	// All, when true, returns every sampled process (sorted); Limit is ignored.
+	// aithost top defaults to All so PROC search covers the full process table.
+	All bool
 }
 
 // SourceDesc describes a metrics collector for `aithost sources`.

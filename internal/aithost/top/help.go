@@ -28,7 +28,11 @@ import (
 func WriteHelp(w io.Writer) error {
 	body := pkghelpdoc.NewBody(w)
 	if err := body.WriteIntro(
-		"Open a live dashboard with CPU, MEM, DISK, NET, and PROC panels.",
+		"Open a live dashboard with CPU, MEM, DISK, NET, TCP/UDP/ARP/ICMP, and PROC panels.",
+		"The header shows USER, OS/arch, CPU count, memory total, kernel, and datetime (wraps on narrow terminals).",
+		"PROC samples all processes by default (optional --limit caps the sample); the panel fills from the window height.",
+		"The PROC table includes PEER and the latest system-log line; enter opens a detail overlay with matching log records.",
+		"Keys: / search processes, enter detail overlay, x kill (SIGTERM confirm; SIGKILL on failure), esc back, q quit.",
 		"Requires a TTY. Without one, use snapshot or proc instead.",
 	); err != nil {
 		return err

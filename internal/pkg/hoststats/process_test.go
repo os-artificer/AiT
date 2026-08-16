@@ -67,6 +67,45 @@ func TestProcessQuery_SortMemLimit(t *testing.T) {
 	}
 }
 
+func TestProcessQuery_KeepPIDsOutsideTopN(t *testing.T) {
+	procs := []ProcStat{
+		{PID: 1, Name: "hot", CPUPercent: 90},
+		{PID: 2, Name: "warm", CPUPercent: 50},
+		{PID: 99, Name: "cold", CPUPercent: 0.1, MemPercent: 12},
+	}
+	got := SortAndLimitProcesses(procs, ProcessQuery{Limit: 2, KeepPIDs: []int32{99}})
+	if len(got) != 2 {
+		t.Fatalf("len=%d want 2", len(got))
+	}
+	if got[0].PID != 99 {
+		t.Fatalf("keep should be first: %#v", got)
+	}
+	if got[0].MemPercent != 12 {
+		t.Fatalf("keep stats not fresh: %#v", got[0])
+	}
+	if got[1].PID != 1 {
+		t.Fatalf("fill from top sort: %#v", got)
+	}
+}
+
+func TestProcessQuery_AllReturnsEveryProcess(t *testing.T) {
+	procs := make([]ProcStat, 25)
+	for i := range procs {
+		procs[i] = ProcStat{PID: int32(i + 1), CPUPercent: float64(25 - i)}
+	}
+	got := SortAndLimitProcesses(procs, ProcessQuery{All: true, Limit: 3})
+	if len(got) != 25 {
+		t.Fatalf("len=%d want 25 (All ignores Limit)", len(got))
+	}
+	if got[0].PID != 1 || got[24].PID != 25 {
+		t.Fatalf("sorted ends: first=%d last=%d", got[0].PID, got[24].PID)
+	}
+	q := NormalizeProcessQuery(ProcessQuery{All: true, Limit: 99})
+	if q.Limit != 0 {
+		t.Fatalf("All should clear Limit: got %d", q.Limit)
+	}
+}
+
 func TestParseSortKey(t *testing.T) {
 	k, err := ParseSortKey("MEM")
 	if err != nil || k != SortMem {
@@ -87,7 +126,7 @@ func TestFormatBytes(t *testing.T) {
 }
 
 func TestSectionByID(t *testing.T) {
-	for _, id := range []string{IDCPU, IDMem, IDDisk, IDNet, IDProc} {
+	for _, id := range []string{IDCPU, IDMem, IDDisk, IDNet, IDProto, IDProc} {
 		sec := SectionByID(id)
 		if sec == nil || sec.ID() != id {
 			t.Fatalf("SectionByID(%q)=%v", id, sec)
@@ -104,7 +143,7 @@ func TestListSources(t *testing.T) {
 	for _, s := range srcs {
 		ids[s.ID] = true
 	}
-	for _, want := range []string{IDCPU, IDMem, IDDisk, IDNet, IDProc} {
+	for _, want := range []string{IDCPU, IDMem, IDDisk, IDNet, IDProto, IDProc} {
 		if !ids[want] {
 			t.Fatalf("missing source %s", want)
 		}
@@ -133,8 +172,125 @@ func TestTruncateName(t *testing.T) {
 }
 
 func TestFormatProcRow(t *testing.T) {
-	row := FormatProcRow(ProcStat{PID: 1, Name: "init", CPUPercent: 1.5, MemPercent: 2.5})
+	row := FormatProcRow(ProcStat{
+		PID: 1, Name: "init", CPUPercent: 1.5, MemPercent: 2.5,
+		Listen: []ProcListen{{Port: 80, Conns: 3}},
+	})
 	if !strings.Contains(row, "init") || !strings.Contains(row, "1.5") {
 		t.Fatalf("%q", row)
+	}
+	if !strings.Contains(row, ":80×3") {
+		t.Fatalf("missing peer: %q", row)
+	}
+	if strings.Contains(row, "NET/s") {
+		t.Fatalf("unexpected NET/s in row: %q", row)
+	}
+	if !strings.Contains(ProcTableHeader, "PEER") || !strings.Contains(ProcTableHeader, "LOG") {
+		t.Fatalf("header=%q", ProcTableHeader)
+	}
+	if strings.Contains(ProcTableHeader, "NET/s") {
+		t.Fatalf("header=%q", ProcTableHeader)
+	}
+}
+
+func TestFormatProcPeer_Server(t *testing.T) {
+	got := FormatProcPeer(ProcStat{
+		Listen:  []ProcListen{{Port: 8080, Conns: 12}, {Port: 443, Conns: 0}},
+		Remotes: []string{"1.2.3.4:99"}, // ignored when Listen present
+	})
+	if got != ":8080×12,:443×0" {
+		t.Fatalf("%q", got)
+	}
+}
+
+func TestFormatProcPeer_Client(t *testing.T) {
+	got := FormatProcPeer(ProcStat{Remotes: []string{"10.0.0.1:443", "10.0.0.2:80"}})
+	if !strings.Contains(got, "10.0.0.1:443") || !strings.Contains(got, "10.0.0.2:80") {
+		t.Fatalf("%q", got)
+	}
+}
+
+func TestFormatProcPeer_Empty(t *testing.T) {
+	if got := FormatProcPeer(ProcStat{}); got != "" {
+		t.Fatalf("%q", got)
+	}
+}
+
+func TestFormatProcPeer_Truncates(t *testing.T) {
+	long := make([]string, 0, 8)
+	for i := 0; i < 8; i++ {
+		long = append(long, "192.168.100.200:65535")
+	}
+	got := FormatProcPeer(ProcStat{Remotes: long})
+	runes := []rune(got)
+	if len(runes) > ProcPeerColWidth {
+		t.Fatalf("width=%d > %d: %q", len(runes), ProcPeerColWidth, got)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Fatalf("expected truncation: %q", got)
+	}
+}
+
+func TestFormatProcPeerLines_OnePerRecord(t *testing.T) {
+	got := FormatProcPeerLines(ProcStat{
+		Listen:  []ProcListen{{Port: 8080, Conns: 12}, {Port: 443, Conns: 0}},
+		Remotes: []string{"1.2.3.4:99"},
+	})
+	if len(got) != 2 || got[0] != ":8080×12" || got[1] != ":443×0" {
+		t.Fatalf("%q", got)
+	}
+
+	remotes := FormatProcPeerLines(ProcStat{Remotes: []string{"10.0.0.1:443", "10.0.0.2:80"}})
+	if len(remotes) != 2 || remotes[0] != "10.0.0.1:443" || remotes[1] != "10.0.0.2:80" {
+		t.Fatalf("%q", remotes)
+	}
+	if FormatProcPeerLines(ProcStat{}) != nil {
+		t.Fatal("empty should be nil")
+	}
+}
+
+func TestAggregateProcPeers_Server(t *testing.T) {
+	got := aggregateProcPeers([]procConn{
+		{Pid: 1, Status: tcpStatusListen, LPort: 8080},
+		{Pid: 1, Status: tcpStatusListen, LPort: 443},
+		{Pid: 1, Status: tcpStatusEstablished, LPort: 8080, RIP: "1.1.1.1", RPort: 50000},
+		{Pid: 1, Status: tcpStatusEstablished, LPort: 8080, RIP: "2.2.2.2", RPort: 50001},
+	})
+	p, ok := got[1]
+	if !ok {
+		t.Fatal("missing pid 1")
+	}
+	if len(p.Listen) != 2 || len(p.Remotes) != 0 {
+		t.Fatalf("%+v", p)
+	}
+	if p.Listen[0].Port != 443 || p.Listen[0].Conns != 0 {
+		t.Fatalf("port 443: %+v", p.Listen[0])
+	}
+	if p.Listen[1].Port != 8080 || p.Listen[1].Conns != 2 {
+		t.Fatalf("port 8080: %+v", p.Listen[1])
+	}
+}
+
+func TestAggregateProcPeers_Client(t *testing.T) {
+	got := aggregateProcPeers([]procConn{
+		{Pid: 7, Status: tcpStatusEstablished, LPort: 54321, RIP: "8.8.8.8", RPort: 53},
+		{Pid: 7, Status: tcpStatusEstablished, LPort: 54322, RIP: "8.8.8.8", RPort: 53}, // same remote
+	})
+	p, ok := got[7]
+	if !ok {
+		t.Fatal("missing pid 7")
+	}
+	if len(p.Listen) != 0 || len(p.Remotes) != 1 || p.Remotes[0] != "8.8.8.8:53" {
+		t.Fatalf("%+v", p)
+	}
+}
+
+func TestAggregateProcPeers_Empty(t *testing.T) {
+	got := aggregateProcPeers([]procConn{
+		{Pid: 3, Status: "TIME_WAIT", LPort: 1},
+		{Pid: 0, Status: tcpStatusListen, LPort: 22},
+	})
+	if len(got) != 0 {
+		t.Fatalf("%+v", got)
 	}
 }

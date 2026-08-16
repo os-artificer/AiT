@@ -20,39 +20,67 @@ const (
 	footerReserve  = 1
 	fallbackWidth  = 80
 	fallbackHeight = 24
+	minPanelRows   = 4
+	sparkRowShare  = 5
+	keyQuit        = "q"
+	keyCtrlC       = "ctrl+c"
+	viewLoading    = "loading…"
+	footerHintFmt  = " q quit · / search · enter detail · esc back · x kill · interval %s · rows %s · sort %s"
 )
 
-// panelRowHeights splits termH into top/mid/proc row heights plus footerReserve.
-// topH+midH+procH+footerReserve == termH when termH >= 4; each panel row is at least 1.
-func panelRowHeights(termH int) (topH, midH, procH int) {
-	avail := termH - footerReserve
-	if avail < 3 {
-		return 1, 1, 1
+// panelRowHeights splits termH into top/mid/proto/proc row heights plus headerH and footer.
+// topH+midH+protoH+procH+headerH+footerReserve == termH when termH >= headerH+footerReserve+minPanelRows;
+// each panel row is at least 1. headerH is clamped to at least 1.
+func panelRowHeights(termH, headerH int) (topH, midH, protoH, procH int) {
+	if headerH < 1 {
+		headerH = 1
+	}
+	avail := termH - headerH - footerReserve
+	if avail < minPanelRows {
+		return 1, 1, 1, 1
 	}
 
-	topH = avail / 4
-	midH = avail / 4
+	topH = avail / sparkRowShare
+	midH = avail / sparkRowShare
+	protoH = avail / sparkRowShare
 	if topH < 1 {
 		topH = 1
 	}
 	if midH < 1 {
 		midH = 1
 	}
-	procH = avail - topH - midH
+	if protoH < 1 {
+		protoH = 1
+	}
+	procH = avail - topH - midH - protoH
 	if procH >= 1 {
-		return topH, midH, procH
+		return topH, midH, protoH, procH
 	}
 
+	return splitThreePlusProc(avail)
+}
+
+func splitThreePlusProc(avail int) (topH, midH, protoH, procH int) {
 	procH = 1
 	rem := avail - procH
-	topH = rem / 2
+	topH = rem / 3
 	if topH < 1 {
 		topH = 1
 	}
-	midH = rem - topH
+	midH = rem / 3
 	if midH < 1 {
 		midH = 1
-		topH = avail - midH - procH
 	}
-	return topH, midH, procH
+	protoH = rem - topH - midH
+	if protoH >= 1 {
+		return topH, midH, protoH, procH
+	}
+	protoH = 1
+	midH = rem - topH - protoH
+	if midH >= 1 {
+		return topH, midH, protoH, procH
+	}
+	midH = 1
+	topH = rem - midH - protoH
+	return topH, midH, protoH, procH
 }

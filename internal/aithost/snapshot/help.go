@@ -28,7 +28,7 @@ import (
 func WriteHelp(w io.Writer) error {
 	body := pkghelpdoc.NewBody(w)
 	if err := body.WriteIntro(
-		"Print CPU, memory, disk, network, and top processes once.",
+		"Print host identity, CPU, memory, disk, network, protocols, and top processes once.",
 		"Use --json for machine-readable output (useful without a TTY).",
 	); err != nil {
 		return err

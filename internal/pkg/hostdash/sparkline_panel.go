@@ -17,35 +17,49 @@
 package hostdash
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/hoststats"
 )
-
-type sparkKind int
 
 const (
 	sparkCPU sparkKind = iota
 	sparkMem
 )
 
+type sparkKind int
+
 // SparklinePanel is a titled panel with a percent sparkline history.
 type SparklinePanel struct {
 	kind    sparkKind
 	title   string
 	history []float64
-	line1   string
-	line2   string
+	times   []time.Time
+	scale   sparkScale
+	tint    string
+	value   string
+	detail  string
 }
 
 // NewCPUPanel returns the CPU sparkline panel.
 func NewCPUPanel() *SparklinePanel {
-	return &SparklinePanel{kind: sparkCPU, title: titleCPU, history: make([]float64, 0, sparkLen)}
+	return newSparklinePanel(sparkCPU, titleCPU, ansiCPU)
 }
 
 // NewMemPanel returns the memory sparkline panel.
 func NewMemPanel() *SparklinePanel {
-	return &SparklinePanel{kind: sparkMem, title: titleMEM, history: make([]float64, 0, sparkLen)}
+	return newSparklinePanel(sparkMem, titleMEM, ansiMEM)
+}
+
+func newSparklinePanel(kind sparkKind, title, tint string) *SparklinePanel {
+	return &SparklinePanel{
+		kind:    kind,
+		title:   title,
+		history: make([]float64, 0, sparkLen),
+		times:   make([]time.Time, 0, sparkLen),
+		scale:   percentSparkScale(),
+		tint:    tint,
+	}
 }
 
 // Title implements Panel.
@@ -57,23 +71,21 @@ func (p *SparklinePanel) Update(s hoststats.Snapshot) {
 	switch p.kind {
 	case sparkCPU:
 		pct = s.CPU.Percent
-		p.line1 = fmt.Sprintf("%.1f%%", pct)
-		p.line2 = ""
+		p.value = formatPercentValue(pct)
+		p.detail = ""
 	default:
 		pct = s.Mem.UsedPercent
-		p.line1 = fmt.Sprintf("%.1f%%", pct)
-		p.line2 = fmt.Sprintf("%s / %s", hoststats.FormatBytes(s.Mem.Used), hoststats.FormatBytes(s.Mem.Total))
+		p.value = formatPercentValue(pct)
+		p.detail = colorANSI(hoststats.FormatBytes(s.Mem.Used), ansiMEM) +
+			memUsedSep + colorANSI(hoststats.FormatBytes(s.Mem.Total), ansiMEM)
 	}
-	p.history = appendSpark(p.history, pct)
+
+	p.history, p.times = appendSparkPoint(p.history, p.times, pct, s.Time)
 }
 
 // View implements Panel. width/height are outer terminal cells including border.
 func (p *SparklinePanel) View(width, height int) string {
-	cw, _ := contentBoxSize(width, height)
-	body := titleStyle.Render(p.title) + "\n" + p.line1
-	if p.line2 != "" {
-		body += "\n" + p.line2
-	}
-	body += "\n" + renderSpark(p.history, sparkInnerWidth(cw))
-	return renderBox(body, width, height)
+	return renderTintedSparkView(
+		p.title, p.value, p.detail, p.tint,
+		p.history, p.times, p.scale, width, height)
 }

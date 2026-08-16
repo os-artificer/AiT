@@ -18,14 +18,19 @@ package hostdash
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/hoststats"
 )
 
 // NetPanel shows network rates and drops.
 type NetPanel struct {
-	text string
-	hist []float64
+	value  string
+	styled string
+	detail string
+	histRx []float64
+	histTx []float64
+	times  []time.Time
 }
 
 // NewNetPanel returns a network panel.
@@ -36,18 +41,22 @@ func (p *NetPanel) Title() string { return titleNET }
 
 // Update implements Panel.
 func (p *NetPanel) Update(s hoststats.Snapshot) {
-	rate := s.Net.RxBytesPerSec + s.Net.TxBytesPerSec
-	p.text = fmt.Sprintf("%s\n↓%s/s ↑%s/s\nerrs %d/%d drops %d/%d",
+	rx := hoststats.FormatBytes(uint64(s.Net.RxBytesPerSec)) + rateUnit
+	tx := hoststats.FormatBytes(uint64(s.Net.TxBytesPerSec)) + rateUnit
+	p.value, p.styled = formatInOutHeadline(rx, tx)
+	p.detail = fmt.Sprintf("%s  errs %s drops %s",
 		s.Net.Name,
-		hoststats.FormatBytes(uint64(s.Net.RxBytesPerSec)),
-		hoststats.FormatBytes(uint64(s.Net.TxBytesPerSec)),
-		s.Net.ErrIn, s.Net.ErrOut, s.Net.DropIn, s.Net.DropOut)
-	p.hist = appendSpark(p.hist, rate)
+		colorInOutPair(s.Net.ErrIn, s.Net.ErrOut),
+		colorInOutPair(s.Net.DropIn, s.Net.DropOut))
+
+	p.histRx, p.histTx, p.times = appendSparkDual(
+		p.histRx, p.histTx, p.times,
+		s.Net.RxBytesPerSec, s.Net.TxBytesPerSec, s.Time)
 }
 
 // View implements Panel. width/height are outer terminal cells including border.
 func (p *NetPanel) View(width, height int) string {
-	cw, _ := contentBoxSize(width, height)
-	body := titleStyle.Render(titleNET) + "\n" + p.text + "\n" + renderSpark(p.hist, sparkInnerWidth(cw))
-	return renderBox(body, width, height)
+	return renderDualSparkView(
+		titleNET, p.value, p.styled, p.detail,
+		p.histRx, p.histTx, p.times, width, height)
 }

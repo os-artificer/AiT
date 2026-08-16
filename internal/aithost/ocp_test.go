@@ -31,7 +31,7 @@ func TestCommandPackages_NoSiblingImports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	siblings := []string{"cpu", "mem", "disk", "net", "proc", "snapshot", "sources", "top", "version"}
+	siblings := []string{"cpu", "mem", "disk", "net", "proto", "proc", "snapshot", "sources", "top", "version"}
 	sibSet := map[string]bool{}
 	for _, s := range siblings {
 		sibSet[s] = true
@@ -78,7 +78,7 @@ func TestRegistryAll_BlankImportsCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, want := range []string{"/cpu", "/mem", "/disk", "/net", "/proc", "/top", "/snapshot", "/sources", "/version"} {
+	for _, want := range []string{"/cpu", "/mem", "/disk", "/net", "/proto", "/proc", "/top", "/snapshot", "/sources", "/version"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("imports.go missing blank-import for %s", want)
 		}

@@ -17,6 +17,7 @@
 package logsrc
 
 import (
+	"path/filepath"
 	"strings"
 )
 
@@ -94,4 +95,30 @@ func appendLogShowPredicate(args []string, q Query) []string {
 		return args
 	}
 	return append(args, "--predicate", pred)
+}
+
+func processBaseName(imagePath string) string {
+	imagePath = strings.TrimSpace(imagePath)
+	if imagePath == "" {
+		return ""
+	}
+	return filepath.Base(imagePath)
+}
+
+func applySyslogProcess(remainder string, rec *Record) {
+	tag, msg, ok := strings.Cut(remainder, " ")
+	if !ok {
+		tag = remainder
+	}
+	unit, pid := parseSyslogTag(tag)
+	if unit != "" {
+		rec.Unit = unit
+		rec.Process = unit
+	}
+	if pid > 0 {
+		rec.PID = pid
+	}
+	if ok && msg != "" {
+		rec.Message = msg
+	}
 }

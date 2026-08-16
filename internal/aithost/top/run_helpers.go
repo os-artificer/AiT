@@ -46,13 +46,22 @@ func Run(ctx context.Context, stdout, _ io.Writer, opts Options) error {
 		opts.Interval = time.Second
 	}
 	pq := hoststats.NormalizeProcessQuery(hoststats.ProcessQuery{
-		Limit: opts.Limit,
 		Sort:  opts.Sort,
+		Limit: opts.Limit,
+		All:   opts.Limit <= 0,
 	})
 	m := newModel(ctx, opts.Interval, pq)
 	p := tea.NewProgram(m, tea.WithContext(ctx), tea.WithOutput(stdout), tea.WithAltScreen())
 	_, err := p.Run()
 	return err
+}
+
+// procSampleLimit clamps an explicit top --limit. userLimit <= 0 means unlimited (All).
+func procSampleLimit(userLimit int) int {
+	return hoststats.NormalizeProcessQuery(hoststats.ProcessQuery{
+		Limit: userLimit,
+		All:   userLimit <= 0,
+	}).Limit
 }
 
 func newModel(ctx context.Context, interval time.Duration, pq hoststats.ProcessQuery) model {
@@ -62,6 +71,8 @@ func newModel(ctx context.Context, interval time.Duration, pq hoststats.ProcessQ
 		pq:       pq,
 		col:      hoststats.NewCollector(),
 		panels:   hostdash.DefaultPanels(),
+		host:     hoststats.CollectHostIdent(),
+		clock:    time.Now(),
 		width:    fallbackWidth,
 		height:   fallbackHeight,
 	}

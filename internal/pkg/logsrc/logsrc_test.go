@@ -145,13 +145,47 @@ func (c *sliceCur) Err() error   { return c.err }
 func (c *sliceCur) Close() error { return nil }
 
 func TestParseJournalJSON(t *testing.T) {
-	line := []byte(`{"__REALTIME_TIMESTAMP":"1700000000000000","MESSAGE":"hello","PRIORITY":"3","_HOSTNAME":"host","_SYSTEMD_UNIT":"sshd.service","_PID":"42"}`)
+	line := []byte(`{"__REALTIME_TIMESTAMP":"1700000000000000","MESSAGE":"hello","PRIORITY":"3","_HOSTNAME":"host","_SYSTEMD_UNIT":"sshd.service","SYSLOG_IDENTIFIER":"sshd","_PID":"42"}`)
 	rec, err := logsrc.ParseJournalJSON(line)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rec.Message != "hello" || rec.Level != logsrc.LevelError || rec.PID != 42 {
 		t.Fatalf("%+v", rec)
+	}
+	if rec.Process != "sshd" {
+		t.Fatalf("process=%q", rec.Process)
+	}
+}
+
+func TestParseLogShowNDJSON_ProcessID(t *testing.T) {
+	line := []byte(`{"timestamp":"2026-08-16T16:15:45.000000+0800","eventMessage":"connection accepted","processID":70249,"processImagePath":"/usr/libexec/sshd","messageType":"Default"}`)
+	rec, err := logsrc.ParseLogShowNDJSON(line)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.PID != 70249 {
+		t.Fatalf("pid=%d", rec.PID)
+	}
+	if rec.Process != "sshd" {
+		t.Fatalf("process=%q", rec.Process)
+	}
+	if rec.Message != "connection accepted" {
+		t.Fatalf("msg=%q", rec.Message)
+	}
+}
+
+func TestParseLogShowSyslog_ProcessPID(t *testing.T) {
+	line := "2026-08-16 16:15:45.000000+0800 sshd[70249]: connection accepted"
+	rec, ok := logsrc.ParseLogShowSyslog(line)
+	if !ok {
+		t.Fatal("parse failed")
+	}
+	if rec.PID != 70249 || rec.Process != "sshd" {
+		t.Fatalf("pid=%d process=%q", rec.PID, rec.Process)
+	}
+	if rec.Message != "connection accepted" {
+		t.Fatalf("msg=%q", rec.Message)
 	}
 }
 
@@ -239,5 +273,35 @@ func TestResolver_BuiltinNoLookPath(t *testing.T) {
 	defer cur.Close()
 	if looks != 0 {
 		t.Fatalf("LookPath called %d times", looks)
+	}
+}
+
+func TestParseEventXML_ProcessID(t *testing.T) {
+	data := []byte(`<Event>
+  <System>
+    <Provider Name="Application Error"/>
+    <EventID>1000</EventID>
+    <Level>2</Level>
+    <TimeCreated SystemTime="2026-08-16T09:00:00.0000000Z"/>
+    <Computer>winhost</Computer>
+    <Execution ProcessID="4242" ThreadID="8"/>
+  </System>
+  <EventData>
+    <Data Name="ProcessName">C:\Windows\System32\svchost.exe</Data>
+  </EventData>
+  <RenderingInfo><Message>fault</Message></RenderingInfo>
+</Event>`)
+	rec, err := logsrc.ParseEventXML(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.PID != 4242 {
+		t.Fatalf("pid=%d", rec.PID)
+	}
+	if rec.Process != "svchost.exe" {
+		t.Fatalf("process=%q", rec.Process)
+	}
+	if rec.Unit != "Application Error" {
+		t.Fatalf("unit=%q", rec.Unit)
 	}
 }

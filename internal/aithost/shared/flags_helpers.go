@@ -38,9 +38,15 @@ func BindJSONInterval(cmd *cobra.Command, f *Flags) {
 	cmd.Flags().BoolVar(&f.Watch, "watch", false, "refresh until interrupted")
 }
 
-// BindProcessQuery adds --limit and --sort for process listings.
+// BindProcessQuery adds --limit (default DefaultProcessLimit) and --sort.
 func BindProcessQuery(cmd *cobra.Command, f *Flags) {
-	cmd.Flags().IntVar(&f.Limit, "limit", hoststats.DefaultProcessLimit, "max process rows")
+	BindProcessQueryLimit(cmd, f, hoststats.DefaultProcessLimit)
+}
+
+// BindProcessQueryLimit adds --limit with defaultLimit and --sort.
+// defaultLimit 0 leaves Limit unset so callers can treat 0 as all processes (aithost top).
+func BindProcessQueryLimit(cmd *cobra.Command, f *Flags, defaultLimit int) {
+	cmd.Flags().IntVar(&f.Limit, "limit", defaultLimit, "max process rows")
 	cmd.Flags().StringVar(&f.Sort, "sort", hoststats.SortCPU, "primary sort: cpu|mem|net|disk")
 }
 
