@@ -1,4 +1,4 @@
-.PHONY: all build build-cross install release-archives test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
+.PHONY: all build build-cross install install-git-hooks release-archives test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
 TOOLS     := aissh aiimg ailog aihost ait
 BUILD_DIR := bin
@@ -167,6 +167,14 @@ test-e2e-smoke:
 
 fmt:
 	go fmt ./...
+
+# Strip Cursor Co-authored-by / Made-with trailers (IDE may inject despite attribution: false).
+install-git-hooks:
+	chmod +x scripts/git-hooks/prepare-commit-msg scripts/git-hooks/commit-msg scripts/git-hooks/post-commit
+	chmod +x scripts/git-hooks/strip-cursor-trailers-lib.sh
+	git config core.hooksPath scripts/git-hooks
+	@echo "git hooks installed (core.hooksPath=scripts/git-hooks)"
+	@echo "Also disable Cursor IDE: Settings → Agent → Attribution (commits/PRs off)."
 
 vet:
 	go vet ./...

@@ -1,0 +1,30 @@
+---
+description: Never add Cursor Co-authored-by / Made-with trailers to git commits
+alwaysApply: true
+---
+
+# No Cursor commit attribution
+
+When creating or amending git commits:
+
+- Do **not** add `Co-authored-by: Cursor <cursoragent@cursor.com>`, `Made-with: Cursor`, or any Cursor attribution trailer.
+- Do **not** pass `--trailer` for Cursor attribution.
+- Do **not** write commit message body lines that start with `Co-authored-by:` or `Made-with:` (even as prose); use wording like “Cursor attribution trailers” instead.
+- If the environment still injects a Cursor trailer after `git commit`, `post-commit` rewrites HEAD (see `scripts/git-hooks/post-commit`).
+
+Local repo hooks (run once per clone): `make install-git-hooks`
+
+| Hook | Role |
+|------|------|
+| `prepare-commit-msg` / `commit-msg` | Strip trailers in the message file |
+| `post-commit` | Rewrite commit when Cursor used `git commit --trailer` (runs after `commit-msg`) |
+
+**IDE (required):** Cursor desktop defaults attribution **on** (`attributeCommitsToAgent: true`). Disable **Settings → Agent → Attribution** (commit and PR attribution off). CLI-only `~/.cursor/cli-config.json` attribution false does **not** disable IDE commits.
+
+CLI: keep `~/.cursor/cli-config.json` → `"attribution": { "attributeCommitsToAgent": false, "attributePRsToAgent": false }`.
+
+Manual rewrite if needed:
+
+```bash
+git log -1 --format=%B | scripts/git-hooks/strip-cursor-trailers-lib.sh  # or amend after hooks installed
+```

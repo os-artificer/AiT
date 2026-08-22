@@ -1,0 +1,10 @@
+#!/bin/sh
+# Strip Cursor trailers before commit is recorded (body text path).
+# Installed via: make install-git-hooks
+
+commit_msg_file=$1
+[ -n "$commit_msg_file" ] && [ -f "$commit_msg_file" ] || exit 0
+
+. "$(dirname "$0")/strip-cursor-trailers-lib.sh"
+strip_cursor_trailers_from_file "$commit_msg_file"
+exit 0
