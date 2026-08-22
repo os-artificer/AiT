@@ -184,4 +184,4 @@ clean:
 
 dupl:
 	@command -v dupl >/dev/null || go install github.com/golangci/dupl@latest
-	dupl -t 100 ./internal/...
+	dupl -t 100 ./internal
