@@ -28,6 +28,9 @@ const (
 	cmdVersion = aitplugin.CmdVersion
 	cmdHistory = aitplugin.CmdHistory
 	cmdClear   = aitplugin.CmdClear
+	cmdInstall = aitplugin.CmdInstall
+	cmdUpdate  = aitplugin.CmdUpdate
+	cmdUpgrade = aitplugin.CmdUpgrade
 
 	argVersionShort     = "-V"
 	argVersionLong      = "--version"

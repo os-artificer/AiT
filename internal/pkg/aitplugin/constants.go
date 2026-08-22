@@ -29,6 +29,15 @@ var reservedNames = map[string]struct{}{
 	CmdVersion: {},
 	CmdHistory: {},
 	CmdClear:   {},
+	CmdInstall: {},
+	CmdUpdate:  {},
+	CmdUpgrade: {},
+}
+
+var manageCommandNames = map[string]struct{}{
+	CmdInstall: {},
+	CmdUpdate:  {},
+	CmdUpgrade: {},
 }
 
 // BuiltinBinaryNames maps standard short names to shipped tool binaries (PATH fill).
@@ -55,6 +64,12 @@ const (
 	CmdVersion = "version"
 	CmdHistory = "history"
 	CmdClear   = "clear"
+	// CmdInstall installs official plugins from GitHub Releases.
+	CmdInstall = "install"
+	// CmdUpdate updates installed official plugins from GitHub Releases.
+	CmdUpdate = "update"
+	// CmdUpgrade updates ait and installed official plugins from GitHub Releases.
+	CmdUpgrade = "upgrade"
 
 	// NameSSH is the REPL command name for aissh (matches binary).
 	NameSSH = "aissh"

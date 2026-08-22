@@ -2,12 +2,15 @@
 
 This file records **product and CLI** functional changes only; documentation-only updates are not included. When a release is tagged, move items from `[Unreleased]` into a dated version section.
 
-## [Unreleased]
+## [v1.1.0-beta.2]
 
-- 【Added】`ait` TTY REPL: Tab completes the first command word against discovered plugins and reserved builtins (LCP then candidate list).
-- 【Changed】**BREAKING** Renamed shipped CLI binaries and `ait` REPL plugin names from `aitssh`/`aitimg`/`aitlog`/`aithost` to `aissh`/`aiimg`/`ailog`/`aihost` (same names for binary and REPL). Package dirs are `internal/{ssh,img,log,host}`; `go install …/cmd/aissh@latest` etc. Default `aiimg` sibling outputs use `*_aiimg.jpg`. Re-run `make install` so `plugins/` matches the new binary names.
+- 【Added】`ait` REPL: `install`, `update`, and `upgrade` fetch official plugins from GitHub Releases into the directory containing `ait`; `make release-archives TAG=vX.Y.Z` and tag CI publish per-platform bundles.
+- 【Added】`ait` REPL: Tab completes the first command word (plugin names and reserved builtins).
+- 【Fixed】Release bundle extract: accept tar `plugins/` directory entries and skip macOS `._*` metadata; macOS packs use `COPYFILE_DISABLE=1`.
+- 【Changed】**BREAKING** Rename tools and plugins `aitssh`/`aitimg`/`aitlog`/`aithost` → `aissh`/`aiimg`/`ailog`/`aihost`; `aiimg` default output is `*_aiimg.jpg`. After upgrade, run `ait> install` (or `make install` from source) to refresh `plugins/`.
+- 【Changed】Recommended install: `go install github.com/os-artificer/AiT/cmd/ait@latest` only; other official plugins via `ait> install|update|upgrade`, not per-plugin `go install`.
 
-## [v1.1.0-beta.01]
+## [v1.1.0-beta.1]
 
 - 【Added】`aihost`: live host monitor for CPU, memory, disk, network, protocols, and processes (`top` TUI, `snapshot`, `cpu`/`mem`/`disk`/`net`/`proto`/`proc`, `sources`, `version`).
 - 【Added】`aihost top`: USER/OS/CPU/MEM/KERNEL header; Braille spark curves with series-matched colors (CPU/MEM percents; DISK `r`/`w` and NET/proto `↓`/`↑` dual Y-axes); TCP/UDP/ARP/ICMP panels; PROC with PEER column, `/` fuzzy search, detail overlay, and `x` kill (SIGTERM confirm; optional SIGKILL on failure).

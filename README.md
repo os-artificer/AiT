@@ -53,33 +53,45 @@ aissh ai ask "summarize this log pattern: connection reset"
 
 ## Installation
 
-**Prerequisites:** Go **1.25+**; **OpenSSH client** (`ssh`) on PATH for default connect/`load` to resolve `~/.ssh/config`.
+**Prerequisites:** Go **1.25+** if building from source; **OpenSSH client** (`ssh`) on PATH for `aissh` connect/`load` to resolve `~/.ssh/config`.
 
-**Build from source** (local build and verification):
+### Install `ait`
+
+```bash
+go install github.com/os-artificer/AiT/cmd/ait@latest
+ait --help
+```
+
+Ensure `$(go env GOPATH)/bin` is on your PATH.
+
+### Install official plugins (`aissh`, `aiimg`, `ailog`, `aihost`)
+
+After a [GitHub Release](https://github.com/os-artificer/AiT/releases) is available, use the **ait** REPL (no separate `go install` for plugins):
+
+```bash
+ait
+```
+
+```text
+ait> install              # all four official plugins
+ait> install aissh        # one or more by name
+ait> update               # update installed plugins
+ait> upgrade              # update ait + installed plugins
+ait> help install
+```
+
+Binaries are written next to the running `ait` executable (same layout as `make install`). Details: [docs/tools/ait.md](docs/tools/ait.md#install--update--upgrade).
+
+### Build from source (development)
 
 ```bash
 git clone https://github.com/os-artificer/AiT.git
 cd AiT
 make build
 ./bin/ait --help
-./bin/aissh --help
-./bin/aiimg --help
-./bin/ailog --help
-./bin/aihost --help
 ```
 
-**Install all tools** via `go install` (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
-
-```bash
-go install github.com/os-artificer/AiT/cmd/ait@latest github.com/os-artificer/AiT/cmd/aissh@latest github.com/os-artificer/AiT/cmd/aiimg@latest github.com/os-artificer/AiT/cmd/ailog@latest github.com/os-artificer/AiT/cmd/aihost@latest
-ait --help
-aissh --help
-aiimg --help
-ailog --help
-aihost --help
-```
-
-Ensure `$(go env GOPATH)/bin` is on your PATH. When adding a new `cmd/<tool>`, append `github.com/os-artificer/AiT/cmd/<tool>@latest` to the `go install` line above.
+For local development, `make build` also produces `bin/aissh`, `bin/aiimg`, `bin/ailog`, and `bin/aihost`. To install plugins into `bin/` without a Release, run `make install` or use `ait> install` once a Release exists. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 

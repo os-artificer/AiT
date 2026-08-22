@@ -20,6 +20,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"sort"
 )
 
 //go:embed manifests
@@ -35,6 +36,22 @@ func WriteManifest(w io.Writer, binary string) error {
 	}
 	_, err = w.Write(data)
 	return err
+}
+
+// EmbeddedManifestNames returns sorted directory names under embedded manifests/.
+func EmbeddedManifestNames() ([]string, error) {
+	entries, err := manifestsFS.ReadDir("manifests")
+	if err != nil {
+		return nil, fmt.Errorf("read embedded manifests: %w", err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 // BuiltinJSON returns the embedded plugin.json bytes for binary.

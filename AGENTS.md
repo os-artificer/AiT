@@ -45,6 +45,7 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). ait: [`docs/t
 | `cmd/aihost/main.go` | Thin `main` — delegates to `aihost.Run` |
 | `internal/ait/` | `ait` toolbox REPL (package **`ait`**: `Run`, `Execute`, plugin Discover adapter) |
 | `internal/pkg/aitplugin/` | Plugin Manifest v1, Discover (`plugins/<binary>/`), embedded SSOT manifests |
+| `internal/pkg/aitrelease/` | GitHub Release fetch/extract/apply for REPL `install` / `update` / `upgrade` |
 | `internal/pkg/pluginbin/` | `ExecPath` + optional Runner (TTY Restore) for discovered plugins |
 | `internal/img/` | `aiimg` CLI (package **`aiimg`**: `Run`, `Execute`, help, version ldflags) |
 | `internal/log/` | `ailog` CLI (package **`ailog`**: `Run`, `Execute`, view/search/sources/version) |
@@ -164,6 +165,10 @@ Package-level helpers live in `*_helpers.go` (not mixed with struct methods in t
 ## CLI quick reference
 
 ```text
+ait                                      # ait> REPL (no one-shot plugin exec)
+ait> install [plugin...]                 # GitHub Release → install dir (all official plugins if no args)
+ait> update [plugin...]                  # update installed official plugins only
+ait> upgrade                             # update ait + installed official plugins (no extra args)
 aissh shell                              # AiT> REPL: ssh-style connect, session --list/--load, history, help, exit
 aissh [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 # ssh-options: -p -l -i -F -J -o ... ; legacy --host/--user still supported

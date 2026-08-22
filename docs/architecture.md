@@ -11,7 +11,7 @@ Go module path: `github.com/os-artificer/AiT`.
 
 Shipped tools:
 
-- `ait`: Toolbox interactive REPL; discovers plugins under `<install-dir>/plugins/` (short names `ssh`/`log`/`img`/`host`).
+- `ait`: Toolbox interactive REPL; discovers plugins under `<install-dir>/plugins/`; REPL `install` / `update` / `upgrade` pull official binaries from GitHub Releases via `internal/pkg/aitrelease`.
 - `aissh`: SSH client with session persistence, optional experimental AI mode (off by default), transfer support, and shell/meta workflows.
 - `aiimg`: Image metadata extractor (EXIF device/time/GPS + Nominatim reverse-geocoded address).
 - `ailog`: System log viewer and search (Linux/macOS/Windows) with native tools and built-in fallbacks.

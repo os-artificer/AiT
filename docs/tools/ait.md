@@ -26,7 +26,30 @@ ait> clear
 ait> exit
 ```
 
-Reserved builtins: `help`, `exit`/`quit`, `version`, `history`, `clear`.
+Reserved builtins: `help`, `exit`/`quit`, `version`, `history`, `clear`, `install`, `update`, `upgrade`.
+
+## install / update / upgrade
+
+From the REPL, download official binaries from the latest [GitHub Release](https://github.com/os-artificer/AiT/releases) into the directory that contains the running `ait` executable (same layout as `make install`). `AIT_HOME` does not change this install root.
+
+| Command | Default (no args) | With plugin names |
+|---------|-------------------|-------------------|
+| `install` | all four official plugins (`aissh`, `ailog`, `aiimg`, `aihost`) | only the named official plugins (overwrite if present) |
+| `update` | all **installed** official plugins | intersection: installed ∩ requested; skip others with a message |
+| `upgrade` | `ait` + all installed official plugins | **no** extra arguments |
+
+Each command downloads one platform archive per invocation (the full release bundle for your OS/CPU); `install aissh` still fetches the complete bundle but applies only the selected tools. Non-TTY use is supported. There is no top-level `ait install` — run these inside the REPL.
+
+```text
+ait> install
+ait> install aissh ailog
+ait> update
+ait> update aissh
+ait> upgrade
+ait> help install
+```
+
+If no GitHub release exists yet, or the install directory is not writable, multi-line hints suggest `make install` or `go install github.com/os-artificer/AiT/cmd/ait@latest`.
 
 On a TTY, Tab completes the **first** command word against discovered plugin names and reserved builtins (longest common prefix, then a candidate list when still ambiguous). For example, with the four shipped tools installed, `ai` + Tab lists them; `ais` + Tab expands to `aissh`. Tab does not complete plugin subcommands or flags. Non-TTY input is unchanged.
 

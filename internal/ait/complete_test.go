@@ -194,8 +194,8 @@ func TestCompleteREPLLine_EmptyPluginsStillReserved(t *testing.T) {
 
 func TestReservedCommandNames_Sorted(t *testing.T) {
 	names := aitplugin.ReservedCommandNames()
-	if len(names) != 6 {
-		t.Fatalf("len = %d, want 6", len(names))
+	if len(names) != 9 {
+		t.Fatalf("len = %d, want 9", len(names))
 	}
 	for i := 1; i < len(names); i++ {
 		if names[i-1] >= names[i] {

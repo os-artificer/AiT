@@ -52,6 +52,7 @@ func WriteRootHelp(w io.Writer) error {
 		if _, err := fmt.Fprintf(w, "%s\n\n%s\n\n", noPluginsMsg, errhint.FormatTryBlock(
 			"make build",
 			"make install",
+			toolname.AIT+" (then) install",
 			toolname.AIT,
 		)); err != nil {
 			return err
@@ -61,6 +62,7 @@ func WriteRootHelp(w io.Writer) error {
 	if err := b.WriteExamples(
 		toolname.AIT,
 		toolname.AIT+" (then) help",
+		toolname.AIT+" (then) install",
 		toolname.AIT+" (then) aissh user@host.example.com",
 		toolname.AIT+" (then) ailog search error",
 	); err != nil {
@@ -78,11 +80,16 @@ func formatRootCommands(plugins []aitplugin.Plugin) string {
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdVersion, "print ait version")
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdHistory, "list or clear input history")
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdClear, "clear terminal screen")
+	fmt.Fprint(&b, formatManageCommands())
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdExit+"/"+cmdQuit, "leave the REPL")
 	return b.String()
 }
 
 func writePluginHelp(w io.Writer, name string) error {
+	if _, ok := manageHelpTopics[name]; ok {
+		return writeManageHelp(w, name)
+	}
+
 	p, ok := aitplugin.Lookup(name)
 	if !ok {
 		return errhint.WithTryMsg(

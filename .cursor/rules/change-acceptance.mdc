@@ -765,6 +765,24 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | AT30d | `aissh ` 行尾（第二词）Tab 无操作 | `TestCompleteFirstToken_SecondTokenNoop` |
 | AT30e | `he` + Tab → `help`（可带尾随空格） | `TestCompleteFirstToken_UniqueHelp` |
 | AT30f | `h` + Tab → 列出 `help`/`history`，行不变 | `TestCompleteFirstToken_HListsHelpHistory` |
+| AT31 | `install` 无参 plan 四官方插件 | `TestPlanInstall_AllOfficial` |
+| AT32 | `update` 无参 plan 仅已装官方 | `TestPlanUpdate_InstalledOnly` |
+| AT33 | `update` 零已装 → `ErrNothingToUpdate` | `TestPlanUpdate_NothingInstalled`、`TestExecuteLine_UpdateNothingInstalled` |
+| AT34 | `Execute` install 单插件 + 进度 | `TestExecute_InstallOne`、`TestExecuteLine_InstallOneIntegration` |
+| AT35 | Apply 后 `InvalidateDiscover` | `TestExecute_RefreshesDiscover` |
+| AT36 | `upgrade` 含 ait + 已装插件 | `TestPlanUpgrade`、`TestExecuteLine_UpgradeIncludesAIT` |
+| AT37 | fetch latest 404 → `ErrNoRelease` | `TestFetchLatestRelease_Errors` |
+| AT38 | flat root tar 解压 | `TestExtract_FlatRootBundle` |
+| AT39 | zip slip 拒绝 | `TestExtract_RejectsTraversal` |
+| AT40 | partial apply 仅选中 tool | `TestApplyBundle_PartialInstall` |
+| AT41 | `update` 有参跳过未装 + 非空 plan 成功 | `TestPlanUpdate_WithArgsSkipsNotInstalled`、`TestExecuteLine_UpdateSkipsMissing` |
+| AT42 | `PrimaryInstallDir` 取 resolved 路径 | `TestPrimaryInstallDir_ResolvedSymlink` |
+| AT43 | manage 动词 reserved + `IsManageCommand` | `TestIsManageCommand`、`TestIsReservedName_ManageCommands` |
+| AT44 | 未知插件 install → `ErrUnknownPlugin` | `TestExecuteLine_InstallUnknownPlugin` |
+| AT45 | `upgrade` 拒参 | `TestExecuteLine_UpgradeRejectsArgs`、`TestPlanUpgrade_RejectsExtraArgs` |
+| AT46 | root/help install 文案 | `TestWriteRootHelp_IncludesManageCmds`、`TestWriteManageHelp_Install` |
+| AT47 | `OfficialPluginNames` == embed manifests | `TestOfficialPluginNames_ManifestsAligned` |
+| AT48 | release sentinel `errors.Is` | `TestReleaseErr_IsSentinel` |
 | AP1–AP5 | Validate / Discover json·manifest·bad·reserved·dedupe | `internal/pkg/aitplugin` tests |
 | AP6 | 分层无违规 import | 包边界 + 编译 |
 | AP8 | plugins 根散落文件不发现 | `TestDiscover_ScatterFileIgnored` |
@@ -779,7 +797,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
-- [ ] AT* / AP*：`ait` toolbox REPL + 插件发现（见 **AT\*** / **AP\*** 明细；含 **AT30a–f** Tab 首词补全）
+- [ ] AT* / AP*：`ait` toolbox REPL + 插件发现（见 **AT\*** / **AP\*** 明细；含 **AT30a–f** Tab 首词补全、**AT31–AT48** install/update/upgrade）
 - [ ] AH1–AH63：`aihost` 主机监控（见 **AH\*** 明细）
 - [ ] R15 未回退（`aissh ai model list` / `aissh ai help` 不挂起；`aissh ai` 仍进 REPL；需实验开关开启）
 - [ ] EX1–EX13 + EX4b：AI 实验门禁默认关；CLI/env/config 开启；help 可用；无 LocalAIClient 绕过；aimode 不 import aissh（见 **EX***）
@@ -1072,7 +1090,7 @@ aissh hostA                    # 无 --save
 | EX* | AI 公共能力剥离 + 实验门禁（默认关） | `TestAIExperimental_*`、`TestAICmd_ExperimentalDisabled`、`TestAimode_NoAisshImport`、`TestHandleAIMetaLine_ExperimentalDisabled*` |
 | LG* | `ailog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources`、`TestCLI_FollowExpr`、`TestCLI_SearchExprOnly` |
 | AH* | `aihost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、… |
-| AT* / AP* | `ait` toolbox REPL + 插件发现 | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestWithAbsorbedInterrupt_*`、`TestDiscover_*`、`TestWriteManifest_Builtin`、`TestCompleteFirstToken_*`、`TestReadLine_NilCompleterInsertsTab` |
+| AT* / AP* | `ait` toolbox REPL + 插件发现 + install/update/upgrade | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestWithAbsorbedInterrupt_*`、`TestDiscover_*`、`TestWriteManifest_Builtin`、`TestCompleteFirstToken_*`、`TestReadLine_NilCompleterInsertsTab`、`TestPlan*`、`TestExecute_*`（aitrelease）、`TestExecuteLine_Install*`、`TestWriteManageHelp_*`、`TestOfficialPluginNames_ManifestsAligned` |
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
 | FB* | `ailog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |

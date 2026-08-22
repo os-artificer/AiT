@@ -5,6 +5,7 @@
 ```text
 cmd/ait → internal/ait (package ait)
          → internal/pkg/aitplugin  (manifest schema + Discover)
+         → internal/pkg/aitrelease   (GitHub Release fetch + apply; REPL install/update/upgrade)
          → internal/pkg/pluginbin  (ExecPath + Runner)
 ```
 
@@ -22,6 +23,15 @@ cmd/ait → internal/ait (package ait)
 | `ait.ExecuteLine` | one REPL line; swallows bare `*exec.ExitError` (AT14); Join/wrap not swallowed |
 | `ait.runPlugin` | wraps `ExecPath` with Notify+drain of `os.Interrupt` so Ctrl+C stops the child only (AT29); do not use `signal.Ignore` (inherited as SIG_IGN) |
 | `ait.completeREPLLine` | TTY Tab Completer (`Options.Completer`): first-token match against `Discover` names ∪ `ReservedCommandNames` |
+| `ait.manageHandlers` | map dispatch for REPL `install` / `update` / `upgrade` → `aitrelease.Execute` |
+| `aitrelease.Execute` | `BuildPlan` (no I/O) → fetch latest GitHub Release asset → extract → apply under `PrimaryInstallDir()` → `InvalidateDiscover` |
+
+## Release install (`aitrelease`)
+
+- Install root: `aitplugin.PrimaryInstallDir()` — last resolved entry from the executable’s install dirs (not `AIT_HOME`).
+- Assets: `ait-<tag>-<goos>-<arch>.tar.gz` (Windows: `.zip`); flat bundle root with `ait`, top-level tool binaries, and `plugins/<tool>/`.
+- CI: `make release-archives TAG=vX.Y.Z` + `.github/workflows/release.yml` on tag push.
+- Tests inject `Options.BaseURL` or env `AIT_RELEASE_TEST_BASE_URL` (read in `runManage`); fixtures in `internal/pkg/aitrelease/testrelease`.
 
 ## Manifest hook
 

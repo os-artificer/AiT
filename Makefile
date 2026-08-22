@@ -1,4 +1,4 @@
-.PHONY: all build build-cross install test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
+.PHONY: all build build-cross install release-archives test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
 TOOLS     := aissh aiimg ailog aihost ait
 BUILD_DIR := bin
@@ -69,6 +69,46 @@ build-cross:
 			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch \
 				go build -ldflags "$$ldflags" -o $$out $$main; \
 		done; \
+	done
+
+# Release archives for GitHub (requires TAG=vX.Y.Z). Output: dist/ait-<tag>-<goos>-<arch>.tar.gz or .zip
+release-archives:
+ifndef TAG
+	$(error TAG is required, e.g. make release-archives TAG=v0.1.0)
+endif
+	@set -e; \
+	mkdir -p dist; \
+	for platform in $(CROSS_PLATFORMS); do \
+		os=$${platform%%/*}; arch=$${platform#*/}; \
+		staging=dist/staging-$$os-$$arch; \
+		rm -rf $$staging; \
+		mkdir -p $$staging; \
+		ext=; [ "$$os" = windows ] && ext=.exe; \
+		for tool in $(TOOLS); do \
+			case $$tool in \
+				aissh) ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
+				aiimg) ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
+				ailog) ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \
+				aihost) ldpkg=$(MODULE)/internal/host/version; main=./cmd/aihost ;; \
+				ait) ldpkg=$(MODULE)/internal/ait/version; main=./cmd/ait ;; \
+				*) echo "unknown tool $$tool"; exit 1 ;; \
+			esac; \
+			ldflags="-X $$ldpkg.version=$(TAG) -X $$ldpkg.gitCommit=$(GIT_COMMIT) -X $$ldpkg.buildDate=$(BUILD_DATE)"; \
+			echo ">> release $$tool $$os/$$arch"; \
+			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch \
+				go build -ldflags "$$ldflags" -o $$staging/$$tool$$ext $$main; \
+		done; \
+		for b in $(PLUGIN_TOOLS); do \
+			mkdir -p $$staging/plugins/$$b; \
+			cp internal/pkg/aitplugin/manifests/$$b/plugin.json $$staging/plugins/$$b/plugin.json; \
+			cp $$staging/$$b$$ext $$staging/plugins/$$b/$$b$$ext; \
+		done; \
+		if [ "$$os" = windows ]; then \
+			( cd $$staging && zip -qr ../ait-$(TAG)-windows-amd64.zip . ); \
+		else \
+			COPYFILE_DISABLE=1 tar -czf dist/ait-$(TAG)-$$os-$$arch.tar.gz -C $$staging .; \
+		fi; \
+		rm -rf $$staging; \
 	done
 
 install:

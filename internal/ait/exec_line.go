@@ -70,6 +70,10 @@ func ExecuteLine(ctx context.Context, line string, hist *terminal.LineHistory, o
 		return false, terminal.RunHistoryCommand(out, hist, words[1:])
 	}
 
+	if fn, ok := manageHandlers[words[0]]; ok {
+		return false, fn(ctx, words, out, errOut)
+	}
+
 	p, ok := aitplugin.Lookup(words[0])
 	if !ok {
 		return false, errhint.WithTryMsg(

@@ -71,8 +71,17 @@ func Lookup(name string) (Plugin, bool) {
 	return Plugin{}, false
 }
 
+// InvalidateDiscover clears the Discover cache so the next Discover rescans install dirs.
+func InvalidateDiscover() {
+	resetDiscoverCache()
+}
+
 // ResetDiscoverForTest clears the Discover cache (tests only).
 func ResetDiscoverForTest() {
+	resetDiscoverCache()
+}
+
+func resetDiscoverCache() {
 	discoverMu.Lock()
 	defer discoverMu.Unlock()
 	discoverOnce = sync.Once{}
