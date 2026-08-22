@@ -1,5 +1,5 @@
 # AiT example configuration
-# Copy to AppRoot as config.yaml (see docs/tools/aitssh.md#data-directory); or: aitssh config init / aitssh config edit / aitssh config validate
+# Copy to AppRoot as config.yaml (see docs/tools/aissh.md#data-directory); or: aissh config init / aissh config edit / aissh config validate
 
 session:
   # Authentication cache TTL for load/switch without re-entering password
@@ -9,9 +9,9 @@ session:
     path: short
 
 ai:
-  # Experimental AI features (aitssh ai / !! / !ait ai) are off by default.
-  # Enable with: aitssh config set ai.experimental.enabled true
-  # Or for one process: aitssh --ai-experimental … / AIT_AI_EXPERIMENTAL=1
+  # Experimental AI features (aissh ai / !! / !ait ai) are off by default.
+  # Enable with: aissh config set ai.experimental.enabled true
+  # Or for one process: aissh --ai-experimental … / AIT_AI_EXPERIMENTAL=1
   experimental:
     enabled: false
   default: deepseek
@@ -27,11 +27,11 @@ ai:
     max_steps: 16
   providers:
     ollama:
-      enabled: true   # aitssh ai provider disable ollama to stop local routing
+      enabled: true   # aissh ai provider disable ollama to stop local routing
       api_style: openai
       base_url: http://127.0.0.1:11434/v1
       model: llama3.2
-      # models_dir: /path/to/ollama/models   # OLLAMA_MODELS; set via aitssh ai ollama setup
+      # models_dir: /path/to/ollama/models   # OLLAMA_MODELS; set via aissh ai ollama setup
     deepseek:
       enabled: true
       api_style: openai
@@ -44,10 +44,10 @@ ai:
       model: MiniMax-M2.5
 
 # API keys (OS keyring, not in this file):
-#   aitssh config set ai.deepseek.api_key <key>
-#   aitssh config set ai.minimax.api_key <key>
+#   aissh config set ai.deepseek.api_key <key>
+#   aissh config set ai.minimax.api_key <key>
 # Ollama does not need a key when tiered is enabled.
-# Quick setup: aitssh ai ollama setup   (choose models_dir; or --models-dir)
-# Providers: aitssh ai provider enable|disable <deepseek|minimax|ollama>
-# Status/service: aitssh ai ollama status | start --wait | stop | disable
-# List providers: positional meta on `ait ai` (e.g. `aitssh ai model list`), not a top-level `ait models`
+# Quick setup: aissh ai ollama setup   (choose models_dir; or --models-dir)
+# Providers: aissh ai provider enable|disable <deepseek|minimax|ollama>
+# Status/service: aissh ai ollama status | start --wait | stop | disable
+# List providers: positional meta on `ait ai` (e.g. `aissh ai model list`), not a top-level `ait models`

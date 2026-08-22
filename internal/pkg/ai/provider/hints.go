@@ -42,9 +42,9 @@ var (
 	hintAIAskStdin        = "echo ping | " + toolname.CLI("ai ask")
 	hintAIAskHelp         = toolname.CLI("ai ask --help")
 
-	// HintAIHelp is the standard aitssh ai --help Try line (shared with client).
+	// HintAIHelp is the standard aissh ai --help Try line (shared with client).
 	HintAIHelp = hintAIHelp
-	// HintOllamaSetup is the aitssh ai ollama setup Try line.
+	// HintOllamaSetup is the aissh ai ollama setup Try line.
 	HintOllamaSetup = hintOllamaSetup
 	// HintStoreAPIKeyInKeyring explains keyring storage in API key errors.
 	HintStoreAPIKeyInKeyring = hintStoreAPIKeyInKeyring
@@ -52,17 +52,17 @@ var (
 	HintSetCloudAPIKey = hintSetCloudAPIKey
 )
 
-// ConfigSetAPIKeyCmd returns the aitssh config set command for a provider API key.
+// ConfigSetAPIKeyCmd returns the aissh config set command for a provider API key.
 func ConfigSetAPIKeyCmd(id string) string {
 	return toolname.CLI(fmt.Sprintf("config set ai.%s.api_key <key>", id))
 }
 
-// ConfigGetAPIKeyCmd returns the aitssh config get command for a provider API key.
+// ConfigGetAPIKeyCmd returns the aissh config get command for a provider API key.
 func ConfigGetAPIKeyCmd(id string) string {
 	return toolname.CLI(fmt.Sprintf("config get ai.%s.api_key", id))
 }
 
-// ProviderEnableCmd returns the aitssh ai provider enable command for id.
+// ProviderEnableCmd returns the aissh ai provider enable command for id.
 func ProviderEnableCmd(id string) string {
 	return toolname.CLI("ai provider enable " + id)
 }

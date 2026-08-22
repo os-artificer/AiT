@@ -31,7 +31,7 @@ type LogShowSource struct {
 	NDJSON   bool
 }
 
-// Name returns the chain name used in notices and `aitlog sources`.
+// Name returns the chain name used in notices and `ailog sources`.
 func (s *LogShowSource) Name() string { return ToolLog }
 
 // SupportsReverse reports false: `log show` only emits oldest-first.

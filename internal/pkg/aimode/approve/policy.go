@@ -18,7 +18,7 @@
 // risk-aware policy for the AI mode REPL.
 package approve
 
-// Policy controls how often run/aitssh commands require user confirmation.
+// Policy controls how often run/aissh commands require user confirmation.
 type Policy int
 
 const (

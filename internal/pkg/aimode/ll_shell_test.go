@@ -28,7 +28,7 @@ import (
 
 func TestAIMode_LLNotBuiltin(t *testing.T) {
 	var buf bytes.Buffer
-	client := testAIClient(t, "use aitssh shell for directory listings")
+	client := testAIClient(t, "use aissh shell for directory listings")
 	opt := Options{
 		Scope:  ai.ScopeLocal,
 		AI:     client,

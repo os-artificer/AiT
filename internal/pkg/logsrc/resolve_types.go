@@ -51,7 +51,7 @@ const (
 const ReasonNotImplemented = "not implemented"
 
 // Backend names, used both as the executable to look up on PATH and as the
-// provider label shown by `aitlog sources`.
+// provider label shown by `ailog sources`.
 const (
 	// ToolJournalctl reads the systemd journal on Linux.
 	ToolJournalctl = "journalctl"
@@ -82,7 +82,7 @@ type Layer struct {
 	Open      func(r *Resolver, q Query) (Source, error)
 }
 
-// Capability is one Probe row, as rendered by `aitlog sources`.
+// Capability is one Probe row, as rendered by `ailog sources`.
 type Capability struct {
 	Source    string `json:"source"`
 	Backend   string `json:"backend"`

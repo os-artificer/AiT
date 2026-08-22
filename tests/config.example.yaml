@@ -3,7 +3,7 @@
 # GitHub CI runs only `make test-e2e-smoke` (no SSH). Full host e2e is local-only.
 
 ait:
-  binary: ../bin/aitssh
+  binary: ../bin/aissh
 
 ssh:
   primary:

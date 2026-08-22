@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package cliroute centralizes aitssh argv routing (top-level SSH default, REPL connect, meta chain).
+// Package cliroute centralizes aissh argv routing (top-level SSH default, REPL connect, meta chain).
 package cliroute
 
 import (
@@ -64,7 +64,7 @@ func ReservedSubcommandNames() []string {
 	return out
 }
 
-// IsReservedSubcommand reports whether word is a registered aitssh subcommand name.
+// IsReservedSubcommand reports whether word is a registered aissh subcommand name.
 func IsReservedSubcommand(word string) bool {
 	_, ok := reservedSubcommands[word]
 	return ok

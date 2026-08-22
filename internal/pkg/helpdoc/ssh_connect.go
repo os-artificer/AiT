@@ -22,7 +22,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// SSHConnectHelpFull is the canonical SSH connect section for aitssh --help.
+// SSHConnectHelpFull is the canonical SSH connect section for aissh --help.
 var SSHConnectHelpFull = sshConnectHelpFull()
 
 // WriteSSHConnectSection prints the default SSH connect usage block to w.
@@ -37,7 +37,7 @@ func WriteSSHConnectShort(w io.Writer) error {
 	return err
 }
 
-// RootUsageLine returns the top-level aitssh usage without subcommands.
+// RootUsageLine returns the top-level aissh usage without subcommands.
 func RootUsageLine() string {
 	return toolname.AISsh + " [flags] destination [command ...]"
 }

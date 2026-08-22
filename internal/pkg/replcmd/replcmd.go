@@ -17,7 +17,7 @@
 // Package replcmd holds shared REPL verb names used by shell and aimode (C24).
 package replcmd
 
-// Core REPL verbs shared by aitssh shell and AI mode.
+// Core REPL verbs shared by aissh shell and AI mode.
 const (
 	Exit    = "exit"
 	Quit    = "quit"

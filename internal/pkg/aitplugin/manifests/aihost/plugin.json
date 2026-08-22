@@ -1,0 +1,27 @@
+{
+  "apiVersion": 1,
+  "name": "aihost",
+  "binary": "aihost",
+  "short": "Monitor host CPU, memory, disk, network, and processes",
+  "order": 40,
+  "usage": "aihost [command] [flags]",
+  "flags": [
+    {
+      "name": "json",
+      "type": "bool",
+      "help": "JSON output for one-shot commands"
+    },
+    {
+      "name": "help",
+      "short": "h",
+      "type": "bool",
+      "help": "help for aihost"
+    }
+  ],
+  "examples": [
+    "aihost",
+    "aihost snapshot",
+    "aihost proc --limit 10",
+    "aihost sources"
+  ]
+}

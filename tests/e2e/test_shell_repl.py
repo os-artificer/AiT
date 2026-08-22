@@ -1,4 +1,4 @@
-"""aitssh shell REPL smoke tests (pexpect)."""
+"""aissh shell REPL smoke tests (pexpect)."""
 
 from __future__ import annotations
 

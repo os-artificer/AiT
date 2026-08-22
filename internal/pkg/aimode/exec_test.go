@@ -168,7 +168,7 @@ func TestExecuteLineHistory_AIMode(t *testing.T) {
 }
 
 // TestExecuteAitSubcmdAIMode_CRLF (F2) verifies that the local AI REPL's
-// `aitssh <subcmd>` execution wraps both stdout and stderr in a CRLF writer so
+// `aissh <subcmd>` execution wraps both stdout and stderr in a CRLF writer so
 // cobra/subcommand bare \n output renders correctly on the raw-mode TTY.
 func TestExecuteAitSubcmdAIMode_CRLF(t *testing.T) {
 	var out, errOut bytes.Buffer
@@ -208,7 +208,7 @@ func TestExecuteAitSubcmdAIMode_CRLF(t *testing.T) {
 
 // TestExecuteLineHistory_AIMode_CRLF (F1) verifies that the multi-line history
 // listing in the AI REPL terminates each entry with \r\n so it renders one row
-// per line on the raw-mode local TTY used by aitssh ai and the !! remote AI REPL.
+// per line on the raw-mode local TTY used by aissh ai and the !! remote AI REPL.
 func TestExecuteLineHistory_AIMode_CRLF(t *testing.T) {
 	var out bytes.Buffer
 	st := &sessionState{}

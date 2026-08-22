@@ -1,6 +1,6 @@
 # AiT Python E2E Tests
 
-Black-box end-to-end tests for the `aitssh` CLI using pytest and pexpect. Complements Go unit tests (`make test`); does not replace them.
+Black-box end-to-end tests for the `aissh` CLI using pytest and pexpect. Complements Go unit tests (`make test`); does not replace them.
 
 ## CI vs local
 
@@ -15,7 +15,7 @@ Real hostnames, ports, and keys belong only in **gitignored** `tests/config.loca
 
 ## Prerequisites
 
-- Go 1.25+ and `make build` → `bin/aitssh`
+- Go 1.25+ and `make build` → `bin/aissh`
 - Python 3.10+
 - OpenSSH client (`ssh`) on PATH (for `ssh -G` resolution)
 - For SSH-marked tests (local): reachable host and credentials in `config.local.yaml`

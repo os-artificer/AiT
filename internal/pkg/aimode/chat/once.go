@@ -15,7 +15,7 @@
 **/
 
 // Package chat exposes the one-shot AI ask path that powers
-// `aitssh ai ask <message>` and the `ask …` meta-REPL command.
+// `aissh ai ask <message>` and the `ask …` meta-REPL command.
 package chat
 
 import (

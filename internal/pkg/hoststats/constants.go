@@ -27,7 +27,7 @@ const (
 	DefaultCPUInterval time.Duration = 0
 )
 
-// Metric section IDs (aligned with aithost subcommand names).
+// Metric section IDs (aligned with aihost subcommand names).
 const (
 	IDCPU   = "cpu"
 	IDMem   = "mem"

@@ -5,19 +5,21 @@ alwaysApply: true
 
 # AiT project rules
 
-Go CLI **toolbox** (**AiT**; first tool: **aitssh**). Module: `github.com/os-artificer/AiT`.
+Go CLI **toolbox** (**AiT**; tools: **ait**, **aissh**, **aiimg**, **ailog**, **aihost**). Module: `github.com/os-artificer/AiT`.
 
 ## Commands
 
-- `make build` → `bin/aitssh` from `./cmd/aitssh`
+- `make build` → `bin/ait`, `bin/aissh`, … and `bin/plugins/<tool>/` from `./cmd/<tool>`
 - `make test` / `make vet` / `make fmt` — run after Go edits
 
 ## Layout
 
-- `cmd/aitssh`: minimal `main` only (delegates to `aissh.Run`)
-- `internal/aissh`: application entry (Go package `aissh`)
+- `cmd/ait`: minimal `main` only (delegates to `ait.Run`)
+- `cmd/aissh`: minimal `main` only (delegates to `aissh.Run`)
+- `internal/ait`: toolbox REPL (Go package `ait`); plugin discovery via `internal/pkg/aitplugin`
+- `internal/ssh`: application entry (Go package `aissh`)
 - `pkg/`: only code meant for external import
-- Product docs: [AGENTS.md](AGENTS.md), [docs/architecture.md](docs/architecture.md), [docs/tools/aitssh.md](docs/tools/aitssh.md), [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
+- Product docs: [AGENTS.md](AGENTS.md), [docs/architecture.md](docs/architecture.md), [docs/tools/ait.md](docs/tools/ait.md), [docs/tools/aissh.md](docs/tools/aissh.md), [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
 
 ## Scope
 

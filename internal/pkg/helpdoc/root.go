@@ -25,7 +25,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// RootCommandEntry is one line in the root aitssh --help command list.
+// RootCommandEntry is one line in the root aissh --help command list.
 type RootCommandEntry struct {
 	Name  string
 	Short string
@@ -39,7 +39,7 @@ func formatRootSubcommands(entries []RootCommandEntry) string {
 	return b.String()
 }
 
-// WriteRootHelp prints aitssh --help to w using entries for the command list.
+// WriteRootHelp prints aissh --help to w using entries for the command list.
 func WriteRootHelp(w io.Writer, entries []RootCommandEntry) error {
 	introMain := "AiT SSH client with session management and optional tmux persistence. AI features are experimental and off by default."
 	introHint := fmt.Sprintf("Run '%s <command> --help' for command-specific usage and examples.", toolname.AISsh)

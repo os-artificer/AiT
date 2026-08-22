@@ -159,15 +159,15 @@ type ProcessQuery struct {
 	// the fixed order CPU → MEM → NET → DISK excluding the primary.
 	Sort string
 	// KeepPIDs, when non-empty, are preferred in the result (fresh stats) before
-	// filling remaining slots from the normal sort order. Used by aithost top
+	// filling remaining slots from the normal sort order. Used by aihost top
 	// search/detail so frozen rows keep refreshing outside the current top-N.
 	KeepPIDs []int32
 	// All, when true, returns every sampled process (sorted); Limit is ignored.
-	// aithost top defaults to All so PROC search covers the full process table.
+	// aihost top defaults to All so PROC search covers the full process table.
 	All bool
 }
 
-// SourceDesc describes a metrics collector for `aithost sources`.
+// SourceDesc describes a metrics collector for `aihost sources`.
 type SourceDesc struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`

@@ -1,4 +1,4 @@
-"""pexpect helpers for interactive aitssh login, shell, and meta sessions."""
+"""pexpect helpers for interactive aissh login, shell, and meta sessions."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def _expect_prompt_dismissing_blockers(
 
 
 class AITExpectSession:
-    """Interactive PTY session around aitssh login or shell."""
+    """Interactive PTY session around aissh login or shell."""
 
     def __init__(
         self,

@@ -1,4 +1,4 @@
-"""aitssh session flag CLI E2E tests."""
+"""aissh session flag CLI E2E tests."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ pytestmark = pytest.mark.smoke
 def test_session_no_action_fails(runner):
     proc = runner.run(["session"])
     assert_exit(1, proc)
-    assert_hint(proc, try_commands=("aitssh session --help",))
+    assert_hint(proc, try_commands=("aissh session --help",))
 
 
 def test_session_mutually_exclusive_flags(runner):
     proc = runner.run(["session", "--list", "--load", "x"])
     assert_exit(1, proc)
-    assert_hint(proc, try_commands=("aitssh session --help",))
+    assert_hint(proc, try_commands=("aissh session --help",))
 
 
 def test_session_list_empty(runner):
@@ -41,14 +41,14 @@ def test_session_load_display_id_hint(runner):
     assert_hint(
         proc,
         explanation_substr="display",
-        try_commands=("aitssh session --list -v",),
+        try_commands=("aissh session --list -v",),
     )
 
 
 def test_session_load_non_tty_fails(runner):
     proc = runner.run(["session", "--load"])
     assert_exit(1, proc)
-    assert_hint(proc, try_commands=("aitssh session --load <alias>",))
+    assert_hint(proc, try_commands=("aissh session --load <alias>",))
 
 
 def test_session_suspend_no_current(runner):

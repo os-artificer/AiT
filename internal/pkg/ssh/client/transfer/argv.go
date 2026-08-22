@@ -35,10 +35,10 @@ const UsageGet = "usage: " + toolname.MetaPrefix + " get <remote-path> [<local-p
 // UsagePut is the user-facing one-line usage for `!ait put`.
 const UsagePut = "usage: " + toolname.MetaPrefix + " put <local-path> [<remote-path>]"
 
-// CmdGet is the meta subcommand name for !ait get (must match aitssh get.Name).
+// CmdGet is the meta subcommand name for !ait get (must match aissh get.Name).
 const CmdGet = "get"
 
-// CmdPut is the meta subcommand name for !ait put (must match aitssh put.Name).
+// CmdPut is the meta subcommand name for !ait put (must match aissh put.Name).
 const CmdPut = "put"
 
 // ArgsFromMetaLine extracts the subcommand and trailing args from a `!ait <cmd> ...`

@@ -1,4 +1,4 @@
-"""Standalone aitssh get/put SFTP E2E tests."""
+"""Standalone aissh get/put SFTP E2E tests."""
 
 from __future__ import annotations
 

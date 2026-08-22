@@ -1,6 +1,6 @@
 .PHONY: all build build-cross install test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
-TOOLS     := aitssh aitimg aitlog aithost
+TOOLS     := aissh aiimg ailog aihost ait
 BUILD_DIR := bin
 
 MODULE := github.com/os-artificer/AiT
@@ -15,18 +15,7 @@ CROSS_PLATFORMS := \
 	darwin/arm64 \
 	windows/amd64
 
-# tool_version_file,tool_ldflags_pkg,tool_main_pkg,tool_version
-define TOOL_META_aitssh
-internal/aissh/version/VERSION \
-github.com/os-artificer/AiT/internal/aissh/version \
-./cmd/aitssh
-endef
-
-define TOOL_META_aitimg
-internal/aitimg/version/VERSION \
-github.com/os-artificer/AiT/internal/aitimg/version \
-./cmd/aitimg
-endef
+PLUGIN_TOOLS := aissh aiimg ailog aihost
 
 tool_version = $(shell cat $(1) 2>/dev/null | tr -d ' \n')
 tool_ldflags = -X $(2).version=$(call tool_version,$(1)) -X $(2).gitCommit=$(GIT_COMMIT) -X $(2).buildDate=$(BUILD_DATE)
@@ -38,16 +27,24 @@ build:
 	@set -e; \
 	for tool in $(TOOLS); do \
 		case $$tool in \
-			aitssh) verfile=internal/aissh/version/VERSION; ldpkg=$(MODULE)/internal/aissh/version; main=./cmd/aitssh ;; \
-			aitimg) verfile=internal/aitimg/version/VERSION; ldpkg=$(MODULE)/internal/aitimg/version; main=./cmd/aitimg ;; \
-			aitlog) verfile=internal/aitlog/version/VERSION; ldpkg=$(MODULE)/internal/aitlog/version; main=./cmd/aitlog ;; \
-			aithost) verfile=internal/aithost/version/VERSION; ldpkg=$(MODULE)/internal/aithost/version; main=./cmd/aithost ;; \
+			aissh) verfile=internal/ssh/version/VERSION; ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
+			aiimg) verfile=internal/img/version/VERSION; ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
+			ailog) verfile=internal/log/version/VERSION; ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \
+			aihost) verfile=internal/host/version/VERSION; ldpkg=$(MODULE)/internal/host/version; main=./cmd/aihost ;; \
+			ait) verfile=internal/ait/version/VERSION; ldpkg=$(MODULE)/internal/ait/version; main=./cmd/ait ;; \
 			*) echo "unknown tool $$tool"; exit 1 ;; \
 		esac; \
 		ver=$$(cat $$verfile 2>/dev/null | tr -d ' \n'); \
 		ldflags="-X $$ldpkg.version=$$ver -X $$ldpkg.gitCommit=$(GIT_COMMIT) -X $$ldpkg.buildDate=$(BUILD_DATE)"; \
 		echo ">> $(BUILD_DIR)/$$tool"; \
 		go build -ldflags "$$ldflags" -o $(BUILD_DIR)/$$tool $$main; \
+	done; \
+	for b in $(PLUGIN_TOOLS); do \
+		mkdir -p $(BUILD_DIR)/plugins/$$b; \
+		ln -sfn ../../$$b $(BUILD_DIR)/plugins/$$b/$$b 2>/dev/null || \
+			cp -f $(BUILD_DIR)/$$b $(BUILD_DIR)/plugins/$$b/$$b 2>/dev/null || \
+			cp -f $(BUILD_DIR)/$$b.exe $(BUILD_DIR)/plugins/$$b/$$b.exe; \
+		cp internal/pkg/aitplugin/manifests/$$b/plugin.json $(BUILD_DIR)/plugins/$$b/plugin.json; \
 	done
 
 build-cross:
@@ -55,10 +52,11 @@ build-cross:
 	@set -e; \
 	for tool in $(TOOLS); do \
 		case $$tool in \
-			aitssh) verfile=internal/aissh/version/VERSION; ldpkg=$(MODULE)/internal/aissh/version; main=./cmd/aitssh ;; \
-			aitimg) verfile=internal/aitimg/version/VERSION; ldpkg=$(MODULE)/internal/aitimg/version; main=./cmd/aitimg ;; \
-			aitlog) verfile=internal/aitlog/version/VERSION; ldpkg=$(MODULE)/internal/aitlog/version; main=./cmd/aitlog ;; \
-			aithost) verfile=internal/aithost/version/VERSION; ldpkg=$(MODULE)/internal/aithost/version; main=./cmd/aithost ;; \
+			aissh) verfile=internal/ssh/version/VERSION; ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
+			aiimg) verfile=internal/img/version/VERSION; ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
+			ailog) verfile=internal/log/version/VERSION; ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \
+			aihost) verfile=internal/host/version/VERSION; ldpkg=$(MODULE)/internal/host/version; main=./cmd/aihost ;; \
+			ait) verfile=internal/ait/version/VERSION; ldpkg=$(MODULE)/internal/ait/version; main=./cmd/ait ;; \
 			*) echo "unknown tool $$tool"; exit 1 ;; \
 		esac; \
 		ver=$$(cat $$verfile 2>/dev/null | tr -d ' \n'); \
@@ -77,15 +75,25 @@ install:
 	@set -e; \
 	for tool in $(TOOLS); do \
 		case $$tool in \
-			aitssh) verfile=internal/aissh/version/VERSION; ldpkg=$(MODULE)/internal/aissh/version; main=./cmd/aitssh ;; \
-			aitimg) verfile=internal/aitimg/version/VERSION; ldpkg=$(MODULE)/internal/aitimg/version; main=./cmd/aitimg ;; \
-			aitlog) verfile=internal/aitlog/version/VERSION; ldpkg=$(MODULE)/internal/aitlog/version; main=./cmd/aitlog ;; \
-			aithost) verfile=internal/aithost/version/VERSION; ldpkg=$(MODULE)/internal/aithost/version; main=./cmd/aithost ;; \
+			aissh) verfile=internal/ssh/version/VERSION; ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
+			aiimg) verfile=internal/img/version/VERSION; ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
+			ailog) verfile=internal/log/version/VERSION; ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \
+			aihost) verfile=internal/host/version/VERSION; ldpkg=$(MODULE)/internal/host/version; main=./cmd/aihost ;; \
+			ait) verfile=internal/ait/version/VERSION; ldpkg=$(MODULE)/internal/ait/version; main=./cmd/ait ;; \
 			*) echo "unknown tool $$tool"; exit 1 ;; \
 		esac; \
 		ver=$$(cat $$verfile 2>/dev/null | tr -d ' \n'); \
 		ldflags="-X $$ldpkg.version=$$ver -X $$ldpkg.gitCommit=$(GIT_COMMIT) -X $$ldpkg.buildDate=$(BUILD_DATE)"; \
 		go install -ldflags "$$ldflags" $$main; \
+	done; \
+	gobin=$$(go env GOBIN); \
+	if [ -z "$$gobin" ]; then gobin=$$(go env GOPATH)/bin; fi; \
+	for b in $(PLUGIN_TOOLS); do \
+		mkdir -p $$gobin/plugins/$$b; \
+		ln -sfn ../../$$b $$gobin/plugins/$$b/$$b 2>/dev/null || \
+			cp -f $$gobin/$$b $$gobin/plugins/$$b/$$b 2>/dev/null || \
+			cp -f $$gobin/$$b.exe $$gobin/plugins/$$b/$$b.exe; \
+		cp internal/pkg/aitplugin/manifests/$$b/plugin.json $$gobin/plugins/$$b/plugin.json; \
 	done
 
 test:
@@ -100,31 +108,32 @@ test-cross:
 	done
 
 check-generate:
-	go generate ./internal/aissh/registry/...
-	git diff --exit-code -- internal/aissh/registry/all/imports.go
+	go generate ./internal/ssh/registry/...
+	git diff --exit-code -- internal/ssh/registry/all/imports.go
 
 # Full E2E including real SSH hosts from tests/config.local.yaml (local only; skipped on CI).
 test-e2e:
-	@test -x $(BUILD_DIR)/aitssh || $(MAKE) build
+	@test -x $(BUILD_DIR)/aissh || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
 
 # CI-safe smoke: help / config / session CLI / experimental-AI gate. Never dials real hosts.
 test-e2e-smoke:
-	@test -x $(BUILD_DIR)/aitssh || $(MAKE) build
+	@test -x $(BUILD_DIR)/aissh || $(MAKE) build
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m smoke
 
-vet:
-	go vet ./...
-
 fmt:
 	go fmt ./...
 
-dupl:
-	go run github.com/mibk/dupl@latest -threshold 15 $$(find . -name '*.go' ! -name '*_test.go' ! -path './vendor/*')
+vet:
+	go vet ./...
 
 clean:
-	rm -rf $(BUILD_DIR) .gocache .tmp .test-fresh-gomodcache
+	rm -rf $(BUILD_DIR)
+
+dupl:
+	@command -v dupl >/dev/null || go install github.com/golangci/dupl@latest
+	dupl -t 100 ./internal/...

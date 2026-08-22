@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package hostdash provides Bubble Tea panel primitives for aithost top.
+// Package hostdash provides Bubble Tea panel primitives for aihost top.
 package hostdash
 
 import (

@@ -23,6 +23,16 @@ import (
 	"strings"
 )
 
+// IsSafeName reports whether name is a single path segment safe for AppRoot/bin lookup.
+func IsSafeName(name string) bool {
+	return isSafeBinName(name)
+}
+
+// CandidateNames returns OS-specific executable name candidates for name (Windows adds .exe/.cmd/.bat).
+func CandidateNames(name string) []string {
+	return binCandidateNames(name)
+}
+
 func isSafeBinName(name string) bool {
 	if name == "" || name == "." || name == ".." {
 		return false

@@ -4,10 +4,11 @@
 
 **Tools:**
 
-- [`aitssh`](cmd/aitssh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer). Guide: [aitssh](docs/tools/aitssh.md).
-- [`aitimg`](cmd/aitimg) — image metadata extractor (EXIF, GPS, reverse-geocoded address). Guide: [aitimg](docs/tools/aitimg.md).
-- [`aitlog`](cmd/aitlog) — system log viewer and search (Linux/macOS/Windows). Guide: [aitlog](docs/tools/aitlog.md).
-- [`aithost`](cmd/aithost) — live host CPU/mem/disk/net/process monitor. Guide: [aithost](docs/tools/aithost.md).
+- [`ait`](cmd/ait) — toolbox interactive REPL (discovers plugins under `bin/plugins/`). Guide: [ait](docs/tools/ait.md).
+- [`aissh`](cmd/aissh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer). Guide: [aissh](docs/tools/aissh.md).
+- [`aiimg`](cmd/aiimg) — image metadata extractor (EXIF, GPS, reverse-geocoded address). Guide: [aiimg](docs/tools/aiimg.md).
+- [`ailog`](cmd/ailog) — system log viewer and search (Linux/macOS/Windows). Guide: [ailog](docs/tools/ailog.md).
+- [`aihost`](cmd/aihost) — live host CPU/mem/disk/net/process monitor. Guide: [aihost](docs/tools/aihost.md).
 
 ## What you get
 
@@ -15,25 +16,25 @@
 - Session bookmarks: `--alias`, `session --load`, `session --switch`
 - In-session `!ait` meta commands (suspend, chain hop, transfer)
 - Default AiT-managed remote prompt (`AiT user@host:…>`); set `AIT_REMOTE_SYSTEM_PROMPT=1` for the native shell prompt
-- Experimental AI (`!!` / `!ait ai` / `aitssh ai`) — **off by default**; enable with `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `--ai-experimental`
-- `!ait get` / `!ait put` on the live SSH session, standalone `aitssh get` / `put` via SFTP
+- Experimental AI (`!!` / `!ait ai` / `aissh ai`) — **off by default**; enable with `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `--ai-experimental`
+- `!ait get` / `!ait put` on the live SSH session, standalone `aissh get` / `put` via SFTP
 - Optional `--tmux` to keep remote shells alive after disconnect
-- Local `aitssh shell` REPL (and optional AI REPL) with history and UTF-8 line editing
+- Local `aissh shell` REPL (and optional AI REPL) with history and UTF-8 line editing
 
 ## Examples
 
 ```bash
 # 1) Bookmark a host and resume later (OpenSSH-style flags still work)
-aitssh deploy@prod --alias prod
-aitssh session --list
-aitssh session --load prod
+aissh deploy@prod --alias prod
+aissh session --list
+aissh session --load prod
 
 # 2) Jump host in one command (same as ssh -J; Host aliases resolve via ssh -G)
-aitssh -J bastion app.internal
+aissh -J bastion app.internal
 
 # 3) Enable experimental AI once, then use it locally or inside SSH
-aitssh config init
-aitssh config set ai.experimental.enabled true
+aissh config init
+aissh config set ai.experimental.enabled true
 # Inside an SSH session:
 !!
 # Ask in natural language; read-only commands run automatically; writes need confirmation
@@ -43,11 +44,11 @@ aitssh config set ai.experimental.enabled true
 !ait put ./patch.tar.gz
 
 # 5) tmux keep-alive: remote work survives disconnect
-aitssh devhost --tmux
-# Later: aitssh session --load devhost --tmux
+aissh devhost --tmux
+# Later: aissh session --load devhost --tmux
 
 # 6) One-shot local AI (non-interactive; requires experimental AI enabled)
-aitssh ai ask "summarize this log pattern: connection reset"
+aissh ai ask "summarize this log pattern: connection reset"
 ```
 
 ## Installation
@@ -60,20 +61,22 @@ aitssh ai ask "summarize this log pattern: connection reset"
 git clone https://github.com/os-artificer/AiT.git
 cd AiT
 make build
-./bin/aitssh --help
-./bin/aitimg --help
-./bin/aitlog --help
-./bin/aithost --help
+./bin/ait --help
+./bin/aissh --help
+./bin/aiimg --help
+./bin/ailog --help
+./bin/aihost --help
 ```
 
 **Install all tools** via `go install` (requires Go **1.25+**; ZMODEM support is vendored under `pkg/third-party/` — no external `github.com/xiwh/zmodem` fetch):
 
 ```bash
-go install github.com/os-artificer/AiT/cmd/aitssh@latest github.com/os-artificer/AiT/cmd/aitimg@latest github.com/os-artificer/AiT/cmd/aitlog@latest github.com/os-artificer/AiT/cmd/aithost@latest
-aitssh --help
-aitimg --help
-aitlog --help
-aithost --help
+go install github.com/os-artificer/AiT/cmd/ait@latest github.com/os-artificer/AiT/cmd/aissh@latest github.com/os-artificer/AiT/cmd/aiimg@latest github.com/os-artificer/AiT/cmd/ailog@latest github.com/os-artificer/AiT/cmd/aihost@latest
+ait --help
+aissh --help
+aiimg --help
+ailog --help
+aihost --help
 ```
 
 Ensure `$(go env GOPATH)/bin` is on your PATH. When adding a new `cmd/<tool>`, append `github.com/os-artificer/AiT/cmd/<tool>@latest` to the `go install` line above.
@@ -83,14 +86,14 @@ Ensure `$(go env GOPATH)/bin` is on your PATH. When adding a new `cmd/<tool>`, a
 | Document | Path |
 |----------|------|
 | Project structure | [docs/architecture.md](docs/architecture.md) |
-| aitssh internals | [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md) |
-| aitssh guide | [docs/tools/aitssh.md](docs/tools/aitssh.md) |
-| aitimg internals | [docs/tools/aitimg-internals.md](docs/tools/aitimg-internals.md) |
-| aitimg guide | [docs/tools/aitimg.md](docs/tools/aitimg.md) |
-| aitlog internals | [docs/tools/aitlog-internals.md](docs/tools/aitlog-internals.md) |
-| aitlog guide | [docs/tools/aitlog.md](docs/tools/aitlog.md) |
-| aithost internals | [docs/tools/aithost-internals.md](docs/tools/aithost-internals.md) |
-| aithost guide | [docs/tools/aithost.md](docs/tools/aithost.md) |
+| aissh internals | [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md) |
+| aissh guide | [docs/tools/aissh.md](docs/tools/aissh.md) |
+| aiimg internals | [docs/tools/aiimg-internals.md](docs/tools/aiimg-internals.md) |
+| aiimg guide | [docs/tools/aiimg.md](docs/tools/aiimg.md) |
+| ailog internals | [docs/tools/ailog-internals.md](docs/tools/ailog-internals.md) |
+| ailog guide | [docs/tools/ailog.md](docs/tools/ailog.md) |
+| aihost internals | [docs/tools/aihost-internals.md](docs/tools/aihost-internals.md) |
+| aihost guide | [docs/tools/aihost.md](docs/tools/aihost.md) |
 | Python E2E tests | [tests/README.md](tests/README.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Code layout | [AGENTS.md](AGENTS.md) |

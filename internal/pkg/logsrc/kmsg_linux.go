@@ -43,7 +43,7 @@ type KmsgSource struct {
 	Path string
 }
 
-// Name returns the chain name used in notices and `aitlog sources`.
+// Name returns the chain name used in notices and `ailog sources`.
 func (s *KmsgSource) Name() string { return SourceKmsg }
 
 // SupportsReverse reports false: the kernel ring buffer only reads forward.
