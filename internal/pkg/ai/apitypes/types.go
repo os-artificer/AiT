@@ -20,7 +20,7 @@ package apitypes
 import "github.com/os-artificer/AiT/internal/pkg/ai/provider"
 
 const (
-	// ScopeLocal is aitssh ai on the local machine (non-SSH).
+	// ScopeLocal is aissh ai on the local machine (non-SSH).
 	ScopeLocal Scope = iota
 	// ScopeRemote is !ait ai inside an active SSH session.
 	ScopeRemote

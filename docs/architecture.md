@@ -11,10 +11,11 @@ Go module path: `github.com/os-artificer/AiT`.
 
 Shipped tools:
 
-- `aitssh`: SSH client with session persistence, optional experimental AI mode (off by default), transfer support, and shell/meta workflows.
-- `aitimg`: Image metadata extractor (EXIF device/time/GPS + Nominatim reverse-geocoded address).
-- `aitlog`: System log viewer and search (Linux/macOS/Windows) with native tools and built-in fallbacks.
-- `aithost`: Live host CPU, memory, disk, network, and process monitor (Bubble Tea dashboard).
+- `ait`: Toolbox interactive REPL; discovers plugins under `<install-dir>/plugins/`; REPL `install` / `update` / `upgrade` pull official binaries from GitHub Releases via `internal/pkg/aitrelease`.
+- `aissh`: SSH client with session persistence, optional experimental AI mode (off by default), transfer support, and shell/meta workflows.
+- `aiimg`: Image metadata extractor (EXIF device/time/GPS + Nominatim reverse-geocoded address).
+- `ailog`: System log viewer and search (Linux/macOS/Windows) with native tools and built-in fallbacks.
+- `aihost`: Live host CPU, memory, disk, network, and process monitor (Bubble Tea dashboard).
 
 Shared capabilities (not separate binaries) live under `internal/pkg/` and are consumed by tools. AI REPL/agent UX is `internal/pkg/aimode` (engine: `internal/pkg/ai`); tools gate experimental AI via config/env/CLI before calling it.
 
@@ -26,14 +27,16 @@ Shared capabilities (not separate binaries) live under `internal/pkg/` and are c
 | Document | Purpose |
 | -------- | ------- |
 | [architecture.md](architecture.md) | Toolbox structure and generic layering rules (this page) |
-| [tools/aitssh.md](tools/aitssh.md) | `aitssh` user guide (CLI, prompts, behavior) |
-| [tools/aitssh-internals.md](tools/aitssh-internals.md) | `aitssh` implementation (package layering, workflows, source map) |
-| [tools/aitimg.md](tools/aitimg.md) | `aitimg` user guide |
-| [tools/aitimg-internals.md](tools/aitimg-internals.md) | `aitimg` implementation (package layering) |
-| [tools/aitlog.md](tools/aitlog.md) | `aitlog` user guide |
-| [tools/aitlog-internals.md](tools/aitlog-internals.md) | `aitlog` implementation (package layering) |
-| [tools/aithost.md](tools/aithost.md) | `aithost` user guide |
-| [tools/aithost-internals.md](tools/aithost-internals.md) | `aithost` implementation (package layering) |
+| [tools/ait.md](tools/ait.md) | `ait` user guide |
+| [tools/ait-internals.md](tools/ait-internals.md) | `ait` implementation (plugin discovery) |
+| [tools/aissh.md](tools/aissh.md) | `aissh` user guide (CLI, prompts, behavior) |
+| [tools/aissh-internals.md](tools/aissh-internals.md) | `aissh` implementation (package layering, workflows, source map) |
+| [tools/aiimg.md](tools/aiimg.md) | `aiimg` user guide |
+| [tools/aiimg-internals.md](tools/aiimg-internals.md) | `aiimg` implementation (package layering) |
+| [tools/ailog.md](tools/ailog.md) | `ailog` user guide |
+| [tools/ailog-internals.md](tools/ailog-internals.md) | `ailog` implementation (package layering) |
+| [tools/aihost.md](tools/aihost.md) | `aihost` user guide |
+| [tools/aihost-internals.md](tools/aihost-internals.md) | `aihost` implementation (package layering) |
 | [AGENTS.md](../AGENTS.md) | Agent-oriented build/test/layout orientation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor workflow and coding standards |
 | [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) | Merge gates and regression acceptance checklist |
@@ -48,14 +51,15 @@ Shared capabilities (not separate binaries) live under `internal/pkg/` and are c
 
 | Tool     | Status  | Entry binary | App package       | User guide                         | Internals                                              |
 | -------- | ------- | ------------ | ----------------- | ---------------------------------- | ------------------------------------------------------ |
-| `aitssh` | Shipped | `bin/aitssh` | `internal/aissh`  | [tools/aitssh.md](tools/aitssh.md) | [tools/aitssh-internals.md](tools/aitssh-internals.md) |
-| `aitimg` | Shipped | `bin/aitimg` | `internal/aitimg` | [tools/aitimg.md](tools/aitimg.md) | [tools/aitimg-internals.md](tools/aitimg-internals.md) |
-| `aitlog` | Shipped | `bin/aitlog` | `internal/aitlog` | [tools/aitlog.md](tools/aitlog.md) | [tools/aitlog-internals.md](tools/aitlog-internals.md) |
-| `aithost` | Shipped | `bin/aithost` | `internal/aithost` | [tools/aithost.md](tools/aithost.md) | [tools/aithost-internals.md](tools/aithost-internals.md) |
+| `ait` | Shipped | `bin/ait` | `internal/ait` | [tools/ait.md](tools/ait.md) | [tools/ait-internals.md](tools/ait-internals.md) |
+| `aissh` | Shipped | `bin/aissh` | `internal/ssh`  | [tools/aissh.md](tools/aissh.md) | [tools/aissh-internals.md](tools/aissh-internals.md) |
+| `aiimg` | Shipped | `bin/aiimg` | `internal/img` | [tools/aiimg.md](tools/aiimg.md) | [tools/aiimg-internals.md](tools/aiimg-internals.md) |
+| `ailog` | Shipped | `bin/ailog` | `internal/log` | [tools/ailog.md](tools/ailog.md) | [tools/ailog-internals.md](tools/ailog-internals.md) |
+| `aihost` | Shipped | `bin/aihost` | `internal/host` | [tools/aihost.md](tools/aihost.md) | [tools/aihost-internals.md](tools/aihost-internals.md) |
 
 
 AiT is intentionally toolbox-first: each tool gets a thin `cmd/<tool>/main.go` entry, an app layer under `internal/<tool>/`, and shared primitives in `internal/pkg/*`.  
-The toolbox currently ships `aitssh`, `aitimg`, `aitlog`, and `aithost`.
+The toolbox currently ships `ait`, `aissh`, `aiimg`, `ailog`, and `aihost`.
 
 ---
 
@@ -108,7 +112,7 @@ flowchart TB
 
 
 
-Tool-specific layer diagrams and module names live in each tool's internals document (for `aitssh`, see [tools/aitssh-internals.md](tools/aitssh-internals.md)).
+Tool-specific layer diagrams and module names live in each tool's internals document (for `aissh`, see [tools/aissh-internals.md](tools/aissh-internals.md)).
 
 ---
 
@@ -153,7 +157,7 @@ At the toolbox level:
 2. Application packages compose subcommands; shared logic belongs in `internal/pkg`.
 3. `internal/pkg` must not import application packages.
 
-For `aitssh` call chains, registry rules, entry surfaces, and the contributor checklist, see [tools/aitssh-internals.md#package-layering](tools/aitssh-internals.md#package-layering). Cursor rule summary: [package-layering.mdc](../.cursor/rules/package-layering.mdc).
+For `aissh` call chains, registry rules, entry surfaces, and the contributor checklist, see [tools/aissh-internals.md#package-layering](tools/aissh-internals.md#package-layering). Cursor rule summary: [package-layering.mdc](../.cursor/rules/package-layering.mdc).
 
 ---
 
@@ -178,14 +182,14 @@ For a future toolbox tool `<tool>`:
 
 | Document | Focus |
 | -------- | ----- |
-| [tools/aitssh.md](tools/aitssh.md) | `aitssh` operator-facing CLI guide |
-| [tools/aitssh-internals.md](tools/aitssh-internals.md) | `aitssh` code layout and workflows |
-| [tools/aitimg.md](tools/aitimg.md) | `aitimg` operator-facing CLI guide |
-| [tools/aitimg-internals.md](tools/aitimg-internals.md) | `aitimg` code layout |
-| [tools/aitlog.md](tools/aitlog.md) | `aitlog` operator-facing CLI guide |
-| [tools/aitlog-internals.md](tools/aitlog-internals.md) | `aitlog` code layout |
-| [tools/aithost.md](tools/aithost.md) | `aithost` operator-facing CLI guide |
-| [tools/aithost-internals.md](tools/aithost-internals.md) | `aithost` code layout |
+| [tools/aissh.md](tools/aissh.md) | `aissh` operator-facing CLI guide |
+| [tools/aissh-internals.md](tools/aissh-internals.md) | `aissh` code layout and workflows |
+| [tools/aiimg.md](tools/aiimg.md) | `aiimg` operator-facing CLI guide |
+| [tools/aiimg-internals.md](tools/aiimg-internals.md) | `aiimg` code layout |
+| [tools/ailog.md](tools/ailog.md) | `ailog` operator-facing CLI guide |
+| [tools/ailog-internals.md](tools/ailog-internals.md) | `ailog` code layout |
+| [tools/aihost.md](tools/aihost.md) | `aihost` operator-facing CLI guide |
+| [tools/aihost-internals.md](tools/aihost-internals.md) | `aihost` code layout |
 | [AGENTS.md](../AGENTS.md) | Agent entry point and codebase orientation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor process and standards |
 | [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) | Acceptance and regression checklist |

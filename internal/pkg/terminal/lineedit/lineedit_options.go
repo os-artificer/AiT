@@ -25,10 +25,15 @@ import (
 // Options configures ReadLine behavior in raw TTY mode.
 // Prompt is redrawn after Ctrl+L and mid-line edits. History enables Up/Down recall when non-nil.
 // RecordHistory appends submitted non-empty lines to History when true (see shouldRecordLine filters).
+// Completer, when non-nil, handles Tab instead of inserting a tab character (e.g. ait REPL).
 type Options struct {
 	Prompt        string
 	History       *history.LineHistory
 	RecordHistory bool
+	// Completer handles Tab when non-nil. line is the full buffer; cursor is a rune index.
+	// display is LF-separated text to print above the redrawn prompt (empty = no list).
+	// display must use only '\n' line endings (no '\r'); applyCompleter converts LF to CRLF.
+	Completer func(line string, cursor int) (newLine string, newCursor int, display string)
 }
 
 func shouldRecordLine(line string) bool {

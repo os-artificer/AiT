@@ -15,8 +15,9 @@
 **/
 
 // Package lineedit implements the Emacs-style raw-TTY line editor used by
-// `aitssh shell` and `aitssh ai`: ReadLine reads one edited line with history recall,
-// Ctrl+R reverse search, kill keys, UTF-8 input, and Ctrl+L screen clear.
+// `aissh shell`, `aissh ai`, and optionally `ait` (via Options.Completer for Tab):
+// ReadLine reads one edited line with history recall, Ctrl+R reverse search,
+// kill keys, UTF-8 input, and Ctrl+L screen clear.
 package lineedit
 
 import (
@@ -24,8 +25,6 @@ import (
 	"io"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/os-artificer/AiT/internal/pkg/terminal/history"
 )
 
 const (
@@ -52,12 +51,12 @@ type lineEditResult struct {
 // br is typically bufio.NewReader(os.Stdin); out receives echoed input and editing feedback.
 // opt.Prompt is redrawn after Ctrl+L and when inserting or deleting away from the line end.
 // opt.History supplies Up/Down recall when non-nil; opt.RecordHistory stores submitted lines.
+// opt.Completer, when non-nil, handles Tab instead of inserting a tab (nil keeps insert-Tab).
 // Returns the line without trailing newline on Enter. Empty Enter is ignored (line not submitted).
 // Returns io.EOF on Ctrl+D with an empty line, or when stdin closes with no buffered input.
 // Ctrl+C returns ("", nil) after writing "^C\r\n" to out. Accepts UTF-8 printable runes and Tab.
 func ReadLine(br *bufio.Reader, out io.Writer, opt Options) (string, error) {
 	st := newEditState()
-	prompt := opt.Prompt
 
 	for {
 		r, _, err := br.ReadRune()
@@ -67,7 +66,7 @@ func ReadLine(br *bufio.Reader, out io.Writer, opt Options) (string, error) {
 			return res.line, res.err
 		}
 
-		res := handleEditRune(br, out, prompt, opt.History, &st, r)
+		res := handleEditRune(br, out, opt, &st, r)
 		if res.done {
 			if res.line != "" && res.err == nil && opt.RecordHistory {
 				recordSubmittedLine(opt, res.line, true)
@@ -98,7 +97,10 @@ func handleLineEOF(err error, runes []rune) lineEditResult {
 	return lineEditResult{err: err, done: true}
 }
 
-func handleEditRune(br *bufio.Reader, out io.Writer, prompt string, hist *history.LineHistory, st *editState, r rune) lineEditResult {
+func handleEditRune(br *bufio.Reader, out io.Writer, opt Options, st *editState, r rune) lineEditResult {
+	prompt := opt.Prompt
+	hist := opt.History
+
 	switch r {
 	case '\r':
 		return handleLineCR(br, out, st.runes)
@@ -106,6 +108,13 @@ func handleEditRune(br *bufio.Reader, out io.Writer, prompt string, hist *histor
 		if len(st.runes) > 0 {
 			return lineEditResult{line: string(st.runes), done: true}
 		}
+		return lineEditResult{}
+	case '\t':
+		if opt.Completer == nil {
+			st.insertRune(out, prompt, '\t')
+			return lineEditResult{}
+		}
+		applyCompleter(out, prompt, st, opt.Completer)
 		return lineEditResult{}
 	case ctrlC:
 		_, _ = io.WriteString(out, "^C\r\n")

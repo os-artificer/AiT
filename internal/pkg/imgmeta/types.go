@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package imgmeta extracts best-effort image metadata (EXIF, dims, GPS) for aitimg.
+// Package imgmeta extracts best-effort image metadata (EXIF, dims, GPS) for aiimg.
 package imgmeta
 
 import (

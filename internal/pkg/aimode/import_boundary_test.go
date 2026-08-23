@@ -25,12 +25,13 @@ import (
 	"testing"
 )
 
-// EX8: internal/pkg/aimode must not import internal/aissh.
+// EX8: internal/pkg/aimode must not import the product SSH package (internal/ssh).
 func TestAimode_NoAisshImport(t *testing.T) {
 	root, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
+	const productSSH = "github.com/os-artificer/AiT/internal/ssh"
 	fset := token.NewFileSet()
 	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -45,7 +46,7 @@ func TestAimode_NoAisshImport(t *testing.T) {
 		}
 		for _, imp := range f.Imports {
 			p := strings.Trim(imp.Path.Value, `"`)
-			if strings.Contains(p, "internal/aissh") {
+			if p == productSSH || strings.HasPrefix(p, productSSH+"/") {
 				t.Errorf("%s imports %s", path, p)
 			}
 		}

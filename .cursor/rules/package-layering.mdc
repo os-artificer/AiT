@@ -3,48 +3,48 @@ description: AiT package layering — subcommand closure, registry OCP, internal
 alwaysApply: true
 ---
 
-# Package layering (AiT toolbox — aitssh)
+# Package layering (AiT toolbox — aissh)
 
-Authoritative detail: [docs/tools/aitssh-internals.md#package-layering](../../docs/tools/aitssh-internals.md#package-layering). Keep this rule in sync when that section changes.
+Authoritative detail: [docs/tools/aissh-internals.md#package-layering](../../docs/tools/aissh-internals.md#package-layering). Keep this rule in sync when that section changes.
 
 ## Call chain
 
-`cmd/aitssh` → `internal/aissh` (package **`aissh`**: `Run`, `Execute`, `NewManager`) → `internal/aissh/<cmd>` (closed loop per subcommand) → `internal/pkg/*` (shared, no product subcommand ownership).
+`cmd/aissh` → `internal/ssh` (package **`aissh`**: `Run`, `Execute`, `NewManager`) → `internal/ssh/<cmd>` (closed loop per subcommand) → `internal/pkg/*` (shared, no product subcommand ownership).
 
-**Directory vs package:** `internal/aissh/` uses Go package `aissh` (`aitssh` is not a valid identifier). Registered subcommand dirs use package names matching Cobra (`shell`, `session`, …). **`internal/aissh/connect/`** is the SSH connect route package (not registered as a Cobra subcommand).
+**Directory vs package:** `internal/ssh/` uses Go package `aissh` (binary/cmd name `aissh`; directory is short `ssh`). Registered subcommand dirs use package names matching Cobra (`shell`, `session`, …). **`internal/ssh/connect/`** is the SSH connect route package (not registered as a Cobra subcommand).
 
-## Subcommand package (`internal/aissh/<cmd>/`)
+## Subcommand package (`internal/ssh/<cmd>/`)
 
 One package per top-level command owns: `Name`, `flags.go`, `parse.go`, `cmd.go` (`New`), `help.go`, `run.go`, **`register.go`** (`init` → `registry.Register`).
 
 - **No** `internal/pkg/aitcmd` or names-only constant packages.
-- **No** thin `internal/aissh/<cmd>/` wrappers with parse elsewhere (one closed-loop package per command).
+- **No** thin `internal/ssh/<cmd>/` wrappers with parse elsewhere (one closed-loop package per command).
 
 ## Registry (OCP)
 
-- Root: `registry.AttachRoot` in `internal/aissh/cli_root.go`; root help via `registry.RootHelpEntries()` / `pkg/helpdoc.WriteRootHelp`（[`registry/root_help.go`](internal/aissh/registry/root_help.go)）。
+- Root: `registry.AttachRoot` in `internal/ssh/cli_root.go`; root help via `registry.RootHelpEntries()` / `pkg/helpdoc.WriteRootHelp`（[`registry/root_help.go`](internal/ssh/registry/root_help.go)）。
 - **Do not** hand-edit `AddCommand` lists for new top-level or nested commands.
-- New top-level: `internal/aissh/<cmd>/` + `_ "…/registry/all/imports.go"`.
-- Nested (`aitssh ai`, `aitssh config`, `provider`, `ollama`): parent `<parent>/subregistry` + child `register.go` + `<parent>/registry/all/imports.go`.
+- New top-level: `internal/ssh/<cmd>/` + `_ "…/registry/all/imports.go"`.
+- Nested (`aissh ai`, `aissh config`, `provider`, `ollama`): parent `<parent>/subregistry` + child `register.go` + `<parent>/registry/all/imports.go`.
 
 ## Package name = command name
 
-**Exception:** `internal/aissh/` root is package **`aissh`** (directory `aissh`). Otherwise directory/package = Cobra name (`shell`, `session`, `ai/ask`, `config/set`). **`internal/aissh/connect/`** is the connect route (not `registry.Register`). No `*cmd` package suffix. AI REPL/agent UX: shared **`internal/pkg/aimode`** (aitssh adapter: `internal/aissh/ai`). CLI `session`: `internal/aissh/session` (alias pkg session as `pkgsession`).
+**Exception:** `internal/ssh/` root is package **`aissh`** (directory `ssh`, binary `aissh`). Otherwise directory/package = Cobra name (`shell`, `session`, `ai/ask`, `config/set`). **`internal/ssh/connect/`** is the connect route (not `registry.Register`). No `*cmd` package suffix. AI REPL/agent UX: shared **`internal/pkg/aimode`** (aissh adapter: `internal/ssh/ai`). CLI `session`: `internal/ssh/session` (alias pkg session as `pkgsession`).
 
 ## `helpdoc`
 
-- Shared: `internal/pkg/helpdoc`. Per-command: `internal/aissh/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`).
+- Shared: `internal/pkg/helpdoc`. Per-command: `internal/ssh/<cmd>/help.go` (nested: `<parent>/<sub>/help.go`).
 
 ## `clihints` (Try SSOT)
 
 - Shared errhint Try example lines: [`internal/pkg/clihints`](internal/pkg/clihints/try_lines.go).
-- `internal/aissh` and `internal/pkg/ssh/*` reference `clihints` constants; do not duplicate literals such as `aitssh session --list`.
+- `internal/ssh` and `internal/pkg/ssh/*` reference `clihints` constants; do not duplicate literals such as `aissh session --list`.
 
 ## `internal/pkg`
 
 - Shared OpenSSH argv: `internal/pkg/ssh/openssh`.
-- **Must not** import `internal/aissh`.
-- Meta `!ait get`/`put`: protocol names in `internal/pkg/ssh/client/transfer` (`CmdGet`/`CmdPut`); test alignment with `get.Name` / `put.Name` in `internal/aissh`.
+- **Must not** import `internal/ssh`.
+- Meta `!ait get`/`put`: protocol names in `internal/pkg/ssh/client/transfer` (`CmdGet`/`CmdPut`); test alignment with `get.Name` / `put.Name` in `internal/ssh`.
 
 ## Refactors
 

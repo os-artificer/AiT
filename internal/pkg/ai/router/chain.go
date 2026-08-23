@@ -120,7 +120,7 @@ func LogFailover(w io.Writer, from, to provider.ID, err error) {
 	fmt.Fprintf(w, failoverLogFmt, from, to, err)
 }
 
-// APIKeyHint returns the `aitssh config set ...` command that stores an API key
+// APIKeyHint returns the `aissh config set ...` command that stores an API key
 // for the given provider, used in human-readable error messages.
 func APIKeyHint(id provider.ID) string {
 	return provider.ConfigSetAPIKeyCmd(string(id))

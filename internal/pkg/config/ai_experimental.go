@@ -38,7 +38,7 @@ const (
 	// FlagAIExperimental is the process-entry CLI flag (stripped before route/parse).
 	FlagAIExperimental = "--ai-experimental"
 
-	hintAIExperimentalExplain = "AI features in aitssh are experimental and disabled by default."
+	hintAIExperimentalExplain = "AI features in aissh are experimental and disabled by default."
 )
 
 // SetAIExperimentalCLI records whether the process-entry CLI flag was seen.

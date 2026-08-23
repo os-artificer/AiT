@@ -40,7 +40,7 @@ func builtinFiles(label string, paths []string) Layer {
 	}
 }
 
-// deferredLayer builds an always-unavailable placeholder so that `aitlog
+// deferredLayer builds an always-unavailable placeholder so that `ailog
 // sources` can name the store it cannot read yet.
 func deferredLayer(provider, reason string) Layer {
 	return Layer{Kind: LayerDeferred, Provider: provider, Available: false, Reason: reason}

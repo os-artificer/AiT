@@ -1,0 +1,41 @@
+{
+  "apiVersion": 1,
+  "name": "aissh",
+  "binary": "aissh",
+  "short": "SSH client with sessions",
+  "order": 10,
+  "usage": "aissh [ssh-options] destination [cmd ...]",
+  "flags": [
+    {
+      "name": "save",
+      "type": "bool",
+      "help": "persist session"
+    },
+    {
+      "name": "alias",
+      "type": "string",
+      "help": "session alias"
+    },
+    {
+      "name": "tmux",
+      "type": "bool",
+      "help": "enable remote tmux"
+    },
+    {
+      "name": "password",
+      "type": "bool",
+      "help": "prompt for password"
+    },
+    {
+      "name": "help",
+      "short": "h",
+      "type": "bool",
+      "help": "help for aissh"
+    }
+  ],
+  "examples": [
+    "aissh user@host.example.com",
+    "aissh --alias prod user@host.example.com",
+    "aissh --tmux --save user@host.example.com"
+  ]
+}

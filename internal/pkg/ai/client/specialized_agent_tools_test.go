@@ -37,7 +37,7 @@ var goldenAgentOpenAITools = []openAITool{
 		Type: "function",
 		Function: openAIToolFunction{
 			Name:        agent.ToolAISshCLI,
-			Description: "Run aitssh CLI subcommand on the local machine",
+			Description: "Run aissh CLI subcommand on the local machine",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`),
 		},
 	},
@@ -45,7 +45,7 @@ var goldenAgentOpenAITools = []openAITool{
 		Type: "function",
 		Function: openAIToolFunction{
 			Name:        agent.ToolAitCLI,
-			Description: "Run aitssh CLI subcommand on the local machine (legacy alias)",
+			Description: "Run aissh CLI subcommand on the local machine (legacy alias)",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`),
 		},
 	},

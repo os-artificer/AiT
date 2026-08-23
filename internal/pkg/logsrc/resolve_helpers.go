@@ -34,7 +34,7 @@ var nativeProbeTools = map[string]string{
 }
 
 // ChainNames returns the chain source names in stable alphabetical order so
-// that `aitlog sources` output does not depend on map iteration order.
+// that `ailog sources` output does not depend on map iteration order.
 func ChainNames() []string {
 	chains := Chains()
 	names := make([]string, 0, len(chains))

@@ -14,12 +14,12 @@
  * limitations under the License.
 **/
 
-// Package clihints holds shared errhint Try-block example command lines for the aitssh CLI.
+// Package clihints holds shared errhint Try-block example command lines for the aissh CLI.
 package clihints
 
 import "github.com/os-artificer/AiT/internal/pkg/toolname"
 
-// Session and login Try lines (single source for internal/aissh and internal/pkg/ssh/client).
+// Session and login Try lines (single source for internal/ssh and internal/pkg/ssh/client).
 var (
 	TrySessionList            = toolname.CLI("session --list")
 	TrySessionLoadAlias       = toolname.CLI("session --load <alias>")

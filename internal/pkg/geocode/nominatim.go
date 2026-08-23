@@ -35,7 +35,7 @@ const (
 	httpTimeout      = 8 * time.Second
 	maxResponseBytes = 1 << 20
 	projectHomeURL   = "https://github.com/os-artificer/AiT"
-	defaultUserAgent = "AiT-aitimg/dev (" + projectHomeURL + ")"
+	defaultUserAgent = "AiT-aiimg/dev (" + projectHomeURL + ")"
 )
 
 // Client performs Nominatim reverse geocode requests.

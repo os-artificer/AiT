@@ -39,7 +39,7 @@ func (e AgentEnvelope) IsRun() bool {
 	return a == XMLInvokeRun || a == ToolRunShell
 }
 
-// IsAit reports whether e is an aitssh CLI invocation action.
+// IsAit reports whether e is an aissh CLI invocation action.
 func (e AgentEnvelope) IsAit() bool {
 	a := strings.ToLower(strings.TrimSpace(e.Action))
 	return a == XMLInvokeAISsh || a == XMLInvokeAit || a == ToolAISshCLI || a == ToolAitCLI

@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## 架构文档
 
-产品工具箱结构以 [docs/architecture.md](docs/architecture.md) 为准；`aitssh` 用户可见行为以 [docs/tools/aitssh.md](docs/tools/aitssh.md) 为准；`aitssh` 实现与 package layering 以 [docs/tools/aitssh-internals.md](docs/tools/aitssh-internals.md) 为准。
+产品工具箱结构以 [docs/architecture.md](docs/architecture.md) 为准；`aissh` 用户可见行为以 [docs/tools/aissh.md](docs/tools/aissh.md) 为准；`aissh` 实现与 package layering 以 [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md) 为准。
 
 常驻文档索引见 `docs/` 目录。
 
@@ -24,8 +24,16 @@ alwaysApply: true
 **禁止覆盖的保留文件名**（不得用作归档目标）：
 
 - `architecture.md`
-- `tools/aitssh.md`
-- `tools/aitssh-internals.md`
+- `tools/ait.md`
+- `tools/ait-internals.md`
+- `tools/aissh.md`
+- `tools/aissh-internals.md`
+- `tools/aihost.md`
+- `tools/aihost-internals.md`
+- `tools/aiimg.md`
+- `tools/aiimg-internals.md`
+- `tools/ailog.md`
+- `tools/ailog-internals.md`
 - `README.md`
 
-更新 `architecture.md`、`tools/aitssh.md` 或 `tools/aitssh-internals.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[AGENTS.md](AGENTS.md) 中的相关链接。
+更新 `architecture.md`、`tools/aissh.md` 或 `tools/aissh-internals.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[AGENTS.md](AGENTS.md) 中的相关链接。

@@ -18,8 +18,8 @@ def test_ai_experimental_disabled_by_default(runner):
         proc,
         sentinel="AI experimental features are disabled",
         try_commands=(
-            "aitssh --ai-experimental ai",
-            "aitssh config set ai.experimental.enabled true",
+            "aissh --ai-experimental ai",
+            "aissh config set ai.experimental.enabled true",
         ),
     )
 
@@ -47,7 +47,7 @@ def test_ai_ask_ping_non_tty(ai_runner):
 def test_ai_ask_empty_non_tty(ai_runner):
     proc = ai_runner.run(["ai", "ask"], timeout=5)
     assert_exit(1, proc)
-    assert_hint(proc, try_commands=("aitssh ai ask <message>",))
+    assert_hint(proc, try_commands=("aissh ai ask <message>",))
 
 
 def test_ai_ask_stdin_non_tty(ai_runner):

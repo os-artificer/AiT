@@ -58,7 +58,7 @@ def test_config_unknown_key_hint(runner):
     assert_hint(
         proc,
         explanation_substr="unknown config key",
-        try_commands=("aitssh config set --help",),
+        try_commands=("aissh config set --help",),
     )
 
 

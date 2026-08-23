@@ -113,7 +113,7 @@ func mutateJPEG(src, dst string, apply func(*exif.IfdBuilder) error) error {
 		return err
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".aitimg-*.jpg")
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".aiimg-*.jpg")
 	if err != nil {
 		return err
 	}

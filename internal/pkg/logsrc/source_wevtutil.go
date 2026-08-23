@@ -32,7 +32,7 @@ type WevtutilSource struct {
 	Path     string
 }
 
-// Name returns the chain name used in notices and `aitlog sources`.
+// Name returns the chain name used in notices and `ailog sources`.
 func (s *WevtutilSource) Name() string { return ToolWevtutil }
 
 // SupportsReverse reports true: last-N queries pass /rd:true so the newest

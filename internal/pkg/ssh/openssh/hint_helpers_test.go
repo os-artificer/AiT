@@ -57,7 +57,7 @@ func TestTransferPathCountErr_Format(t *testing.T) {
 
 	errPut := transferPathCountErr("put")
 	sPut := errPut.Error()
-	if !strings.Contains(sPut, "1 to 3 path arguments for aitssh put") {
+	if !strings.Contains(sPut, "1 to 3 path arguments for aissh put") {
 		t.Fatalf("missing put path count hint: %q", sPut)
 	}
 	if !strings.Contains(sPut, clihints.TryPutHelp) {

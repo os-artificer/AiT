@@ -366,3 +366,138 @@ func TestShouldRecordLine(t *testing.T) {
 		t.Fatal("PS1 should not record")
 	}
 }
+
+func TestReadLine_NilCompleterInsertsTab(t *testing.T) {
+	br := bufio.NewReader(bytes.NewReader([]byte{'a', '\t', 'b', '\r'}))
+	line, err := ReadLine(br, io.Discard, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "a\tb" {
+		t.Errorf("line = %q, want a\\tb", line)
+	}
+}
+
+func TestReadLine_CompleterUniqueExpand(t *testing.T) {
+	completer := func(line string, cursor int) (string, int, string) {
+		if line != "ais" || cursor != 3 {
+			t.Fatalf("completer got line=%q cursor=%d", line, cursor)
+		}
+		return "aissh ", 6, ""
+	}
+	br := bufio.NewReader(bytes.NewReader([]byte{'a', 'i', 's', '\t', '\r'}))
+	line, err := ReadLine(br, io.Discard, Options{Completer: completer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "aissh " {
+		t.Errorf("line = %q, want aissh ", line)
+	}
+}
+
+func TestReadLine_CompleterLCPStretch(t *testing.T) {
+	completer := func(line string, cursor int) (string, int, string) {
+		return "hel", 3, ""
+	}
+	br := bufio.NewReader(bytes.NewReader([]byte{'h', '\t', '\r'}))
+	line, err := ReadLine(br, io.Discard, Options{Completer: completer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "hel" {
+		t.Errorf("line = %q, want hel", line)
+	}
+}
+
+func TestReadLine_CompleterListDisplayCRLF(t *testing.T) {
+	completer := func(line string, cursor int) (string, int, string) {
+		return line, cursor, "help\nhistory"
+	}
+	br := bufio.NewReader(bytes.NewReader([]byte{'h', '\t', '\r'}))
+	var out bytes.Buffer
+	line, err := ReadLine(br, &out, Options{Prompt: "ait> ", Completer: completer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "h" {
+		t.Errorf("line = %q, want h", line)
+	}
+	s := out.String()
+	if !strings.Contains(s, "help\r\nhistory\r\n") {
+		t.Errorf("missing CRLF list, got %q", s)
+	}
+	if strings.Contains(s, "\r\r\n") {
+		t.Errorf("double CR in output: %q", s)
+	}
+}
+
+func TestReadLine_CompleterDisplayNoTrailingLF(t *testing.T) {
+	completer := func(line string, cursor int) (string, int, string) {
+		return line, cursor, "help\nhistory"
+	}
+	br := bufio.NewReader(bytes.NewReader([]byte{'h', '\t', 'x', '\r'}))
+	var out bytes.Buffer
+	line, err := ReadLine(br, &out, Options{Prompt: "P> ", Completer: completer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "hx" {
+		t.Errorf("line = %q, want hx", line)
+	}
+	s := out.String()
+	// After list, redraw must leave candidates; typed x must appear after redrawn prompt.
+	if !strings.Contains(s, "help\r\nhistory\r\n") {
+		t.Errorf("list not preserved before redraw, got %q", s)
+	}
+}
+
+func TestReadLine_CompleterNoopNoRedraw(t *testing.T) {
+	calls := 0
+	completer := func(line string, cursor int) (string, int, string) {
+		calls++
+		return line, cursor, ""
+	}
+	br := bufio.NewReader(bytes.NewReader([]byte{'a', '\t', '\r'}))
+	var out bytes.Buffer
+	line, err := ReadLine(br, &out, Options{Prompt: "P> ", Completer: completer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != "a" {
+		t.Errorf("line = %q, want a", line)
+	}
+	if calls != 1 {
+		t.Fatalf("completer calls = %d, want 1", calls)
+	}
+	// Echo of 'a' only; no redraw CR after Tab noop.
+	if strings.Count(out.String(), "\r") != 0 {
+		// Enter writes \r\n; filter that out.
+		trimmed := strings.TrimSuffix(out.String(), "\r\n")
+		if strings.Contains(trimmed, "\r") {
+			t.Errorf("unexpected redraw CR on noop: %q", out.String())
+		}
+	}
+}
+
+func TestReadLine_CtrlRIgnoresCompleter(t *testing.T) {
+	hist := history.NewLineHistory()
+	hist.Add("list")
+
+	calls := 0
+	completer := func(line string, cursor int) (string, int, string) {
+		calls++
+		return "BAD", 3, ""
+	}
+	input := []byte{ctrlR, '\t', '\r'}
+	br := bufio.NewReader(bytes.NewReader(input))
+	line, err := ReadLine(br, io.Discard, Options{History: hist, Completer: completer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("completer called %d times during reverse search", calls)
+	}
+	if line != "list" {
+		t.Errorf("line = %q, want list", line)
+	}
+}

@@ -18,19 +18,21 @@
 package toolname
 
 const (
-	// AISsh is the aitssh Cobra root command name and installed binary name.
-	AISsh = "aitssh"
-	// AIImg is the aitimg Cobra root command name and installed binary name.
-	AIImg = "aitimg"
-	// AILog is the aitlog Cobra root command name and installed binary name.
-	AILog = "aitlog"
-	// AIHost is the aithost Cobra root command name and installed binary name.
-	AIHost = "aithost"
+	// AIT is the ait toolbox REPL binary name.
+	AIT = "ait"
+	// AISsh is the aissh Cobra root command name and installed binary name.
+	AISsh = "aissh"
+	// AIImg is the aiimg Cobra root command name and installed binary name.
+	AIImg = "aiimg"
+	// AILog is the ailog Cobra root command name and installed binary name.
+	AILog = "ailog"
+	// AIHost is the aihost Cobra root command name and installed binary name.
+	AIHost = "aihost"
 	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ait).
 	MetaPrefix = "!ait"
 )
 
-// CLI returns "aitssh" or "aitssh <subcmd>" when subcmd is non-empty.
+// CLI returns "aissh" or "aissh <subcmd>" when subcmd is non-empty.
 func CLI(subcmd string) string {
 	if subcmd == "" {
 		return AISsh
