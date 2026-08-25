@@ -19,18 +19,15 @@ package aissh
 import (
 	"context"
 
-	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/session"
-	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/store"
-	"github.com/os-artificer/AiT/internal/ssh/ai"
 	"github.com/os-artificer/AiT/internal/ssh/meta"
 )
 
-// NewManager opens the store, loads config, optionally constructs an AI client, and wires metaCLI.
+// NewManager opens the store, loads config, and wires metaCLI.
 // metaCLI runs aissh subcommands from in-session !ait lines (provided by internal/ssh/meta).
-func NewManager(metaCLI func([]string) error, onRemoteAI sshclient.RemoteAIRunner) (*session.Manager, error) {
+func NewManager(metaCLI func([]string) error) (*session.Manager, error) {
 	st, err := store.Open()
 	if err != nil {
 		return nil, err
@@ -42,22 +39,13 @@ func NewManager(metaCLI func([]string) error, onRemoteAI sshclient.RemoteAIRunne
 		return nil, err
 	}
 
-	var aiClient *pkgai.Client
-	remoteAI := onRemoteAI
-	if !config.AIExperimentalEnabled(cfg) {
-		aiClient = nil
-		remoteAI = disabledRemoteAIRunner
-	} else if c, err := pkgai.NewClient(cfg); err == nil {
-		aiClient = c
-	}
-
-	mgr := &session.Manager{Store: st, Config: cfg, AI: aiClient, OnRemoteAI: remoteAI}
+	mgr := &session.Manager{Store: st, Config: cfg}
 	mgr.MetaCLI = metaCLI
 	return mgr, nil
 }
 
 func newManager() (*session.Manager, error) {
-	return NewManager(meta.Execute, ai.RemoteRunner(ExecuteCobraOnly))
+	return NewManager(meta.Execute)
 }
 
 func runWithManager(fn func(ctx context.Context, mgr *session.Manager) error) error {

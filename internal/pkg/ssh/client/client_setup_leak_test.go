@@ -293,7 +293,7 @@ func TestProcessForwardStdin_FirstKeyEndsKeystrokeGrace(t *testing.T) {
 		context.Background(),
 		&stdin,
 		stdinByte{B: 'l'},
-		newMetaScanner(true, ""),
+		newMetaScanner(""),
 		InteractiveOpts{},
 	)
 	if res.action == fwdStdinReturn && res.err != nil {
@@ -322,7 +322,7 @@ func TestHandleRemoteOutput_EchoVisibleAfterKeystroke(t *testing.T) {
 		context.Background(),
 		&stdin,
 		stdinByte{B: 'l'},
-		newMetaScanner(true, ""),
+		newMetaScanner(""),
 		InteractiveOpts{},
 	)
 
@@ -387,7 +387,7 @@ func TestHandleRemoteOutput_FirstKeyStillFiltersLeak(t *testing.T) {
 		context.Background(),
 		&stdin,
 		stdinByte{B: '\r'},
-		newMetaScanner(true, ""),
+		newMetaScanner(""),
 		InteractiveOpts{},
 	)
 
@@ -478,7 +478,7 @@ func TestProcessForwardStdin_MetaEchoEndsKeystrokeGrace(t *testing.T) {
 	var stdout bytes.Buffer
 	c.interactiveOut = terminal.NewCRLFWriter(&stdout)
 
-	scan := newMetaScanner(true, "AiT u@h:/tmp> ")
+	scan := newMetaScanner("AiT u@h:/tmp> ")
 	for _, b := range []byte("!ait ") {
 		res := c.processForwardStdinByte(
 			context.Background(),
@@ -513,7 +513,7 @@ func TestProcessForwardStdin_LocalPassthroughEndsKeystrokeGrace(t *testing.T) {
 	defer c.localShell.SetPTYForTest(nil)
 
 	var stdin bytes.Buffer
-	scan := newMetaScanner(true, prompt.Local)
+	scan := newMetaScanner(prompt.Local)
 	scan.SyncFrom(true, prompt.Local)
 
 	for _, b := range []byte("!!\n") {
@@ -547,8 +547,8 @@ func TestProcessForwardStdin_MetaEchoCRLF(t *testing.T) {
 	var stdout bytes.Buffer
 	c.interactiveOut = terminal.NewCRLFWriter(&stdout)
 
-	scan := newMetaScanner(true, "AiT u@h:/tmp> ")
-	for _, b := range []byte("!! how\n") {
+	scan := newMetaScanner("AiT u@h:/tmp> ")
+	for _, b := range []byte("!ait help\n") {
 		_ = c.processForwardStdinByte(
 			context.Background(),
 			&stdin,

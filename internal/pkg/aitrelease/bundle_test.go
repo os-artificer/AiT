@@ -42,12 +42,13 @@ func TestPlanInstall_AllOfficial(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Tools) != 4 {
+	if len(plan.Tools) != 5 {
 		t.Fatalf("tools=%v", plan.Tools)
 	}
 }
 
 func TestPlanUpdate_InstalledOnly(t *testing.T) {
+	resetDiscoverHooks(t)
 	root := t.TempDir()
 	installStubPlugin(t, root, "aissh")
 	aitplugin.ResetDiscoverForTest()
@@ -70,6 +71,7 @@ func TestPlanUpdate_NothingInstalled(t *testing.T) {
 }
 
 func TestPlanUpdate_WithArgsSkipsNotInstalled(t *testing.T) {
+	resetDiscoverHooks(t)
 	root := t.TempDir()
 	installStubPlugin(t, root, "aissh")
 	aitplugin.ResetDiscoverForTest()
@@ -90,6 +92,7 @@ func TestPlanUpdate_WithArgsSkipsNotInstalled(t *testing.T) {
 }
 
 func TestPlanUpgrade(t *testing.T) {
+	resetDiscoverHooks(t)
 	root := t.TempDir()
 	installStubPlugin(t, root, "aissh")
 	aitplugin.ResetDiscoverForTest()
@@ -291,6 +294,11 @@ func resetDiscoverHooks(t *testing.T) {
 	t.Helper()
 	aitplugin.ResetDiscoverForTest()
 	aitplugin.RestoreDiscoverHooksForTest()
+	aitplugin.SetLookPathForTest(func(string) (string, error) {
+		return "", os.ErrNotExist
+	})
+	aitplugin.SetInstallDirsForTest([]string{t.TempDir()})
+	aitplugin.SetWarnWriterForTest(io.Discard)
 	t.Cleanup(func() {
 		aitplugin.ResetDiscoverForTest()
 		aitplugin.RestoreDiscoverHooksForTest()

@@ -32,7 +32,6 @@ const (
 	CmdQuit    = replcmd.Quit
 	CmdClear   = replcmd.Clear
 	CmdHistory = replcmd.History
-	CmdAI      = "ai" // matches ai.Name (shell cannot import aissh/ai: import cycle)
 	CmdLoad    = "load"
 	CmdList    = session.ReplAliasList
 	CmdLL      = "ll"
@@ -40,11 +39,10 @@ const (
 )
 
 const (
-	errAIModeRunnerNotConfig = "AiT: AI mode runner not configured"
-	errLoginBlockedActive    = "login is unavailable while a session is active"
-	errLoadBlockedActive     = "load is unavailable while a session is active"
-	hintLoginBlockedExplain  = "Suspend the current SSH session before starting another login from the local shell."
-	hintLoadBlockedExplain   = "Suspend the current SSH session before loading another from the local shell."
+	errLoginBlockedActive   = "login is unavailable while a session is active"
+	errLoadBlockedActive    = "load is unavailable while a session is active"
+	hintLoginBlockedExplain = "Suspend the current SSH session before starting another login from the local shell."
+	hintLoadBlockedExplain  = "Suspend the current SSH session before loading another from the local shell."
 )
 
 // ErrLoginBlockedActive is returned when SSH connect is attempted while a session is active (R4).

@@ -1,5 +1,5 @@
 # aissh
-> AiT SSH tool guide for connect, session persistence, AI, and transfer workflows.
+> AiT SSH tool guide for connect, session persistence, and transfer workflows.
 
 ## Table of contents
 - [Overview](#overview)
@@ -9,7 +9,7 @@
 - [Local REPL input (UTF-8)](#local-repl-input-utf-8)
 - [Prompts](#prompts)
 - [Security and SSH](#security-and-ssh)
-- [AI mode](#ai-mode)
+- [AI configuration note](#ai-configuration-note)
 - [In-session SSH commands](#in-session-ssh-commands)
 - [Data directory](#data-directory)
 - [Error hints](#error-hints)
@@ -26,9 +26,11 @@
 - OpenSSH-style connect and argument compatibility (`-p`, `-i`, `-J`, `-o`, and more)
 - session persistence in SQLite with optional alias bookmarks
 - optional remote `tmux` keep-alive mode
-- in-session meta commands (`!ait`) and optional remote AI mode (`!ait ai`, `!!`; experimental)
+- in-session meta commands (`!ait`) — **no** in-session AI (`!!` / `!ait ai` removed)
 - standalone and in-session file transfer (`get`, `put`)
-- local shell REPL; optional AI REPL with UTF-8 line editing and history
+- local shell REPL with UTF-8 line editing and history
+
+Ops AI Agent lives in the separate **`ai`** plugin — see [`ai.md`](ai.md). `aissh` has zero AI subtree.
 
 Toolbox structure: [`../architecture.md`](../architecture.md). Implementation details (package layering, workflows, source map): [`aissh-internals.md`](aissh-internals.md).
 
@@ -39,12 +41,6 @@ Toolbox structure: [`../architecture.md`](../architecture.md). Implementation de
 ```text
 aissh shell                                    # AiT> REPL (ssh-style connect, list/load, etc.)
 aissh                                          # no args: root help (not SSH connect)
-aissh [--ai-experimental] ai …                 # Local AI (experimental; off by default)
-aissh ai model list                            # List configured AI providers (ENABLED column)
-aissh ai ask [message...]                      # One-shot AI question (stdin if no args); SSH: !ait ai ask / !! ask
-aissh ai agent [message...]                    # One-shot agent with tool execution
-aissh ai provider enable|disable <provider>    # Enable/disable routing to a provider
-aissh ai ollama status|setup|start|stop|disable  # Local Ollama (setup: models_dir + install [y/N])
 aissh [ssh-options] destination [command ...] [--save] [--alias NAME] [--password] [--tmux]
         # OpenSSH-compatible: -p -l -i -F -J -o, etc.; destination is [user@]host or a config Host alias
         # Requires local OpenSSH client (ssh -G) for config resolution; data plane is Go x/crypto/ssh
@@ -60,18 +56,10 @@ aissh session --delete <id|alias|all> [--force]                     # Delete one
 aissh get [ssh-flags] <paths...>   # OpenSSH flags; paths/order like default SSH connect
 aissh put [ssh-flags] <paths...>
 aissh config init|view|edit|validate|set|get ...   # YAML config; edit uses $VISUAL/$EDITOR
+                                                   # Can set ai.* keys used by the `ai` plugin
 ```
 
-**Scope behavior**
-
-- AI features are **experimental and off by default**. Enable with any of:
-  1. `aissh config set ai.experimental.enabled true` (persistent)
-  2. `AIT_AI_EXPERIMENTAL=1` (process environment)
-  3. `aissh --ai-experimental …` (current process only; also applies to nested SSH/`shell` in that process)
-- Local AI mode: `aissh ai` or `ai` inside `aissh shell`, default prompt `AiT AI(Agent)>`.
-- Remote AI mode: `!ait ai` or `!!` in an SSH session, prompt `AiT AI(Agent)>` (same format as local).
-- `!ait ai` as a plain local CLI subcommand is blocked in meta dispatch; use the `!ait ai` line form.
-- `aissh ai --help` remains available when experimental AI is disabled (shows how to enable).
+**Breaking (v3.1):** `aissh ai …`, `!!`, and `!ait ai` are removed. Use the [`ai`](ai.md) plugin instead.
 
 **Important connect parsing note**
 
@@ -180,17 +168,6 @@ cp ../../configs/ait.example.yaml ~/.local/share/ait/config.yaml
 | `aissh config edit` | Open editor (`$VISUAL`/`$EDITOR`) and validate |
 | `aissh config validate` | Validate syntax and values; exits non-zero on errors |
 | `aissh config set/get <key>` | Get/set config values; API keys go through keyring |
-| `aissh ai [--model deepseek\|minimax]` | Local AI REPL, default Agent mode |
-| `aissh ai model list` | Provider model/routing status list |
-| `aissh ai ask [message...]` | One-shot AI ask; reads stdin if no args |
-| `aissh ai agent [message...]` | One-shot agent mode execution |
-| `aissh ai provider enable <provider>` | Enable provider routing |
-| `aissh ai provider disable <provider>` | Disable provider routing |
-| `aissh ai ollama status` | Local Ollama status and tags |
-| `aissh ai ollama setup [--dry-run]` | Configure tiered local model routing and optional install |
-| `aissh ai ollama start` | Start local `ollama serve` |
-| `aissh ai ollama stop` | Stop local `ollama serve` |
-| `aissh ai ollama disable` | Disable Ollama provider in routing config |
 
 Common flags:
 
@@ -202,7 +179,7 @@ Common flags:
 
 ## Local REPL input (UTF-8)
 
-Local REPL behavior applies to `aissh shell` and local `aissh ai`.
+Local REPL behavior applies to `aissh shell`.
 
 ### Platform support
 
@@ -224,15 +201,14 @@ Local REPL behavior applies to `aissh shell` and local `aissh ai`.
 
 ### History
 
-- History is command input history, not AI chat transcript.
+- History is command input history.
 - Confirm prompts (`[y/N]`), picker input, and internal setup lines do not pollute command history.
 - History persists across sessions in `<AppRoot>/repl_history` (mode `0600`).
 - `history` command supports bash-like subset: list, `history n`, `-c`, `-d`, `-s`, `-a`, `-r`, `-w`.
 
-### Clear behavior split
+### Clear behavior
 
 - `aissh shell`: `clear` command and Ctrl+L clear terminal display.
-- `aissh ai`: Ctrl+L clears display only; `clear` clears AI conversation history.
 
 ### Scope boundary
 
@@ -246,10 +222,8 @@ Local REPL behavior applies to `aissh shell` and local `aissh ai`.
 | Context | Prompt |
 |---------|--------|
 | `aissh shell` | `AiT> ` |
-| `aissh ai` | `AiT AI(Agent)> ` by default; `mode ask` shows `AiT AI(Ask)> ` |
 | SSH remote | `AiT user@host:dir[:git-branch]> ` |
 | SSH nested | same format on active nested host |
-| SSH AI mode (`!ait ai`, `!!`) | `AiT AI(Ask)> ` or `AiT AI(Agent)> ` (same as local) |
 | `!ait local` | `AiT Local> ` |
 
 Prompt path mode is controlled by `session.remote_prompt.path`:
@@ -274,59 +248,31 @@ Expected connect/load UX:
 
 Credential storage model:
 
-- SSH secrets and AI API keys: keyring-backed
+- SSH secrets and AI API keys (for the `ai` plugin): keyring-backed
 - SQLite stores metadata and key paths, not plaintext SSH passwords
 - file-based encrypted keyring fallback under `<AppRoot>/keyring` for headless setups
 
 ---
 
-## AI mode
+## AI configuration note
 
-AI features in `aissh` are experimental and disabled by default (see enable options under [CLI surface](#cli-surface)). When enabled, AI can run in local scope or remote scope.
+`aissh` does **not** run AI. The Ops AI Agent is the separate [`ai`](ai.md) plugin (`cmd/ai`, `internal/opsai`).
 
-### Entry points
+You can still configure shared `ai.*` keys via `aissh config` (same YAML / keyring as other tools), for example:
 
-| Scope | Enter | Execution target |
-|-------|-------|------------------|
-| Local | `aissh ai` or `ai` inside `aissh shell` | current local machine |
-| Remote | `!ait ai` or `!!` inside SSH session | current remote interactive shell |
+```bash
+aissh config set ai.experimental.enabled true
+aissh config set ai.deepseek.api_key …
+```
 
-### Interaction modes
+Enable and use AI with:
 
-- Default mode: `agent`
-- Alternative mode: `ask`
-- Switch with `mode ask` / `mode agent`
-
-### Approval model
-
-- `approve each`: prompt each write/high-risk action
-- `approve session` (`trust` alias): trust low-risk commands for current AI session
-- confirmation menu:
-  - `y`: run once
-  - `c`: trust command first token for session
-  - `s`: trust all low-risk commands for session
-  - `n`: skip
-- high-risk commands allow only `y` / `n`
-
-### Read/write execution rule
-
-- read-only commands (for example `ls`, `ps`, `git status`, `git diff`) auto-run in Agent mode
-- write and high-risk commands still require confirmation
-
-### Provider routing
-
-- Cloud providers: Deepseek, MiniMax
-- Optional local provider: Ollama
-- Tiered mode can route simple first-turn prompts to local Ollama
-- Cloud failover uses configured provider order
-
-### Typical commands in AI REPL
-
-- `help`, `exit`, `quit`, `clear`
-- `mode ask|agent`
-- `approve each|session`, `trust`
-- `model`, `model list`, `model <cloud-provider>`
-- `run <command>`
+```bash
+ai --ai-experimental          # or AIT_AI_EXPERIMENTAL=1 / config
+ai                            # local Agent REPL
+ai ask "…"                    # one-shot
+ai connect user@host          # remote Agent (not !! / !ait ai)
+```
 
 ---
 
@@ -341,8 +287,6 @@ Meta prefix inside SSH is `!ait` (not `!aitssh`).
 | `!ait [flags] dest` | auto-persist if needed, suspend current, connect target |
 | `!ait load [id\|alias]` | auto-persist if needed, suspend current, load target |
 | `!ait session --switch [id\|alias]` | auto-persist if needed, suspend current, switch |
-| `!ait ai [question]` | enter remote AI mode |
-| `!! [question]` | alias for `!ait ai` |
 | `!ait local` | enter local mode |
 | `!ait remote` | leave local mode |
 | `!ait suspend` | suspend current session |
@@ -352,8 +296,8 @@ Meta prefix inside SSH is `!ait` (not `!aitssh`).
 
 Detection and routing notes:
 
-- meta lines are scanned at byte level and do not go to remote shell stdin
-- plain `!ait ai` line form enters AI mode, but `!ait ai` through normal local CLI subcommand dispatch is blocked
+- meta lines are scanned at byte-level and do not go to remote shell stdin
+- `!ait ai` is unknown (use `ai connect` from the `ai` plugin); bare `!!` is not an AI entry
 - `!ait list` is rewritten to `session --list`
 
 ---
@@ -402,7 +346,6 @@ Most user-facing validation and routing errors include a multi-line `Try:` block
 |-----------|--------------|
 | `session --load` with short display ID | display ID is not load target; use alias or full UUID (`-v`) |
 | `session --switch` while active session still attached | suspend in-session (`!ait suspend`) or use `--force` |
-| empty `aissh ai ask` | `ask requires a message` |
 | unknown config key | suggest valid key paths and config get/set examples |
 | `config validate` failure | includes field paths and reason |
 | missing config for validate | run `aissh config init` first |
@@ -455,7 +398,7 @@ Chain mode is for deeper interactive hops, usually after manual nested `ssh` in 
 
 - transfer backend switches to PTY-pipe injection route
 - tmux remote operations also route through PTY injection
-- AI mode and scrollback continue to work in both direct and chain states
+- scrollback continues to work in both direct and chain states
 
 ### Requirements
 
@@ -470,6 +413,7 @@ Chain mode is for deeper interactive hops, usually after manual nested `ssh` in 
 |----------|-------------|
 | [`../architecture.md`](../architecture.md) | AiT toolbox project structure |
 | [`aissh-internals.md`](aissh-internals.md) | Package layering, workflows, and source map |
+| [`ai.md`](ai.md) | Ops AI Agent user guide |
 | [`../../AGENTS.md`](../../AGENTS.md) | Codebase orientation and package responsibilities |
 | [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) | Development workflow and coding standards |
 | [`../../README.md`](../../README.md) | Project overview and setup |

@@ -23,6 +23,7 @@ const (
 	ToolRunShell = "run_shell"
 	ToolAISshCLI = "aish_cli"
 	ToolAitCLI   = "ait_cli" // legacy alias for ToolAISshCLI
+	ToolToolbox  = "toolbox"
 	ToolAnswer   = "answer"
 )
 
@@ -55,6 +56,15 @@ func ToolCallToJSON(tc FCCall) (string, error) {
 			return "", err
 		}
 		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolAISshCLI, JSONFieldArgs: args.Args})
+		return string(b), nil
+	case ToolToolbox:
+		var args struct {
+			Args string `json:"args"`
+		}
+		if err := json.Unmarshal([]byte(NormalizeES6UnicodeJSON(tc.Arguments)), &args); err != nil {
+			return "", err
+		}
+		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolToolbox, JSONFieldArgs: args.Args})
 		return string(b), nil
 	case ToolAnswer:
 		var args struct {

@@ -45,6 +45,11 @@ func (e AgentEnvelope) IsAit() bool {
 	return a == XMLInvokeAISsh || a == XMLInvokeAit || a == ToolAISshCLI || a == ToolAitCLI
 }
 
+// IsToolbox reports whether e is a toolbox CLI invocation action.
+func (e AgentEnvelope) IsToolbox() bool {
+	return strings.EqualFold(strings.TrimSpace(e.Action), ToolToolbox)
+}
+
 // CanonicalJSON returns a single-line JSON envelope suitable for chat history.
 // Returns an error when the action verb is unknown or json.Marshal fails.
 func (e AgentEnvelope) CanonicalJSON() (string, error) {
@@ -54,7 +59,7 @@ func (e AgentEnvelope) CanonicalJSON() (string, error) {
 		payload[JSONFieldText] = e.Text
 	case e.IsRun():
 		payload[JSONFieldCommand] = e.Command
-	case e.IsAit():
+	case e.IsAit(), e.IsToolbox():
 		payload[JSONFieldArgs] = e.Args
 	default:
 		return "", fmt.Errorf("unknown action %q", e.Action)

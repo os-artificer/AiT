@@ -18,7 +18,6 @@ package aissh
 
 import (
 	"github.com/os-artificer/AiT/internal/pkg/cliroute"
-	"github.com/os-artificer/AiT/internal/ssh/ai"
 	"github.com/os-artificer/AiT/internal/ssh/meta"
 	"github.com/os-artificer/AiT/internal/ssh/registry"
 	_ "github.com/os-artificer/AiT/internal/ssh/registry/all"
@@ -34,5 +33,4 @@ func init() {
 
 	meta.SetExecutorWriters(ExecuteCobraOnly)
 	shell.SetCLIExecutor(ExecuteCobraOnly)
-	shell.SetAIModeRunner(ai.RunLocalFromShell(ExecuteCobraOnly))
 }

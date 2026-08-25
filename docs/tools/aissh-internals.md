@@ -47,7 +47,6 @@ flowchart TB
     Registry["registry + subcommands"]
     Shell["shell REPL"]
     Meta["meta !ait"]
-    AI["ai + mode REPL"]
   end
 
   subgraph Domain["internal/pkg (shared domain libraries)"]
@@ -57,7 +56,6 @@ flowchart TB
     Resolve["ssh/resolve + openssh"]
     Transfer["transfer"]
     Config["config"]
-    AIpkg["ai router"]
     Creds["creds"]
     Term["terminal"]
     Plat["platform"]
@@ -70,20 +68,17 @@ flowchart TB
   ConnectPkg --> Sess
   Registry --> Sess
   Registry --> Shell
-  Registry --> AI
   Sess --> SSH
   Sess --> Store
   Sess --> Config
-  Sess --> AIpkg
   SSH --> Meta
   SSH --> Term
   SSH --> Transfer
   SSH --> Resolve
-  AI --> AIpkg
-  AIpkg --> Creds
   Resolve --> Plat
 ```
 
+Ops AI Agent is a separate tool (`cmd/ai` → `internal/opsai`); see [`ai-internals.md`](ai-internals.md). `aissh` does not import `aimode` / `opsai`.
 ---
 
 ## Call chain and argv routing
@@ -110,8 +105,9 @@ Routing surfaces:
 Directory/package note:
 
 - Root app lives at `internal/ssh/` with Go package `aissh`.
-- Registered command packages should match Cobra command names (`shell`, `session`, `ai`, `config`, …).
+- Registered command packages should match Cobra command names (`shell`, `session`, `config`, …).
 - `internal/ssh/connect/` is the SSH connect route package (not a registered Cobra top-level command).
+- There is **no** `internal/ssh/ai`; AI lives in `internal/opsai` (plugin `ai`).
 
 Key files: [`../../internal/ssh/cli_root.go`](../../internal/ssh/cli_root.go), [`../../internal/ssh/root.go`](../../internal/ssh/root.go), [`../../internal/pkg/cliroute/route.go`](../../internal/pkg/cliroute/route.go).
 
@@ -127,7 +123,6 @@ Source of truth for versions and upgrades: [`go.mod`](../../go.mod).
 | SQLite driver | `modernc.org/sqlite` | Pure Go (no CGO), easier cross-platform builds |
 | SSH stack | `golang.org/x/crypto/ssh` | Standard Go SSH implementation |
 | Local PTY | Unix `creack/pty`, Windows ConPTY path | OS-native interactive behavior |
-| AI providers | Deepseek + MiniMax + optional Ollama | Cloud routing with optional local-first tier |
 | Secret storage | OS keyring + fallback keyring dir | Avoid plaintext credentials in SQLite |
 | Host key policy | `known_hosts` by default | Align with OpenSSH trust model |
 
@@ -165,7 +160,7 @@ Do not create names-only helper packages for command constants under `internal/p
 - root command creation and execution entrypoints
 - manager bootstrap (`NewManager`)
 - registry attachment (`AttachRoot`)
-- init hooks for shell/meta/AI integration
+- init hooks for shell/meta integration
 - top-level route decisions (default SSH connect vs Cobra command tree)
 
 ### `internal/pkg` responsibilities
@@ -173,7 +168,7 @@ Do not create names-only helper packages for command constants under `internal/p
 `internal/pkg/*` is for reusable logic shared across command packages:
 
 - storage (`store`), lifecycle manager (`session`), transport (`ssh/client`)
-- config, credentials, terminal, transfer, AI router
+- config, credentials, terminal, transfer
 - shared parsing/mechanics that are not owned by a single command package
 
 Import rule:
@@ -193,19 +188,16 @@ AiT product behavior should remain in `internal/*`.
 
 ### Package naming rules
 
-- Use command-name package names where possible (`shell`, `ai`, `session`, `config`).
+- Use command-name package names where possible (`shell`, `session`, `config`).
 - Keep the root package exception: directory `internal/ssh`, package `aissh`.
 - Keep the connect-route exception: `internal/ssh/connect` for default SSH route.
 - Avoid `*cmd` package suffixes.
-- Keep AI REPL/agent UX under `internal/pkg/aimode` (shared capability). `internal/ssh/ai` is the aissh Cobra adapter and remote runner wiring only.
+- AI REPL/agent UX lives under `internal/pkg/aimode` (shared); the Ops AI adapter is `internal/opsai`, **not** under `aissh`.
 
 ### Nested subcommands
 
 Nested command trees follow the same closure pattern:
 
-- `aissh ai` -> `ask`, `agent`, `provider`, `ollama`
-- `aissh ai provider` -> `enable`, `disable`
-- `aissh ai ollama` -> `status`, `setup`, `start`, `stop`, `disable`
 - `aissh config` -> `set`, `get`, `init`, `view`, `edit`, `validate`
 
 Children register via parent subregistry packages, not by hand-appending long `AddCommand` lists.
@@ -228,11 +220,11 @@ Keep command-specific flags and user-facing semantics inside the owning command 
 |---|---|---|
 | Cobra command tree | `registry` and nested `subregistry` | add command package + register + blank import |
 | Shell builtins (`aissh shell`) | shell builtin registry | add builtin constant + handler |
-| SSH meta / AI mode | meta and AI mode executors | add meta verb handling in the relevant executor |
+| SSH meta (`!ait`) | meta executor | add meta verb handling in the relevant executor |
 
 Special case:
 
-- `aissh ai model list` is a supported positional path and must keep behavior documented at [`aissh.md#ai-mode`](aissh.md#ai-mode) (R15 expectation).
+- Ops AI (`ai model list`, REPL, `ai connect`) is owned by `internal/opsai` — see [`ai-internals.md`](ai-internals.md) / [`ai.md`](ai.md).
 
 ### `clihints` as shared try-lines source
 
@@ -410,7 +402,7 @@ Notes:
 - prompt changes to `AiT Local>`
 - remote output is paused from display while local mode active
 
-### 6) In-session meta protocol (`!ait`, `!!`)
+### 6) In-session meta protocol (`!ait`)
 
 ```mermaid
 sequenceDiagram
@@ -419,7 +411,6 @@ sequenceDiagram
   participant Handler as handleMetaLine
   participant Meta as meta.Execute
   participant Mgr as session.Manager
-  participant AI as OnRemoteAI callback
 
   User->>Scanner: typed line
   Scanner->>Handler: meta line tokenized
@@ -427,8 +418,6 @@ sequenceDiagram
     Handler-->>User: print in-session help
   else !ait get/put
     Handler->>Handler: transfer route
-  else !ait ai / !!
-    Handler->>AI: RemoteAIParams (aissh wires aimode)
   else !ait suspend
     Handler->>Mgr: suspend current
   else !ait chain on/off
@@ -440,28 +429,12 @@ sequenceDiagram
   end
 ```
 
-### 7) AI dual scope workflow
+Notes:
 
-```mermaid
-flowchart TD
-  A[AI entry] --> B{entry source}
-  B -->|aissh ai / shell ai| L[ScopeLocal REPL]
-  B -->|!ait ai / !!| R[ScopeRemote REPL]
-  L --> M{mode}
-  R --> M
-  M -->|ask| C[chat turn]
-  M -->|agent| D[plan + tools]
-  D --> E{command risk}
-  E -->|Read| F[auto-run]
-  E -->|Low/High| G[confirm menu]
-  G -->|approved| H[execute]
-  G -->|rejected| I[skip step]
-  H --> J[append result to context]
-  C --> K[answer]
-  J --> K
-```
+- There is **no** AI routing in `aissh` meta (`!ait ai` / `!!` as AI entry removed). Use the `ai` plugin (`ai connect`).
+- `!!` lines are not treated as AI meta; see OA21 (`!!` forwards to PTY where applicable).
 
-### 8) Get/put transfer workflow
+### 7) Get/put transfer workflow
 
 ```mermaid
 flowchart TD
@@ -486,7 +459,7 @@ flowchart TD
   N --> O
 ```
 
-### 9) Remote prompt pipeline
+### 8) Remote prompt pipeline
 
 ```mermaid
 sequenceDiagram
@@ -511,7 +484,7 @@ Key behavior:
 - first prompt is shown without requiring Enter
 - meta completion repaint path prevents fallback to native shell prompt when AiT prompt is managed
 
-### 10) tmux keep-alive flow (`--tmux`)
+### 9) tmux keep-alive flow (`--tmux`)
 
 ```mermaid
 sequenceDiagram
@@ -534,7 +507,7 @@ sequenceDiagram
   Mgr-->>User: disconnected, remote tmux still alive
 ```
 
-### 11) Proxy chain mode workflow
+### 10) Proxy chain mode workflow
 
 ```mermaid
 flowchart LR
@@ -611,9 +584,6 @@ Core fields and meanings:
 | [`../../internal/ssh/shell/`](../../internal/ssh/shell/) | `aissh shell` REPL and dispatch | `repl.go`, `exec.go`, `exec_dispatch.go` |
 | [`../../internal/ssh/session/`](../../internal/ssh/session/) | session command surface | `cmd.go`, `flags.go`, `run.go` |
 | [`../../internal/ssh/meta/`](../../internal/ssh/meta/) | in-session local CLI execution | `exec.go` |
-| [`../../internal/ssh/ai/`](../../internal/ssh/ai/) | AI command tree + remote runner adapter | `cmd.go`, `help.go`, `register.go`, `runner/` |
-| [`../../internal/pkg/aimode/`](../../internal/pkg/aimode/) | shared AI REPL/agent UX (approve/risk/agent/chat) | `repl.go`, `exec.go`, `approve/`, `risk/` |
-| [`../../internal/pkg/ai/`](../../internal/pkg/ai/) | provider routing and chat facade | `chat.go`, `router`, `models`, provider clients |
 | [`../../internal/pkg/session/`](../../internal/pkg/session/) | connect/load/switch/suspend orchestration | `manager.go`, `manager_login.go`, `manager_helpers.go` |
 | [`../../internal/pkg/store/`](../../internal/pkg/store/) | SQLite storage + migrations | `store.go`, `store_sessions.go`, `store_meta.go`, `open_helpers.go` |
 | [`../../internal/pkg/ssh/args/`](../../internal/pkg/ssh/args/) | SSH argv parsing and `ssh -G` resolve | `parse.go`, `resolve.go` |
@@ -628,7 +598,7 @@ Core fields and meanings:
 | [`../../internal/pkg/transfer/route/`](../../internal/pkg/transfer/route/) | in-session transfer backend routing | route helpers |
 | [`../../internal/pkg/transfer/zmodem/`](../../internal/pkg/transfer/zmodem/) | zmodem protocol engine | receive/send/session files |
 | [`../../internal/pkg/lrzsz/`](../../internal/pkg/lrzsz/) | remote lrzsz probe/install helpers | probe/install files |
-| [`../../internal/pkg/config/`](../../internal/pkg/config/) | config load/save/validate/init (+ AI experimental gate SSOT) | `config.go`, `ai_experimental.go`, `config_validate.go` |
+| [`../../internal/pkg/config/`](../../internal/pkg/config/) | config load/save/validate/init (+ AI experimental gate SSOT for toolbox) | `config.go`, `ai_experimental.go`, `config_validate.go` |
 | [`../../internal/pkg/platform/`](../../internal/pkg/platform/) | app-root paths, editor and OpenSSH helpers | `paths_appdir.go`, `editor.go`, `openssh.go` |
 | [`../../internal/pkg/creds/`](../../internal/pkg/creds/) | keyring abstraction | `keyring.go` |
 | [`../../configs/ait.example.yaml`](../../configs/ait.example.yaml) | example config template | YAML sample |
@@ -644,11 +614,8 @@ Core fields and meanings:
 | `internal/pkg/session` | `internal/pkg/store` | persist session lifecycle state |
 | `internal/pkg/session` | `internal/pkg/ssh/client` | dial and interactive execution |
 | `internal/pkg/ssh/client` | `internal/ssh/meta` | in-session local CLI execution (callback) |
-| `internal/pkg/ssh/client` | `RemoteAIRunner` callback (wired by `internal/ssh`) | remote AI REPL; client does **not** import `aimode` or `aissh/ai` |
-| `internal/ssh/ai` | `internal/pkg/aimode` | assemble Options / RunREPL for local and remote AI |
 | `internal/ssh/shell` | `internal/ssh` root/cobra runner | dispatch to local CLI subcommands |
 | `internal/pkg/ssh/client` | `internal/pkg/transfer` / transfer route | transfer path selection and execution |
-| `internal/pkg/ai` | `internal/pkg/config` + `internal/pkg/creds` | provider config + key retrieval |
 | `internal/pkg/ssh/client` | `internal/pkg/tmux` | keep-alive tmux integration |
 
 ---
@@ -663,9 +630,9 @@ Core fields and meanings:
 | Understand interactive SSH loop | `../../internal/pkg/ssh/client/client.go` (`RunInteractive`) |
 | Trace in-session meta handling | `../../internal/pkg/ssh/client/client_interactive_helpers.go` |
 | Modify shell dispatch precedence | `../../internal/ssh/shell/exec_dispatch.go` |
-| Modify AI REPL verbs and policy | `../../internal/pkg/aimode/exec.go` and `../../internal/pkg/aimode/repl.go` |
-| Gate experimental AI | `../../internal/pkg/config/ai_experimental.go` and `../../internal/ssh/ai/cmd.go` (PreRun) |
 | Adjust root argv routing | `../../internal/ssh/cli_root.go` and `../../internal/pkg/cliroute/route.go` |
+| Ops AI Agent / aimode | [`ai-internals.md`](ai-internals.md); `../../internal/opsai/`; `../../internal/pkg/aimode/` |
+| Gate experimental AI (config SSOT) | `../../internal/pkg/config/ai_experimental.go` (consumers: `opsai`) |
 | Understand transfer backend decisions | `../../internal/pkg/ssh/client/transfer_route.go` |
 | Understand prompt setup and repaint | `../../internal/pkg/ssh/client/client_init_helpers.go` and prompt helpers |
 
@@ -677,6 +644,7 @@ Core fields and meanings:
 |----------|-------------|
 | [`../architecture.md`](../architecture.md) | AiT toolbox project structure |
 | [`aissh.md`](aissh.md) | Operator-facing CLI guide |
+| [`ai.md`](ai.md) / [`ai-internals.md`](ai-internals.md) | Ops AI Agent (separate plugin) |
 | [`../../AGENTS.md`](../../AGENTS.md) | Codebase orientation and package responsibilities |
 | [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) | Development workflow and coding standards |
 | [`../../README.md`](../../README.md) | Project overview and setup |

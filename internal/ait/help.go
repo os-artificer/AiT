@@ -63,6 +63,7 @@ func WriteRootHelp(w io.Writer) error {
 		toolname.AIT,
 		toolname.AIT+" (then) help",
 		toolname.AIT+" (then) install",
+		toolname.AIT+" (then) agent",
 		toolname.AIT+" (then) aissh user@host.example.com",
 		toolname.AIT+" (then) ailog search error",
 	); err != nil {
@@ -77,6 +78,7 @@ func formatRootCommands(plugins []aitplugin.Plugin) string {
 		fmt.Fprintf(&b, "  %-12s %s\n", p.Manifest.Name, p.Manifest.Short)
 	}
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdHelp, "show this help or help <plugin>")
+	fmt.Fprintf(&b, "  %-12s %s\n", aitplugin.CmdAgent, "ops agent task loop (experimental)")
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdVersion, "print ait version")
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdHistory, "list or clear input history")
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdClear, "clear terminal screen")

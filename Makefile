@@ -1,6 +1,6 @@
 .PHONY: all build build-cross install install-git-hooks release-archives test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
 
-TOOLS     := aissh aiimg ailog aihost ait
+TOOLS     := ai aissh aiimg ailog aihost ait
 BUILD_DIR := bin
 
 MODULE := github.com/os-artificer/AiT
@@ -15,7 +15,7 @@ CROSS_PLATFORMS := \
 	darwin/arm64 \
 	windows/amd64
 
-PLUGIN_TOOLS := aissh aiimg ailog aihost
+PLUGIN_TOOLS := ai aissh aiimg ailog aihost
 
 tool_version = $(shell cat $(1) 2>/dev/null | tr -d ' \n')
 tool_ldflags = -X $(2).version=$(call tool_version,$(1)) -X $(2).gitCommit=$(GIT_COMMIT) -X $(2).buildDate=$(BUILD_DATE)
@@ -27,6 +27,7 @@ build:
 	@set -e; \
 	for tool in $(TOOLS); do \
 		case $$tool in \
+			ai) verfile=internal/opsai/version/VERSION; ldpkg=$(MODULE)/internal/opsai/version; main=./cmd/ai ;; \
 			aissh) verfile=internal/ssh/version/VERSION; ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
 			aiimg) verfile=internal/img/version/VERSION; ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
 			ailog) verfile=internal/log/version/VERSION; ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \
@@ -52,6 +53,7 @@ build-cross:
 	@set -e; \
 	for tool in $(TOOLS); do \
 		case $$tool in \
+			ai) verfile=internal/opsai/version/VERSION; ldpkg=$(MODULE)/internal/opsai/version; main=./cmd/ai ;; \
 			aissh) verfile=internal/ssh/version/VERSION; ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
 			aiimg) verfile=internal/img/version/VERSION; ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
 			ailog) verfile=internal/log/version/VERSION; ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \
@@ -86,6 +88,7 @@ endif
 		ext=; [ "$$os" = windows ] && ext=.exe; \
 		for tool in $(TOOLS); do \
 			case $$tool in \
+				ai) ldpkg=$(MODULE)/internal/opsai/version; main=./cmd/ai ;; \
 				aissh) ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
 				aiimg) ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
 				ailog) ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \
@@ -115,6 +118,7 @@ install:
 	@set -e; \
 	for tool in $(TOOLS); do \
 		case $$tool in \
+			ai) verfile=internal/opsai/version/VERSION; ldpkg=$(MODULE)/internal/opsai/version; main=./cmd/ai ;; \
 			aissh) verfile=internal/ssh/version/VERSION; ldpkg=$(MODULE)/internal/ssh/version; main=./cmd/aissh ;; \
 			aiimg) verfile=internal/img/version/VERSION; ldpkg=$(MODULE)/internal/img/version; main=./cmd/aiimg ;; \
 			ailog) verfile=internal/log/version/VERSION; ldpkg=$(MODULE)/internal/log/version; main=./cmd/ailog ;; \

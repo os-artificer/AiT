@@ -46,6 +46,12 @@ func ToolDefinitions() []ToolDef {
 			ParamJSON: `{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`,
 		},
 		{
+			Name:      ToolToolbox,
+			Desc:      "Run an AiT toolbox CLI (aihost, ailog, aissh, or aiimg) with full argv",
+			ParamName: "args",
+			ParamJSON: `{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`,
+		},
+		{
 			Name:      ToolAnswer,
 			Desc:      "Reply to the user and finish the tool chain",
 			ParamName: "text",

@@ -38,7 +38,7 @@ const (
 	// FlagAIExperimental is the process-entry CLI flag (stripped before route/parse).
 	FlagAIExperimental = "--ai-experimental"
 
-	hintAIExperimentalExplain = "AI features in aissh are experimental and disabled by default."
+	hintAIExperimentalExplain = "AI features are provided by the ai plugin."
 )
 
 // SetAIExperimentalCLI records whether the process-entry CLI flag was seen.
@@ -71,7 +71,7 @@ func AIExperimentalEnabled(cfg *Config) bool {
 // AIExperimentalDisabledErr builds the multi-line Try error for disabled experimental AI.
 // It does not inspect CLI, env, or config — callers that need a gate check use RequireAIExperimental.
 // Always returns an error satisfying errors.Is(err, ErrAIExperimentalDisabled).
-// Callers: RequireAIExperimental (disabled branch) and the SSH disabled OnRemoteAI stub.
+// Callers: RequireAIExperimental (disabled branch).
 func AIExperimentalDisabledErr() error {
 	return errhint.WithTry(ErrAIExperimentalDisabled,
 		hintAIExperimentalExplain,

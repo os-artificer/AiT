@@ -65,6 +65,11 @@ func ValidateEnvelope(e AgentEnvelope) error {
 			return fmt.Errorf("%s requires args", action)
 		}
 		return nil
+	case action == ToolToolbox:
+		if strings.TrimSpace(e.Args) == "" {
+			return fmt.Errorf("%s requires args", action)
+		}
+		return nil
 	default:
 		return fmt.Errorf("unknown action %q", e.Action)
 	}

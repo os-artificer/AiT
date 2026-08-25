@@ -32,33 +32,31 @@ var shellREPLCommands = fmt.Sprintf(`  help              show REPL help
   clear             clear terminal screen
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
-  ai                enter local AI mode (experimental; same as %s)
   [flags] destination [command ...]  connect (ssh-style; --save or --alias to persist)
   load <id|alias> [--tmux] [--password]
   list              list saved sessions
   ll [path]         long directory listing (ls -la style; %s only)
   config, get, put  — same as: %s <command> ...
   session           — CLI: %s | %s | %s | %s | %s
-`, toolname.CLI("ai"), toolname.CLI("shell"), toolname.AISsh,
+`, toolname.CLI("shell"), toolname.AISsh,
 	toolname.CLI("session --list"), toolname.CLI("session --load"),
 	toolname.CLI("session --switch"), toolname.CLI("session --suspend"),
 	toolname.CLI("session --delete"))
 
-var shellREPLExtensions = fmt.Sprintf(`  ll [path]             ls -la style listing (builtin; not in %s or %s)
+var shellREPLExtensions = fmt.Sprintf(`  ll [path]             ls -la style listing (builtin; not under %s)
   <AppRoot>/bin/<name>  user extensions (checked before %s CLI and PATH)
   <name> on PATH        system commands when not an %s subcommand
-`, toolname.CLI("ai"), toolname.MetaPrefix, toolname.AISsh, toolname.AISsh)
+`, toolname.MetaPrefix, toolname.AISsh, toolname.AISsh)
 
 var shellREPLCommandsNoLoad = fmt.Sprintf(`  help              show REPL help
   clear             clear terminal screen
   history           list or manage input history (history -c, -d, -s, -a, -r, -w)
   exit, quit        leave AiT shell
-  ai                enter local AI mode (experimental; same as %s)
   list              list saved sessions
   ll [path]         long directory listing (ls -la style; %s only)
   config, get, put  — same as: %s <command> ...
   session           — CLI: %s | %s | %s | %s | %s
-`, toolname.CLI("ai"), toolname.CLI("shell"), toolname.AISsh,
+`, toolname.CLI("shell"), toolname.AISsh,
 	toolname.CLI("session --list"), toolname.CLI("session --load"),
 	toolname.CLI("session --switch"), toolname.CLI("session --suspend"),
 	toolname.CLI("session --delete"))

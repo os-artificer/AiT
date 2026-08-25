@@ -9,9 +9,9 @@ session:
     path: short
 
 ai:
-  # Experimental AI features (aissh ai / !! / !ait ai) are off by default.
+  # Experimental AI features (ai plugin) are off by default.
   # Enable with: aissh config set ai.experimental.enabled true
-  # Or for one process: aissh --ai-experimental … / AIT_AI_EXPERIMENTAL=1
+  # Or for one process: ai --ai-experimental … / AIT_AI_EXPERIMENTAL=1
   experimental:
     enabled: false
   default: deepseek
@@ -27,11 +27,11 @@ ai:
     max_steps: 16
   providers:
     ollama:
-      enabled: true   # aissh ai provider disable ollama to stop local routing
+      enabled: true   # ai provider disable ollama to stop local routing
       api_style: openai
       base_url: http://127.0.0.1:11434/v1
       model: llama3.2
-      # models_dir: /path/to/ollama/models   # OLLAMA_MODELS; set via aissh ai ollama setup
+      # models_dir: /path/to/ollama/models   # OLLAMA_MODELS; set via ai ollama setup
     deepseek:
       enabled: true
       api_style: openai
@@ -47,7 +47,7 @@ ai:
 #   aissh config set ai.deepseek.api_key <key>
 #   aissh config set ai.minimax.api_key <key>
 # Ollama does not need a key when tiered is enabled.
-# Quick setup: aissh ai ollama setup   (choose models_dir; or --models-dir)
-# Providers: aissh ai provider enable|disable <deepseek|minimax|ollama>
-# Status/service: aissh ai ollama status | start --wait | stop | disable
-# List providers: positional meta on `ait ai` (e.g. `aissh ai model list`), not a top-level `ait models`
+# Quick setup: ai ollama setup   (choose models_dir; or --models-dir)
+# Providers: ai provider enable|disable <deepseek|minimax|ollama>
+# Status/service: ai ollama status | start --wait | stop | disable
+# List providers: ai model list

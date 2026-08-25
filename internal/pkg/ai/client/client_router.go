@@ -48,7 +48,7 @@ type clientOpts struct {
 	httpClient       *http.Client
 }
 
-// WithProviderOverride sets the primary cloud provider for this client instance (aissh ai --model).
+// WithProviderOverride sets the primary cloud provider for this client instance (ai --model).
 func WithProviderOverride(id ProviderID) ClientOption {
 	return func(o *clientOpts) {
 		o.providerOverride = id

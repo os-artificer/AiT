@@ -24,8 +24,8 @@ import (
 )
 
 // drive feeds input one byte at a time and aggregates the scanner outputs.
-func drive(input string, aiAvailable bool, echoPrefix string, localActive bool) (forwarded string, echoed string, metaLines []string) {
-	s := New(aiAvailable, echoPrefix)
+func drive(input string, echoPrefix string, localActive bool) (forwarded string, echoed string, metaLines []string) {
+	s := New(echoPrefix)
 	s.SyncFrom(localActive, echoPrefix)
 	var fwd, ech strings.Builder
 	for i := 0; i < len(input); i++ {
@@ -39,12 +39,12 @@ func drive(input string, aiAvailable bool, echoPrefix string, localActive bool) 
 	return fwd.String(), ech.String(), metaLines
 }
 
-func driveRemote(input string, aiAvailable bool) (forwarded string, echoed string, metaLines []string) {
-	return drive(input, aiAvailable, "", false)
+func driveRemote(input string) (forwarded string, echoed string, metaLines []string) {
+	return drive(input, "", false)
 }
 
 func TestMetaScanner_BashHistoryWithArgsPassthrough(t *testing.T) {
-	fwd, _, meta := driveRemote("!!ls\n", true)
+	fwd, _, meta := driveRemote("!!ls\n")
 	if fwd != "!!ls\n" {
 		t.Errorf("forward=%q want %q", fwd, "!!ls\n")
 	}
@@ -53,18 +53,19 @@ func TestMetaScanner_BashHistoryWithArgsPassthrough(t *testing.T) {
 	}
 }
 
-func TestMetaScanner_BashHistoryWithArgsCapturedWhenAIDisabled(t *testing.T) {
-	fwd, _, meta := driveRemote("!!ls\n", false)
-	if fwd != "" {
-		t.Errorf("forward=%q want empty", fwd)
+// OA21: !!ls always forwards to the remote PTY (bash history); AI no longer owns !!.
+func TestMetaScanner_BangBangForwardsPTY(t *testing.T) {
+	fwd, _, meta := driveRemote("!!ls\n")
+	if fwd != "!!ls\n" {
+		t.Errorf("forward=%q want %q", fwd, "!!ls\n")
 	}
-	if len(meta) != 1 || meta[0] != "!!ls" {
-		t.Errorf("meta=%v want [!!ls]", meta)
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta lines: %v", meta)
 	}
 }
 
 func TestMetaScanner_AitPrefixCapturedWhenAIDisabled(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait local\n", false)
+	fwd, _, meta := driveRemote("!ait local\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -79,7 +80,7 @@ func TestScanner_MaxLookCoversLongestPrefix(t *testing.T) {
 	if maxLook < len(longest) {
 		t.Fatalf("maxLook=%d shorter than len(%q)", maxLook, longest)
 	}
-	fwd, _, meta := driveRemote("!ait local\n", false)
+	fwd, _, meta := driveRemote("!ait local\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -89,7 +90,7 @@ func TestScanner_MaxLookCoversLongestPrefix(t *testing.T) {
 }
 
 func TestMetaScanner_BashHistoryColonModifierPassthrough(t *testing.T) {
-	fwd, _, meta := driveRemote("!!:gs/x/y/\n", true)
+	fwd, _, meta := driveRemote("!!:gs/x/y/\n")
 	if fwd != "!!:gs/x/y/\n" {
 		t.Errorf("forward=%q", fwd)
 	}
@@ -98,44 +99,39 @@ func TestMetaScanner_BashHistoryColonModifierPassthrough(t *testing.T) {
 	}
 }
 
-func TestMetaScanner_BangBangAloneIsMeta(t *testing.T) {
-	fwd, _, meta := driveRemote("!!\n", true)
-	if fwd != "" {
-		t.Errorf("forward=%q want empty", fwd)
+func TestMetaScanner_BangBangAloneForwards(t *testing.T) {
+	fwd, _, meta := driveRemote("!!\n")
+	if fwd != "!!\n" {
+		t.Errorf("forward=%q want %q", fwd, "!!\n")
 	}
-	if len(meta) != 1 || meta[0] != "!!" {
-		t.Errorf("meta=%v want [!!]", meta)
-	}
-}
-
-func TestMetaScanner_BangBangSpaceQuery(t *testing.T) {
-	fwd, _, meta := driveRemote("!! how to grep\n", true)
-	if fwd != "" {
-		t.Errorf("forward=%q want empty (meta capture)", fwd)
-	}
-	if len(meta) != 1 || meta[0] != "!! how to grep" {
-		t.Errorf("meta=%v", meta)
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta: %v", meta)
 	}
 }
 
-func TestMetaScanner_BangBangUTF8Query(t *testing.T) {
+func TestMetaScanner_BangBangSpaceQueryForwards(t *testing.T) {
+	fwd, _, meta := driveRemote("!! how to grep\n")
+	if fwd != "!! how to grep\n" {
+		t.Errorf("forward=%q want passthrough", fwd)
+	}
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta: %v", meta)
+	}
+}
+
+func TestMetaScanner_BangBangUTF8QueryForwards(t *testing.T) {
 	line := "!! 当前系统是什么名字?\n"
-	fwd, _, meta := driveRemote(line, true)
-	if fwd != "" {
-		t.Errorf("forward=%q want empty (meta capture)", fwd)
+	fwd, _, meta := driveRemote(line)
+	if fwd != line {
+		t.Errorf("forward=%q want %q", fwd, line)
 	}
-	want := "!! 当前系统是什么名字?"
-	if len(meta) != 1 || meta[0] != want {
-		t.Errorf("meta=%v want [%q]", meta, want)
-	}
-	prompt, ok := AIPromptFromLine(meta[0])
-	if !ok || prompt != "当前系统是什么名字?" {
-		t.Errorf("prompt=%q ok=%v", prompt, ok)
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta: %v", meta)
 	}
 }
 
 func TestMetaScanner_AitAIQuery(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait ai how to grep\n", true)
+	fwd, _, meta := driveRemote("!ait ai how to grep\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -145,7 +141,7 @@ func TestMetaScanner_AitAIQuery(t *testing.T) {
 }
 
 func TestMetaScanner_AitAIAsk(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait ai ask ping\n", true)
+	fwd, _, meta := driveRemote("!ait ai ask ping\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -156,31 +152,31 @@ func TestMetaScanner_AitAIAsk(t *testing.T) {
 
 // RA6: bare !ait ai line is captured as meta and yields empty initial prompt.
 func TestMetaScanner_AitAIBareLine(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait ai\n", true)
+	fwd, _, meta := driveRemote("!ait ai\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
 	if len(meta) != 1 || meta[0] != "!ait ai" {
 		t.Errorf("meta=%v", meta)
 	}
-	prompt, ok := AIPromptFromLine(meta[0])
-	if !ok || prompt != "" {
-		t.Errorf("prompt=%q ok=%v", prompt, ok)
+	_, ok := AIPromptFromLine(meta[0])
+	if ok {
+		t.Error("AIPromptFromLine must always return false")
 	}
 }
 
-func TestMetaScanner_BangBangAsk(t *testing.T) {
-	fwd, _, meta := driveRemote("!! ask ping\n", true)
-	if fwd != "" {
-		t.Errorf("forward=%q want empty", fwd)
+func TestMetaScanner_BangBangAskForwards(t *testing.T) {
+	fwd, _, meta := driveRemote("!! ask ping\n")
+	if fwd != "!! ask ping\n" {
+		t.Errorf("forward=%q want passthrough", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!! ask ping" {
-		t.Errorf("meta=%v", meta)
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta: %v", meta)
 	}
 }
 
 func TestMetaScanner_AitAIAgent(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait ai agent find large files\n", true)
+	fwd, _, meta := driveRemote("!ait ai agent find large files\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -189,18 +185,18 @@ func TestMetaScanner_AitAIAgent(t *testing.T) {
 	}
 }
 
-func TestMetaScanner_BangBangAgent(t *testing.T) {
-	fwd, _, meta := driveRemote("!! agent find large files\n", true)
-	if fwd != "" {
-		t.Errorf("forward=%q want empty", fwd)
+func TestMetaScanner_BangBangAgentForwards(t *testing.T) {
+	fwd, _, meta := driveRemote("!! agent find large files\n")
+	if fwd != "!! agent find large files\n" {
+		t.Errorf("forward=%q want passthrough", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!! agent find large files" {
-		t.Errorf("meta=%v", meta)
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta: %v", meta)
 	}
 }
 
 func TestMetaScanner_AitLocal(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait local\n", true)
+	fwd, _, meta := driveRemote("!ait local\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -210,7 +206,7 @@ func TestMetaScanner_AitLocal(t *testing.T) {
 }
 
 func TestMetaScanner_AitRemote(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait remote\n", true)
+	fwd, _, meta := driveRemote("!ait remote\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -220,7 +216,7 @@ func TestMetaScanner_AitRemote(t *testing.T) {
 }
 
 func TestMetaScanner_AitSuspend(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait suspend\n", true)
+	fwd, _, meta := driveRemote("!ait suspend\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -230,7 +226,7 @@ func TestMetaScanner_AitSuspend(t *testing.T) {
 }
 
 func TestMetaScanner_HelpLine(t *testing.T) {
-	fwd, _, meta := driveRemote("!ait help\n", true)
+	fwd, _, meta := driveRemote("!ait help\n")
 	if len(fwd) != 0 {
 		t.Errorf("forwarded %q", fwd)
 	}
@@ -240,7 +236,7 @@ func TestMetaScanner_HelpLine(t *testing.T) {
 }
 
 func TestMetaScanner_LegacyBackslashAitPassthrough(t *testing.T) {
-	fwd, _, meta := driveRemote("\\ait suspend\n", true)
+	fwd, _, meta := driveRemote("\\ait suspend\n")
 	if fwd != "\\ait suspend\n" {
 		t.Errorf("forward=%q want passthrough", fwd)
 	}
@@ -250,7 +246,7 @@ func TestMetaScanner_LegacyBackslashAitPassthrough(t *testing.T) {
 }
 
 func TestMetaScanner_BackslashArtifactPassthrough(t *testing.T) {
-	fwd, _, meta := driveRemote("\\artifact\n", true)
+	fwd, _, meta := driveRemote("\\artifact\n")
 	if fwd != "\\artifact\n" {
 		t.Errorf("forward=%q", fwd)
 	}
@@ -260,7 +256,7 @@ func TestMetaScanner_BackslashArtifactPassthrough(t *testing.T) {
 }
 
 func TestMetaScanner_NotAtLineStart(t *testing.T) {
-	fwd, _, meta := driveRemote("x!!y\n", true)
+	fwd, _, meta := driveRemote("x!!y\n")
 	if fwd != "x!!y\n" {
 		t.Errorf("forward=%q", fwd)
 	}
@@ -276,7 +272,7 @@ func TestMetaScanner_RunawayMetaLineBailsOut(t *testing.T) {
 		sb.WriteByte('x')
 	}
 	sb.WriteByte('\n')
-	fwd, _, meta := driveRemote(sb.String(), true)
+	fwd, _, meta := driveRemote(sb.String())
 	if len(meta) != 0 {
 		t.Errorf("expected no meta dispatch for runaway line, got %v", meta)
 	}
@@ -286,21 +282,21 @@ func TestMetaScanner_RunawayMetaLineBailsOut(t *testing.T) {
 }
 
 func TestMetaScanner_TwoMetasInARow(t *testing.T) {
-	fwd, _, meta := driveRemote("!! one\n!! two\n", true)
+	fwd, _, meta := driveRemote("!ait local\n!ait remote\n")
 	if fwd != "" {
 		t.Errorf("forward=%q", fwd)
 	}
-	if len(meta) != 2 || meta[0] != "!! one" || meta[1] != "!! two" {
+	if len(meta) != 2 || meta[0] != "!ait local" || meta[1] != "!ait remote" {
 		t.Errorf("meta=%v", meta)
 	}
 }
 
 func TestMetaScanner_MetaLineLocalEcho(t *testing.T) {
-	_, echo, meta := driveRemote("!! how\n", true)
+	_, echo, meta := driveRemote("!ait local\n")
 	if len(meta) != 1 {
 		t.Fatalf("meta=%v", meta)
 	}
-	if !strings.Contains(echo, "!! ") || !strings.Contains(echo, "how") {
+	if !strings.Contains(echo, "!ait") || !strings.Contains(echo, "local") {
 		t.Errorf("echo=%q should contain meta line", echo)
 	}
 }
@@ -309,7 +305,7 @@ func TestMetaScanner_MetaLineLocalEcho(t *testing.T) {
 // without duplicating remote shell echo on the newline flush. Typo-prefix redraw
 // during holding may appear while typing !!ait before the invalid newline.
 func TestMetaScanner_RemoteInvalidBangBangNoHoldingEcho(t *testing.T) {
-	fwd, _, meta := driveRemote("!!ait\n", true)
+	fwd, _, meta := driveRemote("!!ait\n")
 	if fwd != "!!ait\n" {
 		t.Errorf("forward=%q want %q", fwd, "!!ait\n")
 	}
@@ -320,7 +316,7 @@ func TestMetaScanner_RemoteInvalidBangBangNoHoldingEcho(t *testing.T) {
 
 // TestMetaScanner_BangBangAitTypoHelp treats !!ait as !ait meta (doubled-bang typo).
 func TestMetaScanner_BangBangAitTypoHelp(t *testing.T) {
-	fwd, echo, meta := driveRemote("!!ait help\n", true)
+	fwd, echo, meta := driveRemote("!!ait help\n")
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -333,7 +329,7 @@ func TestMetaScanner_BangBangAitTypoHelp(t *testing.T) {
 }
 
 func TestMetaScanner_LocalBangBangAitTypoHelp(t *testing.T) {
-	fwd, _, meta := drive("!!ait help\n", true, "AiT Local> ", true)
+	fwd, _, meta := drive("!!ait help\n", "AiT Local> ", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -351,12 +347,6 @@ func TestMetaScanner_RemoteHoldingEchoTimeline(t *testing.T) {
 		wantInEcho string
 	}{
 		{
-			name:       "doubleBang",
-			input:      "!!",
-			checkIdx:   1,
-			wantInEcho: "!!",
-		},
-		{
 			name:       "aitPrefix",
 			input:      "!ait ",
 			checkIdx:   len("!ait") - 1,
@@ -371,7 +361,7 @@ func TestMetaScanner_RemoteHoldingEchoTimeline(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			s := New(true, "AiT u@h> ")
+			s := New("AiT u@h> ")
 			var echoAtCheck string
 			for i, b := range []byte(tc.input) {
 				_, echo, _, _ := s.Feed(b)
@@ -389,7 +379,7 @@ func TestMetaScanner_RemoteHoldingEchoTimeline(t *testing.T) {
 // TestMetaScanner_RemoteCtrlUClearsHoldingRedraw ensures Ctrl+U after !! does not leave
 // holdingRedraw set so a later !!ls passthrough does not spuriously clear the line.
 func TestMetaScanner_RemoteCtrlUClearsHoldingRedraw(t *testing.T) {
-	fwd, echo, meta := driveRemote("!!\x15!!ls\n", true)
+	fwd, echo, meta := driveRemote("!!\x15!!ls\n")
 	if fwd != "!!ls\n" {
 		t.Errorf("forward=%q want %q", fwd, "!!ls\n")
 	}
@@ -415,7 +405,7 @@ func TestBangAitTypoPrefix_SyncWithMetaPrefix(t *testing.T) {
 }
 
 func TestMetaScanner_RemoteInvalidBangBangPrefixNoDoubleEcho(t *testing.T) {
-	fwd, echo, meta := driveRemote("!!ls\n", true)
+	fwd, echo, meta := driveRemote("!!ls\n")
 	if fwd != "!!ls\n" {
 		t.Errorf("forward=%q want %q", fwd, "!!ls\n")
 	}
@@ -428,33 +418,30 @@ func TestMetaScanner_RemoteInvalidBangBangPrefixNoDoubleEcho(t *testing.T) {
 }
 
 func TestMetaScanner_CtrlUThenBangBang(t *testing.T) {
-	fwd, _, meta := driveRemote("\x15!! how\n", true)
-	if fwd != "\x15" {
-		t.Errorf("forward=%q want \\x15 only", fwd)
+	fwd, _, meta := driveRemote("\x15!! how\n")
+	if fwd != "\x15!! how\n" {
+		t.Errorf("forward=%q want ctrl-u then !! how", fwd)
 	}
-	if len(meta) != 1 || meta[0] != "!! how" {
-		t.Errorf("meta=%v want [!! how]", meta)
+	if len(meta) != 0 {
+		t.Errorf("unexpected meta: %v", meta)
 	}
 }
 
 func TestMetaScanner_PrefixCandidateHelpers(t *testing.T) {
-	if !prefixCandidate("!") {
-		t.Error(`"!" should be candidate`)
+	if !prefixCandidate("!!") {
+		t.Error(`"!!" should be candidate (bash history / !!ait typo hold)`)
 	}
 	if !prefixCandidate("!ait") {
 		t.Error(`"!ait" should be candidate`)
 	}
-	if !prefixCandidate("!ait ai") {
-		t.Error(`"!ait ai" should be candidate`)
-	}
-	if prefixCandidate("!ait ai ") {
-		t.Error(`exact match "!ait ai " should not be reported as candidate`)
+	if prefixCandidate("!ait ai") {
+		t.Error(`"!ait ai" is past "!ait " opener; not a holding candidate`)
 	}
 	if prefixCandidate("!zzz") {
 		t.Error(`"!zzz" should not be candidate`)
 	}
-	if _, ok := prefixMatch("!! "); !ok {
-		t.Error(`"!! " should match`)
+	if _, ok := prefixMatch("!! "); ok {
+		t.Error(`"!! " must not match after AI strip`)
 	}
 	if _, ok := prefixMatch("!ait remote\n"); !ok {
 		t.Error(`"!ait remote\n" should match`)
@@ -464,7 +451,7 @@ func TestMetaScanner_PrefixCandidateHelpers(t *testing.T) {
 func TestMetaScanner_LegacyPrefixNotCaptured(t *testing.T) {
 	cases := []string{"!aitssh help\n", "!aitssh ai ask hi\n"}
 	for _, input := range cases {
-		fwd, _, meta := driveRemote(input, true)
+		fwd, _, meta := driveRemote(input)
 		if len(meta) != 0 {
 			t.Errorf("input %q: meta=%v want none (legacy prefix not recognized)", input, meta)
 		}
@@ -476,26 +463,16 @@ func TestMetaScanner_LegacyPrefixNotCaptured(t *testing.T) {
 }
 
 func TestAIPromptFromLine(t *testing.T) {
-	tests := []struct {
-		line   string
-		prompt string
-		isAI   bool
-	}{
-		{"!! how to grep", "how to grep", true},
-		{"!!", "", true},
-		{"!ait ai how to grep", "how to grep", true},
-		{"!ait ai ask hello", "ask hello", true},
-		{"!! ask hello", "ask hello", true},
-		{"!ait ai agent find large files", "agent find large files", true},
-		{"!! agent find large files", "agent find large files", true},
-		{"!ait ai", "", true},
-		{"!ait suspend", "", false},
-		{"!ait local", "", false},
-	}
-	for _, tc := range tests {
-		p, ok := AIPromptFromLine(tc.line)
-		if ok != tc.isAI || p != tc.prompt {
-			t.Errorf("AIPromptFromLine(%q) = (%q, %v), want (%q, %v)", tc.line, p, ok, tc.prompt, tc.isAI)
+	for _, line := range []string{
+		"!! how to grep",
+		"!!",
+		"!ait ai how to grep",
+		"!ait ai ask hello",
+		"!ait suspend",
+	} {
+		p, ok := AIPromptFromLine(line)
+		if ok || p != "" {
+			t.Errorf("AIPromptFromLine(%q) = (%q, %v), want (\"\", false)", line, p, ok)
 		}
 	}
 }
@@ -505,26 +482,26 @@ const (
 )
 
 func TestMetaScanner_ME1_CtrlKAfterLeft(t *testing.T) {
-	input := "!! hello" + keyLeftArrow + keyLeftArrow + keyLeftArrow + keyLeftArrow + string([]byte{ctrlK}) + "\n"
-	_, _, meta := driveRemote(input, true)
-	if len(meta) != 1 || meta[0] != "!! h" {
-		t.Errorf("meta=%v want [!! h]", meta)
+	input := "!ait hello" + keyLeftArrow + keyLeftArrow + keyLeftArrow + keyLeftArrow + string([]byte{ctrlK}) + "\n"
+	_, _, meta := driveRemote(input)
+	if len(meta) != 1 || meta[0] != "!ait h" {
+		t.Errorf("meta=%v want [!ait h]", meta)
 	}
 }
 
 func TestMetaScanner_ME2_CtrlW(t *testing.T) {
-	input := "!! hello" + string([]byte{ctrlW}) + "\n"
-	_, _, meta := driveRemote(input, true)
-	if len(meta) != 1 || meta[0] != "!! " {
-		t.Errorf("meta=%v want [!! ]", meta)
+	input := "!ait hello" + string([]byte{ctrlW}) + "\n"
+	_, _, meta := driveRemote(input)
+	if len(meta) != 1 || meta[0] != "!ait " {
+		t.Errorf("meta=%v want [!ait ]", meta)
 	}
 }
 
 func TestMetaScanner_ME3_CtrlUClearThenNewLine(t *testing.T) {
-	s := New(true, "")
+	s := New("")
 	var fwd strings.Builder
 	var meta []string
-	seq := "!! hello" + string([]byte{ctrlU}) + "!! bar\n"
+	seq := "!ait hello" + string([]byte{ctrlU}) + "!ait bar\n"
 	for i := 0; i < len(seq); i++ {
 		out, _, line, ok := s.Feed(seq[i])
 		fwd.Write(out)
@@ -535,45 +512,45 @@ func TestMetaScanner_ME3_CtrlUClearThenNewLine(t *testing.T) {
 	if fwd.Len() != 0 {
 		t.Errorf("forward=%q want empty (meta Ctrl+U must not forward)", fwd.String())
 	}
-	if len(meta) != 1 || meta[0] != "!! bar" {
-		t.Errorf("meta=%v want [!! bar]", meta)
+	if len(meta) != 1 || meta[0] != "!ait bar" {
+		t.Errorf("meta=%v want [!ait bar]", meta)
 	}
 }
 
 func TestMetaScanner_ME4_CtrlL(t *testing.T) {
-	input := "!! x" + string([]byte{ctrlL})
-	_, echo, _ := driveRemote(input, true)
+	input := "!ait x" + string([]byte{ctrlL})
+	_, echo, _ := driveRemote(input)
 	if !strings.Contains(echo, "\x1b[2J") {
 		t.Errorf("echo=%q want clear-screen sequence", echo)
 	}
 }
 
 func TestMetaScanner_ME5_BackspaceMidLine(t *testing.T) {
-	input := "!! ab" + keyLeftArrow + "\x7f\n"
-	_, _, meta := driveRemote(input, true)
-	if len(meta) != 1 || meta[0] != "!! b" {
-		t.Errorf("meta=%v want [!! b]", meta)
+	input := "!ait ab" + keyLeftArrow + "\x7f\n"
+	_, _, meta := driveRemote(input)
+	if len(meta) != 1 || meta[0] != "!ait b" {
+		t.Errorf("meta=%v want [!ait b]", meta)
 	}
 }
 
 func TestMetaScanner_ME6_CtrlAInsert(t *testing.T) {
-	input := "!! ab" + string([]byte{ctrlA}) + "z\n"
-	_, _, meta := driveRemote(input, true)
-	if len(meta) != 1 || meta[0] != "z!! ab" {
-		t.Errorf("meta=%v want [z!! ab]", meta)
+	input := "!ait ab" + string([]byte{ctrlA}) + "z\n"
+	_, _, meta := driveRemote(input)
+	if len(meta) != 1 || meta[0] != "z!ait ab" {
+		t.Errorf("meta=%v want [z!ait ab]", meta)
 	}
 }
 
 func TestMetaScanner_ME7_UTF8Backspace(t *testing.T) {
-	input := "!! \xe4\xb8\xad" + "\x7f\n"
-	_, _, meta := driveRemote(input, true)
-	if len(meta) != 1 || meta[0] != "!! " {
-		t.Errorf("meta=%v want [!! ]", meta)
+	input := "!ait \xe4\xb8\xad" + "\x7f\n"
+	_, _, meta := driveRemote(input)
+	if len(meta) != 1 || meta[0] != "!ait " {
+		t.Errorf("meta=%v want [!ait ]", meta)
 	}
 }
 
 func TestMetaScanner_MD2_LocalBangPassthrough(t *testing.T) {
-	fwd, _, meta := drive("!! how\n", true, "AiT Local> ", true)
+	fwd, _, meta := drive("!! how\n", "AiT Local> ", true)
 	if fwd != "!! how\n" {
 		t.Errorf("forward=%q want !! how\\n", fwd)
 	}
@@ -583,7 +560,7 @@ func TestMetaScanner_MD2_LocalBangPassthrough(t *testing.T) {
 }
 
 func TestMetaScanner_MD2b_LocalAitStillCapture(t *testing.T) {
-	fwd, _, meta := drive("!ait remote\n", true, "AiT Local> ", true)
+	fwd, _, meta := drive("!ait remote\n", "AiT Local> ", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty", fwd)
 	}
@@ -595,7 +572,7 @@ func TestMetaScanner_MD2b_LocalAitStillCapture(t *testing.T) {
 // TestMetaScanner_MD4_LocalBangNoOrphanEcho defers local !! passthrough until a 3rd byte
 // so !!ait meta typo can be disambiguated; bare !! must not orphan-echo the first !.
 func TestMetaScanner_MD4_LocalBangNoOrphanEcho(t *testing.T) {
-	fwd, echo, meta := drive("!!", true, "AiT Local> ", true)
+	fwd, echo, meta := drive("!!", "AiT Local> ", true)
 	if fwd != "" {
 		t.Errorf("forward=%q want empty (deferred until 3rd byte)", fwd)
 	}

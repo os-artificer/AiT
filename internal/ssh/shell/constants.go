@@ -26,7 +26,6 @@ const (
 	ReplCmdQuit    = builtin.CmdQuit
 	ReplCmdClear   = builtin.CmdClear
 	ReplCmdHistory = builtin.CmdHistory
-	ReplCmdAI      = builtin.CmdAI
 	ReplCmdLoad    = builtin.CmdLoad
 	ReplCmdList    = builtin.CmdList
 	ReplCmdLL      = builtin.CmdLL

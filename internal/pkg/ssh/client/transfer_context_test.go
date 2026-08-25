@@ -69,7 +69,7 @@ func TestProcessForwardStdin_CtrlCFwdWhenInactive(t *testing.T) {
 		context.Background(),
 		&stdin,
 		stdinByte{B: transferInterruptByte},
-		newMetaScanner(true, ""),
+		newMetaScanner(""),
 		InteractiveOpts{},
 	)
 	if res.action == fwdStdinReturn && res.err != nil {

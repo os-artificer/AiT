@@ -2,6 +2,12 @@
 
 This file records **product and CLI** functional changes only; documentation-only updates are not included. When a release is tagged, move items from `[Unreleased]` into a dated version section.
 
+## [Unreleased]
+
+### v3.1 Ops AI Agent
+
+- 【Changed】**BREAKING** AI moves out of `aissh` into the Ops AI Agent plugin **`ai`** (`cmd/ai`, `internal/opsai`). Use `ai` / `ai ask` / `ai agent` / `ai connect user@host` (experimental: `ai --ai-experimental`, `AIT_AI_EXPERIMENTAL=1`, or `ai.experimental.enabled`). Removed from `aissh`: `aissh ai …` and `!ait ai`. Bare `!!` in SSH still forwards to the remote shell (not AI). Shared engine remains `internal/pkg/aimode` + `internal/pkg/ai`; `aissh config` can still set `ai.*`. Guide: [docs/tools/ai.md](docs/tools/ai.md).
+
 ## [v1.1.0-beta.2]
 
 - 【Added】`ait` REPL: `install`, `update`, and `upgrade` fetch official plugins from GitHub Releases into the directory containing `ait`; `make release-archives TAG=vX.Y.Z` and tag CI publish per-platform bundles.

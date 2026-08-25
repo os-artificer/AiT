@@ -1,0 +1,32 @@
+{
+  "apiVersion": 1,
+  "name": "ai",
+  "binary": "ai",
+  "short": "Ops AI Agent (experimental; off by default)",
+  "order": 5,
+  "usage": "ai [command] [flags]",
+  "flags": [
+    {
+      "name": "ai-experimental",
+      "type": "bool",
+      "help": "enable experimental AI features for this process"
+    },
+    {
+      "name": "model",
+      "type": "string",
+      "help": "override cloud provider (deepseek|minimax)"
+    },
+    {
+      "name": "help",
+      "short": "h",
+      "type": "bool",
+      "help": "help for ai"
+    }
+  ],
+  "examples": [
+    "ai",
+    "ai ask \"summarize logs\"",
+    "ai connect user@host.example.com",
+    "ai model list"
+  ]
+}

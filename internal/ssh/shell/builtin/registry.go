@@ -30,7 +30,6 @@ var commands = map[string]command{
 	CmdQuit:    {run: runExit},
 	CmdClear:   {run: runClear},
 	CmdHistory: {run: runHistory},
-	CmdAI:      {run: runAI},
 	CmdLoad:    {run: runLoad, blockedWhenActive: loadBlockedWhenActiveErr},
 	CmdList:    {run: runList},
 	CmdLL:      {run: runLL},

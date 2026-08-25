@@ -29,12 +29,6 @@ var (
 	metaHelpUsage    = toolname.MetaPrefix + " <subcommand> [args...]"
 	metaHelpTailNote = "\nConnect/load/switch suspend the current session (auto-save if needed) and connect to the target.\n"
 	metaCommands     = fmt.Sprintf(`  help              show this help
-  ai [question]     remote AI mode (%s ai); optional first question
-  ai ask <msg>     one-shot AI reply (%s ai ask); does not enter AI mode
-  ai agent [msg]   Agent REPL when no msg; one-shot when msg given
-  !! [question]     alias for %s ai
-  !! ask <msg>     one-shot AI reply
-  !! agent [msg]   Agent REPL when no msg; one-shot when msg given
   user@hostB [flags]   suspend current session; log in to another host (ssh-style argv)
   load [id|alias]      suspend current session; load a saved session
   session --switch [id|alias]   suspend current; switch to another session
@@ -44,7 +38,7 @@ var (
   suspend           suspend session and disconnect (auto-save if needed)
   get <remote> <local>   download file (reuses SSH, no re-auth)
   put <local> <remote>   upload file (reuses SSH, no re-auth)
-`, toolname.MetaPrefix, toolname.MetaPrefix, toolname.MetaPrefix)
+`)
 )
 
 // WriteMetaHelp prints in-session !ait help to w (caller applies CRLF for SSH).

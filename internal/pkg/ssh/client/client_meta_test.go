@@ -19,7 +19,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"os"
 	"reflect"
@@ -27,8 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/os-artificer/AiT/internal/pkg/ai"
-	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 )
 
@@ -365,97 +362,6 @@ func TestFinishMetaInteraction_ShortBashPrompt(t *testing.T) {
 
 	if !strings.Contains(buf.String(), "u@h:#") {
 		t.Fatalf("stdout = %q, want short bash prompt re-emit", buf.String())
-	}
-}
-
-// EX5: experimental-disabled stub path returns nil so SSH stays connected.
-func TestHandleAIMetaLine_ExperimentalDisabled(t *testing.T) {
-	c := testClientWithPrompt("u", "h")
-	var stdin bytes.Buffer
-	called := false
-	err := c.handleAIMetaLine(context.Background(), &stdin, "ask hi", InteractiveOpts{
-		AI: nil,
-		OnRemoteAI: func(_ RemoteAIParams) error {
-			called = true
-			return nil
-		},
-	})
-	if err != nil {
-		t.Fatalf("expected nil (SSH continues), got %v", err)
-	}
-	if !called {
-		t.Fatal("OnRemoteAI stub must be called when AI is nil")
-	}
-}
-
-// EX11: AI==nil + OnRemoteAI experimental error is ExperimentalDisabled, not NotConfigured.
-func TestHandleAIMetaLine_ExperimentalDisabledNotNotConfigured(t *testing.T) {
-	config.SetAIExperimentalCLI(false)
-	t.Setenv(config.EnvAIExperimental, "")
-	t.Cleanup(func() { config.SetAIExperimentalCLI(false) })
-
-	c := testClientWithPrompt("u", "h")
-	var stdin bytes.Buffer
-
-	old := os.Stderr
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stderr = w
-	defer func() { os.Stderr = old }()
-
-	runErr := c.handleAIMetaLine(context.Background(), &stdin, "!!", InteractiveOpts{
-		AI: nil,
-		OnRemoteAI: func(_ RemoteAIParams) error {
-			return config.RequireAIExperimental(&config.Config{})
-		},
-	})
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	os.Stderr = old
-
-	if runErr != nil {
-		t.Fatalf("expected nil (SSH continues), got %v", runErr)
-	}
-	out := buf.String()
-	if !strings.Contains(out, "experimental") {
-		t.Fatalf("want experimental hint, got %q", out)
-	}
-	if strings.Contains(out, "AI not configured") {
-		t.Fatalf("must not show NotConfigured when experimental is disabled: %q", out)
-	}
-}
-
-// RA3: recoverable AI input errors print hint and return nil so SSH forwardStdin continues.
-func TestHandleAIMetaLine_ErrHintNoDisconnect(t *testing.T) {
-	c := testClientWithPrompt("u", "h")
-	var stdin bytes.Buffer
-	err := c.handleAIMetaLine(context.Background(), &stdin, "ask", InteractiveOpts{
-		AI: &ai.Client{},
-		OnRemoteAI: func(_ RemoteAIParams) error {
-			return ai.ChatMessageRequiredErr()
-		},
-	})
-	if err != nil {
-		t.Fatalf("expected nil (SSH continues), got %v", err)
-	}
-}
-
-// RA3: non-recoverable AI errors still propagate to caller.
-func TestHandleAIMetaLine_APIErrorPropagates(t *testing.T) {
-	c := testClientWithPrompt("u", "h")
-	var stdin bytes.Buffer
-	want := errors.New("network down")
-	err := c.handleAIMetaLine(context.Background(), &stdin, "hello", InteractiveOpts{
-		AI: &ai.Client{},
-		OnRemoteAI: func(_ RemoteAIParams) error {
-			return want
-		},
-	})
-	if !errors.Is(err, want) {
-		t.Fatalf("got %v, want %v", err, want)
 	}
 }
 

@@ -12,12 +12,13 @@ Go module path: `github.com/os-artificer/AiT`.
 Shipped tools:
 
 - `ait`: Toolbox interactive REPL; discovers plugins under `<install-dir>/plugins/`; REPL `install` / `update` / `upgrade` pull official binaries from GitHub Releases via `internal/pkg/aitrelease`.
-- `aissh`: SSH client with session persistence, optional experimental AI mode (off by default), transfer support, and shell/meta workflows.
+- `aissh`: SSH client with session persistence, transfer support, and shell/meta workflows (**no AI subtree**).
+- `ai`: Ops AI Agent plugin (experimental; local REPL, toolbox dispatch, optional `ai connect`); app package `internal/opsai`.
 - `aiimg`: Image metadata extractor (EXIF device/time/GPS + Nominatim reverse-geocoded address).
 - `ailog`: System log viewer and search (Linux/macOS/Windows) with native tools and built-in fallbacks.
 - `aihost`: Live host CPU, memory, disk, network, and process monitor (Bubble Tea dashboard).
 
-Shared capabilities (not separate binaries) live under `internal/pkg/` and are consumed by tools. AI REPL/agent UX is `internal/pkg/aimode` (engine: `internal/pkg/ai`); tools gate experimental AI via config/env/CLI before calling it.
+Shared capabilities (not separate binaries) live under `internal/pkg/` and are consumed by tools. AI REPL/agent UX is `internal/pkg/aimode` (engine: `internal/pkg/ai`); the `ai` plugin gates experimental AI via config/env/CLI before calling it.
 
 ---
 
@@ -31,6 +32,8 @@ Shared capabilities (not separate binaries) live under `internal/pkg/` and are c
 | [tools/ait-internals.md](tools/ait-internals.md) | `ait` implementation (plugin discovery) |
 | [tools/aissh.md](tools/aissh.md) | `aissh` user guide (CLI, prompts, behavior) |
 | [tools/aissh-internals.md](tools/aissh-internals.md) | `aissh` implementation (package layering, workflows, source map) |
+| [tools/ai.md](tools/ai.md) | `ai` Ops AI Agent user guide |
+| [tools/ai-internals.md](tools/ai-internals.md) | `ai` implementation (package layering) |
 | [tools/aiimg.md](tools/aiimg.md) | `aiimg` user guide |
 | [tools/aiimg-internals.md](tools/aiimg-internals.md) | `aiimg` implementation (package layering) |
 | [tools/ailog.md](tools/ailog.md) | `ailog` user guide |
@@ -53,13 +56,14 @@ Shared capabilities (not separate binaries) live under `internal/pkg/` and are c
 | -------- | ------- | ------------ | ----------------- | ---------------------------------- | ------------------------------------------------------ |
 | `ait` | Shipped | `bin/ait` | `internal/ait` | [tools/ait.md](tools/ait.md) | [tools/ait-internals.md](tools/ait-internals.md) |
 | `aissh` | Shipped | `bin/aissh` | `internal/ssh`  | [tools/aissh.md](tools/aissh.md) | [tools/aissh-internals.md](tools/aissh-internals.md) |
+| `ai` | Shipped | `bin/ai` | `internal/opsai` | [tools/ai.md](tools/ai.md) | [tools/ai-internals.md](tools/ai-internals.md) |
 | `aiimg` | Shipped | `bin/aiimg` | `internal/img` | [tools/aiimg.md](tools/aiimg.md) | [tools/aiimg-internals.md](tools/aiimg-internals.md) |
 | `ailog` | Shipped | `bin/ailog` | `internal/log` | [tools/ailog.md](tools/ailog.md) | [tools/ailog-internals.md](tools/ailog-internals.md) |
 | `aihost` | Shipped | `bin/aihost` | `internal/host` | [tools/aihost.md](tools/aihost.md) | [tools/aihost-internals.md](tools/aihost-internals.md) |
 
 
-AiT is intentionally toolbox-first: each tool gets a thin `cmd/<tool>/main.go` entry, an app layer under `internal/<tool>/`, and shared primitives in `internal/pkg/*`.  
-The toolbox currently ships `ait`, `aissh`, `aiimg`, `ailog`, and `aihost`.
+AiT is intentionally toolbox-first: each tool gets a thin `cmd/<tool>/main.go` entry, an app layer under `internal/<tool>/` (or `internal/opsai` for `ai`), and shared primitives in `internal/pkg/*`.  
+The toolbox currently ships `ait`, `aissh`, `ai`, `aiimg`, `ailog`, and `aihost`.
 
 ---
 
@@ -184,6 +188,8 @@ For a future toolbox tool `<tool>`:
 | -------- | ----- |
 | [tools/aissh.md](tools/aissh.md) | `aissh` operator-facing CLI guide |
 | [tools/aissh-internals.md](tools/aissh-internals.md) | `aissh` code layout and workflows |
+| [tools/ai.md](tools/ai.md) | `ai` Ops AI Agent operator-facing CLI guide |
+| [tools/ai-internals.md](tools/ai-internals.md) | `ai` / `opsai` code layout |
 | [tools/aiimg.md](tools/aiimg.md) | `aiimg` operator-facing CLI guide |
 | [tools/aiimg-internals.md](tools/aiimg-internals.md) | `aiimg` code layout |
 | [tools/ailog.md](tools/ailog.md) | `ailog` operator-facing CLI guide |

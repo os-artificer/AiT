@@ -52,6 +52,14 @@ var goldenAgentOpenAITools = []openAITool{
 	{
 		Type: "function",
 		Function: openAIToolFunction{
+			Name:        agent.ToolToolbox,
+			Description: "Run an AiT toolbox CLI (aihost, ailog, aissh, or aiimg) with full argv",
+			Parameters:  json.RawMessage(`{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: openAIToolFunction{
 			Name:        agent.ToolAnswer,
 			Description: "Reply to the user and finish the tool chain",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}`),

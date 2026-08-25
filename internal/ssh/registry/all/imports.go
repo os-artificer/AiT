@@ -20,7 +20,6 @@
 package all
 
 import (
-	_ "github.com/os-artificer/AiT/internal/ssh/ai"
 	_ "github.com/os-artificer/AiT/internal/ssh/config"
 	_ "github.com/os-artificer/AiT/internal/ssh/get"
 	_ "github.com/os-artificer/AiT/internal/ssh/put"

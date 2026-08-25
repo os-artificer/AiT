@@ -89,6 +89,7 @@ func TestWriteManageHelp_Install(t *testing.T) {
 }
 
 func TestExecuteLine_UpdateSkipsMissing(t *testing.T) {
+	resetPlugins(t)
 	installBuiltinPlugin(t, "aissh")
 	srv := testrelease.NewServer(t, "v0.9.0")
 	t.Cleanup(srv.Close)

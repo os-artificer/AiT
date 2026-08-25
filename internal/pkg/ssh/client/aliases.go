@@ -69,8 +69,8 @@ func remoteSetupPromptMarker(user, host string) string {
 	return prompt.RemoteSetupMarker(user, host)
 }
 
-func newMetaScanner(aiAvailable bool, echoPrefix string) *metaScanner {
-	return meta.New(aiAvailable, echoPrefix)
+func newMetaScanner(echoPrefix string) *metaScanner {
+	return meta.New(echoPrefix)
 }
 
 func startStdinReader() *stdinReader {

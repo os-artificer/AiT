@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package models declares the data row for `aissh ai model list` and the
+// Package models declares the data row for `ai model list` and the
 // receiver-free formatting helpers used to render it. The Client.ListModels
 // implementation stays in the parent ai package because it depends on the
 // unexported endpoint type and the Client facade.

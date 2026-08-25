@@ -35,7 +35,7 @@ const (
 	FormatErrorPrefix = "format_error: "
 
 	formatCorrectionIntro = "Your previous response was not valid Agent JSON. " +
-		"Reply with a single JSON object only (action answer/run_shell/aish_cli).\n\n" +
+		"Reply with a single JSON object only (action answer/run_shell/aish_cli/toolbox).\n\n" +
 		"Original question:\n"
 	formatCorrectionReplyLabel = "\n\nInvalid response (excerpt):\n"
 	formatCorrectionErrLabel   = "\n\nParse errors:\n"
@@ -48,7 +48,7 @@ const (
 )
 
 // ActionNamePattern is the alternation of Agent JSON action names for regex use.
-const ActionNamePattern = XMLInvokeRun + "|" + ToolRunShell + "|" + XMLInvokeAISsh + "|" + ToolAISshCLI + "|" + XMLInvokeAit + "|" + ToolAitCLI + "|" + ToolAnswer
+const ActionNamePattern = XMLInvokeRun + "|" + ToolRunShell + "|" + XMLInvokeAISsh + "|" + ToolAISshCLI + "|" + XMLInvokeAit + "|" + ToolAitCLI + "|" + ToolToolbox + "|" + ToolAnswer
 
 // ErrUnsupportedToolCall is returned for non-function tool_call responses.
 var ErrUnsupportedToolCall = errors.New(errUnsupportedToolCall)
