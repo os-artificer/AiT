@@ -103,7 +103,35 @@ func replaceFirstTokenUnique(runes []rune, tok firstToken, match string, cursor 
 	return out, newCursor, ""
 }
 
+var officialAIPrefixPlugins = map[string]struct{}{
+	"ai": {}, "aihost": {}, "aiimg": {}, "ailog": {}, "aissh": {},
+}
+
+func isThirdPartyAIPrefixMatch(name string) bool {
+	if !strings.HasPrefix(name, "ai") {
+		return false
+	}
+	_, ok := officialAIPrefixPlugins[name]
+	return !ok
+}
+
 func replaceFirstTokenLCPOrList(runes []rune, tok firstToken, prefix string, matches []string, cursor int) (string, int, string) {
+	for _, m := range matches {
+		if m != prefix {
+			continue
+		}
+		hasThirdParty := false
+		for _, other := range matches {
+			if other != prefix && isThirdPartyAIPrefixMatch(other) {
+				hasThirdParty = true
+				break
+			}
+		}
+		if !hasThirdParty {
+			return replaceFirstTokenUnique(runes, tok, m, cursor)
+		}
+		break
+	}
 	lcp := longestCommonPrefix(matches)
 	if len(lcp) > len(prefix) {
 		out := replaceTokenSpan(runes, tok, lcp)

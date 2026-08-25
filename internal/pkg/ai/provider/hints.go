@@ -22,7 +22,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-var hintMetaAIAsk = toolname.MetaLine("ai ask <message>")
+var hintMetaAIAsk = toolname.AICLI("ask <message>")
 
 const (
 	hintSetCloudKeysOrOllama   = "Set a cloud provider API key or enable tiered Ollama routing."
@@ -35,16 +35,16 @@ const (
 var (
 	hintSetDeepseekAPIKey = toolname.CLI("config set ai.deepseek.api_key <key>")
 	hintSetMinimaxAPIKey  = toolname.CLI("config set ai.minimax.api_key <key>")
-	hintEnableOllama      = toolname.CLI("ai provider enable ollama")
-	hintAIHelp            = toolname.CLI("ai --help")
-	hintOllamaSetup       = toolname.CLI("ai ollama setup")
-	hintAIAskWithMessage  = toolname.CLI("ai ask <message>")
-	hintAIAskStdin        = "echo ping | " + toolname.CLI("ai ask")
-	hintAIAskHelp         = toolname.CLI("ai ask --help")
+	hintEnableOllama      = toolname.AICLI("provider enable ollama")
+	hintAIHelp            = toolname.AICLI("--help")
+	hintOllamaSetup       = toolname.AICLI("ollama setup")
+	hintAIAskWithMessage  = toolname.AICLI("ask <message>")
+	hintAIAskStdin        = "echo ping | " + toolname.AICLI("ask")
+	hintAIAskHelp         = toolname.AICLI("ask --help")
 
-	// HintAIHelp is the standard aissh ai --help Try line (shared with client).
+	// HintAIHelp is the standard ai --help Try line (shared with client).
 	HintAIHelp = hintAIHelp
-	// HintOllamaSetup is the aissh ai ollama setup Try line.
+	// HintOllamaSetup is the ai ollama setup Try line.
 	HintOllamaSetup = hintOllamaSetup
 	// HintStoreAPIKeyInKeyring explains keyring storage in API key errors.
 	HintStoreAPIKeyInKeyring = hintStoreAPIKeyInKeyring
@@ -62,7 +62,7 @@ func ConfigGetAPIKeyCmd(id string) string {
 	return toolname.CLI(fmt.Sprintf("config get ai.%s.api_key", id))
 }
 
-// ProviderEnableCmd returns the aissh ai provider enable command for id.
+// ProviderEnableCmd returns the ai provider enable command for id.
 func ProviderEnableCmd(id string) string {
-	return toolname.CLI("ai provider enable " + id)
+	return toolname.AICLI("provider enable " + id)
 }

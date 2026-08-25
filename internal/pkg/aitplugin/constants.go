@@ -32,6 +32,7 @@ var reservedNames = map[string]struct{}{
 	CmdInstall: {},
 	CmdUpdate:  {},
 	CmdUpgrade: {},
+	CmdAgent:   {},
 }
 
 var manageCommandNames = map[string]struct{}{
@@ -45,6 +46,7 @@ var BuiltinBinaryNames = []struct {
 	Binary string
 	Name   string
 }{
+	{Binary: toolname.AI, Name: NameAI},
 	{Binary: toolname.AISsh, Name: NameSSH},
 	{Binary: toolname.AILog, Name: NameLog},
 	{Binary: toolname.AIImg, Name: NameImg},
@@ -70,7 +72,11 @@ const (
 	CmdUpdate = "update"
 	// CmdUpgrade updates ait and installed official plugins from GitHub Releases.
 	CmdUpgrade = "upgrade"
+	// CmdAgent is the ait reserved builtin for the v4 agent loop.
+	CmdAgent = "agent"
 
+	// NameAI is the REPL command name for ai (matches binary).
+	NameAI = "ai"
 	// NameSSH is the REPL command name for aissh (matches binary).
 	NameSSH = "aissh"
 	// NameLog is the REPL command name for ailog (matches binary).

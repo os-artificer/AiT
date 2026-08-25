@@ -69,9 +69,9 @@ func ResolveInstallAllowed(binaryMissing bool, opts Options, confirm ConfirmFunc
 	if !isTerminalIn(os.Stdin) {
 		errhint.Print(opts.Err, errhint.SurfaceTTY, errhint.WithTry(errhint.NewSentinel("non-interactive terminal"),
 			"Ollama install confirmation requires a TTY or explicit flags.",
-			toolname.CLI("ai ollama setup --yes"),
-			toolname.CLI("ai ollama setup --no-install"),
-			toolname.CLI("ai ollama setup --help"),
+			toolname.AICLI("ollama setup --yes"),
+			toolname.AICLI("ollama setup --no-install"),
+			toolname.AICLI("ollama setup --help"),
 		))
 		return false, nil
 	}

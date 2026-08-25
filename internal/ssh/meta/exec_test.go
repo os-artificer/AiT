@@ -37,8 +37,6 @@ func TestPrintMetaHelp(t *testing.T) {
 		"Examples:",
 		"help for help",
 		"help",
-		"ai [question]",
-		"remote AI mode",
 		"user@hostB",
 		"session --switch",
 		"local",
@@ -46,8 +44,14 @@ func TestPrintMetaHelp(t *testing.T) {
 		toolname.MetaLine("list"),
 		"auto-save",
 	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("help missing %q:\n%s", want, out)
+		if strings.Contains(out, want) {
+			continue
+		}
+		t.Errorf("help missing %q:\n%s", want, out)
+	}
+	for _, gone := range []string{"ai [question]", "remote AI mode", "!! [question]"} {
+		if strings.Contains(out, gone) {
+			t.Errorf("help must not mention AI meta %q:\n%s", gone, out)
 		}
 	}
 	if !strings.Contains(out, "\r\n") {
@@ -65,16 +69,22 @@ func TestExecuteHelp(t *testing.T) {
 	}
 }
 
-func TestExecuteBlockedAI(t *testing.T) {
+func TestExecute_AIMetaUnknownHint(t *testing.T) {
+	SetExecutorWriters(func(args []string, _, _ io.Writer) error {
+		return fmt.Errorf(`unknown command "%s" for "%s"`, args[0], toolname.AISsh)
+	})
 	err := Execute([]string{"ai"})
 	if err == nil {
 		t.Fatal("expected error for ai subcommand in session")
 	}
-	if !strings.Contains(err.Error(), toolname.MetaLine("ai")) {
+	if !strings.Contains(err.Error(), toolname.AI) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if !strings.Contains(err.Error(), "Try:") {
 		t.Errorf("expected Try block: %v", err)
+	}
+	if !strings.Contains(err.Error(), toolname.AICLI("")) {
+		t.Errorf("expected ai binary hint: %v", err)
 	}
 }
 

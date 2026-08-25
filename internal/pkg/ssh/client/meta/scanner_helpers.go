@@ -16,19 +16,15 @@
 
 package meta
 
-import "strings"
+import (
+	"strings"
 
-// AIPromptFromLine extracts the user prompt from a meta line that targets the
-// remote AI REPL (!! ..., !ait ai ...). Returns ("", false) for other meta lines.
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
+)
+
+// AIPromptFromLine is deprecated; AI meta lines are no longer recognized by aissh.
 func AIPromptFromLine(line string) (prompt string, isAI bool) {
-	switch {
-	case strings.HasPrefix(line, "!!"):
-		return strings.TrimSpace(strings.TrimPrefix(line, "!!")), true
-	case strings.HasPrefix(line, PrefixAitAI):
-		return strings.TrimSpace(strings.TrimPrefix(line, PrefixAitAI)), true
-	default:
-		return "", false
-	}
+	return "", false
 }
 
 // normalizeBangAitTypo maps a common typo (!!ait → !ait) to the real meta opener.
@@ -55,6 +51,10 @@ func finalizeMetaLine(candidate string) string {
 
 // prefixCandidate reports whether s is a strict prefix of any opener.
 func prefixCandidate(s string) bool {
+	// Hold "!" / "!!" until the next byte disambiguates bash history vs !!ait typo.
+	if s == "!" || s == "!!" {
+		return true
+	}
 	s = normalizeBangAitTypo(s)
 	for _, p := range prefixes {
 		if len(s) < len(p) && strings.HasPrefix(p, s) {
@@ -109,7 +109,7 @@ func completeLine(candidate string, b byte) (line string, done bool) {
 }
 
 func (s *Scanner) feedHoldingLoose(candidate string, b byte, fwd, ech []byte) (outFwd, outEch []byte, line string, hasLine, handled bool) {
-	if s.aiAvailable || !s.looseBangCapture(candidate, b) {
+	if !s.looseBangCapture(candidate, b) {
 		return fwd, ech, "", false, false
 	}
 	if line, ok := completeLine(candidate, b); ok {
@@ -121,6 +121,16 @@ func (s *Scanner) feedHoldingLoose(candidate string, b byte, fwd, ech []byte) (o
 	}
 	s.buf = append(s.buf, b)
 	s.cursor = len(s.runes())
+	// Exact "!ait" still needs space/newline; stay in holding so "!aitssh" can flush.
+	if candidate == toolname.MetaPrefix {
+		if s.shouldDeferHoldingEcho(b) {
+			return fwd, ech, "", false, true
+		}
+		if s.localShellActive {
+			return fwd, s.holdingAppendEcho(ech, b), "", false, true
+		}
+		return fwd, s.noteHoldingRedraw(ech), "", false, true
+	}
 	if s.shouldDeferHoldingEcho(b) {
 		return fwd, ech, "", false, true
 	}

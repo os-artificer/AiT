@@ -25,8 +25,9 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/aitplugin"
 )
 
-func testNamesFourPlugins() []string {
+func testNamesOfficialPlugins() []string {
 	return []string{
+		aitplugin.NameAI,
 		aitplugin.NameHost,
 		aitplugin.NameImg,
 		aitplugin.NameLog,
@@ -42,7 +43,7 @@ func testNamesFourPlugins() []string {
 
 func TestCompleteFirstToken_UniquePlugin(t *testing.T) {
 	// AT30a
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "ais", 3)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "ais", 3)
 	if display != "" {
 		t.Fatalf("display = %q, want empty", display)
 	}
@@ -51,21 +52,31 @@ func TestCompleteFirstToken_UniquePlugin(t *testing.T) {
 	}
 }
 
-func TestCompleteFirstToken_AIPrefixListsFour(t *testing.T) {
-	// AT30b
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "ai", 2)
-	if line != "ai" || cur != 2 {
-		t.Fatalf("line should be unchanged, got %q cur=%d", line, cur)
+func TestCompleteFirstToken_AIPrefixUnique(t *testing.T) {
+	// OA10 / AT30b: ai plugin name completes uniquely
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "ai", 2)
+	if display != "" {
+		t.Fatalf("display = %q, want empty", display)
 	}
-	want := "aihost\naiimg\nailog\naissh"
-	if display != want {
-		t.Fatalf("display = %q, want %q", display, want)
+	if line != "ai " || cur != 3 {
+		t.Fatalf("line should be ai + space, got %q cur=%d", line, cur)
+	}
+}
+
+func TestCompleteFirstToken_AihToAIHost(t *testing.T) {
+	// OA10: aih → aihost
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "aih", 3)
+	if display != "" {
+		t.Fatalf("display = %q", display)
+	}
+	if line != "aihost " || cur != 7 {
+		t.Fatalf("got line=%q cur=%d, want aihost /7", line, cur)
 	}
 }
 
 func TestCompleteFirstToken_SecondTokenNoop(t *testing.T) {
 	// AT30d
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "aissh ", 6)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "aissh ", 6)
 	if line != "aissh " || cur != 6 || display != "" {
 		t.Fatalf("want noop, got line=%q cur=%d display=%q", line, cur, display)
 	}
@@ -73,7 +84,7 @@ func TestCompleteFirstToken_SecondTokenNoop(t *testing.T) {
 
 func TestCompleteFirstToken_UniqueHelp(t *testing.T) {
 	// AT30e
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "he", 2)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "he", 2)
 	if display != "" {
 		t.Fatalf("display = %q", display)
 	}
@@ -84,7 +95,7 @@ func TestCompleteFirstToken_UniqueHelp(t *testing.T) {
 
 func TestCompleteFirstToken_HListsHelpHistory(t *testing.T) {
 	// AT30f
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "h", 1)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "h", 1)
 	if line != "h" || cur != 1 {
 		t.Fatalf("line unchanged want, got %q cur=%d", line, cur)
 	}
@@ -95,7 +106,7 @@ func TestCompleteFirstToken_HListsHelpHistory(t *testing.T) {
 }
 
 func TestCompleteFirstToken_LeadingSpacesPreserved(t *testing.T) {
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "  ais", 5)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "  ais", 5)
 	if display != "" {
 		t.Fatalf("display = %q", display)
 	}
@@ -108,7 +119,7 @@ func TestCompleteFirstToken_LeadingSpacesPreserved(t *testing.T) {
 }
 
 func TestCompleteFirstToken_MidTokenWithArgs(t *testing.T) {
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "ais foo", 3)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "ais foo", 3)
 	if display != "" {
 		t.Fatalf("display = %q", display)
 	}
@@ -121,21 +132,21 @@ func TestCompleteFirstToken_MidTokenWithArgs(t *testing.T) {
 }
 
 func TestCompleteFirstToken_QuotedNoop(t *testing.T) {
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), `"ai`, 3)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), `"ai`, 3)
 	if line != `"ai` || cur != 3 || display != "" {
 		t.Fatalf("want noop, got line=%q cur=%d display=%q", line, cur, display)
 	}
 }
 
 func TestCompleteFirstToken_ZeroMatches(t *testing.T) {
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "xyz", 3)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "xyz", 3)
 	if line != "xyz" || cur != 3 || display != "" {
 		t.Fatalf("want noop, got line=%q cur=%d display=%q", line, cur, display)
 	}
 }
 
 func TestCompleteFirstToken_EmptyListsAll(t *testing.T) {
-	_, _, display := completeFirstToken(testNamesFourPlugins(), "", 0)
+	_, _, display := completeFirstToken(testNamesOfficialPlugins(), "", 0)
 	if display == "" {
 		t.Fatal("empty line should list candidates")
 	}
@@ -145,7 +156,7 @@ func TestCompleteFirstToken_EmptyListsAll(t *testing.T) {
 }
 
 func TestCompleteFirstToken_InjectedThirdName(t *testing.T) {
-	names := append(testNamesFourPlugins(), "aixtra")
+	names := append(testNamesOfficialPlugins(), "aixtra")
 	_, _, display := completeFirstToken(names, "ai", 2)
 	if !strings.Contains(display, "aixtra") {
 		t.Fatalf("expected injected name in display: %q", display)
@@ -154,7 +165,7 @@ func TestCompleteFirstToken_InjectedThirdName(t *testing.T) {
 
 func TestCompleteFirstToken_MidCursorPrefix(t *testing.T) {
 	// ais|sh — prefix before cursor is "ais" → unique aissh
-	line, cur, display := completeFirstToken(testNamesFourPlugins(), "aissh", 3)
+	line, cur, display := completeFirstToken(testNamesOfficialPlugins(), "aissh", 3)
 	if display != "" {
 		t.Fatalf("display = %q", display)
 	}
@@ -194,8 +205,8 @@ func TestCompleteREPLLine_EmptyPluginsStillReserved(t *testing.T) {
 
 func TestReservedCommandNames_Sorted(t *testing.T) {
 	names := aitplugin.ReservedCommandNames()
-	if len(names) != 9 {
-		t.Fatalf("len = %d, want 9", len(names))
+	if len(names) != 10 {
+		t.Fatalf("len = %d, want 10", len(names))
 	}
 	for i := 1; i < len(names); i++ {
 		if names[i-1] >= names[i] {

@@ -19,7 +19,6 @@ package session
 import (
 	"time"
 
-	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 	"github.com/os-artificer/AiT/internal/pkg/store"
@@ -52,10 +51,8 @@ type LoginOpts struct {
 
 // Manager orchestrates session lifecycle.
 type Manager struct {
-	Store      *store.Store
-	Config     *config.Config
-	AI         *ai.Client
-	OnRemoteAI sshclient.RemoteAIRunner
+	Store  *store.Store
+	Config *config.Config
 	// MetaCLI runs aissh subcommands from in-session !ait lines (set by internal/ssh).
 	MetaCLI func(args []string) error
 }

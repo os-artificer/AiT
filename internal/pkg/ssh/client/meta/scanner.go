@@ -60,7 +60,6 @@ type Scanner struct {
 	buf              []byte
 	cursor           int
 	atLineStart      bool
-	aiAvailable      bool
 	escState         escParseState
 	escParams        []byte
 	echoPrefix       string
@@ -70,11 +69,9 @@ type Scanner struct {
 }
 
 // New returns a Scanner configured for meta-line detection.
-// aiAvailable selects strict prefix matching; when false, loose capture prevents
-// bash !! history expansion from leaking to the remote shell.
 // echoPrefix is prepended on carriage-return line redraws (remote/local prompt).
-func New(aiAvailable bool, echoPrefix string) *Scanner {
-	return &Scanner{atLineStart: true, aiAvailable: aiAvailable, echoPrefix: echoPrefix}
+func New(echoPrefix string) *Scanner {
+	return &Scanner{atLineStart: true, echoPrefix: echoPrefix}
 }
 
 // Feed consumes one input byte for meta-line detection (!ait, !!).
@@ -180,17 +177,15 @@ func (s *Scanner) feedOne(b byte, fwd, ech []byte) ([]byte, []byte, string, bool
 	}
 }
 
-// looseBangCapture is fail-closed mode when AI is unavailable: capture !! or !ait lines.
+// looseBangCapture captures !ait meta lines (space/newline after prefix) while
+// forwarding !! and non-meta !words (e.g. !aitssh) to the remote shell.
 func (s *Scanner) looseBangCapture(candidate string, b byte) bool {
-	if s.aiAvailable {
-		return false
-	}
-
-	if strings.HasPrefix(candidate, "!!") {
+	if candidate == toolname.MetaPrefix {
 		return true
 	}
-
-	return strings.HasPrefix(candidate, toolname.MetaPrefix)
+	return strings.HasPrefix(candidate, toolname.MetaPrefix+" ") ||
+		strings.HasPrefix(candidate, toolname.MetaPrefix+"\n") ||
+		strings.HasPrefix(candidate, toolname.MetaPrefix+"\r")
 }
 
 func (s *Scanner) noteForwarded(b byte) {

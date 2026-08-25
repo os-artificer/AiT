@@ -21,8 +21,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
+	"github.com/os-artificer/AiT/internal/ait/agent"
 	"github.com/os-artificer/AiT/internal/ait/version"
+	"github.com/os-artificer/AiT/internal/pkg/aitplugin"
+	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
@@ -39,7 +43,10 @@ func Execute(args []string) error {
 // the ait build string; any other argv returns an interactive-only errhint.
 // stderr is reserved for API parity with other tools (REPL errors use errOut inside RunREPL).
 func ExecuteWriters(args []string, stdout, stderr io.Writer) error {
-	_ = stderr
+	args, saw := config.StripAIExperimentalFlag(args)
+	if saw {
+		config.SetAIExperimentalCLI(true)
+	}
 
 	if len(args) == 0 {
 		return RunREPL(context.Background(), os.Stdin, stdout, stderr)
@@ -52,6 +59,23 @@ func ExecuteWriters(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 1 && (args[0] == argVersionShort || args[0] == argVersionLong || args[0] == cmdVersion) {
 		_, err := fmt.Fprintln(stdout, version.Version())
 		return err
+	}
+
+	if args[0] == aitplugin.CmdAgent {
+		plain := false
+		rest := args[1:]
+		if len(rest) > 0 && rest[0] == "--plain" {
+			plain = true
+			rest = rest[1:]
+		}
+		goal := strings.Join(rest, " ")
+		return agent.RunLoop(context.Background(), agent.Options{
+			Nested: false,
+			Plain:  plain,
+			Goal:   goal,
+			Out:    stdout,
+			ErrOut: stderr,
+		})
 	}
 
 	return errhint.WithTryMsg(

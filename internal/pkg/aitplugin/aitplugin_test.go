@@ -350,9 +350,9 @@ func TestDiscover_OnceCached(t *testing.T) {
 
 	_ = aitplugin.Discover(context.Background())
 	_ = aitplugin.Discover(context.Background())
-	if calls != 4 {
-		// four builtins looked up once
-		t.Fatalf("LookPath calls = %d, want 4", calls)
+	if calls != 5 {
+		// five builtins looked up once
+		t.Fatalf("LookPath calls = %d, want 5", calls)
 	}
 }
 

@@ -19,7 +19,9 @@ package meta
 import (
 	"fmt"
 
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
@@ -34,5 +36,20 @@ func metaBlockedErr(subcmd, detail string) error {
 func metaExecutorNotConfiguredErr() error {
 	return errhint.WithTryMsg("meta executor not configured",
 		"Internal wiring error; restart "+toolname.AISsh+".",
+	)
+}
+
+func wrapMetaAIUnknown(args []string, err error) error {
+	if err == nil || len(args) == 0 || args[0] != toolname.AI {
+		return err
+	}
+	if !pkghelpdoc.IsUnknownCommand(err) {
+		return err
+	}
+	return errhint.WithTry(err,
+		"AI is provided by the ai plugin, not aissh.",
+		clihints.TryAIBinary,
+		clihints.TryAIExperimentalConfig,
+		clihints.TryAIExperimentalEnv,
 	)
 }

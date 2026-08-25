@@ -25,8 +25,8 @@ import (
 
 func TestLongHintChatOnce_PrefixFromToolname(t *testing.T) {
 	got := LongHintChatOnce("ai ask")
-	if !strings.Contains(got, toolname.CLI("ai ask")) {
-		t.Fatalf("LongHintChatOnce: got %q, want %q embedded", got, toolname.CLI("ai ask"))
+	if !strings.Contains(got, toolname.AICLI("ask")) {
+		t.Fatalf("LongHintChatOnce: got %q, want %q embedded", got, toolname.AICLI("ask"))
 	}
 	if !strings.Contains(got, "stdin until EOF") {
 		t.Fatalf("LongHintChatOnce missing stdin note: %q", got)

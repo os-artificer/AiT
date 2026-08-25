@@ -40,14 +40,10 @@ const (
 // prefixes is the exhaustive set of strict meta openers. The scanner
 // only commits to meta mode once a candidate buffer matches one exactly.
 var prefixes = []string{
-	toolname.MetaPrefix + " ai ",
-	toolname.MetaPrefix + " ai\n",
 	toolname.MetaPrefix + " local ",
 	toolname.MetaPrefix + " local\n",
 	toolname.MetaPrefix + " remote\n",
 	toolname.MetaPrefix + " chain ",
 	toolname.MetaPrefix + " chain\n",
 	PrefixAitSpace,
-	"!! ",
-	"!!\n",
 }

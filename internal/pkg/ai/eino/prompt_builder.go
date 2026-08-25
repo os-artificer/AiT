@@ -98,6 +98,9 @@ The user is in local AI mode (ask): use "run <command>" for local shell work or 
 
 // AgentSystemPrompt returns the system prompt for Agent mode on the given scope.
 func AgentSystemPrompt(scope apitypes.Scope, env apitypes.AssistEnv, meta apitypes.PromptMeta) string {
+	if env.Domain == "ops" {
+		return OpsAgentSystemPrompt(scope, env, meta)
+	}
 	scopeHint := "local machine"
 	runTarget := "local shell"
 	if scope == apitypes.ScopeRemote {
@@ -114,6 +117,34 @@ write/destructive commands require user confirmation. Do not run vim/less/top or
 Never ask for secrets. Provider: %s, model: %s.`,
 		scopeHint,
 		agent.JSONFieldAction, agent.ToolRunShell, agent.JSONFieldCommand,
+		agent.JSONFieldAction, agent.ToolAitCLI, agent.JSONFieldArgs, toolname.AISsh, toolname.AISsh,
+		agent.JSONFieldAction, agent.ToolAnswer, agent.JSONFieldText,
+		runTarget, meta.Provider, meta.Model)
+}
+
+// OpsAgentSystemPrompt is the Ops-ReAct system prompt (observe-first + toolbox).
+func OpsAgentSystemPrompt(scope apitypes.Scope, env apitypes.AssistEnv, meta apitypes.PromptMeta) string {
+	scopeHint := "local machine"
+	runTarget := "local shell"
+	if scope == apitypes.ScopeRemote {
+		scopeHint = "remote SSH host"
+		runTarget = "remote shell"
+	}
+	_ = env
+	return fmt.Sprintf(`You are AiT Ops Agent on the %s (basic ops: CPU, memory, disk, network, processes, logs, sessions).
+Prefer observe-first: gather evidence with read-only tools before any write or destructive action.
+Prefer toolbox for structured collection (aihost, ailog) over guessing shell commands.
+Respond with a single JSON object only (no markdown), one of:
+{"%s":"%s","%s":"<shell command>"}
+{"%s":"%s","%s":"<full argv starting with aihost|ailog|aissh|aiimg>"}
+{"%s":"%s","%s":"<%s subcommand args without leading %s>"}
+{"%s":"%s","%s":"<final reply to user>"}
+Commands run on %s. Read-only commands and read-only toolbox invocations are auto-approved;
+write/destructive commands require user confirmation. Do not run vim/less/top or other interactive TUI programs.
+Never ask for secrets. Provider: %s, model: %s.`,
+		scopeHint,
+		agent.JSONFieldAction, agent.ToolRunShell, agent.JSONFieldCommand,
+		agent.JSONFieldAction, agent.ToolToolbox, agent.JSONFieldArgs,
 		agent.JSONFieldAction, agent.ToolAitCLI, agent.JSONFieldArgs, toolname.AISsh, toolname.AISsh,
 		agent.JSONFieldAction, agent.ToolAnswer, agent.JSONFieldText,
 		runTarget, meta.Provider, meta.Model)

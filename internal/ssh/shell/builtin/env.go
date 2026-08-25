@@ -17,7 +17,6 @@
 package builtin
 
 import (
-	"context"
 	"io"
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
@@ -26,12 +25,11 @@ import (
 
 // Env holds REPL I/O and callbacks for built-in command handlers.
 type Env struct {
-	Out          io.Writer
-	In           io.Reader
-	Mgr          *session.Manager
-	Hist         *terminal.LineHistory
-	Line         string
-	ParseLine    func(string) ([]string, error)
-	AIModeRunner func(context.Context, *session.Manager) error
-	PrintHelp    func(hasActiveSession bool)
+	Out       io.Writer
+	In        io.Reader
+	Mgr       *session.Manager
+	Hist      *terminal.LineHistory
+	Line      string
+	ParseLine func(string) ([]string, error)
+	PrintHelp func(hasActiveSession bool)
 }

@@ -38,6 +38,7 @@ var removedTopLevelWords = map[string]struct{}{
 	"suspend": {},
 	"models":  {},
 	"login":   {},
+	"ai":      {},
 }
 
 var reservedSubcommands map[string]struct{}

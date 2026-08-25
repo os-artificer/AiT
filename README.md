@@ -5,7 +5,8 @@
 **Tools:**
 
 - [`ait`](cmd/ait) — toolbox interactive REPL (discovers plugins under `bin/plugins/`). Guide: [ait](docs/tools/ait.md).
-- [`aissh`](cmd/aissh) — AI-enhanced SSH client (sessions, in-terminal AI, file transfer). Guide: [aissh](docs/tools/aissh.md).
+- [`aissh`](cmd/aissh) — SSH client (sessions, file transfer, shell/meta). Guide: [aissh](docs/tools/aissh.md).
+- [`ai`](cmd/ai) — Ops AI Agent (experimental; local REPL, toolbox tools, optional `ai connect`). Guide: [ai](docs/tools/ai.md).
 - [`aiimg`](cmd/aiimg) — image metadata extractor (EXIF, GPS, reverse-geocoded address). Guide: [aiimg](docs/tools/aiimg.md).
 - [`ailog`](cmd/ailog) — system log viewer and search (Linux/macOS/Windows). Guide: [ailog](docs/tools/ailog.md).
 - [`aihost`](cmd/aihost) — live host CPU/mem/disk/net/process monitor. Guide: [aihost](docs/tools/aihost.md).
@@ -16,10 +17,10 @@
 - Session bookmarks: `--alias`, `session --load`, `session --switch`
 - In-session `!ait` meta commands (suspend, chain hop, transfer)
 - Default AiT-managed remote prompt (`AiT user@host:…>`); set `AIT_REMOTE_SYSTEM_PROMPT=1` for the native shell prompt
-- Experimental AI (`!!` / `!ait ai` / `aissh ai`) — **off by default**; enable with `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `--ai-experimental`
+- Experimental Ops AI Agent (`ai`) — **off by default**; enable with `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `ai --ai-experimental` (see [ai](docs/tools/ai.md)); `aissh` has no AI subtree
 - `!ait get` / `!ait put` on the live SSH session, standalone `aissh get` / `put` via SFTP
 - Optional `--tmux` to keep remote shells alive after disconnect
-- Local `aissh shell` REPL (and optional AI REPL) with history and UTF-8 line editing
+- Local `aissh shell` REPL with history and UTF-8 line editing
 
 ## Examples
 
@@ -32,12 +33,11 @@ aissh session --load prod
 # 2) Jump host in one command (same as ssh -J; Host aliases resolve via ssh -G)
 aissh -J bastion app.internal
 
-# 3) Enable experimental AI once, then use it locally or inside SSH
+# 3) Enable experimental Ops AI Agent, then use local or remote scope via `ai`
 aissh config init
 aissh config set ai.experimental.enabled true
-# Inside an SSH session:
-!!
-# Ask in natural language; read-only commands run automatically; writes need confirmation
+ai                          # local Agent REPL
+ai connect user@host        # remote Agent on an SSH host (not !! / !ait ai)
 
 # 4) Transfer over the current session (single-arg defaults to ./basename)
 !ait get ./build/app-linux-amd64
@@ -48,7 +48,7 @@ aissh devhost --tmux
 # Later: aissh session --load devhost --tmux
 
 # 6) One-shot local AI (non-interactive; requires experimental AI enabled)
-aissh ai ask "summarize this log pattern: connection reset"
+ai ask "summarize this log pattern: connection reset"
 ```
 
 ## Installation
@@ -64,7 +64,7 @@ ait --help
 
 Ensure `$(go env GOPATH)/bin` is on your PATH.
 
-### Install official plugins (`aissh`, `aiimg`, `ailog`, `aihost`)
+### Install official plugins (`aissh`, `ai`, `aiimg`, `ailog`, `aihost`)
 
 After a [GitHub Release](https://github.com/os-artificer/AiT/releases) is available, use the **ait** REPL (no separate `go install` for plugins):
 
@@ -73,8 +73,8 @@ ait
 ```
 
 ```text
-ait> install              # all four official plugins
-ait> install aissh        # one or more by name
+ait> install              # all official plugins
+ait> install aissh ai     # one or more by name
 ait> update               # update installed plugins
 ait> upgrade              # update ait + installed plugins
 ait> help install
@@ -91,7 +91,7 @@ make build
 ./bin/ait --help
 ```
 
-For local development, `make build` also produces `bin/aissh`, `bin/aiimg`, `bin/ailog`, and `bin/aihost`. To install plugins into `bin/` without a Release, run `make install` or use `ait> install` once a Release exists. See [CONTRIBUTING.md](CONTRIBUTING.md).
+For local development, `make build` also produces `bin/aissh`, `bin/ai`, `bin/aiimg`, `bin/ailog`, and `bin/aihost`. To install plugins into `bin/` without a Release, run `make install` or use `ait> install` once a Release exists. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
@@ -100,6 +100,8 @@ For local development, `make build` also produces `bin/aissh`, `bin/aiimg`, `bin
 | Project structure | [docs/architecture.md](docs/architecture.md) |
 | aissh internals | [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md) |
 | aissh guide | [docs/tools/aissh.md](docs/tools/aissh.md) |
+| ai internals | [docs/tools/ai-internals.md](docs/tools/ai-internals.md) |
+| ai guide | [docs/tools/ai.md](docs/tools/ai.md) |
 | aiimg internals | [docs/tools/aiimg-internals.md](docs/tools/aiimg-internals.md) |
 | aiimg guide | [docs/tools/aiimg.md](docs/tools/aiimg.md) |
 | ailog internals | [docs/tools/ailog-internals.md](docs/tools/ailog-internals.md) |

@@ -60,32 +60,37 @@ func AssetFileName(tag, goos, goarch string) string {
 
 // WriteBundleTree writes a minimal flat-root release bundle into dir.
 func WriteBundleTree(dir, aisshBody, ailogBody string) error {
-	for _, pair := range []struct {
-		tool string
-		body string
-	}{
-		{"aissh", aisshBody},
-		{"ailog", ailogBody},
-	} {
-		if err := os.WriteFile(filepath.Join(dir, pair.tool), []byte(pair.body), 0o755); err != nil {
-			return err
-		}
-		plug := filepath.Join(dir, "plugins", pair.tool)
-		if err := os.MkdirAll(plug, 0o755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(plug, pair.tool), []byte(pair.body), 0o755); err != nil {
-			return err
-		}
-		data, err := aitplugin.BuiltinJSON(pair.tool)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(plug, "plugin.json"), data, 0o644); err != nil {
+	bodies := map[string]string{
+		"ai":     "ai-bin",
+		"aissh":  aisshBody,
+		"ailog":  ailogBody,
+		"aiimg":  "aiimg-bin",
+		"aihost": "aihost-bin",
+	}
+	for tool, body := range bodies {
+		if err := writeBundleTool(dir, tool, body); err != nil {
 			return err
 		}
 	}
 	return os.WriteFile(filepath.Join(dir, toolname.AIT), []byte("ait-bin"), 0o755)
+}
+
+func writeBundleTool(dir, tool, body string) error {
+	if err := os.WriteFile(filepath.Join(dir, tool), []byte(body), 0o755); err != nil {
+		return err
+	}
+	plug := filepath.Join(dir, "plugins", tool)
+	if err := os.MkdirAll(plug, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(plug, tool), []byte(body), 0o755); err != nil {
+		return err
+	}
+	data, err := aitplugin.BuiltinJSON(tool)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(plug, "plugin.json"), data, 0o644)
 }
 
 // PackTarGzDir creates a tar.gz archive from a flat directory tree.

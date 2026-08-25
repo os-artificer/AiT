@@ -22,36 +22,35 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-// AI help strings — single source for aissh ai, ask, agent, ollama, and in-REPL help.
+// AI help strings — single source for ai plugin, ask, agent, ollama, and in-REPL help.
 var (
-	ExampleAIProviderEnableDeepseek  = toolname.CLI("ai provider enable deepseek")
-	ExampleAIProviderEnableOllamaYes = toolname.CLI("ai provider enable ollama --yes")
-	ExampleAIProviderDisableMinimax  = toolname.CLI("ai provider disable minimax")
-	ExampleAIOllamaStatus            = toolname.CLI("ai ollama status")
-	ExampleAIOllamaSetupYes          = toolname.CLI("ai ollama setup --yes")
-	ExampleAIOllamaStartWait         = toolname.CLI("ai ollama start --wait")
-	ExampleAIOllamaDisableStop       = toolname.CLI("ai ollama disable --stop")
+	ExampleAIProviderEnableDeepseek  = toolname.AICLI("provider enable deepseek")
+	ExampleAIProviderEnableOllamaYes = toolname.AICLI("provider enable ollama --yes")
+	ExampleAIProviderDisableMinimax  = toolname.AICLI("provider disable minimax")
+	ExampleAIOllamaStatus            = toolname.AICLI("ollama status")
+	ExampleAIOllamaSetupYes          = toolname.AICLI("ollama setup --yes")
+	ExampleAIOllamaStartWait         = toolname.AICLI("ollama start --wait")
+	ExampleAIOllamaDisableStop       = toolname.AICLI("ollama disable --stop")
 
-	ExampleAIAskSSH    = toolname.MetaLine("ai ask how do I find large files")
-	ExampleAIAgentSSH  = toolname.MetaLine("ai agent how do I find large files")
-	ExampleMetaSuspend = toolname.MetaLine("suspend")
-	ExampleMetaLocal   = toolname.MetaLine("local")
+	ExampleAIAskLocal   = toolname.AICLI(`ask "how do I find large files"`)
+	ExampleAIAgentLocal = toolname.AICLI(`agent "check disk usage"`)
+	ExampleMetaSuspend  = toolname.MetaLine("suspend")
+	ExampleMetaLocal    = toolname.MetaLine("local")
 
 	AIHelpFlagsBody     = "  --model   Override AI provider for this session (uses provider model/base_url from config)\n"
-	AIChatHelpFlagsBody = "  --model   Override cloud provider (deepseek|minimax); inherited from " + toolname.CLI("ai") + "\n"
+	AIChatHelpFlagsBody = "  --model   Override cloud provider (deepseek|minimax); inherited from " + toolname.AICLI("") + "\n"
 
 	AIHelpTieredRoutingBody = "When ai.tiered.enabled in config.yaml, short first-turn prompts use local Ollama; " +
-		"longer or complex prompts use cloud providers. Setup: " + toolname.CLI("ai ollama setup") +
-		". List: " + toolname.CLI("ai model list") + "\n"
-	AIHelpInSSHBody = "Experimental (off by default). Use " + toolname.MetaLine("ai") + " or !! for interactive AI; " +
-		toolname.MetaLine("ai ask <msg>") + " or !! ask <msg> for one-shot; " +
-		toolname.MetaLine("ai agent") + " for interactive Agent REPL, or " +
-		toolname.MetaLine("ai agent <msg>") + " / !! agent <msg> for one-shot agent. " +
-		toolname.MetaLine("ai") + " as a meta subcommand is blocked. " +
-		"Enable with --ai-experimental, AIT_AI_EXPERIMENTAL=1, or ai.experimental.enabled."
+		"longer or complex prompts use cloud providers. Setup: " + toolname.AICLI("ollama setup") +
+		". List: " + toolname.AICLI("model list") + "\n"
+	AIHelpInSSHBody = "AI is provided by the " + toolname.AI + " plugin (experimental, off by default). " +
+		"From the toolbox REPL: " + toolname.AI + ". " +
+		"Remote Agent: " + toolname.AICLI("connect user@host") + ". " +
+		"In SSH sessions, !! and !ait ai are not available. " +
+		"Enable with --ai-experimental on ai, AIT_AI_EXPERIMENTAL=1, or ai.experimental.enabled."
 
-	AIIntroLocal = "Interactive AI mode on this machine (outside SSH; experimental, off by default). " +
-		"Commands run locally only after you confirm."
+	AIIntroLocal = "Interactive Ops AI Agent on this machine (experimental, off by default). " +
+		"Commands run locally after confirmation; toolbox plugins (aihost, ailog) are preferred for observe-first ops."
 	AIIntroRemote = "Interactive AI mode for the active SSH session (experimental, off by default). " +
 		"Shell commands run on the remote host via run after you confirm."
 
@@ -63,7 +62,7 @@ var (
   approve each|session   how often to confirm runs (default: each)
   trust             same as approve session
   model             show current AI routing (provider, tiered)
-  model list        list configured providers (same as ` + toolname.CLI("ai model list") + `)
+  model list        list configured providers (same as ` + toolname.AICLI("model list") + `)
   model <provider>  set cloud provider for this session (deepseek|minimax)
   run <command>     run a shell command after confirmation
   (deprecated: policy per-cmd|once — use approve each|session)

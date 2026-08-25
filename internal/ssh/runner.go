@@ -20,20 +20,17 @@ import (
 	"context"
 
 	"github.com/os-artificer/AiT/internal/pkg/session"
-	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
 )
 
 // Runner opens a Manager, runs fn with a signal-cancellable context, and closes the store.
-// metaCLI handles in-session !ait dispatch; onRemoteAI launches the AI REPL over SSH.
 type Runner struct {
-	MetaCLI    func([]string) error
-	OnRemoteAI sshclient.RemoteAIRunner
+	MetaCLI func([]string) error
 }
 
 // Run opens a Manager, executes fn with a signal-cancellable context, and closes the store.
 // Returns any error from NewManager or fn.
 func (r Runner) Run(fn func(ctx context.Context, mgr *session.Manager) error) error {
-	mgr, err := NewManager(r.MetaCLI, r.OnRemoteAI)
+	mgr, err := NewManager(r.MetaCLI)
 	if err != nil {
 		return err
 	}

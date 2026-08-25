@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/os-artificer/AiT/internal/ait/version"
 	"github.com/os-artificer/AiT/internal/pkg/aitplugin"
@@ -72,6 +73,11 @@ func ExecuteLine(ctx context.Context, line string, hist *terminal.LineHistory, o
 
 	if fn, ok := manageHandlers[words[0]]; ok {
 		return false, fn(ctx, words, out, errOut)
+	}
+
+	if words[0] == aitplugin.CmdAgent {
+		goal := strings.Join(words[1:], " ")
+		return false, runNestedAgent(ctx, goal, out, errOut)
 	}
 
 	p, ok := aitplugin.Lookup(words[0])

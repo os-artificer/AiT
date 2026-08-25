@@ -18,18 +18,14 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/os-artificer/AiT/internal/pkg/ai"
-	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pathsafe"
-	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 
 	xterm "golang.org/x/term"
@@ -116,10 +112,6 @@ func aitModeNotice(lines ...string) {
 	_, _ = os.Stderr.WriteString(b.String())
 }
 
-func aiPromptFromMetaLine(line string) (prompt string, isAI bool) {
-	return meta.AIPromptFromLine(line)
-}
-
 func (c *Client) processForwardStdinByte(
 	ctx context.Context,
 	stdin io.Writer,
@@ -174,81 +166,6 @@ func (c *Client) processForwardStdinByte(
 	}
 	c.noteInteractiveInput(fwd)
 	return forwardStdinResult{action: fwdStdinContinue}
-}
-
-func (c *Client) handleAIMetaLine(ctx context.Context, stdin io.Writer, initialQuestion string, opts InteractiveOpts) error {
-	// When AI is nil but OnRemoteAI is set (experimental-disabled stub, or runner that
-	// reports not-configured), call the runner first so the correct hint is shown.
-	if opts.AI == nil {
-		if opts.OnRemoteAI == nil {
-			errhint.Print(os.Stderr, errhint.SurfaceTTY, ai.NotConfiguredErr())
-			c.finishMetaInteraction(stdin)
-			return nil
-		}
-		err := opts.OnRemoteAI(RemoteAIParams{
-			Ctx:             ctx,
-			Stdin:           stdin,
-			InitialQuestion: initialQuestion,
-			AI:              nil,
-			HostLabel:       c.opts.User + "@" + c.opts.Host,
-			RemoteCwd:       c.remoteCwd,
-			Scrollback:      func() string { return c.scroll.RecentLines(50) },
-			MaxSteps:        opts.AgentMaxSteps,
-		})
-		c.finishMetaInteraction(stdin)
-		return swallowAIMetaREPLRecoverable(err)
-	}
-
-	c.pauseRemoteOut.Store(true)
-	defer c.pauseRemoteOut.Store(false)
-
-	c.finishMetaInteraction(stdin)
-
-	if opts.OnRemoteAI == nil {
-		termPrintln(os.Stderr, "AiT: remote AI mode not available")
-		return nil
-	}
-
-	var replIn io.Reader
-	if c.stdinReader != nil {
-		replIn = c.stdinReader.BeginREPL()
-		defer c.stdinReader.EndREPL()
-	}
-
-	err := opts.OnRemoteAI(RemoteAIParams{
-		Ctx:             ctx,
-		Stdin:           stdin,
-		InitialQuestion: initialQuestion,
-		AI:              opts.AI,
-		HostLabel:       c.opts.User + "@" + c.opts.Host,
-		RemoteCwd:       c.remoteCwd,
-		Scrollback:      func() string { return c.scroll.RecentLines(50) },
-		ReplIn:          replIn,
-		RunCapture: func(cmd string) (string, error) {
-			return c.RunPTYCapture(stdin, cmd)
-		},
-		MaxSteps: opts.AgentMaxSteps,
-	})
-
-	c.finishMetaInteraction(stdin)
-	return swallowAIMetaREPLRecoverable(err)
-}
-
-// swallowAIMetaREPLRecoverable prints user-recoverable AI REPL errors and returns
-// nil so SSH forwardStdin continues. API/terminal failures still propagate.
-func swallowAIMetaREPLRecoverable(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, ai.ErrChatMessageRequired) ||
-		errors.Is(err, ai.ErrNotConfigured) ||
-		errors.Is(err, config.ErrAIExperimentalDisabled) ||
-		errors.Is(err, context.Canceled) ||
-		errors.Is(err, context.DeadlineExceeded) {
-		errhint.Print(os.Stderr, errhint.SurfaceTTY, err)
-		return nil
-	}
-	return err
 }
 
 func (c *Client) handleSuspendMeta(stdin io.Writer, opts InteractiveOpts) error {

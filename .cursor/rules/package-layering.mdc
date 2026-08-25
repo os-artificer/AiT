@@ -25,11 +25,11 @@ One package per top-level command owns: `Name`, `flags.go`, `parse.go`, `cmd.go`
 - Root: `registry.AttachRoot` in `internal/ssh/cli_root.go`; root help via `registry.RootHelpEntries()` / `pkg/helpdoc.WriteRootHelp`（[`registry/root_help.go`](internal/ssh/registry/root_help.go)）。
 - **Do not** hand-edit `AddCommand` lists for new top-level or nested commands.
 - New top-level: `internal/ssh/<cmd>/` + `_ "…/registry/all/imports.go"`.
-- Nested (`aissh ai`, `aissh config`, `provider`, `ollama`): parent `<parent>/subregistry` + child `register.go` + `<parent>/registry/all/imports.go`.
+- Nested (`aissh config`, …): parent `<parent>/subregistry` + child `register.go` + `<parent>/registry/all/imports.go`. Ops AI nested commands live under **`internal/opsai`** (not `aissh`).
 
 ## Package name = command name
 
-**Exception:** `internal/ssh/` root is package **`aissh`** (directory `ssh`, binary `aissh`). Otherwise directory/package = Cobra name (`shell`, `session`, `ai/ask`, `config/set`). **`internal/ssh/connect/`** is the connect route (not `registry.Register`). No `*cmd` package suffix. AI REPL/agent UX: shared **`internal/pkg/aimode`** (aissh adapter: `internal/ssh/ai`). CLI `session`: `internal/ssh/session` (alias pkg session as `pkgsession`).
+**Exception:** `internal/ssh/` root is package **`aissh`** (directory `ssh`, binary `aissh`). Otherwise directory/package = Cobra name (`shell`, `session`, `config/set`). **`internal/ssh/connect/`** is the connect route (not `registry.Register`). No `*cmd` package suffix. Agent loop kernel: **`internal/pkg/agentcore`** + **`internal/pkg/agentui`** + **`internal/pkg/agentops`**; **`internal/ait/agent`** wires `ait agent`; Ops AI one-shot/connect: **`internal/opsai`** (`cmd/ai`). **`internal/ait` must not import `internal/opsai`**. CLI `session`: `internal/ssh/session` (alias pkg session as `pkgsession`).
 
 ## `helpdoc`
 

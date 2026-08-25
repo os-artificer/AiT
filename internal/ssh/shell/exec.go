@@ -31,8 +31,6 @@ import (
 
 var cliExecutor func([]string, io.Writer, io.Writer) error
 
-var aiModeRunner func(context.Context, *session.Manager) error
-
 // PrintHelp writes AiT shell REPL usage to w (CRLF when raw TTY mode is active).
 // hasActiveSession controls whether ssh-style connect / load are blocked in help output.
 // w must be non-nil. Does not return an error.
@@ -56,13 +54,12 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 	}
 
 	env := builtin.Env{
-		Out:          shellCLIOut,
-		In:           os.Stdin,
-		Mgr:          mgr,
-		Hist:         hist,
-		Line:         line,
-		ParseLine:    parseShellLine,
-		AIModeRunner: aiModeRunner,
+		Out:       shellCLIOut,
+		In:        os.Stdin,
+		Mgr:       mgr,
+		Hist:      hist,
+		Line:      line,
+		ParseLine: parseShellLine,
 		PrintHelp: func(hasActiveSession bool) {
 			PrintHelp(shellCLIOut, hasActiveSession)
 		},
@@ -74,12 +71,6 @@ func ExecuteLine(ctx context.Context, mgr *session.Manager, line string, hist *t
 	}
 
 	return false, dispatchShellCommand(ctx, env.Mgr, words)
-}
-
-// SetAIModeRunner registers the function that enters local AI mode from the REPL.
-// Called from internal/ssh init_hooks to avoid an import cycle between shell and aimode.
-func SetAIModeRunner(fn func(context.Context, *session.Manager) error) {
-	aiModeRunner = fn
 }
 
 // SetCLIExecutor registers the function that runs Cobra subcommands from the REPL.

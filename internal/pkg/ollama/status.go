@@ -110,7 +110,7 @@ func formatStatus(w io.Writer, r StatusReport) error {
 
 func modelsDirLine(dir string) string {
 	if dir == "" {
-		return "(not set — run: " + toolname.CLI("ai ollama setup") + ")"
+		return "(not set — run: " + toolname.AICLI("ollama setup") + ")"
 	}
 	return dir
 }

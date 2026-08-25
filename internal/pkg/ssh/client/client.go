@@ -27,7 +27,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/cliroute"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/localmode"
@@ -169,16 +168,11 @@ type InteractiveOpts struct {
 	InitialCommands []string
 	// RemotePromptDirAbsolute selects absolute vs short (basename) cwd in the remote PS1.
 	RemotePromptDirAbsolute bool
-	AI                      *ai.Client
-	// OnRemoteAI enters remote AI REPL (!ait ai / !!); wired from internal/ssh init_hooks.
-	OnRemoteAI RemoteAIRunner
-	OnSuspend  func(scroll *terminal.Buffer, cwd string, cols, rows int) error
+	OnSuspend               func(scroll *terminal.Buffer, cwd string, cols, rows int) error
 	// OnMetaCLI runs aissh CLI subcommands from !ait <args> (args exclude the prefix).
 	OnMetaCLI func(args []string) error
 	// AliasLookup resolves saved session aliases for chain connect meta lines (!ait prod).
 	AliasLookup cliroute.AliasLookup
-	// AgentMaxSteps overrides the agent turn limit; 0 means use default from config.
-	AgentMaxSteps int
 	// InitialRemoteCwd is the saved remote cwd for client-painted first prompt on load/switch.
 	InitialRemoteCwd string
 	// ReplayScrollback is sanitized scrollback from a prior suspend, seeded into the
@@ -187,7 +181,7 @@ type InteractiveOpts struct {
 	ReplayScrollback string
 }
 
-// RunInteractive runs a PTY shell with !ait / !! meta handling, optional tmux, and AI/local modes.
+// RunInteractive runs a PTY shell with !ait meta handling, optional tmux, and local mode.
 // ctx cancels the session loop. Requires a TTY on stdin. Returns terminal, session, tmux, or OnSuspend errors.
 func (c *Client) RunInteractive(ctx context.Context, opts InteractiveOpts) error {
 	sess, err := c.conn.NewSession()
@@ -408,12 +402,10 @@ func (c *Client) injectInitialCommands(stdin io.Writer, cmds []string) error {
 	return nil
 }
 
-// forwardStdin pipes stdin to the remote shell, deferring meta-line handling
-// to a metaScanner. When AI is configured, strict openers preserve bash !!
-// history (e.g. !!ls). When AI is unavailable, line-start !! is captured
-// locally so it never reaches remote histexpand.
+// forwardStdin pipes stdin to the remote shell, deferring !ait meta-line handling
+// to a metaScanner. Line-start !! is forwarded to the remote shell (bash history).
 func (c *Client) forwardStdin(ctx context.Context, stdin io.Writer, stdinCh <-chan stdinByte, opts InteractiveOpts) error {
-	scan := newMetaScanner(opts.AI != nil, c.metaLineEchoPrefix())
+	scan := newMetaScanner(c.metaLineEchoPrefix())
 	for {
 		select {
 		case <-ctx.Done():
@@ -454,11 +446,6 @@ func (c *Client) handleMetaLine(ctx context.Context, stdin io.Writer, line strin
 			}
 			_ = c.Close()
 			return chain
-		}
-
-		prompt, isAI := aiPromptFromMetaLine(line)
-		if isAI {
-			return c.handleAIMetaLine(ctx, stdin, prompt, opts)
 		}
 
 		if line == metaLineBare || line == metaLineHelp {

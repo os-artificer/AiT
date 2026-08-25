@@ -33,7 +33,7 @@ func TestHints_ConfigSetAPIKeyCmd(t *testing.T) {
 	if ConfigGetAPIKeyCmd(Minimax) != toolname.CLI("config get ai.minimax.api_key") {
 		t.Fatal("ConfigGetAPIKeyCmd mismatch")
 	}
-	if ProviderEnableCmd(Ollama) != toolname.CLI("ai provider enable ollama") {
+	if ProviderEnableCmd(Ollama) != toolname.AICLI("provider enable ollama") {
 		t.Fatal("ProviderEnableCmd mismatch")
 	}
 }

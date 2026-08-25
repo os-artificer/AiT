@@ -180,11 +180,8 @@ func (m *Manager) runInteractive(
 		InitialRemoteCwd:        initialRemoteCwd,
 		ReplayScrollback:        replayScrollback,
 		RemotePromptDirAbsolute: m.Config != nil && m.Config.RemotePromptPathAbsolute(),
-		AI:                      m.AI,
-		OnRemoteAI:              m.OnRemoteAI,
 		OnMetaCLI:               m.MetaCLI,
 		AliasLookup:             m.Store,
-		AgentMaxSteps:           m.Config.AgentMaxSteps(),
 		OnSuspend: func(scroll *terminal.Buffer, cwd string, cols, rows int) error {
 			id, err := m.ensureSessionPersisted(sess)
 			if err != nil {

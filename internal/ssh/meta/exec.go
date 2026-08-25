@@ -25,7 +25,6 @@ import (
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/terminal"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
-	"github.com/os-artificer/AiT/internal/ssh/ai"
 	"github.com/os-artificer/AiT/internal/ssh/session"
 	"github.com/os-artificer/AiT/internal/ssh/shell"
 )
@@ -33,7 +32,6 @@ import (
 var metaBlockedInSession = map[string]string{
 	shell.ReplCmdLoad:    "Exit the SSH session first, then load a saved session locally.",
 	shell.ReplCmdSuspend: "Use " + toolname.MetaLine("suspend") + " inside this SSH session.",
-	ai.Name:              "Use " + toolname.MetaLine("ai") + " or !! for experimental AI mode inside SSH (off by default).",
 }
 
 var executor func([]string, io.Writer, io.Writer) error
@@ -54,7 +52,7 @@ func PrintMetaHelp(w io.Writer) {
 
 // Execute runs aissh subcommands from an SSH meta line (!ait <args>).
 // Empty args or "help" prints in-session help.
-// Returns fmt.Errorf when args[0] is blocked in-session (load/suspend/ai), or errors from the executor.
+// Returns fmt.Errorf when args[0] is blocked in-session (load/suspend), or errors from the executor.
 func Execute(args []string) error {
 	if len(args) == 0 || (len(args) == 1 && helpArgv(args[0])) {
 		PrintMetaHelp(os.Stdout)
@@ -67,7 +65,8 @@ func Execute(args []string) error {
 	if executor == nil {
 		return metaExecutorNotConfiguredErr()
 	}
-	return executor(metaCLIArgs(args), terminal.NewCRLFWriter(os.Stdout), os.Stderr)
+	err := executor(metaCLIArgs(args), terminal.NewCRLFWriter(os.Stdout), os.Stderr)
+	return wrapMetaAIUnknown(args, err)
 }
 
 func helpArgv(arg string) bool {

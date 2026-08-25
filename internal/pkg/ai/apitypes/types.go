@@ -20,9 +20,9 @@ package apitypes
 import "github.com/os-artificer/AiT/internal/pkg/ai/provider"
 
 const (
-	// ScopeLocal is aissh ai on the local machine (non-SSH).
+	// ScopeLocal is local ai Agent mode (non-SSH).
 	ScopeLocal Scope = iota
-	// ScopeRemote is !ait ai inside an active SSH session.
+	// ScopeRemote is ai connect / remote Agent session over SSH.
 	ScopeRemote
 )
 
@@ -46,6 +46,8 @@ type AssistEnv struct {
 	Scrollback  string
 	AgentMode   bool
 	ApproveEach bool
+	// Domain selects system-prompt specialty (e.g. "ops" for Ops-ReAct). Empty is default SSH/local assistant.
+	Domain string
 }
 
 // PromptMeta carries factual provider routing fields injected into the system prompt.

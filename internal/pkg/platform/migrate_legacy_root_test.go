@@ -306,20 +306,23 @@ func TestMaybeMigrateLegacyDataRoot_ConflictWarnsOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer restore()
 
 	for i := 0; i < 5; i++ {
 		if _, err := AppRoot(); err != nil {
+			restore()
 			t.Fatal(err)
 		}
 		if _, err := DataDir(); err != nil {
+			restore()
 			t.Fatal(err)
 		}
 		if _, err := DBPath(); err != nil {
+			restore()
 			t.Fatal(err)
 		}
 	}
 
+	restore()
 	out := stderr.String()
 	if got := strings.Count(out, legacyConflictIntro); got != 1 {
 		t.Fatalf("warning count=%d want 1; output:\n%s", got, out)

@@ -20,13 +20,14 @@ import "testing"
 
 func TestToolDefinitions_NamesAndJSON(t *testing.T) {
 	defs := ToolDefinitions()
-	if len(defs) != 4 {
-		t.Fatalf("len=%d want 4", len(defs))
+	if len(defs) != 5 {
+		t.Fatalf("len=%d want 5", len(defs))
 	}
 	want := map[string]string{
 		ToolRunShell: `{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}`,
 		ToolAISshCLI: `{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`,
 		ToolAitCLI:   `{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`,
+		ToolToolbox:  `{"type":"object","properties":{"args":{"type":"string"}},"required":["args"]}`,
 		ToolAnswer:   `{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}`,
 	}
 	for _, d := range defs {

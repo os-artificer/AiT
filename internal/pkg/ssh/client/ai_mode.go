@@ -23,7 +23,8 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/ai"
 )
 
-// RemoteAIParams is input for entering remote AI mode from !ait ai / !!.
+// RemoteAIParams is input for entering remote AI mode (opsai ai connect / ScopeRemote).
+// Types are retained for shared ssh/client APIs; aissh no longer routes AI meta.
 type RemoteAIParams struct {
 	Ctx             context.Context
 	Stdin           io.Writer

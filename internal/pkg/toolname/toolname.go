@@ -28,9 +28,27 @@ const (
 	AILog = "ailog"
 	// AIHost is the aihost Cobra root command name and installed binary name.
 	AIHost = "aihost"
+	// AI is the ops AI Agent Cobra root command name and installed binary name.
+	AI = "ai"
 	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ait).
 	MetaPrefix = "!ait"
 )
+
+// AICLI returns "ai" or "ai <subcmd>" when subcmd is non-empty.
+func AICLI(subcmd string) string {
+	if subcmd == "" {
+		return AI
+	}
+	return AI + " " + subcmd
+}
+
+// AITCLI returns "ait" or "ait <subcmd>" when subcmd is non-empty.
+func AITCLI(subcmd string) string {
+	if subcmd == "" {
+		return AIT
+	}
+	return AIT + " " + subcmd
+}
 
 // CLI returns "aissh" or "aissh <subcmd>" when subcmd is non-empty.
 func CLI(subcmd string) string {

@@ -32,7 +32,7 @@ func IsManageCommand(name string) bool {
 	return ok
 }
 
-// OfficialPluginNames returns sorted official plugin short names (aissh, ailog, aiimg, aihost).
+// OfficialPluginNames returns sorted official plugin short names (ai, aissh, ailog, aiimg, aihost).
 // The returned slice is a new copy.
 func OfficialPluginNames() []string {
 	names := make([]string, 0, len(BuiltinBinaryNames))
