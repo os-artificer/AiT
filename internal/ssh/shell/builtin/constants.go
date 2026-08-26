@@ -20,7 +20,6 @@ import (
 	"errors"
 
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
-	"github.com/os-artificer/AiT/internal/pkg/replcmd"
 	pkgsession "github.com/os-artificer/AiT/internal/pkg/session"
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client/meta"
 	"github.com/os-artificer/AiT/internal/ssh/session"
@@ -28,10 +27,10 @@ import (
 
 // AiT shell REPL built-in command names.
 const (
-	CmdExit    = replcmd.Exit
-	CmdQuit    = replcmd.Quit
-	CmdClear   = replcmd.Clear
-	CmdHistory = replcmd.History
+	CmdExit    = "exit"
+	CmdQuit    = "quit"
+	CmdClear   = "clear"
+	CmdHistory = "history"
 	CmdLoad    = "load"
 	CmdList    = session.ReplAliasList
 	CmdLL      = "ll"

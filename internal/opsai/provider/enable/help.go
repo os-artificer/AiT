@@ -36,7 +36,7 @@ const (
 
 var usageLine = toolname.AICLI("provider enable <provider> [flags]")
 
-// WriteHelp prints aissh ai provider enable --help to w.
+// WriteHelp prints ai provider enable --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introOllama); err != nil {

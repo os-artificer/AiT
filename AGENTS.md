@@ -25,7 +25,7 @@ Requires **Go 1.25+** (see `go.mod`). Windows cross-compile: `GOOS=windows GOARC
 - **SSH sessions**: default OpenSSH-style connect (`aissh [flags] destination`), `shell`, `session` (`--list`, `--load`, `--suspend`, `--switch`, `--delete`)
 - **Persistence**: SQLite (`internal/pkg/store`); scrollback/cwd on suspend; auth TTL via `session.auth_ttl` (default 7d; keyring for secrets); default `AppRoot` is `~/.local/share/ait` (Linux), `~/Library/Application Support/ait` (macOS), `%LOCALAPPDATA%\ait` (Windows); override with `AIT_HOME`
 - **Optional tmux**: `--tmux` on connect/`load`/`switch` for remote shell keep-alive (`internal/pkg/tmux`); `--tmux` implies `--save` and stores `login_destination` for ssh config Host aliases
-- **Ops AI Agent (`ai`, experimental, off by default)**: Enable with `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `ai --ai-experimental` (process entry only). Binary/plugin `cmd/ai` → `internal/opsai`. Shared REPL UX in `internal/pkg/aimode`; engine in `internal/pkg/ai`. Multi-provider routing; `ai.providers.<id>.enabled` gates routing; `ai ask` / `ai agent` (one-shot); `ai provider enable|disable`; `ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`); REPL `model` / `ai model list`; remote via `ai connect user@host` (not `!!` / `!ait ai` in `aissh`); cloud keys `ai.<provider>.api_key`. Config `ai.*` may still be set via `aissh config`. **`aissh` has zero AI** (no `aissh ai`, no in-session AI meta).
+- **Ops AI Agent (`ai`, experimental, off by default)**: Enable with `ai.experimental.enabled`, `AIT_AI_EXPERIMENTAL=1`, or `ai --ai-experimental` (process entry only). Binary/plugin `cmd/ai` → `internal/opsai`. Agent Loop kernel: `internal/pkg/agentcore` (ops toolbox `agentops`, UI `agentui`); chat engine `internal/pkg/ai`. Multi-provider routing; `ai.providers.<id>.enabled` gates routing; `ai ask` / `ai agent` (one-shot); `ai provider enable|disable`; `ai ollama` (setup/status/start/stop/disable; `models_dir`/`OLLAMA_MODELS`); `ai model list`; interactive Loop via **`ait agent`** (bare `ai` prints help + Try); remote via `ai connect user@host` (not `!!` / `!ait ai` in `aissh`); cloud keys `ai.<provider>.api_key`. Config `ai.*` may still be set via `aissh config`. **`aissh` has zero AI** (no `aissh ai`, no in-session AI meta).
 - **Transfer**: `aissh get` / `aissh put` — SFTP single-file transfer (`internal/pkg/transfer`); `!ait get` / `!ait put` reuse live SSH (unified router: lrzsz/ZMODEM first, SFTP fallback on direct hop, chain auto-install when missing lrzsz)
 - **Proxy chain support**: `!ait chain [on|off]` — PTY-pipe ZMODEM file transfer and tmux when SSH'd beyond the directly connected host (`internal/pkg/ssh/client/inject.go`, `transfer_zmodem.go`; `internal/pkg/tmux/remote_pty.go`)
 - **OpenSSH config**: default connect and `load` resolve `~/.ssh/config` via `ssh -G` (`internal/pkg/ssh/args`); data plane is Go `x/crypto/ssh`
@@ -45,7 +45,7 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). ait: [`docs/t
 | `cmd/aiimg/main.go` | Thin `main` — delegates to `aiimg.Run` |
 | `cmd/ailog/main.go` | Thin `main` — delegates to `ailog.Run` |
 | `cmd/aihost/main.go` | Thin `main` — delegates to `aihost.Run` |
-| `internal/ait/` | `ait` toolbox REPL (package **`ait`**: `Run`, `Execute`, plugin Discover adapter) |
+| `internal/ait/` | `ait` toolbox REPL (package **`ait`**: `Run`, `Execute`, plugin Discover); nested **`ait/agent`** interactive Agent Loop |
 | `internal/opsai/` | Ops AI Agent CLI (package **`opsai`**: `Run`, `Execute`, ask/agent/provider/ollama/connect; experimental gate) |
 | `internal/pkg/aitplugin/` | Plugin Manifest v1, Discover (`plugins/<binary>/`), embedded SSOT manifests |
 | `internal/pkg/aitrelease/` | GitHub Release fetch/extract/apply for REPL `install` / `update` / `upgrade` |
@@ -67,7 +67,10 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). ait: [`docs/t
 | `internal/ssh/get/` / `internal/ssh/put/` | `aissh get` / `aissh put` SFTP |
 | `internal/ssh/shell/` | `aissh shell` REPL (`AiT>`) and top-level `aissh shell` Cobra |
 | `internal/ssh/session/` | `aissh session` (flags: `--list`, `--load`, …); use `pkgsession` for `internal/pkg/session` |
-| `internal/pkg/aimode/` | Shared AI REPL for `ai` / `ai connect` (`risk`, `approve`, `agent`, `chat`) |
+| `internal/pkg/agentcore/` | Agent Loop kernel for `ait agent` / `ai connect` (`risk`, `approve`, `runner`, `RunLoop`/`RunOnce`) |
+| `internal/pkg/agentops/` | Ops toolbox `DispatchToolbox` + first-turn context snapshot |
+| `internal/pkg/agentui/` | Plain / TUI emitters for the Agent Loop |
+| `internal/pkg/aichat/` | One-shot `ai ask` (`RunOnce`) |
 | `internal/ssh/config/` | `aissh config` parent + `config/subregistry`; nested `set`, `get`, `init`, `view`, `edit`, `validate` (includes `ai.*` keys) |
 | `internal/ssh/version/` | `aissh version` |
 | `internal/ssh/meta/` | In-session `!ait <subcmd>` delegation |
@@ -90,10 +93,9 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). ait: [`docs/t
 | `internal/pkg/terminal/lineedit/` | `ReadLine` (Ctrl+A/E, history nav, Ctrl+R search) |
 | `internal/pkg/terminal/history/` | `LineHistory` (in-memory + file sync) and `history` command |
 | `internal/pkg/ai/` | `Client`, `Chat`, multi-provider routing facade |
-| `internal/pkg/aimode/risk/` | `Classify`, `Interactive`, `ClassifyAit` — command risk classification |
-| `internal/pkg/aimode/approve/` | `Confirm`, `Policy`, `PatternKey`, `SessionTrust` — approval prompts and trust |
-| `internal/pkg/aimode/agent/` | `Action`, `ParseAction`, `Run`, `CapturingRunner` — Agent mode execution |
-| `internal/pkg/aimode/chat/` | `RunOnce`, `ParseCommand` — one-shot `ask` / REPL `ask` verb |
+| `internal/pkg/agentcore/risk/` | `Classify`, `Interactive`, `ClassifyAit` — command risk classification |
+| `internal/pkg/agentcore/approve/` | `Confirm`, `Policy`, `PatternKey`, `SessionTrust` — approval prompts and trust |
+| `internal/pkg/agentcore/runner/` | `Action`, `ParseAction`, `Run`, capture runner — Agent step execution |
 | `internal/pkg/ai/provider/` | `ProviderID` constants and sentinel errors |
 | `internal/pkg/ai/router/` | Routing helpers (Strategy + Chain of Responsibility — failover order, classify, API-key hint) |
 | `internal/pkg/ai/agent/` | Function-call `Tools()` + tool-call → AiT Agent JSON adapter |
@@ -122,7 +124,7 @@ Prefer extending `internal/pkg/*` and `internal/ssh` over new top-level director
 | `config` | `cmd.go`, `help.go`, `subregistry/`, `shared/`; nested `set`, `get`, `init`, `view`, `edit`, `validate` |
 | `meta` | `exec.go` — `Execute`, `SetExecutorWriters` (wired from `init_hooks.go`; CRLF stdout in SSH) |
 
-Ops AI lives under **`internal/opsai/`** (not `internal/ssh`). Shared AI REPL: **`internal/pkg/aimode`**.
+Ops AI lives under **`internal/opsai/`** (not `internal/ssh`). Agent Loop kernel: **`internal/pkg/agentcore`**; interactive entry: **`ait agent`**.
 
 ### `internal/pkg/ssh/client` file layout
 
@@ -170,16 +172,18 @@ ait                                      # ait> REPL (no one-shot plugin exec)
 ait> install [plugin...]                 # GitHub Release → install dir (all official plugins if no args)
 ait> update [plugin...]                  # update installed official plugins only
 ait> upgrade                             # update ait + installed official plugins (no extra args)
+ait agent [--plain] [goal...]            # interactive Agent Loop (TTY default TUI)
+ait> agent [goal...]                     # nested Loop from toolbox REPL
 aissh shell                              # AiT> REPL: ssh-style connect, session --list/--load, history, help, exit
 aissh [ssh-options] destination [cmd ...] [--save] [--alias] [--tmux] [--password]
 # ssh-options: -p -l -i -F -J -o ... ; legacy --host/--user still supported
 # Requires OpenSSH client (ssh) on PATH for ssh -G (all platforms)
-# aissh has no AI subtree (use the `ai` plugin)
-ai [--ai-experimental]                   # Ops AI Agent REPL (default Agent; mode ask for Q&A); experimental
+# aissh has no AI subtree (use the `ai` plugin / ait agent)
+ai [--ai-experimental]                   # help + Try ait agent (no REPL); experimental gate
 ai model list
 ai ask [message...]                      # one-shot; echo "q" | ai ask
-ai agent [message...]                    # one-shot agent with tools
-ai connect [ssh-options] destination     # remote Agent on SSH host
+ai agent [message...]                    # one-shot agent with tools (Loop: ait agent)
+ai connect [ssh-options] destination     # remote Agent Loop on SSH host
 ai provider enable|disable <provider>
 ai ollama status|setup|start|stop|disable # local Ollama (setup: models_dir + [y/N] before install)
 aissh session --list [-v]
@@ -191,7 +195,7 @@ aissh put [ssh-flags] <paths...>
 aissh config init|view|edit|validate|set|get <key> [<value>]  # includes ai.* keys
 ```
 
-Prompts: `AiT>` (`aissh shell`), `AiT AI(Agent)>` by default on `ai` (`mode ask` → `AiT AI(Ask)>`), native shell PS1 for SSH remote interactive, `AiT Local>` (`!ait local`). Run confirm (in `ai`): `y` once, `c` trust first-token pattern, `s` trust session low-risk, `n` skip; Agent read-only commands auto-run. In SSH (`aissh`): `!ait help`; `!ait <subcmd>` for local CLI; **no** `!ait ai` / `!!` AI entry — use `ai connect`. Also `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `aissh shell` for nested connect/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**OA\***, **R1–R14**, **A20–A22**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
+Prompts: `AiT>` (`aissh shell` / `ait`), Agent Loop via `ait agent` / `ai connect` (plain or TUI; confirm `y`/`c`/`s`/`n`; read-only auto-run). Native shell PS1 for SSH remote interactive; `AiT Local>` (`!ait local`). In SSH (`aissh`): `!ait help`; `!ait <subcmd>` for local CLI; **no** `!ait ai` / `!!` AI entry — use `ai connect` or `ait agent`. Also `!ait local` / `remote`; `!ait suspend`; `!ait chain [on|off]` for PTY-pipe injection over multiple SSH hops. Use `aissh shell` for nested connect/`load` (returns to `AiT>` after remote `exit`). Merge gate: [change-acceptance.mdc](.cursor/rules/change-acceptance.mdc) (**OA\***, **AG\***, **AC-V4\***, **R1–R14**, **D\***, **S\***, **B1–B7**, **H0a–H4d**).
 
 ## Pitfalls
 

@@ -14,13 +14,26 @@
  * limitations under the License.
 **/
 
-// Package replcmd holds shared REPL verb names used by shell and aimode (C24).
-package replcmd
+package list
 
-// Core REPL verbs shared by aissh shell and AI mode.
-const (
-	Exit    = "exit"
-	Quit    = "quit"
-	Clear   = "clear"
-	History = "history"
+import (
+	"io"
+
+	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
+
+// WriteHelp prints ai model list --help to w.
+func WriteHelp(w io.Writer) error {
+	b := pkghelpdoc.NewBody(w)
+	if err := b.WriteIntro("List configured AI providers and Ollama models (non-interactive).", ""); err != nil {
+		return err
+	}
+	if err := b.WriteUsage(toolname.AICLI("model list")); err != nil {
+		return err
+	}
+	if err := b.WriteExamples(toolname.AICLI("model list")); err != nil {
+		return err
+	}
+	return b.Finish("list")
+}

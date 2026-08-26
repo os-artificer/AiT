@@ -77,11 +77,9 @@ func formatRootCommands(plugins []aitplugin.Plugin) string {
 	for _, p := range plugins {
 		fmt.Fprintf(&b, "  %-12s %s\n", p.Manifest.Name, p.Manifest.Short)
 	}
-	fmt.Fprintf(&b, "  %-12s %s\n", cmdHelp, "show this help or help <plugin>")
-	fmt.Fprintf(&b, "  %-12s %s\n", aitplugin.CmdAgent, "ops agent task loop (experimental)")
-	fmt.Fprintf(&b, "  %-12s %s\n", cmdVersion, "print ait version")
-	fmt.Fprintf(&b, "  %-12s %s\n", cmdHistory, "list or clear input history")
-	fmt.Fprintf(&b, "  %-12s %s\n", cmdClear, "clear terminal screen")
+	for _, e := range reservedHelpEntries() {
+		fmt.Fprintf(&b, "  %-12s %s\n", e.name, e.desc)
+	}
 	fmt.Fprint(&b, formatManageCommands())
 	fmt.Fprintf(&b, "  %-12s %s\n", cmdExit+"/"+cmdQuit, "leave the REPL")
 	return b.String()

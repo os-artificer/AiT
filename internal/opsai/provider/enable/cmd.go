@@ -40,7 +40,7 @@ const (
 	flagShorthandYes  = "y"
 )
 
-// New builds the `aissh ai provider enable` cobra command.
+// New builds the `ai provider enable` cobra command.
 func New() *cobra.Command {
 	var assumeYes, noInstall, noPull bool
 	cmd := &cobra.Command{

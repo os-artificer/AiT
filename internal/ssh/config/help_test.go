@@ -21,6 +21,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/os-artificer/AiT/internal/ssh/config/edit"
+	cfgget "github.com/os-artificer/AiT/internal/ssh/config/get"
+	cfginit "github.com/os-artificer/AiT/internal/ssh/config/init"
+	"github.com/os-artificer/AiT/internal/ssh/config/set"
+	"github.com/os-artificer/AiT/internal/ssh/config/validate"
+	"github.com/os-artificer/AiT/internal/ssh/config/view"
+
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
@@ -47,17 +54,17 @@ func TestWriteConfigHelpSections(t *testing.T) {
 	}
 }
 
-func TestWriteConfigDelegateHelp(t *testing.T) {
+func TestWriteConfigChildHelp(t *testing.T) {
 	writers := []struct {
 		name string
 		fn   func(*bytes.Buffer) error
 	}{
-		{"set", func(b *bytes.Buffer) error { return WriteConfigSetHelp(b) }},
-		{"get", func(b *bytes.Buffer) error { return WriteConfigGetHelp(b) }},
-		{"init", func(b *bytes.Buffer) error { return WriteConfigInitHelp(b) }},
-		{"view", func(b *bytes.Buffer) error { return WriteConfigViewHelp(b) }},
-		{"edit", func(b *bytes.Buffer) error { return WriteConfigEditHelp(b) }},
-		{"validate", func(b *bytes.Buffer) error { return WriteConfigValidateHelp(b) }},
+		{"set", func(b *bytes.Buffer) error { return set.WriteHelp(b) }},
+		{"get", func(b *bytes.Buffer) error { return cfgget.WriteHelp(b) }},
+		{"init", func(b *bytes.Buffer) error { return cfginit.WriteHelp(b) }},
+		{"view", func(b *bytes.Buffer) error { return view.WriteHelp(b) }},
+		{"edit", func(b *bytes.Buffer) error { return edit.WriteHelp(b) }},
+		{"validate", func(b *bytes.Buffer) error { return validate.WriteHelp(b) }},
 	}
 	for _, w := range writers {
 		var buf bytes.Buffer

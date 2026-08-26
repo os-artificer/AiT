@@ -21,14 +21,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/os-artificer/AiT/internal/ssh/config/edit"
-	cfgget "github.com/os-artificer/AiT/internal/ssh/config/get"
-	cfginit "github.com/os-artificer/AiT/internal/ssh/config/init"
-	"github.com/os-artificer/AiT/internal/ssh/config/set"
 	"github.com/os-artificer/AiT/internal/ssh/config/shared"
 	"github.com/os-artificer/AiT/internal/ssh/config/subregistry"
-	"github.com/os-artificer/AiT/internal/ssh/config/validate"
-	"github.com/os-artificer/AiT/internal/ssh/config/view"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
@@ -76,34 +70,4 @@ func formatConfigSubcommands() string {
 		}
 	}
 	return b.String()
-}
-
-// WriteConfigSetHelp delegates to the set subcommand help (tests and compat).
-func WriteConfigSetHelp(w io.Writer) error {
-	return set.WriteHelp(w)
-}
-
-// WriteConfigGetHelp delegates to the get subcommand help.
-func WriteConfigGetHelp(w io.Writer) error {
-	return cfgget.WriteHelp(w)
-}
-
-// WriteConfigInitHelp delegates to the init subcommand help.
-func WriteConfigInitHelp(w io.Writer) error {
-	return cfginit.WriteHelp(w)
-}
-
-// WriteConfigViewHelp delegates to the view subcommand help.
-func WriteConfigViewHelp(w io.Writer) error {
-	return view.WriteHelp(w)
-}
-
-// WriteConfigEditHelp delegates to the edit subcommand help.
-func WriteConfigEditHelp(w io.Writer) error {
-	return edit.WriteHelp(w)
-}
-
-// WriteConfigValidateHelp delegates to the validate subcommand help.
-func WriteConfigValidateHelp(w io.Writer) error {
-	return validate.WriteHelp(w)
 }

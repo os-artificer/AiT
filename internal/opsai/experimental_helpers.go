@@ -35,7 +35,7 @@ func skipAIExperimentalRequire(cmd *cobra.Command, args []string) bool {
 			return true
 		}
 	}
-	// Bare "help" only on aissh ai parent (positional help), never on ask/agent messages.
+	// Bare "help" only on ai parent (positional help), never on ask/agent messages.
 	return cmd.Name() == Name && len(args) == 1 && args[0] == pkghelpdoc.HelpArgCmd
 }
 

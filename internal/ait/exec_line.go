@@ -18,13 +18,10 @@ package ait
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 
-	"github.com/os-artificer/AiT/internal/ait/version"
 	"github.com/os-artificer/AiT/internal/pkg/aitplugin"
 	"github.com/os-artificer/AiT/internal/pkg/errhint"
 	"github.com/os-artificer/AiT/internal/pkg/pluginbin"
@@ -53,31 +50,8 @@ func ExecuteLine(ctx context.Context, line string, hist *terminal.LineHistory, o
 		return false, nil
 	}
 
-	switch words[0] {
-	case cmdExit, cmdQuit:
-		return true, nil
-	case cmdHelp:
-		if len(words) == 1 {
-			return false, WriteRootHelp(out)
-		}
-		return false, writePluginHelp(out, words[1])
-	case cmdVersion:
-		_, err := fmt.Fprintln(out, version.Version())
-		return false, err
-	case cmdClear:
-		terminal.ClearScreen(out)
-		return false, nil
-	case cmdHistory:
-		return false, terminal.RunHistoryCommand(out, hist, words[1:])
-	}
-
-	if fn, ok := manageHandlers[words[0]]; ok {
-		return false, fn(ctx, words, out, errOut)
-	}
-
-	if words[0] == aitplugin.CmdAgent {
-		goal := strings.Join(words[1:], " ")
-		return false, runNestedAgent(ctx, goal, out, errOut)
+	if fn, ok := reservedHandlers[words[0]]; ok {
+		return fn(ctx, words, hist, out, errOut)
 	}
 
 	p, ok := aitplugin.Lookup(words[0])

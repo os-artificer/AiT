@@ -78,7 +78,7 @@ flowchart TB
   Resolve --> Plat
 ```
 
-Ops AI Agent is a separate tool (`cmd/ai` → `internal/opsai`); see [`ai-internals.md`](ai-internals.md). `aissh` does not import `aimode` / `opsai`.
+Ops AI Agent is a separate tool (`cmd/ai` → `internal/opsai`); see [`ai-internals.md`](ai-internals.md). `aissh` does not import `opsai` / `agentcore`.
 ---
 
 ## Call chain and argv routing
@@ -192,7 +192,7 @@ AiT product behavior should remain in `internal/*`.
 - Keep the root package exception: directory `internal/ssh`, package `aissh`.
 - Keep the connect-route exception: `internal/ssh/connect` for default SSH route.
 - Avoid `*cmd` package suffixes.
-- AI REPL/agent UX lives under `internal/pkg/aimode` (shared); the Ops AI adapter is `internal/opsai`, **not** under `aissh`.
+- Agent Loop UX lives under `internal/pkg/agentcore` (shared); the Ops AI adapter is `internal/opsai`, **not** under `aissh`. Interactive Loop entry is `ait agent`.
 
 ### Nested subcommands
 
@@ -224,7 +224,7 @@ Keep command-specific flags and user-facing semantics inside the owning command 
 
 Special case:
 
-- Ops AI (`ai model list`, REPL, `ai connect`) is owned by `internal/opsai` — see [`ai-internals.md`](ai-internals.md) / [`ai.md`](ai.md).
+- Ops AI (`ai model list`, `ai ask`/`agent`, `ai connect`; Loop via `ait agent`) is owned by `internal/opsai` / `internal/ait/agent` — see [`ai-internals.md`](ai-internals.md) / [`ai.md`](ai.md).
 
 ### `clihints` as shared try-lines source
 
@@ -631,8 +631,8 @@ Core fields and meanings:
 | Trace in-session meta handling | `../../internal/pkg/ssh/client/client_interactive_helpers.go` |
 | Modify shell dispatch precedence | `../../internal/ssh/shell/exec_dispatch.go` |
 | Adjust root argv routing | `../../internal/ssh/cli_root.go` and `../../internal/pkg/cliroute/route.go` |
-| Ops AI Agent / aimode | [`ai-internals.md`](ai-internals.md); `../../internal/opsai/`; `../../internal/pkg/aimode/` |
-| Gate experimental AI (config SSOT) | `../../internal/pkg/config/ai_experimental.go` (consumers: `opsai`) |
+| Ops AI Agent / agentcore | [`ai-internals.md`](ai-internals.md); `../../internal/opsai/`; `../../internal/pkg/agentcore/`; `../../internal/ait/agent/` |
+| Gate experimental AI (config SSOT) | `../../internal/pkg/config/ai_experimental.go` (consumers: `opsai`, `ait agent`) |
 | Understand transfer backend decisions | `../../internal/pkg/ssh/client/transfer_route.go` |
 | Understand prompt setup and repaint | `../../internal/pkg/ssh/client/client_init_helpers.go` and prompt helpers |
 

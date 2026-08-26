@@ -37,7 +37,7 @@ var (
 	exampleStdin = fmt.Sprintf(`echo "hello" | %s`, toolname.AICLI("ask"))
 )
 
-// WriteHelp prints aissh ai ask --help to w.
+// WriteHelp prints ai ask --help to w.
 func WriteHelp(w io.Writer) error {
 	return pkghelpdoc.WriteAIChatSubcommandHelp(w, "ask", introMain, introSSH, usageLine, inputBody,
 		exampleQuote, exampleModel, exampleStdin, pkghelpdoc.ExampleAIAskLocal)

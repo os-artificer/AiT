@@ -34,7 +34,7 @@ var (
 	usageLine       = toolname.AICLI("provider")
 )
 
-// WriteHelp prints aissh ai provider --help to w.
+// WriteHelp prints ai provider --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introOllamaHint); err != nil {

@@ -32,7 +32,7 @@ const Verb = "ask"
 // AgentVerb is the REPL command word that triggers a one-shot agent turn.
 const AgentVerb = "agent"
 
-// Input collects what RunOnce needs without depending on aimode.Options.
+// Input collects what RunOnce needs without depending on agentcore.Config.
 type Input struct {
 	// AI is the chat client; required.
 	AI *ai.Client

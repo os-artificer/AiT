@@ -45,7 +45,7 @@ var (
 	exampleNoInstall = toolname.AICLI("ollama setup --no-install")
 )
 
-// WriteHelp prints aissh ai ollama setup --help to w.
+// WriteHelp prints ai ollama setup --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introModels, introInstall, introDecline); err != nil {

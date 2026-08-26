@@ -64,7 +64,8 @@ type Config struct {
 	Nested bool
 }
 
-// DynamicRemote holds live remote session fields updated by connect/disconnect.
+// DynamicRemote holds live remote session fields for optional hot connect/disconnect.
+// The shipped ai connect path sets static Config fields and does not wire Dynamic.
 type DynamicRemote struct {
 	mu sync.RWMutex
 

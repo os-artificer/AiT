@@ -4,9 +4,13 @@ This file records **product and CLI** functional changes only; documentation-onl
 
 ## [Unreleased]
 
+### v4 Agent Loop
+
+- 【Changed】**BREAKING** Interactive Agent Loop moves to **`ait agent`** (`internal/ait/agent` + `internal/pkg/agentcore`). Bare `ai` prints help + Try `ait agent` (no REPL). One-shot remains `ai ask` / `ai agent`; remote Loop via `ai connect`. Shared UX packages: `agentcore` / `agentops` / `agentui` / `aichat` (replaces removed `internal/pkg/aimode`). Guide: [docs/tools/ai.md](docs/tools/ai.md).
+
 ### v3.1 Ops AI Agent
 
-- 【Changed】**BREAKING** AI moves out of `aissh` into the Ops AI Agent plugin **`ai`** (`cmd/ai`, `internal/opsai`). Use `ai` / `ai ask` / `ai agent` / `ai connect user@host` (experimental: `ai --ai-experimental`, `AIT_AI_EXPERIMENTAL=1`, or `ai.experimental.enabled`). Removed from `aissh`: `aissh ai …` and `!ait ai`. Bare `!!` in SSH still forwards to the remote shell (not AI). Shared engine remains `internal/pkg/aimode` + `internal/pkg/ai`; `aissh config` can still set `ai.*`. Guide: [docs/tools/ai.md](docs/tools/ai.md).
+- 【Changed】**BREAKING** AI moves out of `aissh` into the Ops AI Agent plugin **`ai`** (`cmd/ai`, `internal/opsai`). Use `ai` / `ai ask` / `ai agent` / `ai connect user@host` (experimental: `ai --ai-experimental`, `AIT_AI_EXPERIMENTAL=1`, or `ai.experimental.enabled`). Removed from `aissh`: `aissh ai …` and `!ait ai`. Bare `!!` in SSH still forwards to the remote shell (not AI). `aissh config` can still set `ai.*`. Guide: [docs/tools/ai.md](docs/tools/ai.md).
 
 ## [v1.1.0-beta.2]
 

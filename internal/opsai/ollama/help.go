@@ -20,11 +20,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/os-artificer/AiT/internal/opsai/ollama/disable"
-	"github.com/os-artificer/AiT/internal/opsai/ollama/setup"
-	"github.com/os-artificer/AiT/internal/opsai/ollama/start"
-	"github.com/os-artificer/AiT/internal/opsai/ollama/status"
-	"github.com/os-artificer/AiT/internal/opsai/ollama/stop"
 	"github.com/os-artificer/AiT/internal/opsai/ollama/subregistry"
 
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -39,7 +34,7 @@ var (
 	ollamaExampleStop     = toolname.AICLI("ollama stop")
 )
 
-// WriteAIOllamaHelp prints aissh ai ollama --help to w.
+// WriteAIOllamaHelp prints ai ollama --help to w.
 func WriteAIOllamaHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(ollamaIntroMain, ollamaIntroSubcmdHelp); err != nil {
@@ -62,18 +57,3 @@ func WriteAIOllamaHelp(w io.Writer) error {
 	}
 	return b.Finish("ollama")
 }
-
-// WriteOllamaStatusHelp prints aissh ai ollama status --help to w.
-func WriteOllamaStatusHelp(w io.Writer) error { return status.WriteHelp(w) }
-
-// WriteOllamaSetupHelp prints aissh ai ollama setup --help to w.
-func WriteOllamaSetupHelp(w io.Writer) error { return setup.WriteHelp(w) }
-
-// WriteOllamaStartHelp prints aissh ai ollama start --help to w.
-func WriteOllamaStartHelp(w io.Writer) error { return start.WriteHelp(w) }
-
-// WriteOllamaStopHelp prints aissh ai ollama stop --help to w.
-func WriteOllamaStopHelp(w io.Writer) error { return stop.WriteHelp(w) }
-
-// WriteOllamaDisableHelp prints aissh ai ollama disable --help to w.
-func WriteOllamaDisableHelp(w io.Writer) error { return disable.WriteHelp(w) }

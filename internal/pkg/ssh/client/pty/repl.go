@@ -18,7 +18,7 @@ package pty
 
 import "io"
 
-// ReplReader adapts per-byte stdin from the SSH forward loop for aimode.ReadLine.
+// ReplReader adapts per-byte stdin from the SSH forward loop for line-oriented ReadLine.
 type ReplReader struct {
 	ch  <-chan byte
 	buf []byte

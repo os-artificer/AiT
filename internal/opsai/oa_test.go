@@ -30,6 +30,7 @@ import (
 	"github.com/os-artificer/AiT/internal/opsai/connect"
 	"github.com/os-artificer/AiT/internal/pkg/agentcore"
 	acrunner "github.com/os-artificer/AiT/internal/pkg/agentcore/runner"
+	"github.com/os-artificer/AiT/internal/pkg/agentops"
 	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/aitplugin"
 	"github.com/os-artificer/AiT/internal/pkg/clihints"
@@ -167,7 +168,7 @@ func TestOpsAI_ConnectProxyJump(t *testing.T) {
 	}
 }
 
-// TestOpsAI_Disconnect (OA7) dynamic remote clears on disconnect.
+// TestOpsAI_Disconnect (OA7) DynamicRemote.SetLocal clears remote capture.
 func TestOpsAI_Disconnect(t *testing.T) {
 	dyn := &agentcore.DynamicRemote{}
 	dyn.SetRemote("u@h", acrunner.NewCaptureRunner(func(context.Context, string) (string, error) {
@@ -180,7 +181,7 @@ func TestOpsAI_Disconnect(t *testing.T) {
 	}
 }
 
-// TestToolbox_DispatchAIHost (OA3).
+// TestToolbox_DispatchAIHost (OA3) uses agentops.DispatchToolbox (single SSOT).
 func TestToolbox_DispatchAIHost(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, toolname.AIHost)
@@ -191,7 +192,7 @@ func TestToolbox_DispatchAIHost(t *testing.T) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var out bytes.Buffer
-	if err := opsai.DispatchToolbox([]string{toolname.AIHost, "snapshot"}, &out, &out); err != nil {
+	if err := agentops.DispatchToolbox([]string{toolname.AIHost, "snapshot"}, &out, &out); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "snapshot-ok") {
