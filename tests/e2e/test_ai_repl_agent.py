@@ -1,4 +1,4 @@
-"""Local AI REPL agent mode smoke (A20-A22 subset)."""
+"""Local ait agent Loop smoke (v4; replaces legacy aissh ai REPL)."""
 
 from __future__ import annotations
 
@@ -11,23 +11,23 @@ pytestmark = [pytest.mark.ai]
 
 
 @pytest.fixture
-def ai_repl_session(test_config, ait_home, ai_runner):
-    ai_runner.run_ok(["config", "init"])
+def agent_repl_session(test_config, ait_home, runner, toolbox_bin):
+    runner.run_ok(["config", "init"])
     if test_config.ai.deepseek_key:
-        ai_runner.run_ok(["config", "set", "ai.deepseek.api_key", test_config.ai.deepseek_key])
+        runner.run_ok(["config", "set", "ai.deepseek.api_key", test_config.ai.deepseek_key])
     env = runner_env_from(
         test_config,
         __import__("pathlib").Path(ait_home),
         ai_experimental=True,
     )
     child = pexpect.spawn(
-        str(test_config.binary),
-        ["ai"],
+        toolbox_bin,
+        ["agent"],
         encoding="utf-8",
         timeout=60,
         env=env,
     )
-    child.expect(r"AiT AI\(Agent\)", timeout=30)
+    child.expect(r"AiT Agent>", timeout=30)
     yield child
     try:
         child.sendline("exit")
@@ -36,18 +36,17 @@ def ai_repl_session(test_config, ait_home, ai_runner):
         child.close(force=True)
 
 
-def test_ai_repl_mode_status(ai_repl_session):
-    ai_repl_session.sendline("mode")
-    ai_repl_session.expect(r"agent|ask|approve", timeout=15)
+def test_agent_repl_prompt(agent_repl_session):
+    agent_repl_session.sendline("model")
+    # Status line or empty is fine; must not hang or crash.
+    agent_repl_session.expect(r"AiT Agent>|provider|model|deepseek|ollama|minimax|AI", timeout=15)
 
 
-def test_ai_repl_mode_ask_switch(ai_repl_session):
-    ai_repl_session.sendline("mode ask")
-    ai_repl_session.expect(r"Ask", timeout=15)
-    ai_repl_session.sendline("mode agent")
-    ai_repl_session.expect(r"Agent", timeout=15)
+def test_agent_repl_history_meta(agent_repl_session):
+    agent_repl_session.sendline("history")
+    agent_repl_session.expect(r"AiT Agent>", timeout=15)
 
 
-def test_ai_repl_help_lists_commands(ai_repl_session):
-    ai_repl_session.sendline("help")
-    ai_repl_session.expect(r"mode|approve|run|history", timeout=15)
+def test_agent_repl_exit(agent_repl_session):
+    agent_repl_session.sendline("exit")
+    agent_repl_session.expect(pexpect.EOF, timeout=10)

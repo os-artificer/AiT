@@ -22,6 +22,24 @@ def ait_bin(test_config: TestConfig) -> str:
     return str(test_config.binary)
 
 
+@pytest.fixture(scope="session")
+def ai_bin(test_config: TestConfig) -> str:
+    """Sibling `bin/ai` next to the configured aissh binary (v4 Ops AI CLI)."""
+    path = test_config.binary.parent / "ai"
+    if not path.is_file():
+        pytest.skip(f"Binary not found: {path}; run make build")
+    return str(path)
+
+
+@pytest.fixture(scope="session")
+def toolbox_bin(test_config: TestConfig) -> str:
+    """Sibling `bin/ait` for toolbox REPL / `ait agent` Loop tests."""
+    path = test_config.binary.parent / "ait"
+    if not path.is_file():
+        pytest.skip(f"Binary not found: {path}; run make build")
+    return str(path)
+
+
 @pytest.fixture
 def ait_home(tmp_path) -> str:
     home = tmp_path / "ait_home"
@@ -44,10 +62,14 @@ def runner(test_config: TestConfig, ait_bin: str, ait_home: str) -> AITRunner:
 
 
 @pytest.fixture
-def ai_runner(runner: AITRunner) -> AITRunner:
-    """Runner with experimental AI enabled (local AI smoke / @ai tests)."""
+def ai_runner(runner: AITRunner, ai_bin: str) -> AITRunner:
+    """`bin/ai` with experimental AI enabled (local AI smoke / @ai tests).
+
+    Config remains on aissh (`runner`); share AIT_HOME so keys and experimental
+    YAML settings apply to both binaries.
+    """
     return AITRunner(
-        runner.binary,
+        ai_bin,
         runner.ait_home,
         base_env={**runner.base_env, **AI_EXPERIMENTAL_ENV},
     )

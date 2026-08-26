@@ -1,58 +1,18 @@
-"""Remote AI via !! and !ait ai ask (R19)."""
+"""Remote Ops AI via `ai connect` (v4). Legacy !! / !ait ai are not on aissh."""
 
 from __future__ import annotations
 
 import pytest
 
-from tests.lib.expect import AITExpectSession, runner_env_from
-
 pytestmark = [pytest.mark.ssh, pytest.mark.ai]
 
 
-@pytest.fixture
-def ai_remote_session(test_config, ait_home, ai_runner):
-    ai_runner.run_ok(["config", "init"])
-    if test_config.ai.deepseek_key:
-        ai_runner.run_ok(["config", "set", "ai.deepseek.api_key", test_config.ai.deepseek_key])
-    env = runner_env_from(
-        test_config,
-        __import__("pathlib").Path(ait_home),
-        ai_experimental=True,
-    )
-    sess = AITExpectSession.spawn_login(test_config, env)
-    yield sess
-    sess.close()
+def test_ai_connect_help(ai_runner):
+    proc = ai_runner.run_ok(["connect", "--help"])
+    assert "Usage:" in proc.stdout
+    assert "connect" in proc.stdout.lower()
 
 
-def test_remote_ai_ask_one_shot(ai_remote_session):
-    out = ai_remote_session.meta("ai ask ping")
-    assert out is not None
-    assert len(out.strip()) >= 0
-
-
-def test_remote_ai_bang_enters_repl(ai_remote_session):
-    ai_remote_session.bang_ai()
-    out = ai_remote_session.send_line("mode")
-    assert "agent" in out.lower() or "ask" in out.lower() or "mode" in out.lower()
-    ai_remote_session.send_line("exit")
-
-
-def test_remote_ai_bare_enters_repl(ai_remote_session):
-    ai_remote_session.child.sendline("!ait ai")
-    ai_remote_session.child.expect(r"AiT AI\([^)]+\)", timeout=120)
-    ai_remote_session.child.sendline("mode")
-    ai_remote_session.child.expect(r"agent", timeout=30)
-    ai_remote_session.child.sendline("exit")
-
-
-def test_remote_ai_agent_bare_enters_repl(ai_remote_session):
-    ai_remote_session.child.sendline("!ait ai agent")
-    ai_remote_session.child.expect(r"AiT AI\([^)]+\)", timeout=120)
-    ai_remote_session.child.sendline("mode")
-    ai_remote_session.child.expect(r"agent", timeout=30)
-    ai_remote_session.child.sendline("exit")
-
-
-def test_remote_ai_utf8_query(ai_remote_session):
-    out = ai_remote_session.meta('ai ask 你好')
-    assert out is not None
+@pytest.mark.skip(reason="v4 remote Agent uses ai connect; !! / !ait ai removed from aissh")
+def test_remote_ai_legacy_meta_removed():
+    pass
