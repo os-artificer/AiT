@@ -1,6 +1,6 @@
 # AiT Python E2E Tests
 
-Black-box end-to-end tests for the `aissh` CLI using pytest and pexpect. Complements Go unit tests (`make test`); does not replace them.
+Black-box end-to-end tests for the AiT CLIs (`aissh`, `ai`, `ait`) using pytest and pexpect. Complements Go unit tests (`make test`); does not replace them.
 
 ## CI vs local
 
@@ -15,11 +15,11 @@ Real hostnames, ports, and keys belong only in **gitignored** `tests/config.loca
 
 ## Prerequisites
 
-- Go 1.25+ and `make build` → `bin/aissh`
+- Go 1.25+ and `make build` → `bin/aissh`, `bin/ai`, `bin/ait`
 - Python 3.10+
 - OpenSSH client (`ssh`) on PATH (for `ssh -G` resolution)
 - For SSH-marked tests (local): reachable host and credentials in `config.local.yaml`
-- For AI-marked tests: API keys and/or local Ollama per config; experimental AI via `AIT_AI_EXPERIMENTAL=1` (fixture `ai_runner` sets this)
+- For AI-marked tests: API keys and/or local Ollama per config; experimental AI via `AIT_AI_EXPERIMENTAL=1` (fixture `ai_runner` targets `bin/ai` and sets this)
 - For tmux/zmodem tests: enable features in config and install tools on remote hosts
 
 ## Setup
