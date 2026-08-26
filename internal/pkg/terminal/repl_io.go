@@ -32,7 +32,7 @@ func NormalizeLine(line string) string {
 }
 
 // WriteTTY writes s to w with LF converted to CRLF (raw TTY safe).
-// Uses naive ReplaceAll (not crlf.NewWriter) to preserve existing shell/aimode semantics.
+// Uses naive ReplaceAll (not crlf.NewWriter) to preserve existing shell/Agent Loop semantics.
 func WriteTTY(w io.Writer, s string) {
 	s = strings.ReplaceAll(s, "\n", "\r\n")
 	_, _ = io.WriteString(w, s)

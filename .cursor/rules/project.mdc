@@ -5,27 +5,29 @@ alwaysApply: true
 
 # AiT project rules
 
-Go CLI **toolbox** (**AiT**; tools: **ait**, **aissh**, **aiimg**, **ailog**, **aihost**). Module: `github.com/os-artificer/AiT`.
+Go CLI **toolbox** (**AiT**; tools: **ait**, **aissh**, **ai**, **aiimg**, **ailog**, **aihost**). Module: `github.com/os-artificer/AiT`.
 
 ## Commands
 
-- `make build` → `bin/ait`, `bin/aissh`, … and `bin/plugins/<tool>/` from `./cmd/<tool>`
+- `make build` → `bin/ait`, `bin/aissh`, `bin/ai`, … and `bin/plugins/<tool>/` from `./cmd/<tool>`
 - `make test` / `make vet` / `make fmt` — run after Go edits
 
 ## Layout
 
 - `cmd/ait`: minimal `main` only (delegates to `ait.Run`)
 - `cmd/aissh`: minimal `main` only (delegates to `aissh.Run`)
-- `internal/ait`: toolbox REPL (Go package `ait`); plugin discovery via `internal/pkg/aitplugin`
-- `internal/ssh`: application entry (Go package `aissh`)
+- `cmd/ai`: minimal `main` only (delegates to `opsai.Run`)
+- `internal/ait`: toolbox REPL (Go package `ait`); plugin discovery via `internal/pkg/aitplugin`; interactive Agent Loop via `internal/ait/agent`
+- `internal/opsai`: Ops AI Agent CLI (ask/agent one-shot, connect, provider/ollama)
+- `internal/ssh`: application entry (Go package `aissh`; **no AI subtree**)
 - `pkg/`: only code meant for external import
-- Product docs: [AGENTS.md](AGENTS.md), [docs/architecture.md](docs/architecture.md), [docs/tools/ait.md](docs/tools/ait.md), [docs/tools/aissh.md](docs/tools/aissh.md), [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
+- Product docs: [AGENTS.md](AGENTS.md), [docs/architecture.md](docs/architecture.md), [docs/tools/ait.md](docs/tools/ait.md), [docs/tools/aissh.md](docs/tools/aissh.md), [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md), [docs/tools/ai.md](docs/tools/ai.md), [docs/tools/ai-internals.md](docs/tools/ai-internals.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)
 
 ## Scope
 
 - Go code generation/refactoring: follow [go-structure.mdc](go-structure.mdc) and [code-reuse.mdc](code-reuse.mdc) (import order, file layout, constants, exported godoc, line length, nesting, readability, function block spacing, DRY)
 - New or changed CLI commands: follow [cli-help.mdc](cli-help.mdc) (`internal/pkg/helpdoc`, per-command `help.go`, `registry` / `subregistry`)
-- Merge gate and regression: [change-acceptance.mdc](change-acceptance.mdc) (`make fmt`, `make test`, `make test-cross`; R1–R18)
+- Merge gate and regression: [change-acceptance.mdc](change-acceptance.mdc) (`make fmt`, `make test`, `make test-cross`; OA*, AG*, R1–R14, …)
 - Match existing style (tabs in Go, `.editorconfig`)
 - No drive-by refactors; no new markdown unless asked
 - Do not commit unless the user requests it

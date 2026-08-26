@@ -28,7 +28,7 @@ import (
 
 const name = "stop"
 
-// New builds the `aissh ai ollama stop` cobra command.
+// New builds the `ai ollama stop` cobra command.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           name,

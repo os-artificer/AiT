@@ -63,14 +63,3 @@ func TestLocalAgentConfig_HasCaptureAndCLI(t *testing.T) {
 		t.Fatal("ops domain missing Toolbox")
 	}
 }
-
-func TestPTYRemoteRunner_WritesNewline(t *testing.T) {
-	var stdin bytes.Buffer
-	r := &ptyRemoteRunner{stdin: &stdin}
-	if err := r.Run("kubectl get pods"); err != nil {
-		t.Fatal(err)
-	}
-	if stdin.String() != "kubectl get pods\n" {
-		t.Fatalf("got %q", stdin.String())
-	}
-}

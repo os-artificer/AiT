@@ -1,5 +1,5 @@
 ---
-description: 代码改动合并前验收门禁；语义不变、全量测试、OA* / A20–A22 / EX* 不回退
+description: 代码改动合并前验收门禁；语义不变、全量测试、OA* / AG* / AC-V4* / EX* 不回退
 alwaysApply: true
 ---
 
@@ -21,7 +21,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 |------|------|
 | **语义不变** | 未改动路径：参数解析、拨号、SFTP、会话状态机、错误文案、退出码、提示符与改动前一致；**errhint 多行模板**路径首行 sentinel/`errors.Is` 须保持，排版与 `Try:` 块为预期变更（非回退） |
 | **范围最小** | 禁止 drive-by 重构、顺手改默认值或无关文件 |
-| **已修复不回退** | 全库 **R1–R14**、**R16–R17**、**OA\***、**A20–A22**、**EX\***（见下）须保持；相关测试不得删除或弱化断言 |
+| **已修复不回退** | 全库 **R1–R14**、**R16–R17**、**OA\***、**AG-1…6**、**AC-V4\***、**EX\***（见下）须保持；相关测试不得删除或弱化断言 |
 | **跨平台** | 涉及 TTY/路径/exec 时须 `make test-cross` 通过 |
 
 ## 禁止
@@ -43,9 +43,9 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | Ops AI model list | **R15 → OA14**（`ai model list` 非交互；见 **OA\***） |
 | 配置 | R16 Save 无根级 `deepseek`；旧 YAML 可读；`deepseek.model` 别名仍有效 |
 | AI CLI（历史） | R17 无顶层 `aissh models`；provider/ollama 现属 **`ai`** 插件（`ai provider` / `ai ollama`） |
-| AI ask | **R18a–b → `ai ask` 测试**；**R18c–f 删除**（见 OA20–OA22 / aimode） |
+| AI ask | **R18a–b → `ai ask` 测试**；**R18c–f 删除**（见 OA20–OA22 / aichat） |
 | SSH AI 输入 | **R19 删除** → 远程经 `ai connect`；负向见 OA20–OA22 |
-| AI REPL 模式 | **v4：** Loop 经 `ait agent` → **AG-1…6**（`agentcore`）；A20–A22 **删除** |
+| Agent Loop | **v4：** Loop 经 `ait agent` → **AG-1…6** + **AC-V4\***（`agentcore`）；历史 A20–A22 **已退役** |
 
 ### OA* 明细（Ops AI Agent 插件 `ai` / `opsai`）
 
@@ -59,12 +59,12 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | OA4 | ClassifyToolbox Read 自动放行 | `TestClassify_ToolboxRead` |
 | OA5 | `ai connect` ScopeRemote | `TestOpsAI_ConnectRemoteAgent` |
 | OA6 | 远程 Capture | `TestOpsAI_RemoteCapture` |
-| OA7 | disconnect 关 Client、回 Local | `TestOpsAI_Disconnect` |
+| OA7 | `DynamicRemote.SetLocal` API；connect teardown 关 Client | `TestDynamicRemote_SetLocal`（agentcore）；connect Run 测例 |
 | OA8 | ops system prompt | `TestSystemPrompt_OpsDomain` |
 | OA9 | OfficialPluginNames 含 ai | 扩 `TestOfficialPluginNames_ManifestsAligned` |
 | OA10 | Tab：`ai` 唯一；`aih`→aihost | 更新 `TestCompleteFirstToken_*` |
 | OA11 | test-cross 含 cmd/ai | merge gate |
-| OA12 | **删除**（v4：`agentcore` 替代 aimode） | `TestAgentcore_NoProductImports` |
+| OA12 | agentcore 不 import 产品包（v4） | `TestAgentcore_NoProductImports`（= AC-V4-1） |
 | OA13 | `ai --ai-experimental ask` | `TestOpsAI_ExperimentalCLIFlag` |
 | OA14 | `ai model list` 非 TTY 5s（原 R15） | `TestOpsAI_ModelListNoTTY` |
 | OA15 | connect `-J` | `TestOpsAI_ConnectProxyJump` |
@@ -79,7 +79,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | OA21 | `!!ls` 转发 PTY（非 AI meta） | `TestMetaScanner_BangBangForwardsPTY` |
 | OA22 | `!ait ai` unknown + Try | `TestExecute_AIMetaUnknownHint` |
 | OA23 | shell 内 `ai` 非 REPL | `TestShell_AINotBuiltin` |
-| OA24 | aissh 无 aimode/`ssh/ai` import | `TestAissh_NoAimodeImport` |
+| OA24 | aissh 无 agentcore/opsai/`ssh/ai` import | `TestAissh_NoAimodeImport`（名历史；断言无 aimode/opsai AI 包） |
 | OA25 | aissh 无 experimental strip | `TestAissh_NoExperimentalStrip` |
 
 #### 迁移矩阵（原 ID）
@@ -91,12 +91,12 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | R18c–f / R19 / RA* | **删除** + OA20–OA22 |
 | EX1–EX3 | 保留 config 包 |
 | EX4–EX13 | → opsai；aissh 侧删旗测例 |
-| A20–A22 | 留 aimode 不变 |
+| A20–A22 | **退役** → **AG-1…6** + `agentcore` 风险/确认测例（见 **AG\***） |
 | H3a | → `ai ask` empty |
 
 ### R18 明细（历史 `aissh ai ask` → **`ai ask`**）
 
-> **迁移：** R18a–b 行为保留在 `ai ask`；R18c–f（SSH meta / 远程 scope）**删除**，负向由 OA20–OA22 覆盖。aimode 内 `ask` 空消息仍见 `TestParseChatCommand` / `TestRunChatOnce_EmptyMessage`。
+> **迁移：** R18a–b 行为保留在 `ai ask`；R18c–f（SSH meta / 远程 scope）**删除**，负向由 OA20–OA22 覆盖。`aichat` 空消息见 `TestRunChatOnce_EmptyMessage`（及 opsai ask 测例）。
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾（无 mock 时） |
 |----|----------|------------|------------------------|
@@ -106,7 +106,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 
 ### R19 明细（历史 SSH 远程 AI REPL UTF-8 — **已删除**）
 
-> **迁移：** R19a–e 与 aissh 内远程 AI REPL **删除**。远程 Agent 经 `ai connect`（OA5–OA7 / OA15–OA16）。负向：OA20–OA22。stdin/UTF-8 能力仍由 `aimode` / `terminal` 测例覆盖。
+> **迁移：** R19a–e 与 aissh 内远程 AI REPL **删除**。远程 Agent 经 `ai connect`（OA5–OA7 / OA15–OA16）。负向：OA20–OA22。stdin/UTF-8 能力仍由 `terminal` / Agent Loop 测例覆盖。
 
 | ID | 状态 |
 |----|------|
@@ -120,52 +120,24 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 |----|------|
 | RA1–RA6 | **删除** |
 
-### A20 明细（AI REPL mode / approve / Agent）
+### AG* 明细（Agent Loop / `agentcore` — v4 SSOT；替代已退役的 A20–A22）
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| A20a | 进入 AI REPL 默认 `mode agent`、`approve each` | `TestSessionState_Defaults` | `./bin/ai` → `mode` 显示 agent + each |
-| A20b | `mode agent` / `mode ask` 切换，提示可读 | `TestSetMode_Agent`、`TestSetMode_Ask` | `ai` REPL 内 `mode agent` |
-| A20c | Ask 模式自然语言**不**触发 `RunCapture` | `TestAskAI_NoRunCapture` | Ask 下问「查 IP」仅文本；`run hostname -I` 仍可执行 |
-| A20d | `approve each` / `approve session` / `trust`（同 session） | `TestSetApprove_Each`、`TestSetApprove_Session`、`TestTrustAliasSession` | `approve session` 后第二条安全命令免确认 |
-| A20e | `policy per-cmd`/`once` 弃用别名行为不变 + 弃用提示 | `TestPolicyDeprecatedAlias_Each`、`TestPolicyDeprecatedAlias_Session` | `policy once` 仍生效且提示用 approve |
-| A20f | 高危命令 `approve session` 下仍逐条确认 | `TestConfirm_HighRiskIgnoresSession` | Agent：`rm -rf /tmp/x` 每次均问 |
-| A20g | `approve session` + 低危：首次 y 后会话内免确认 | `TestApproveSession_LowRiskSkipsSecond` | Agent 连续两条 `hostname` 类命令 |
-| A20h | `ClassifyRisk` 命中 denylist 为 high | `TestClassifyRisk_HighPatterns`、`TestClassifyRisk_Low` | — |
-| A20i | Agent 解析 JSON `run` 并单步执行（mock） | `TestAgentTurn_RunActionMock` | `mode agent` →「查看本机 IP」→ 只读自动执行，写命令确认后执行 |
-| A20j | 远程 `RunPTYCapture` / scrollDelta 截取新输出 | `TestScrollDelta_*` | SSH Agent 执行 `hostname -I`，输出进入下一轮回复 |
-| A20k | `mode`/`approve` 为 meta 行命令；`run`/`model` 不回退 | `TestIsMetaREPLCommand_ModeApprove`；OA14 / R18a–b 相关测试仍过 | `help` 列出 mode、approve |
-| A20l | 无参 `mode` 状态行含 mode、approve、provider | `TestModeStatusLine_IncludesApprove` | 与 A20a 同 |
-| A20m | 支持 FC 的 provider 走 tool call；不支持则 JSON 回退 | `TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent` | mock router |
-| A20n | Agent `ait_cli` 本机执行（远程 REPL 注入 CLI）+ 确认 | `TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI` | SSH Agent：`aissh list` 本地列出会话 |
-| A20o | TUI 命令 Agent 拒绝执行 | `TestClassifyRisk_Interactive`、`TestAgent_SkipsVim` | Agent 规划 `vim` → 提示手动 |
+| AG-1 | Loop 仅经 `ait agent`；裸 `ai` 不进 REPL | `TestOpsAI_DefaultShowsHelp`；ait agent 入口测例 | `./bin/ai` → help + Try；`./bin/ait agent` 进 Loop |
+| AG-2 | 只读命令自动放行（不提示） | `TestPolicy_ReadAutoRun` | Agent：「列出文件」→ `ls` 无确认 |
+| AG-3 | 低危写命令需确认 | `TestPolicy_WriteConfirm` | Agent：`cp a b` → 确认 |
+| AG-4 | 高危在 session trust 下仍确认 | `TestPolicy_HighAlwaysConfirm` | Agent：`rm -rf /tmp/x` 每次确认 |
+| AG-5 | toolbox 只读子命令 Classify 为 Read | `TestToolbox_ReadAutoRun` | Agent：`aihost snapshot` 类只读自动执行 |
+| AG-6 | step limit 事件 kind 稳定 | `TestLoop_StepLimitEvent` | — |
+| AC-V4-1 | agentcore 不 import 产品包 | `TestAgentcore_NoProductImports` | — |
+| AC-V4-6 | 仓库无 `internal/pkg/aimode` | `TestRepo_NoAimodeImport` | — |
 
-### A21 明细（AI REPL 提示符 / 确认排版 / 分级授权）
+确认排版 / 首词信任 / CRLF 等能力由 `agentcore/approve` 测例覆盖（如 `TestConfirm_ReadAutoApproves`、`TestConfirm_HighRiskIgnoresSession`、`TestConfirmPromptCRLFConversion` 等价项）。
 
-| ID | 验收行为 | 自动化测试 | 手动烟雾 |
-|----|----------|------------|----------|
-| A21a | REPL 提示符反映 interaction：`AiT AI(Ask)>` / `AiT AI(Agent)>`；远程与本地同格式（不含 host） | `TestPrompt_ShowsInteractionMode` | `./bin/ai` → `mode agent` 后提示符为 `(Agent)` |
-| A21b | TTY 确认经 `aimWrite`（`\r\n`）；`Choice [y/c/s/N]:` 自列 0 起 | `TestConfirmPrompt_UsesCRLF` | 确认菜单与 Choice 左对齐、无漂移到行尾 |
-| A21c | 低危：`y` 仅本条；`s` 设 `sessionTrusted`（后续低危免问，与 A20g） | `TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt` | 首条选 `s`，第二条低危不再询问 |
-| A21f | 低危：`c` 信任**首词**；同首词免确认、不同首词仍问 | `TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix` | `hostname -I` 选 `c` 后 `hostname` 免确认；`hostnamectl` 仍问 |
-| A21d | 高危无 `c`/`s`，仅 `y`/`n`（不回退 A20f） | `TestConfirm_HighRiskNoSessionOption` | `rm -rf /tmp/x` 仅 y/n |
-| A21e | 确认输入不进主 REPL 历史（K6/K20 不回退） | `TestAIMode_ConfirmNoHistory` | `y`/`s`/`c` 后 Up 不出现确认行 |
+### A20–A22（Historical / deleted）
 
-### A22 明细（Read 风险级别 / 只读命令自动放行 / 默认 Agent）
-
-| ID | 验收行为 | 自动化测试 | 手动烟雾 |
-|----|----------|------------|----------|
-| A22a | `Classify` 对只读命令返回 `Read`（ls, cat, grep, ps, df 等） | `TestClassify_Read` | Agent: 自然语言"列出文件" → `ls` 自动执行无需确认 |
-| A22b | `Classify` 对 git 只读子命令返回 `Read`（status, log, diff, branch 等） | `TestClassify_GitRead` | Agent: "查看 git 状态" → `git status` 自动执行 |
-| A22c | git 写子命令返回 `Low`，需确认（add, commit, push, checkout -b 等） | `TestClassify_GitWrite` | Agent: `git add .` 仍需确认 |
-| A22d | `sudo` 前缀的只读命令仍返回 `Read` | `TestIsRead_SudoPrefix` | Agent: `sudo cat /etc/shadow` 自动执行 |
-| A22e | `Confirm` 对 `risk.Read` 返回 `(true, nil)` 不提示，无论 policy | `TestConfirm_ReadAutoApproves` | Agent: `ls -la` 无确认直接执行 |
-| A22f | `echo`, `hostname`, `ps` 等只读命令 Agent 模式下不弹确认 | A22a + A22e 覆盖 | Agent: 自然语言"查看进程" → `ps aux` 自动执行 |
-| A22g | 写命令（cp, mv, mkdir, touch, curl, wget）仍返回 `Low` 需确认 | `TestClassify_Low` | Agent: `cp a b` → 弹确认 |
-| A22h | 高危命令仍返回 `High` 每次确认（不回退 A20f） | `TestClassify_HighPatterns`、`TestConfirm_HighRiskIgnoresSession` | Agent: `rm -rf /tmp/x` 每次确认 |
-| A22i | 默认模式为 Agent（原 Ask），状态行 `mode agent` | `TestSessionState_Defaults` | `./bin/ai` → 提示符 `(Agent)>` |
-| A22j | Agent 系统提示告知 AI 只读命令自动执行、写命令需确认 | `TestSystemPrompt_Scopes`（agent 含 auto-approved 提示） | — |
-| A22k | `mode agent` 提示文案含"read commands auto-run; write commands need confirmation" | `TestSetMode_Agent`（检查输出含 auto-run） | `mode agent` → 新文案 |
+> v3 `aimode` Ask/Agent REPL 验收 ID。v4 起 **不再作为永久回归门禁**；行为由 **AG\*** / `agentcore` 继承。勿再引用 `TestSessionState_Defaults`、`TestSetMode_*`、`TestAskAI_NoRunCapture`、`TestPrompt_ShowsInteractionMode` 等已删测例。
 
 ### D* 明细（登录连接去重）
 
@@ -283,19 +255,19 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
-| H3a | 空 `ai ask` → `ErrChatMessageRequired` + `Try:` | opsai / aimode empty-ask 测例 |
+| H3a | 空 `ai ask` → `ErrChatMessageRequired` + `Try:` | opsai / aichat empty-ask 测例 |
 | H3b | unknown config key + `Try:` | `TestUnknownConfigKeyErr_Format` |
 | H3c | AI not configured 统一文案 + `Try:` | `TestSetModel_ErrNoAI` |
 | H3d | ollama 非交互 install hint | `ollama` 包测试通过（`setup_confirm` 路径） |
 
-#### H4（REPL / meta / aimode）
+#### H4（REPL / meta / Agent）
 
 | ID | 验收行为 | 自动化测试 |
 |----|----------|------------|
 | H4a | meta `!ait login` → unknown command | `TestExecute_LoginUnknown` |
 | H4b | meta blocked ai 多行 + `Try:` | `TestExecuteBlockedAI` |
 | H4c | REPL 单行 err 仍单 `AiT:` | `TestShellPrintErr` |
-| H4d | `aimode` ask 空消息 | `TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage` |
+| H4d | `aichat` / ask 空消息 | `TestRunChatOnce_EmptyMessage`；opsai ask empty 测例 |
 
 ### K* 明细（REPL 行编辑与历史）
 
@@ -350,7 +322,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
-| K23 | AI REPL `history` / `history n` 在 raw TTY 每条 entry 起于列 0；`crlf.NewWriter` 对已含 `\r\n` 的输入幂等（不产生 `\r\r\n`） | `TestExecuteLineHistory_AIMode`（断言 `\r\n` 且禁止 `\r\r\n`）、`TestExecuteLineHistory_AIMode_CRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` | `./bin/ai` → `history`；每行起于列 0 |
+| K23 | raw TTY 多行输出 CRLF 幂等；Agent Loop / shell 经 CRLF writer | `TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites`；（历史 AIMode history 测例已随 aimode 删除） | `ait agent` / `aissh shell` 多行输出起于列 0 |
 | K24 | `aissh shell` `load` 无参 picker 的编号列表与 `Select session …: ` 提示走 `shellCLIOut`（raw TTY 下为 `terminal.NewCRLFWriter(os.Stdout)`） | `TestExecuteLineLoad_PickerCRLF` | `./bin/aissh shell` → `load`；列表每行起于列 0 |
 
 ### P* 明细（AppRoot / AIT_HOME）
@@ -434,7 +406,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | Y6 | 不存在路径 → errhint + `Try:` | `TestShellLL_NotFoundHint` | `ll /nope` |
 | Y7 | 多余参数 → usage errhint | `TestShellLL_TooManyArgs` | `ll a b` |
 | Y8 | `make test-cross` 编译 `dirlist` | merge gate | — |
-| Y9 | `ai` REPL 中 `ll` 非 shell builtin | `TestAIMode_LLNotBuiltin` | `./bin/ai` → `ll` 无 `total` 列表 |
+| Y9 | Agent Loop / 裸 `ai` 中 `ll` 非 shell builtin（Historical：原 AIMode 测例） | shell 侧 Y1–Y8；裸 `ai` 不进 shell builtin（OA1） | `./bin/ai` 无 `ll` total 列表；`aissh shell` → `ll` 仍可用 |
 | Y10 | 顶层 `aissh ll` → unknown command | `TestTopLevelLLUnknown` | `./bin/aissh ll` 报错 |
 
 ### T* 明细（统一 get/put 路由 + lrzsz 安装）
@@ -621,8 +593,8 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | EX4b | 实验关 + 已配置 API key：`ai ask` 仍拒绝 | opsai 等价测例 |
 | EX5–EX6 | ~~`!!`/`!ait ai` / shell `ai`~~ | **删除** → OA20–OA23 |
 | EX7 | `config set/get ai.experimental.enabled` | `TestSetGetKey_AIExperimental` |
-| EX8 | `aimode` 不 import `internal/ssh` | `TestAimode_NoAisshImport`（= OA12） |
-| EX9 | 开启后门禁不回退 OA* / A20–A22 | 现有套件 + **opsai** `TestMain` 默认 `AIT_AI_EXPERIMENTAL=1` |
+| EX8 | `agentcore` 不 import 产品包 / 无 aimode | `TestAgentcore_NoProductImports`、`TestRepo_NoAimodeImport`（AC-V4） |
+| EX9 | 开启后门禁不回退 OA* / AG* | 现有套件 + **opsai** `TestMain` 默认 `AIT_AI_EXPERIMENTAL=1` |
 | EX10 | 进程入口 `ai --ai-experimental` 剥离且开启；不写 config | `TestOpsAI_ExperimentalCLIFlag` 等（OA13） |
 | EX11–EX12 | ~~aissh `!!` / ExecuteCobraOnly 旗~~ | **删除** → OA25 |
 | EX13 | 新增 ai 子命令仅挂 opsai subregistry 即继承门禁 | opsai 子树门禁测例 |
@@ -633,7 +605,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 | 规则引用名 | 仓库等价测试 |
 |------------|----------------|
-| `TestClassifyRisk_*` | `TestClassify_*`（`internal/pkg/aimode/risk/risk_test.go`） |
+| `TestClassifyRisk_*` | `TestClassify_*`（`internal/pkg/agentcore/risk/risk_test.go`） |
 | `TestConfirmPrompt_UsesCRLF` | `TestConfirmPromptCRLFConversion`（`mode_test.go`） |
 | `TestApproveSession_LowRiskSkipsSecond` | `TestConfirm_ApproveSessionLowRiskSkipsSecond` |
 | `TestConfirm_PatternTrustSkipsSamePrefix` | `TestConfirm_PatternTrustFirstToken` |
@@ -658,7 +630,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 | C23 | REPL help argv 与 `helpdoc` 一致 | `TestHelpRequested`、`TestREPLHelpArgs_FromHelpdoc` |
 | C24 | shell/mode 共享 REPL 核心动词不变 | `TestIsMetaREPLCommand_*`、`TestExecuteLineHistory_*` |
 | C25 | meta `list` → `session --list` 与 blocked 键不变 | `TestExecuteBlocked*`、`TestMetaCLIArgs_ListUsesSessionFlag` |
-| C26 | ask/agent/mode/approve 标签不变 | `TestSetMode_*`、`TestSetApprove_*`、`TestParseChatCommand` |
+| C26 | ask/agent 标签与 Loop meta 动词 | opsai ask/agent help；Loop meta `exit/clear/history/model`（AG-1） |
 | C27 | mode 内 ollama 字面量对齐 config | mode exec / `setModel` 相关测试 |
 | C28 | provider enable/disable 输出格式不变 | `TestProviderEnableDisable_MsgFormat` |
 
@@ -840,42 +812,19 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] AH1–AH63：`aihost` 主机监控（见 **AH\*** 明细）
 - [ ] OA1–OA17：Ops AI Agent 正向（见 **OA\***）；OA14 替代原 R15（`ai model list`）
 - [ ] OA20–OA25：aissh 去 AI 负向（`aissh ai` / `!!` AI / `!ait ai` 移除）
-- [ ] EX1–EX3：config 包实验门禁 SSOT；EX4+ 在 opsai（见 **EX\***）；aimode 不 import aissh（EX8/OA12）
+- [ ] EX1–EX3：config 包实验门禁 SSOT；EX4+ 在 opsai（见 **EX\***）；agentcore 边界（EX8/AC-V4）
 - [ ] R16 未回退（Save 无根级 `deepseek`；`TestSaveYAML_NoRootDeepseek` 等通过）
 - [ ] R17 未回退（`aissh models` unknown；`TestTopLevelModelsRemoved`；`models_dir`/`OLLAMA_MODELS` 测试通过）
 - [ ] R18a–b：`ai ask` 带参或 stdin 单轮 / 空 ask 快速失败（迁 opsai；非 `./bin/aissh ai`）
 - [ ] R18c–f / R19 / RA*：**已删除**；由 OA20–OA22 覆盖负向
-- [ ] A20a：默认 mode agent、approve each（`TestSessionState_Defaults`）
-- [ ] A20b：mode agent/ask 切换（`TestSetMode_*`）
-- [ ] A20c：Ask 不自动 RunCapture（`TestAskAI_NoRunCapture`）
-- [ ] A20d：approve each/session、trust 别名（`TestSetApprove_*`、`TestTrustAliasSession`）
-- [ ] A20e：policy 弃用别名（`TestPolicyDeprecatedAlias_*`）
-- [ ] A20f：高危始终确认（`TestConfirm_HighRiskIgnoresSession`）
-- [ ] A20g：approve session 低危会话信任（`TestApproveSession_LowRiskSkipsSecond`）
-- [ ] A20h：ClassifyRisk（`TestClassifyRisk_*`）
-- [ ] A20i：Agent JSON run（`TestAgentTurn_RunActionMock`）
-- [ ] A20j：PTY scrollback 捕获（`TestScrollDelta_*`）
-- [ ] A20k：meta/help 与 OA14 / R18a–b 不回退（`TestIsMetaREPLCommand_ModeApprove`）
-- [ ] A20l：mode 状态行（`TestModeStatusLine_IncludesApprove`）
-- [ ] A20m：function-calling + JSON 回退（`TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent`）
-- [ ] A20n：Agent ait_cli 本机（`TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI`）
-- [ ] A20o：TUI 拒绝自动执行（`TestClassifyRisk_Interactive`、`TestAgent_SkipsVim`）
-- [ ] A21a：提示符含 `(Ask)`/`(Agent)`（`TestPrompt_ShowsInteractionMode`）
-- [ ] A21b：确认 prompt CRLF 排版（`TestConfirmPrompt_UsesCRLF`）
-- [ ] A21c：`y` 单次 / `s` 会话信任低危（`TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt`）
-- [ ] A21f：首词 `c` 模式信任（`TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix`）
-- [ ] A21d：高危无 `c`/`s`（`TestConfirm_HighRiskNoSessionOption`）
-- [ ] A21e：确认不进历史（`TestAIMode_ConfirmNoHistory`）
-- [ ] A22a：只读命令 Classify 返回 Read（`TestClassify_Read`）
-- [ ] A22b：git 只读子命令返回 Read（`TestClassify_GitRead`）
-- [ ] A22c：git 写子命令返回 Low 非_Read_（`TestClassify_GitWrite`）
-- [ ] A22d：sudo 前缀只读仍 Read（`TestIsRead_SudoPrefix`）
-- [ ] A22e：Read 风险自动放行不弹确认（`TestConfirm_ReadAutoApproves`）
-- [ ] A22g：写命令仍 Low 需确认（`TestClassify_Low`）
-- [ ] A22h：高危仍 High 每次确认（不回退 A20f）
-- [ ] A22i：默认 Agent 模式（`TestSessionState_Defaults`）
-- [ ] A22j：Agent 系统提示含只读自动执行说明
-- [ ] A22k：mode agent 提示文案含 auto-run
+- [ ] AG-1：Loop 仅经 `ait agent`；裸 `ai` → help（`TestOpsAI_DefaultShowsHelp`）
+- [ ] AG-2：只读自动放行（`TestPolicy_ReadAutoRun`）
+- [ ] AG-3：低危写需确认（`TestPolicy_WriteConfirm`）
+- [ ] AG-4：高危始终确认（`TestPolicy_HighAlwaysConfirm`）
+- [ ] AG-5：toolbox 只读 Read（`TestToolbox_ReadAutoRun`）
+- [ ] AG-6：step limit 事件（`TestLoop_StepLimitEvent`）
+- [ ] AC-V4-1 / AC-V4-6：agentcore 边界 + 无 aimode（`TestAgentcore_NoProductImports`、`TestRepo_NoAimodeImport`）
+- [ ] Confirm/Classify 回归：`TestConfirm_ReadAutoApproves`、`TestClassify_Read`、`TestClassify_Low`、`TestClassify_HighPatterns`、`TestConfirm_HighRiskIgnoresSession`
 - [ ] D1–D19：登录连接去重与已有连接更新（见 **D* 明细**）
 - [ ] E1–E5：会话四元组唯一键 username+host+port+alias（见 **E* 明细**）
 - [ ] S1–S18：`aissh session` flag CLI（见 **S* 明细**）
@@ -884,10 +833,10 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] H1a–H1e：session hint + `#`/`-v`（见 **H1**、**B\***）
 - [ ] H2a–H2d：login/get/put argv hint（见 **H2**）
 - [ ] H3a–H3d：AI/config/ollama hint（见 **H3**；H3a 用 `ai ask`）
-- [ ] H4a–H4d：REPL/meta/aimode hint（见 **H4**）
+- [ ] H4a–H4d：REPL/meta/Agent hint（见 **H4**）
 - [ ] K1–K9：REPL 行编辑与历史（见 **K\***）
 - [ ] K10–K22：history 命令、Ctrl+R、持久化（见 **K\*** 明细 K10–K22）
-- [ ] K23–K24：raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker；见 **K\*** 明细 K23–K24）
+- [ ] K23–K24：raw-TTY 输出 CRLF（Agent Loop / shell `load` picker；见 **K\*** 明细 K23–K24）
 - [ ] P1–P6：AppRoot / AIT_HOME 单目录（见 **P\***）
 - [ ] G1–G16：`aissh config init` / `view` / `edit` / `validate`（见 **G\***）
 - [ ] Z1–Z10：链式 ZMODEM `!ait get/put`（见 **Z\*** 明细）
@@ -965,32 +914,19 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 # SSH 内：!!ls 应进远端；!ait ai → unknown + Try   # OA21/OA22
 ```
 
-手动烟雾（AI mode / Agent，A20–A22）：
+手动烟雾（Agent Loop，AG*）：
 
 ```bash
 # 本机
-./bin/ai
-mode                    # A20a/A20l：agent · approve each · provider
-mode ask                # A20b
-mode agent              # A20b / A22k：read commands auto-run; write commands need confirmation
-approve session         # A20d
-# 自然语言：列出文件     # A22a/A22f：ls 自动执行无确认
-# 自然语言：查看进程     # A22a/A22f：ps aux 自动执行无确认
-# 自然语言：查看 git 状态 # A22b：git status 自动执行无确认
-run cp a b              # A22g：写命令仍需确认
-run rm -rf /tmp/test    # A22h：高危仍每次确认
-run hostname -I         # A20c：Ask 下手动 run 仍可用
+./bin/ai                    # AG-1：help + Try ait agent
+./bin/ait agent             # AG-1：进 Loop
+# 自然语言：列出文件          # AG-2：ls 自动执行无确认
+# 自然语言：查看进程          # AG-2
+run cp a b                  # AG-3：写命令仍需确认
+run rm -rf /tmp/test        # AG-4：高危仍每次确认
 
-# 远程（需真实主机）
-# ai connect user@host → 默认 Agent → 查 IP → 自动执行（Read）    # A22i/A22f / OA5
-# approve session 后第二条低危命令               # A20g
-# rm -rf /tmp/test 仍每次确认                   # A20f/A22h
-# policy once → 弃用提示且等同 approve session    # A20e
-# git add . → 需确认（A22c）                    # A22c
-# aissh list（本机）                          # A20n
-# 规划 vim → 不执行并提示                    # A20o
-# 提示符含 (Agent)                       # A21a：AiT AI(Agent)>
-# 确认选 s / c            # A21c/A21f；高危仅 y/n # A21d
+# 远程
+./bin/ai connect user@host  # OA5：远程 Loop
 ```
 
 手动烟雾（远程提示符，W*）：
@@ -1074,7 +1010,7 @@ aissh hostA                    # 无 --save
 !ait suspend                     # N9：ephemeral 亦 auto-persist
 ```
 
-自动化映射：TM9–TM14 → `TestRunInteractive_TmuxAttachBurstSuppressed`、`TestHandleRemoteOutput_TmuxLateSetupLeakFiltered`、`TestSetupOutputFilter_CRLines`、`TestBuildSendKeysLiteralCmd_Golden`、`TestPartitionInitialCommands`、`TestLoginWithoutTmuxClearsTmuxEnabled`、`TestLoginWithTmuxSetsTmuxEnabled`、`TestWrapTmuxAttachExitErr_Format`、`TestWrapTmuxPreAttachErr_Format`、`TestBuildSessionForLogin_TmuxFollowsCLI`、`TestHandleRemoteOutput_InteractiveStdoutCRLF`、`TestStripSetupLeakStdout_PreservesCRLF`、`TestLoginRun_PreservesTmuxAttachErrHint`、`TestLoginExitCode_WrappedSSHExit`、`TestLoginRun_ErrHintReachableCLI`、`TestBuildSendKeysLiteralCmd_PreservesDollarLiterals`、`TestTmuxPreAttachSetup_CommandGolden`、`TestTmuxPreAttachSetup_ClearPaneGolden`、`TestCleanupOnTmuxFailure_NewRowDeletes`、`TestDeleteLoginSession_RemovesRow`；R15 → `TestIsMetaREPLCommand`、`TestRunREPL_InitialMetaExits`、`TestRunREPL_InitialMetaModelList`、`TestAICmd_PositionalMetaNoTTY`；R16 → `TestSaveYAML_NoRootDeepseek`、`TestLegacyDeepseekYAML_LoadThenSave`、`TestNormalizeAI_LegacyDeepseekM5`、`TestSetGetKey`；R17 → `TestTopLevelModelsRemoved`、`TestOllamaModelsDirSetGet`、`TestResolveModelsDir_DefaultAitData`、`TestApplyModelsDirEnv`；R18 → `TestParseChatCommand`、`TestRunChatOnce_Mock`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatOnceExits`、`TestRunREPL_InitialChatEmptyMessage`、`TestRunREPL_InitialNonChatShowsPrompt`、`TestRunREPL_InitialChatOnceRemoteCRLF`、`TestAICmd_ChatNoTTY`、`TestAICmd_ChatStdinNoTTY`、`TestAICmd_ChatEmptyNoTTY`、`TestAIPromptFromMetaLine`、`TestMetaScanner_AitAIAsk`、`TestMetaScanner_BangBangAsk`；R19 → `TestStdinReader_PauseExclusive`、`TestStdinReader_DrainWhilePaused`、`TestStdinReader_ResumeAfterPause`、`TestReplStdinReader_UTF8`、`TestMetaScanner_BangBangUTF8Query`；A20–A22 → `TestSessionState_Defaults`、`TestSetMode_*`、`TestAskAI_NoRunCapture`、`TestSetApprove_*`、`TestTrustAliasSession`、`TestPolicyDeprecatedAlias_*`、`TestConfirm_HighRiskIgnoresSession`、`TestApproveSession_LowRiskSkipsSecond`、`TestClassifyRisk_*`、`TestAgentTurn_RunActionMock`、`TestScrollDelta_*`、`TestIsMetaREPLCommand_ModeApprove`、`TestModeStatusLine_IncludesApprove`、`TestChatAgent_ToolCall`、`TestChatAgent_JSONFallbackContent`、`TestAgent_AitListMock`、`TestLocalAIModeOptions_HasCaptureAndCLI`、`TestClassifyRisk_Interactive`、`TestAgent_SkipsVim`、`TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low`；A21 → `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestParseConfirm_SessionTrust`、`TestConfirm_SessionTrustFromPrompt`、`TestCommandPatternKey_FirstToken`、`TestConfirm_PatternTrustSkipsSamePrefix`、`TestConfirm_HighRiskNoSessionOption`、`TestAIMode_ConfirmNoHistory`；H* → `TestWithTry_PreservesIs`、`TestFormatTryBlock_Lines`、`TestPrint_CLI_NoPrefix`、`TestPrint_TTY_Multiline`、`TestShellPrintErrMultiline`、`TestWrapLoadNotFound_DisplayIDHint`、`TestSessionCmd_LoadDisplayIDNotFound`、`TestLoad_DisplayIDNotFound`、`TestSessionCmd_LoadPickNonTTY`、`TestSessionCmd_NoActionFails`、`TestSessionCmd_MutuallyExclusiveFlags`、`TestDestinationRequiredErr_Format`、`TestTmuxWithRemoteCommandErr_Format`、`TestTransferPathCountErr_Format`、`TestTransferUsageHint_Format`、`TestAICmd_ChatEmptyNoTTY`、`TestUnknownConfigKeyErr_Format`、`TestSetModel_ErrNoAI`、`TestExecute_LoginUnknownCommand`、`TestExecuteBlockedAI`、`TestShellPrintErr`、`TestRunChatOnce_EmptyMessage`、`TestRunREPL_InitialChatEmptyMessage`；K* → `TestReadLine_CtrlAE`、`TestReadLine_ArrowKeysUTF8`、`TestReadLine_HistoryUpDown`、`TestLineHistory_Dedup`、`TestReadLine_HistorySkipEmpty`、`TestAIMode_ConfirmNoHistory`、`TestReadLine_KillKeys`、`TestReadLineRawCtrlLRedrawsLine`、`TestWriteShellHelpSections`、`TestHistoryCommand_List`、`TestHistoryCommand_LastN`、`TestHistoryCommand_Clear`、`TestHistoryCommand_Delete`、`TestHistoryCommand_SetLine`、`TestLineHistory_FileSync`、`TestReadLine_CtrlRSearch`、`TestReadLine_CtrlRCycle`、`TestReadLine_CtrlRAbort`、`TestReadLine_CtrlRAcceptRight`、`TestExecuteLineHistory_Shell`、`TestExecuteLineHistory_AIMode`、`TestReadLine_NoHistoryOnPick`、`TestHistoryPath_UnderDataDir`、`TestLineHistory_LoadMissingOK`、`TestLineHistory_FileMode`、`TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites`；P* → `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig`、`TestAppRoot_EmptyIgnores`、`TestConfigSave_AfterMigration`；G* → `TestConfigEnsureFile_Creates`、`TestConfigEnsureFile_MergesPartial`、`TestConfigEnsureFile_NoOp`、`TestConfigEnsureFile_NoRootDeepseek`、`TestConfigInitCmd`、`TestConfigInitCmd_DryRun`、`TestConfigViewCmd`、`TestConfigViewCmd_Existing`、`TestConfigEditCmd`、`TestConfigEditCmd_InvalidYAML`、`TestConfigValidateCmd_OK`、`TestConfigValidateCmd_MissingFile`、`TestConfigValidateCmd_BadYAML`、`TestConfigValidateCmd_BadTTL`、`TestConfigValidateCmd_BadURL`、`TestValidate_OK`、`TestValidate_MissingFile`、`TestValidate_BadYAML`、`TestValidate_BadTTL`、`TestValidate_BadMinimaxURL`、`TestOpenEditor_Unix`、`TestShellQuote`；Z* → `TestNewReceiveSession_FeedIdle`、`TestNewSendSession_OpensLocalFile`、`TestSession_AbortWritesCancelSeq`、`TestPTYZModemErrHint_IncludesLrzsz`、`TestZModemSession_ExclusiveIO`、`TestZModemSession_StripProtocolNoise`、`TestHandleTransferPTY_UsesZModem`、`TestZModemTransfer_ProgressCRLF`、`TestBuildSzCmd_Heredoc`、`TestBuildRzCmd_NoRemoteRedirect`、`TestResolveTransferMode_*`；F* → `TestDrainZModemTail_SuppressesStdout`、`TestZModemSession_StripProtocolNoise`、`TestHandleTransferPTY_PausesRemoteOut`、`TestHandleRemoteOutput_AfterZModemDrain`；X* → `TestExecuteLine_BuiltinWinsOverBin`、`TestResolveAppBin_Found`、`TestDispatchShellCommand_RunsBin`、`TestDispatchShellCommand_AitCLIBeforePATH`、`TestDispatchShellCommand_PATHFallback`、`TestDispatchShellCommand_PATHSkipsCLIError`、`TestBinDir_UnderAppRoot`、`TestResolveAppBin_RejectsUnsafeName`、`TestDispatchShellCommand_NotFoundHint`、`TestIsUnknownCommand`；Y* → `TestShellLL_CurrentDir`、`TestShellLL_TargetPath`、`TestExecuteLine_LLWinsOverBin`、`TestDirlist_FormatMode`、`TestDirlist_SymlinkSuffix`、`TestShellLL_NotFoundHint`、`TestShellLL_TooManyArgs`、`TestAIMode_LLNotBuiltin`、`TestTopLevelLLUnknown`；T* → `TestRoute_PrefersZModemWhenLrzszPresent`、`TestRoute_FallsBackSFTPDirect`、`TestRoute_ChainDeclinedInstall`、`TestRoute_ChainInstallThenZModem`、`TestLrzszResolveInstall_NonTTY`、`TestInstallCommand_*`、`TestParseTarget`；V* → `TestSession_Wait_TeardownAfterDone`、`TestSession_Wait_TeardownTimeout`、`TestZModemReceive_ZEOFOffsetMismatch`、`TestBlockBuffer_CloseLargeSlowReader`、`TestZModemTransfer_FinishingPhase`、`TestTransferProgress_SFTPClosingPhase`、`TestProcessForwardStdin_TransferCtrlC`、`TestProcessForwardStdin_CtrlCFwdWhenInactive`、`TestSession_Wait_ContextCancelAborts`、`TestCopyWithContext_CancelDuringBlockedRead`；W* → `TestRemoteFormat_WithAndWithoutBranch`、`TestRemoteSetupMarker_Prefix`、`TestRemoteSetupLine_ContainsDirAndGit`、`TestDuplicatePromptOutput_PrefixMatch`、`TestIsSetupLeakLine`、`TestSetupOutputFilterAcrossChunks`、`TestFinishRemoteSetup_RefreshOnly`、`TestFinishRemoteSetupShowsPromptOnceWhenPaused`、`TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestFinishRemoteSetup_EmitFailFallsBackRefresh`、`TestRemoteSetupLine_ShortDir`、`TestRemoteSetupLine_AbsoluteDir`、`TestConfigRemotePromptPath_Default`、`TestConfigEnsureFile_RemotePromptPath`、`TestSetGetKey_RemotePromptPath`、`TestValidate_BadRemotePromptPath`、`TestRemotePromptInitialCommands_LoginLoadSamePath`、`TestForwardStdin_SSHTriggersNestedPrompt`、`TestDuplicatePromptOutput_ActiveHostAfterNested`、`TestDuplicatePromptOutput_SingleHopUnchanged`、`TestSingleHopPromptIdentityEqualsDial`、`TestParseSSHCommandLine_PortAndUserHost`、`TestParseSSHCommandLine_SkipComplex`、`TestForwardStdin_SSHEnablesChainMode`、`TestRunInteractive_SingleHopChainOff`；P11 → `TestEmitMetaPromptStdout_NoNativeFallbackWhenPromptShown`、`TestFinishMetaInteraction_PaintsAITWhenManaged`。
+自动化映射（AI）：OA* → `TestOpsAI_*` / `TestAissh_*` / connect 测例；AG* / AC-V4* → `internal/pkg/agentcore/*_test.go`；R18a–b → `ai ask` / aichat；R15 → OA14。SSH / transfer / session / shell 映射见各 **字母前缀明细** 表（勿再引用已删 aimode / A20–A22 测例名）。
 
 ## 新功能
 
@@ -1092,7 +1028,7 @@ aissh hostA                    # 无 --save
 | 1. 定义专项 ID | 为本功能分配带前缀的验收 ID（如清屏 **A1–A12**、UTF-8 **U1–U10**、常量 **C1–C6**）；写入方案/PR 的验收表（行为 \| 自动化测试 \| 手动烟雾）。 |
 | 2. 实现测试 | 每个 ID **至少一条** `*_test.go` 用例；测试名与 ID 在 PR 中可对照；禁止仅手测、零自动化的用户可见行为。 |
 | 3. 纳入交付勾选 | PR / Agent 交付清单须列出本功能全部 ID；`make test` 须覆盖这些测试。 |
-| 4. 纳入后续回归 | 合入后 ID 与测试并入**永久回归集**：此后每次 `make test`、合并前门禁及交付勾选均须仍通过；与 **OA\***、**A20–A22**、**R1–R14** 同等。 |
+| 4. 纳入后续回归 | 合入后 ID 与测试并入**永久回归集**：此后每次 `make test`、合并前门禁及交付勾选均须仍通过；与 **OA\***、**AG\***、**AC-V4\***、**R1–R14** 同等。 |
 | 5. 文档与 help | 用户可见行为同步 `docs/tools/aissh.md` / `docs/tools/ai.md`（按工具）；CLI 同步 `internal/pkg/helpdoc` 与各命令 `help.go`。 |
 
 **示例（已登记专项，后续 PR 须继续验证）**
@@ -1109,21 +1045,21 @@ aissh hostA                    # 无 --save
 | B* | session 列表 `#` / load 交互 / `-v` FULL_ID | `TestSessionCmd_ListNumberColumn`、`TestSessionCmd_LoadPickNonTTY`、`TestPickSession_SelectByNumber`、`TestListVerbose_IncludesFullID` |
 | H* | 多行 Hint（`errhint.WithTry` + `Print`） | `TestWithTry_PreservesIs`、`TestDestinationRequiredErr_Format`、`TestUnknownConfigKeyErr_Format`、`TestSessionCmd_NoActionFails`、`TestExecute_LoginUnknown`、`TestExecuteBlockedAI` |
 | K* | REPL 行编辑与 history | `TestReadLine_HistoryUpDown`、`TestHistoryCommand_List`、`TestReadLine_CtrlRSearch`、`TestExecuteLineHistory_Shell` |
-| K23–K24 | raw-TTY 输出 CRLF（AI REPL `history` / shell `load` picker） | `TestExecuteLineHistory_AIMode_CRLF`、`TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` |
+| K23–K24 | raw-TTY 输出 CRLF（Agent Loop / shell `load` picker） | `TestExecuteLineLoad_PickerCRLF`、`TestCRLFWriter_IdempotentOnCRLF`、`TestCRLFWriter_KeepsLoneCR`、`TestCRLFWriter_IdempotentAcrossWrites` |
 | P* | AppRoot / AIT_HOME 单目录 | `TestAppRoot_AITHomeOverride`、`TestConfigDir_EqualsDataDir`、`TestConfigLoad_MigratesLegacyConfig` |
 | G* | `aissh config init/view/edit/validate` | `TestConfigEnsureFile_Creates`、`TestConfigInitCmd`、`TestConfigViewCmd`、`TestConfigEditCmd`、`TestConfigValidateCmd_*`、`TestValidate_*`、`TestOpenEditor_Unix` |
 | RA* | ~~SSH 远程 AI REPL~~ **已删除** → OA20–OA22；远程用 `ai connect`（OA5+） | — |
 | OA* | Ops AI Agent 插件 `ai` / `opsai`（正向 OA1–OA17；负向 OA20–OA25） | `TestOpsAI_*`、`TestAissh_AISubtreeRemoved`、`TestMetaScanner_BangBangForwardsPTY`、… |
-| EX* | AI 实验门禁（EX1–EX3 config；EX4+ opsai；EX5–EX6/11–12 删） | `TestAIExperimental_*`、`TestOpsAI_ExperimentalDisabled`、`TestAimode_NoAisshImport` |
+| EX* | AI 实验门禁（EX1–EX3 config；EX4+ opsai；EX5–EX6/11–12 删） | `TestAIExperimental_*`、`TestOpsAI_ExperimentalDisabled`、`TestAgentcore_NoProductImports` |
 | LG* | `ailog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources`、`TestCLI_FollowExpr`、`TestCLI_SearchExprOnly` |
 | AH* | `aihost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、… |
 | AT* / AP* | `ait` toolbox REPL + 插件发现 + install/update/upgrade | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestWithAbsorbedInterrupt_*`、`TestDiscover_*`、`TestWriteManifest_Builtin`、`TestCompleteFirstToken_*`、`TestReadLine_NilCompleterInsertsTab`、`TestPlan*`、`TestExecute_*`（aitrelease）、`TestExecuteLine_Install*`、`TestWriteManageHelp_*`、`TestOfficialPluginNames_ManifestsAligned` |
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
 | FB* | `ailog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |
-| A20* | AI REPL Ask/Agent + approve | `TestSessionState_Defaults`、`TestSetMode_*`、`TestAgentTurn_RunActionMock`、`TestAgent_SkipsVim` |
-| A21* | AI REPL 提示符 / 确认 / y·c·s·n | `TestPrompt_ShowsInteractionMode`、`TestConfirmPrompt_UsesCRLF`、`TestConfirm_PatternTrustSkipsSamePrefix` |
-| A22* | Read 风险级别 / 只读自动放行 / 默认 Agent | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |
+| AG* | Agent Loop / agentcore（替代 A20–A22） | `TestOpsAI_DefaultShowsHelp`、`TestPolicy_ReadAutoRun`、`TestPolicy_WriteConfirm`、`TestPolicy_HighAlwaysConfirm`、`TestToolbox_ReadAutoRun`、`TestLoop_StepLimitEvent` |
+| AC-V4* | v4 边界（无 aimode；agentcore 无产品 import） | `TestRepo_NoAimodeImport`、`TestAgentcore_NoProductImports` |
+| agentcore risk/approve | Classify / Confirm（AG-2…4 支撑） | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |
 | W* | 远程提示符 cwd + Git + 目录显示模式 + nested ssh + login stdout flush | `TestRemoteFormat_WithAndWithoutBranch`、`TestFinishRemoteSetup_RefreshOnly`、`TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestRemotePromptInitialCommands_LoginLoadSamePath`、`TestForwardStdin_SSHTriggersNestedPrompt`、`TestParseSSHCommandLine_PortAndUserHost`、`TestSingleHopPromptIdentityEqualsDial` |
 | NP* | 嵌套 SSH idle poll / MOTD fallback / ANSI / native-mode chain | `TestNestedPrompt_QuietIdleInjectsWithoutExtraChunk`、`TestNestedPrompt_ANSIZshPromptReady`、`TestNestedPrompt_MOTDTimeoutFallback`、`TestNestedPrompt_NativeModeChainWithoutPS1` |
 | PJ* | ProxyJump keep-alive + hop Resolve | `TestDialProxyJumpChain_KeepsJumpAlive`、`TestResolve_ProxyJumpHostAlias`、`TestDialChain_JumpUsesResolvedHostPort` |
@@ -1143,7 +1079,7 @@ aissh hostA                    # 无 --save
 | N* | SSH 会话内 connect/load/switch 链式切换 + auto-persist | `TestHandleMetaLine_ChainLogin`、`TestEnsureSessionPersisted_*`、`TestRunInteractive_ChainLoad`、`TestRunInteractive_ChainSwitch`、`TestParseMetaChainLine_*` |
 | LC* | 去掉 `login` 子命令 / SSH 默认路由 | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestParseMetaChainLine_*` | 见 plan LC1–LC11 |
 | V* | 传输收尾 / 可取消 / ZEOF / ZFIN / send put 100% | `TestSession_Wait_TeardownAfterDone`、`TestSession_Wait_TeardownTimeout`、`TestSession_Wait_TeardownAfterZFINWithPrefix`、`TestSession_Wait_TeardownChainTimeout`、`TestSession_Wait_SendTeardownAfterUpload`、`TestZModem_ResyncSkipsPrefix`、`TestZModemReceive_ZEOFOffsetMismatch`、`TestBlockBuffer_CloseLargeSlowReader`、`TestZModemTransfer_FinishingPhase`、`TestZModemTransfer_PutWaitAfterProgress100`、`TestPTYZModemErrHint_TeardownTimeout`、`TestTransferProgress_SFTPClosingPhase`、`TestProcessForwardStdin_TransferCtrlC`、`TestSession_Wait_ContextCancelAborts`、`TestCopyWithContext_CancelDuringBlockedRead` |
-| EX* | AI 实验门禁（EX1–EX3 config；EX4+ opsai） | `TestAIExperimental_*`、`TestOpsAI_ExperimentalDisabled`、`TestAimode_NoAisshImport` |
+| EX* | AI 实验门禁（EX1–EX3 config；EX4+ opsai） | `TestAIExperimental_*`、`TestOpsAI_ExperimentalDisabled`、`TestAgentcore_NoProductImports` |
 | OA* | Ops AI Agent `ai` / `opsai` | `TestOpsAI_*`、`TestAissh_AISubtreeRemoved`、`TestMetaScanner_BangBangForwardsPTY`、`TestExecute_AIMetaUnknownHint` |
 
 ## 索引

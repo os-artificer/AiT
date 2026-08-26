@@ -49,26 +49,8 @@ var (
 		"In SSH sessions, !! and !ait ai are not available. " +
 		"Enable with --ai-experimental on ai, AIT_AI_EXPERIMENTAL=1, or ai.experimental.enabled."
 
-	AIIntroLocal = "Interactive Ops AI Agent on this machine (experimental, off by default). " +
-		"Commands run locally after confirmation; toolbox plugins (aihost, ailog) are preferred for observe-first ops."
-	AIIntroRemote = "Interactive AI mode for the active SSH session (experimental, off by default). " +
-		"Shell commands run on the remote host via run after you confirm."
-
-	AIReplCommands = `  help              show AI mode help
-  exit, quit        leave AI mode
-  clear             clear chat history (not input history; see history)
-  history           list or manage input history (history -c, -d, -s, -a, -r, -w)
-  mode ask|agent    Ask = Q&A only; Agent = plan and run commands (default: agent)
-  approve each|session   how often to confirm runs (default: each)
-  trust             same as approve session
-  model             show current AI routing (provider, tiered)
-  model list        list configured providers (same as ` + toolname.AICLI("model list") + `)
-  model <provider>  set cloud provider for this session (deepseek|minimax)
-  run <command>     run a shell command after confirmation
-  (deprecated: policy per-cmd|once — use approve each|session)
-`
-
-	AIReplCommandsLocalExtra = "  " + toolname.AISsh + " <subcmd>      run an " + toolname.AISsh + " CLI subcommand after confirmation (local only)\n"
+	AIIntroLocal = "Ops AI Agent plugin (experimental, off by default): one-shot ask/agent, model list, " +
+		"provider/ollama, and remote connect. Interactive Agent Loop: " + toolname.AIT + " agent."
 )
 
 // WriteAIChatSubcommandHelp prints one-shot ask/agent --help using shared layout.

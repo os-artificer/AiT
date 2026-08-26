@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package ollama builds the `aissh ai ollama` Cobra subtree (status/setup/start/stop/disable).
+// Package ollama builds the `ai ollama` Cobra subtree (status/setup/start/stop/disable).
 package ollama
 
 import (
@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// New builds the `aissh ai ollama` cobra command tree.
+// New builds the `ai ollama` cobra command tree.
 func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "ollama",

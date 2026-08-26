@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package provider builds the `aissh ai provider` Cobra subtree.
+// Package provider builds the `ai provider` Cobra subtree.
 package provider
 
 import (
@@ -29,7 +29,7 @@ import (
 
 const name = "provider"
 
-// New builds the `aissh ai provider` cobra command.
+// New builds the `ai provider` cobra command.
 func New(_ deps.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           name,

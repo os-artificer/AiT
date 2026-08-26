@@ -17,6 +17,8 @@
 package model
 
 import (
+	_ "github.com/os-artificer/AiT/internal/opsai/model/registry/all"
+
 	"github.com/os-artificer/AiT/internal/opsai/deps"
 	"github.com/os-artificer/AiT/internal/opsai/subregistry"
 

@@ -68,7 +68,7 @@ type AgentConfig struct {
 	MaxSteps int `yaml:"max_steps"`
 }
 
-// ExperimentalConfig gates AI features that are opt-in for aissh (default off).
+// ExperimentalConfig gates AI features that are opt-in for the ai plugin / ait agent (default off).
 type ExperimentalConfig struct {
 	Enabled bool `yaml:"enabled"`
 }

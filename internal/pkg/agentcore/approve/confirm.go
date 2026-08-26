@@ -35,7 +35,7 @@ type Result struct {
 	TrustSession bool
 }
 
-// Inputs collects everything Confirm needs without depending on aimode's Options.
+// Inputs collects everything Confirm needs without depending on product CLI packages.
 type Inputs struct {
 	// Trust mutates as the user makes choices; must be non-nil for stateful confirms.
 	Trust *Trust
@@ -55,7 +55,7 @@ type Inputs struct {
 	Out io.Writer
 	// In supplies one line of user input when ConfirmRead is nil.
 	In io.Reader
-	// Write writes prompt to Out; pass aimode.aimWrite to convert "\n" to "\r\n" for SSH PTY.
+	// Write writes prompt to Out; pass a CRLF writer to convert "\n" to "\r\n" for SSH PTY.
 	// When nil, io.WriteString is used directly.
 	Write func(io.Writer, string)
 }

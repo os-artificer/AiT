@@ -31,24 +31,10 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
-type manageFunc func(ctx context.Context, words []string, out, errOut io.Writer) error
-
 type manageHelpSpec struct {
 	usage string
 	desc  string
 	lines []string
-}
-
-var manageHandlers = map[string]manageFunc{
-	aitplugin.CmdInstall: func(ctx context.Context, words []string, out, errOut io.Writer) error {
-		return runManage(ctx, aitrelease.ActionInstall, words[1:], out)
-	},
-	aitplugin.CmdUpdate: func(ctx context.Context, words []string, out, errOut io.Writer) error {
-		return runManage(ctx, aitrelease.ActionUpdate, words[1:], out)
-	},
-	aitplugin.CmdUpgrade: func(ctx context.Context, words []string, out, errOut io.Writer) error {
-		return runManage(ctx, aitrelease.ActionUpgrade, words[1:], out)
-	},
 }
 
 var manageHelpTopics = map[string]manageHelpSpec{

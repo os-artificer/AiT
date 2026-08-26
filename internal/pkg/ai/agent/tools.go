@@ -33,49 +33,40 @@ type FCCall struct {
 	Arguments string
 }
 
+type toolArgField struct {
+	jsonKey   string
+	outField  string
+	actionOut string
+}
+
+var toolCallConverters = map[string]toolArgField{
+	ToolRunShell: {jsonKey: "command", outField: JSONFieldCommand, actionOut: ToolRunShell},
+	ToolAISshCLI: {jsonKey: "args", outField: JSONFieldArgs, actionOut: ToolAISshCLI},
+	ToolAitCLI:   {jsonKey: "args", outField: JSONFieldArgs, actionOut: ToolAISshCLI},
+	ToolToolbox:  {jsonKey: "args", outField: JSONFieldArgs, actionOut: ToolToolbox},
+	ToolAnswer:   {jsonKey: "text", outField: JSONFieldText, actionOut: ToolAnswer},
+}
+
 // ToolCallToJSON converts a function call into the AiT Agent-mode JSON action envelope.
 func ToolCallToJSON(tc FCCall) (string, error) {
 	if tc.Name == "" {
 		return "", ErrUnsupportedToolCall
 	}
-	switch tc.Name {
-	case ToolRunShell:
-		var args struct {
-			Command string `json:"command"`
-		}
-		if err := json.Unmarshal([]byte(NormalizeES6UnicodeJSON(tc.Arguments)), &args); err != nil {
-			return "", err
-		}
-		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolRunShell, JSONFieldCommand: args.Command})
-		return string(b), nil
-	case ToolAISshCLI, ToolAitCLI:
-		var args struct {
-			Args string `json:"args"`
-		}
-		if err := json.Unmarshal([]byte(NormalizeES6UnicodeJSON(tc.Arguments)), &args); err != nil {
-			return "", err
-		}
-		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolAISshCLI, JSONFieldArgs: args.Args})
-		return string(b), nil
-	case ToolToolbox:
-		var args struct {
-			Args string `json:"args"`
-		}
-		if err := json.Unmarshal([]byte(NormalizeES6UnicodeJSON(tc.Arguments)), &args); err != nil {
-			return "", err
-		}
-		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolToolbox, JSONFieldArgs: args.Args})
-		return string(b), nil
-	case ToolAnswer:
-		var args struct {
-			Text string `json:"text"`
-		}
-		if err := json.Unmarshal([]byte(NormalizeES6UnicodeJSON(tc.Arguments)), &args); err != nil {
-			return "", err
-		}
-		b, _ := json.Marshal(map[string]string{JSONFieldAction: ToolAnswer, JSONFieldText: args.Text})
-		return string(b), nil
-	default:
+	conv, ok := toolCallConverters[tc.Name]
+	if !ok {
 		return "", ErrUnknownTool(tc.Name)
 	}
+
+	var raw map[string]string
+	if err := json.Unmarshal([]byte(NormalizeES6UnicodeJSON(tc.Arguments)), &raw); err != nil {
+		return "", err
+	}
+	b, err := json.Marshal(map[string]string{
+		JSONFieldAction: conv.actionOut,
+		conv.outField:   raw[conv.jsonKey],
+	})
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }

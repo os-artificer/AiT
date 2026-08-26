@@ -36,7 +36,7 @@ const (
 	flagShorthandYes  = "y"
 )
 
-// New builds the `aissh ai ollama setup` cobra command.
+// New builds the `ai ollama setup` cobra command.
 func New() *cobra.Command {
 	var (
 		model     string

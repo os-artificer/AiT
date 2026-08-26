@@ -27,7 +27,7 @@ const introMain = "Disable routing to a provider; no Chat/Assist traffic is sent
 
 var usageLine = toolname.AICLI("provider disable <provider>")
 
-// WriteHelp prints aissh ai provider disable --help to w.
+// WriteHelp prints ai provider disable --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain); err != nil {
