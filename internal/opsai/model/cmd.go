@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/os-artificer/AiT/internal/opsai/deps"
+	"github.com/os-artificer/AiT/internal/opsai/model/subregistry"
 	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
@@ -49,28 +50,7 @@ func New(d deps.Deps) *cobra.Command {
 			})
 		},
 	}
-	listCmd := &cobra.Command{
-		Use:           "list",
-		Short:         "List configured providers and Ollama models (non-interactive)",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return d.RunWithMgr(func(ctx context.Context, cfg *config.Config, aiClient *pkgai.Client) error {
-				if aiClient == nil {
-					return pkgai.NotConfiguredErr()
-				}
-				report, err := aiClient.ListModels(ctx)
-				if err != nil {
-					return err
-				}
-				if report != nil {
-					_, err = fmt.Fprint(cmd.OutOrStdout(), report.Format())
-				}
-				return err
-			})
-		},
-	}
-	cmd.AddCommand(listCmd)
+	subregistry.Attach(cmd, d)
 	pkghelpdoc.Bind(cmd, WriteHelp)
 	return cmd
 }

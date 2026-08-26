@@ -17,6 +17,7 @@
 package connect
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -98,5 +99,16 @@ func TestRemoteAgentOptions_Capture(t *testing.T) {
 	}
 	if !strings.Contains(out, want) {
 		t.Fatalf("got %q", out)
+	}
+}
+
+func TestPTYRemoteRunner_WritesNewline(t *testing.T) {
+	var stdin bytes.Buffer
+	r := &ptyRemoteRunner{stdin: &stdin}
+	if err := r.Run("kubectl get pods"); err != nil {
+		t.Fatal(err)
+	}
+	if stdin.String() != "kubectl get pods\n" {
+		t.Fatalf("got %q", stdin.String())
 	}
 }

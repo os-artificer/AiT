@@ -13,12 +13,12 @@ Shipped tools:
 
 - `ait`: Toolbox interactive REPL; discovers plugins under `<install-dir>/plugins/`; REPL `install` / `update` / `upgrade` pull official binaries from GitHub Releases via `internal/pkg/aitrelease`.
 - `aissh`: SSH client with session persistence, transfer support, and shell/meta workflows (**no AI subtree**).
-- `ai`: Ops AI Agent plugin (experimental; local REPL, toolbox dispatch, optional `ai connect`); app package `internal/opsai`.
+- `ai`: Ops AI Agent plugin (experimental; one-shot ask/agent, toolbox dispatch, optional `ai connect`); app package `internal/opsai`. Interactive Agent Loop is **`ait agent`**.
 - `aiimg`: Image metadata extractor (EXIF device/time/GPS + Nominatim reverse-geocoded address).
 - `ailog`: System log viewer and search (Linux/macOS/Windows) with native tools and built-in fallbacks.
 - `aihost`: Live host CPU, memory, disk, network, and process monitor (Bubble Tea dashboard).
 
-Shared capabilities (not separate binaries) live under `internal/pkg/` and are consumed by tools. AI REPL/agent UX is `internal/pkg/aimode` (engine: `internal/pkg/ai`); the `ai` plugin gates experimental AI via config/env/CLI before calling it.
+Shared capabilities (not separate binaries) live under `internal/pkg/` and are consumed by tools. Agent Loop kernel is `internal/pkg/agentcore` (engine: `internal/pkg/ai`; ops toolbox: `agentops`; UI: `agentui`). The `ai` plugin and `ait agent` gate experimental AI via config/env/CLI before calling it.
 
 ---
 

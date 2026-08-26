@@ -37,7 +37,7 @@ var (
 	exampleDisableStop = toolname.AICLI("ollama disable --stop")
 )
 
-// WriteHelp prints aissh ai ollama disable --help to w.
+// WriteHelp prints ai ollama disable --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introAlias); err != nil {

@@ -14,7 +14,7 @@
  * limitations under the License.
 **/
 
-// Package subregistry collects aissh ai ollama subcommands registered from init hooks.
+// Package subregistry collects ai ollama subcommands registered from init hooks.
 package subregistry
 
 import (
@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Command is the extension point for an `aissh ai ollama` subcommand.
+// Command is the extension point for an `ai ollama` subcommand.
 type Command interface {
 	pkgsubregistry.MetaCommand
 	NewCobra() *cobra.Command
@@ -44,7 +44,7 @@ func Attach(parent *cobra.Command) {
 	reg.Attach(parent, func(c Command) *cobra.Command { return c.NewCobra() })
 }
 
-// Entries returns registered subcommands for aissh ai ollama --help.
+// Entries returns registered subcommands for ai ollama --help.
 func Entries() []Entry {
 	return reg.Entries()
 }

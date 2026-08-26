@@ -19,7 +19,10 @@ package model
 import (
 	"io"
 
+	"github.com/os-artificer/AiT/internal/opsai/model/subregistry"
+
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
+	pkgsubregistry "github.com/os-artificer/AiT/internal/pkg/subregistry"
 	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
@@ -32,7 +35,7 @@ func WriteHelp(w io.Writer) error {
 	if err := b.WriteUsage(toolname.AICLI("model")); err != nil {
 		return err
 	}
-	if err := b.WriteSection("Subcommands:", "  list   List configured providers (same as "+toolname.AICLI("model list")+")\n"); err != nil {
+	if err := b.WriteSection(pkghelpdoc.SectionSubcommands, pkgsubregistry.FormatSubcommandLines(subregistry.Entries())); err != nil {
 		return err
 	}
 	if err := b.WriteExamples(toolname.AICLI("model"), toolname.AICLI("model list")); err != nil {

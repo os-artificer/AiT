@@ -23,7 +23,7 @@ import (
 )
 
 // LineHistory is the REPL input history (alias of history.LineHistory) preserved
-// for backwards compatibility with existing importers (shell / aimode).
+// for backwards compatibility with existing importers (shell / agent).
 type LineHistory = history.LineHistory
 
 // NewLineHistory returns an empty REPL input history with the default capacity.

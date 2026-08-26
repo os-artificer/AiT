@@ -1,79 +1,90 @@
 # ai internals
 
-> Package layout for the Ops AI Agent plugin (`cmd/ai`, `internal/opsai`).
+> Package layout for the Ops AI Agent plugin (`cmd/ai`, `internal/opsai`) and the Agent Loop kernel.
 
 ## Call chain
 
 ```text
-cmd/ai/main.go          → minimal main; delegates to opsai.Run
-internal/opsai          → package opsai: Run, ExecuteWriters, registry, ask/agent/provider/ollama/connect
-  cli_root.go           → Cobra root, experimental strip, runWithConfig
-  cmd.go                → RunLocal (REPL), bare-destination → connect
-  session_state.go      → REPL connect/disconnect + DynamicRemote wiring
-  ops_domain.go         → withOpsDomain (Domain=ops, Toolbox=DispatchToolbox)
-  connect/run.go        → ai connect + buildRemoteAgentOptions (ScopeRemote)
-internal/pkg/aimode     → shared AI REPL (risk, approve, agent, chat, DynamicRemote)
-internal/pkg/ai         → provider routing / chat facade (Ops prompt via AssistEnv.Domain)
-internal/pkg/config     → ai.experimental.enabled SSOT (+ env / CLI flag in opsai)
+cmd/ai/main.go                 → minimal main; delegates to opsai.Run
+internal/opsai                 → package opsai: Run, ExecuteWriters, registry
+  cli_root.go                  → Cobra root, experimental strip, runWithConfig
+  cmd.go                       → bare ai → help + Try ait agent; bare destination → connect
+  ops_domain.go                → withOpsDomain (Domain=ops, Toolbox=agentops.DispatchToolbox)
+  ask/                         → ai ask → aichat.RunOnce
+  agent/                       → ai agent one-shot → agentcore.RunOnce
+  connect/run.go               → ai connect → agentcore.RunLoop (remote Capture)
+  model/, provider/, ollama/   → nested Cobra via subregistry
+
+cmd/ait + internal/ait/agent   → ait agent interactive Loop → agentcore.RunLoop (+ agentui)
+
+internal/pkg/agentcore         → Loop kernel (risk, approve, runner, DynamicRemote, RunLoop/RunOnce)
+internal/pkg/agentops          → Ops toolbox DispatchToolbox + context snapshot
+internal/pkg/agentui           → Plain / TUI emitters for the Loop
+internal/pkg/aichat            → One-shot ask
+internal/pkg/ai                → Provider routing / chat facade
+internal/pkg/config            → ai.experimental.enabled SSOT (+ env / CLI flag in opsai)
 ```
 
 ## Layering
 
 - `opsai` imports `internal/pkg/*` only (**must not** import `internal/ssh`).
-- `aissh` must not import `aimode` / `opsai` (OA24).
-- Shared UX stays in `aimode`; Ops-domain prompts, toolbox, and `connect` live in `opsai`.
-- `internal/ssh/ai/**` is legacy/dead; the shipped plugin is `internal/opsai`.
+- `ait/agent` imports `agentcore` / `agentops` / `agentui` / `ai` (not `opsai`).
+- `agentcore` must not import product packages (`opsai`, `ait`, `internal/ssh`) — enforced by `TestAgentcore_NoProductImports` (AC-V4-1).
+- `aissh` must not import `opsai` / `agentcore` (OA24).
+- `internal/pkg/aimode` was **removed in v4** (`TestRepo_NoAimodeImport`, AC-V4-6).
 
-## Dynamic remote (REPL `connect` / `disconnect`)
+## Interactive Loop vs one-shot
 
-`sessionRuntime` owns an optional `*sshclient.Client` and `*aimode.DynamicRemote`. On connect:
+| Entry | Behavior |
+|-------|----------|
+| `ait agent` / `ait> agent` | Multi-turn Agent Loop (`agentcore.RunLoop`); TTY default TUI |
+| Bare `ai` | Help + Try `ait agent` (no REPL) |
+| `ai ask` | One-shot Ask (`aichat.RunOnce`) |
+| `ai agent` | One-shot Agent (`agentcore.RunOnce`) |
+| `ai connect` / bare destination | Remote Loop via `RunAgentSession` + `agentcore.RunLoop` |
 
-1. Dial via `resolve.Resolve` + `sshclient.DialChain` (supports `-J` / ProxyJump — OA15).
-2. `StartAgentPTY` → `AgentSessionHandles` (Capture, Scrollback, Stdin).
-3. `DynamicRemote.SetRemote` updates scope for prompt, `run`, Ask env, confirm labels, and Agent Capture.
+Loop meta verbs are `exit` / `clear` / `history` / `model` only (no `mode ask|agent`, `approve`, or `run` REPL verbs).
 
-On `disconnect`, `closeLocked` closes PTY/client and `DynamicRemote.SetLocal`.
+## Remote connect (`ai connect` / bare destination)
 
-All scope-sensitive paths use `resolveDynamic(opt)` (mutex-safe `Snapshot()`).
+`connect.LooksLikeDestination` rejects reserved tokens and subcommands so they never bare-route to SSH dial (OA17).
 
-## Remote connect command (`ai connect` / bare destination)
+`RunAgentSession` runs the remote Loop without a meta scanner (OA16). Unlike interactive `aissh` login, there is no `!!` / `!ait` handling in the Agent session PTY loop.
 
-`connect.LooksLikeDestination` rejects REPL verbs (`mode`, `run`, `disconnect`, …) and subcommands (`ask`, `agent`, …) so they never bare-route to SSH dial (OA17).
-
-`RunAgentSession` runs the remote REPL without a meta scanner (OA16). Unlike interactive `aissh` login, there is no `!!` / `!ait` handling in the Agent session PTY loop.
+Production connect sets static `Scope` / `Capture` on `agentcore.Config`. Optional `Config.Dynamic` (`DynamicRemote`) remains available for hot local/remote switching but is **not** wired by the shipped connect path.
 
 ## Ops domain + toolbox
 
-`withOpsDomain` sets `Options.Domain = "ops"` and `Options.Toolbox = DispatchToolbox`. Used by:
+`withOpsDomain` / agent entry points set `Domain = "ops"` and `Toolbox = agentops.DispatchToolbox`.
 
-- Local REPL (`RunLocal`)
-- `ai agent` one-shot (`deps.ApplyOpsDomain`)
-- Remote connect REPL (`buildRemoteAgentOptions`)
-
-`DispatchToolbox` runs `aihost` / `ailog` / `aissh` / `aiimg` from PATH. Agent tool routing uses `ClassifyToolbox` (read auto-run).
+`agentops.DispatchToolbox` runs `aihost` / `ailog` / `aissh` / `aiimg` from PATH (single SSOT). Agent tool routing uses `ClassifyToolbox` (read auto-run).
 
 ## Experimental gate
 
-Only `opsai.ExecuteWriters` strips `--ai-experimental` and sets `config.SetAIExperimentalCLI(true)` (OA25 — aissh does not strip).
+Only `opsai.ExecuteWriters` (and `ait agent` paths that share the gate) strip `--ai-experimental` and set `config.SetAIExperimentalCLI(true)` (OA25 — aissh does not strip).
 
 ## Registry (OCP)
 
-Top-level: `internal/opsai/<cmd>/register.go` + `registry/all/imports.go`. Nested: parent `subregistry` + child `register.go` (provider, ollama).
+Top-level: `internal/opsai/<cmd>/register.go` + `registry/all/imports.go`. Nested: parent `subregistry` + child `register.go` (provider, ollama, model).
 
-## Tests (OA*)
+## Tests (OA* / AG* / AC-V4*)
 
 | ID | Package / test |
 |----|----------------|
-| OA1 | `opsai_test.TestOpsAI_DefaultEntersREPL` |
+| OA1 | `opsai_test.TestOpsAI_DefaultShowsHelp` |
+| OA3 | `agentops.DispatchToolbox` (via opsai OA suite) |
 | OA5–OA6 | `connect/run_test.go` (ScopeRemote + Capture) |
-| OA7 | `opsai/session_state_test.go` |
+| OA7 | Connect teardown / DynamicRemote API (see change-acceptance) |
 | OA14–OA17 | `opsai/oa_test.go`, `connect/run_test.go` |
 | OA16 | `ssh/client/agent_session_test.go` |
+| AG-2…6 | `agentcore/policy_test.go` |
+| AC-V4-1 / AC-V4-6 | `agentcore/import_boundary_test.go` |
 
 ## Related
 
 | Document | Description |
 |----------|-------------|
 | [`ai.md`](ai.md) | Operator-facing guide |
+| [`ait.md`](ait.md) | Toolbox REPL and `ait agent` |
 | [`aissh-internals.md`](aissh-internals.md) | SSH tool (no AI subtree) |
 | [`../architecture.md`](../architecture.md) | Toolbox structure |

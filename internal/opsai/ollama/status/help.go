@@ -40,7 +40,7 @@ var (
 	exampleStatus = toolname.AICLI("ollama status")
 )
 
-// WriteHelp prints aissh ai ollama status --help to w.
+// WriteHelp prints ai ollama status --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introNote); err != nil {

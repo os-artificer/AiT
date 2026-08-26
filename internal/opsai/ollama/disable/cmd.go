@@ -30,7 +30,7 @@ import (
 
 const name = "disable"
 
-// New builds the `aissh ai ollama disable` cobra command.
+// New builds the `ai ollama disable` cobra command.
 func New() *cobra.Command {
 	var withStop bool
 	cmd := &cobra.Command{

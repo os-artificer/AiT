@@ -181,7 +181,7 @@ func defaultDispatchToolbox(argv []string, out, errOut io.Writer) error {
 	)
 }
 
-// SetToolboxDispatch wires opsai.DispatchToolbox (called from opsai init).
+// SetToolboxDispatch wires agentops.DispatchToolbox (called from opsai init).
 func SetToolboxDispatch(fn func([]string, io.Writer, io.Writer) error) {
 	if fn != nil {
 		dispatchToolbox = fn

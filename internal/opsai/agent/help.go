@@ -37,7 +37,7 @@ var (
 	exampleStdin = fmt.Sprintf(`echo "list running containers" | %s`, toolname.AICLI("agent"))
 )
 
-// WriteHelp prints aissh ai agent --help to w.
+// WriteHelp prints ai agent --help to w.
 func WriteHelp(w io.Writer) error {
 	return pkghelpdoc.WriteAIChatSubcommandHelp(w, "agent", introMain, introSSH, usageLine, inputBody,
 		exampleQuote, exampleModel, exampleStdin, pkghelpdoc.ExampleAIAgentLocal)

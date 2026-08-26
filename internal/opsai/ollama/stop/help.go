@@ -33,7 +33,7 @@ var (
 	exampleStop = toolname.AICLI("ollama stop")
 )
 
-// WriteHelp prints aissh ai ollama stop --help to w.
+// WriteHelp prints ai ollama stop --help to w.
 func WriteHelp(w io.Writer) error {
 	b := pkghelpdoc.NewBody(w)
 	if err := b.WriteIntro(introMain, introWindows); err != nil {
