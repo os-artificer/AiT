@@ -57,13 +57,12 @@ func drainSessionRequests(in <-chan *ssh.Request) {
 }
 
 func runInteractiveShell(ch ssh.Channel, cfg Config) {
-	prompt := mockPrompt(cfg)
-	_, _ = io.WriteString(ch, prompt)
+	_, _ = io.WriteString(ch, mockPrompt(cfg))
 
 	r := bufio.NewReader(ch)
 	for {
 		line, err := readShellLine(r)
-		if handleShellLine(ch, cfg, prompt, line) {
+		if handleShellLine(ch, cfg, line) {
 			return
 		}
 		if err != nil {
@@ -72,15 +71,17 @@ func runInteractiveShell(ch ssh.Channel, cfg Config) {
 	}
 }
 
-func handleShellLine(ch ssh.Channel, cfg Config, prompt, line string) (done bool) {
+func handleShellLine(ch ssh.Channel, cfg Config, line string) (done bool) {
 	if isExitLine(line) {
 		return true
 	}
 	if isSilentShellLine(line) {
-		_, _ = io.WriteString(ch, prompt)
+		// First prompt after PS1 setup. aissh may also paint one; pytest drains duplicates.
+		_, _ = io.WriteString(ch, mockPrompt(cfg))
 		return false
 	}
 
+	_, _ = io.WriteString(ch, line+"\r\n")
 	stdout, stderr, _ := runCommand(cfg.RootDir, cfg.Hostname, strings.TrimSpace(line))
 	if stdout != "" {
 		_, _ = io.WriteString(ch, stdout)
@@ -88,7 +89,7 @@ func handleShellLine(ch ssh.Channel, cfg Config, prompt, line string) (done bool
 	if stderr != "" {
 		_, _ = io.WriteString(ch.Stderr(), stderr)
 	}
-	_, _ = io.WriteString(ch, prompt)
+	_, _ = io.WriteString(ch, mockPrompt(cfg))
 	return false
 }
 
@@ -117,7 +118,11 @@ func mockPrompt(cfg Config) string {
 	if dir == "" || dir == "." || dir == string(filepath.Separator) {
 		dir = "/"
 	}
-	return fmt.Sprintf("AiT %s@%s:%s> ", cfg.User, cfg.Hostname, dir)
+	host := cfg.promptListenHost
+	if host == "" {
+		host = cfg.Hostname
+	}
+	return fmt.Sprintf("AiT %s@%s:%s> ", cfg.User, host, dir)
 }
 
 func isExitLine(line string) bool {

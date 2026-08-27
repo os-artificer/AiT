@@ -262,20 +262,19 @@ func TestSSH_InteractiveEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := readUntilContains(t, stdout, "AiT ", 5*time.Second)
-	if !strings.Contains(got, srv.User()+"@") {
-		t.Fatalf("prompt=%q", got)
-	}
-
 	if _, err := io.WriteString(stdin, "export PS1='ignored'\n"); err != nil {
 		t.Fatal(err)
 	}
-	_ = readUntilContains(t, stdout, "AiT ", 5*time.Second)
-
 	if _, err := io.WriteString(stdin, "echo hello-interactive\n"); err != nil {
 		t.Fatal(err)
 	}
 	out := readUntilContains(t, stdout, "hello-interactive", 5*time.Second)
+	if !strings.Contains(out, "AiT ") {
+		t.Fatalf("missing prompt after echo: %q", out)
+	}
+	if !strings.Contains(out, srv.User()+"@") {
+		t.Fatalf("prompt=%q", out)
+	}
 	if strings.Contains(out, "command not found") {
 		t.Fatalf("setup leaked: %q", out)
 	}

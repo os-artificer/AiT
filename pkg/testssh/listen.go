@@ -77,6 +77,12 @@ func Listen(cfg Config) (*Server, error) {
 		return nil, err
 	}
 
+	if cfg.promptListenHost == "" {
+		if host, _, splitErr := net.SplitHostPort(ln.Addr().String()); splitErr == nil {
+			cfg.promptListenHost = host
+		}
+	}
+
 	srv := &Server{
 		cfg:          cfg,
 		ln:           ln,

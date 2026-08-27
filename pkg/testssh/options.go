@@ -32,6 +32,9 @@ type Config struct {
 	Hostname string
 	// IdentityDir, when set, receives a generated OpenSSH-compatible client private key.
 	IdentityDir string
+	// promptListenHost is set by Listen to the bound address so the interactive
+	// prompt matches aissh's AiT user@dial-host: identity.
+	promptListenHost string
 }
 
 // Info is the JSON payload printed by cmd/testenv-mock for pytest fixtures.

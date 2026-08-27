@@ -31,7 +31,7 @@ def _login_prompt_patterns(tgt: SSHTarget) -> list[str]:
     """Prompt patterns for interactive login (AiT-managed or native shell)."""
     host_short = tgt.host.split(".")[0]
     patterns = [
-        r"AiT\s+" + re.escape(tgt.user) + r"@" + r"[^\s:]+:",
+        r"AiT\s+" + re.escape(tgt.user) + r"@" + r"[^\s:]+:\S*?>\s*",
         re.escape(tgt.user) + r"@" + re.escape(host_short) + r"[^\n]*➜",
         re.escape(tgt.user) + r"@.*➜",
         re.escape(tgt.user) + r"@.*#\s",
@@ -66,6 +66,18 @@ def _expect_prompt_dismissing_blockers(
         )
 
 
+def _drain_duplicate_prompts(child: pexpect.spawn, patterns: list[str], *, quiet: float = 0.8) -> None:
+    """Consume extra prompt matches so send_line does not return on leftover PS1."""
+    deadline = time.monotonic() + 5.0
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        idx = child.expect(patterns + [pexpect.TIMEOUT], timeout=min(quiet, remaining))
+        if idx == len(patterns):
+            return
+
+
 class AITExpectSession:
     """Interactive PTY session around aissh login or shell."""
 
@@ -81,6 +93,7 @@ class AITExpectSession:
         self.prompt_pattern = prompt_pattern
         self.prompt_patterns = prompt_patterns or [str(prompt_pattern)]
         self.native_prompt = native_prompt
+        self.login_banner = ""
         self._before_last = ""
 
     @classmethod
@@ -109,14 +122,19 @@ class AITExpectSession:
                 child.sendline(tgt.password)
         patterns = _login_prompt_patterns(tgt)
         idx = _expect_prompt_dismissing_blockers(child, patterns, timeout=timeout)
+        after = child.after if isinstance(child.after, str) else ""
+        banner = (child.before or "") + after
+        _drain_duplicate_prompts(child, patterns)
         native_prompt = idx != 0
         prompt_pattern = patterns[idx]
-        return cls(
+        sess = cls(
             child,
             prompt_pattern=prompt_pattern,
             prompt_patterns=patterns,
             native_prompt=native_prompt,
         )
+        sess.login_banner = banner
+        return sess
 
     @classmethod
     def spawn_shell(cls, cfg: TestConfig, runner_env: dict[str, str], *, timeout: int = 30) -> AITExpectSession:
@@ -158,6 +176,12 @@ class AITExpectSession:
             if idx == len(self.prompt_patterns):
                 raise TimeoutError(f"timeout waiting for prompt after: {line!r}\n{self.child.before}")
             last = self.child.before or ""
+            if expect_substr is None and not strip_ansi(last).strip():
+                # Late duplicate PS1 (setup redraw) can match before meta/CLI output arrives.
+                idx = self.child.expect(self.prompt_patterns + [pexpect.TIMEOUT], timeout=timeout)
+                if idx == len(self.prompt_patterns):
+                    raise TimeoutError(f"timeout waiting for prompt after: {line!r}\n{self.child.before}")
+                last = self.child.before or ""
             if expect_substr is None or expect_substr in strip_ansi(last):
                 self._before_last = last
                 return last
@@ -172,7 +196,8 @@ class AITExpectSession:
         return strip_ansi(raw or "")
 
     def meta(self, cmd: str, *, timeout: int = 90) -> str:
-        return self.send_line(f"!ait {cmd}", timeout=timeout)
+        token = (cmd.split() or ["!ait"])[0]
+        return self.send_line(f"!ait {cmd}", timeout=timeout, expect_substr=token)
 
     def bang_ai(self, first_line: str = "", *, timeout: int = 120) -> str:
         line = "!!" if not first_line else f"!! {first_line}"
@@ -219,7 +244,11 @@ class AITExpectSession:
             self.child.terminate(force=True)
 
     def buffer(self) -> str:
-        return (self.child.before or "") + (self.child.after or "")
+        before = self.child.before or ""
+        after = self.child.after
+        if not isinstance(after, str):
+            after = ""
+        return self.login_banner + before + after
 
 
 def runner_env_from(
