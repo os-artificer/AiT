@@ -1,0 +1,4 @@
+{
+  "name": "AiT toolbox",
+  "install": "sudo apt-get update -qq && sudo apt-get install -y -qq python3-venv python3-pip && go mod download && make build"
+}
