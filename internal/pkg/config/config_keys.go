@@ -63,6 +63,14 @@ func (c *Config) SetKey(key, value string) error {
 		return nil
 	}
 
+	if key == keyAIAgentCommandTimeout {
+		if _, err := time.ParseDuration(value); err != nil {
+			return err
+		}
+		c.AI.Agent.CommandTimeout = value
+		return nil
+	}
+
 	if field, ok := parseTieredKey(key); ok {
 		return c.setTieredField(field, value)
 	}
@@ -93,6 +101,11 @@ func (c *Config) GetKey(key string) (string, error) {
 			return "true", nil
 		}
 		return "false", nil
+	case keyAIAgentCommandTimeout:
+		if strings.TrimSpace(c.AI.Agent.CommandTimeout) == "" {
+			return DefaultAgentCommandTimeoutYAML, nil
+		}
+		return c.AI.Agent.CommandTimeout, nil
 	}
 
 	if field, ok := parseTieredKey(key); ok {

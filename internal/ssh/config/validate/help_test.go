@@ -32,6 +32,7 @@ func TestWriteHelp(t *testing.T) {
 		"Usage:",
 		"Checks:",
 		"session.auth_ttl",
+		"ai.agent.command_timeout",
 		"Does not create a missing file",
 		"help for validate",
 	} {

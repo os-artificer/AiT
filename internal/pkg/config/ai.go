@@ -56,6 +56,9 @@ const (
 	DefaultAgentCommandTimeout = 2 * time.Minute
 	MinAgentCommandTimeout     = 5 * time.Second
 	MaxAgentCommandTimeout     = time.Hour
+	// DefaultAgentCommandTimeoutYAML is the duration string GetKey returns when
+	// ai.agent.command_timeout is unset (Go's Duration.String is "2m0s").
+	DefaultAgentCommandTimeoutYAML = "2m"
 )
 
 // ProviderConfig holds per-provider AI endpoint settings.

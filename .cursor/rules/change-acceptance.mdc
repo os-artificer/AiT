@@ -21,7 +21,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 |------|------|
 | **语义不变** | 未改动路径：参数解析、拨号、SFTP、会话状态机、错误文案、退出码、提示符与改动前一致；**errhint 多行模板**路径首行 sentinel/`errors.Is` 须保持，排版与 `Try:` 块为预期变更（非回退） |
 | **范围最小** | 禁止 drive-by 重构、顺手改默认值或无关文件 |
-| **已修复不回退** | 全库 **R1–R14**、**R16–R17**、**OA\***、**AG-1…6**、**AC-V4\***、**EX\***（见下）须保持；相关测试不得删除或弱化断言 |
+| **已修复不回退** | 全库 **R1–R14**、**R16–R17**、**OA\***、**AG-1…13**、**AC-V4\***、**EX\***（见下）须保持；相关测试不得删除或弱化断言 |
 | **跨平台** | 涉及 TTY/路径/exec 时须 `make test-cross` 通过 |
 
 ## 禁止
@@ -45,7 +45,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | AI CLI（历史） | R17 无顶层 `aissh models`；provider/ollama 现属 **`ai`** 插件（`ai provider` / `ai ollama`） |
 | AI ask | **R18a–b → `ai ask` 测试**；**R18c–f 删除**（见 OA20–OA22 / aichat） |
 | SSH AI 输入 | **R19 删除** → 远程经 `ai connect`；负向见 OA20–OA22 |
-| Agent Loop | **v4：** Loop 经 `ait agent` → **AG-1…6** + **AC-V4\***（`agentcore`）；历史 A20–A22 **已退役** |
+| Agent Loop | **v4：** Loop 经 `ait agent` → **AG-1…13** + **AC-V4\***（`agentcore`）；历史 A20–A22 **已退役** |
 
 ### OA* 明细（Ops AI Agent 插件 `ai` / `opsai`）
 
@@ -91,7 +91,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | R18c–f / R19 / RA* | **删除** + OA20–OA22 |
 | EX1–EX3 | 保留 config 包 |
 | EX4–EX13 | → opsai；aissh 侧删旗测例 |
-| A20–A22 | **退役** → **AG-1…6** + `agentcore` 风险/确认测例（见 **AG\***） |
+| A20–A22 | **退役** → **AG-1…13** + `agentcore` 风险/确认测例（见 **AG\***） |
 | H3a | → `ai ask` empty |
 
 ### R18 明细（历史 `aissh ai ask` → **`ai ask`**）
@@ -130,6 +130,13 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | AG-4 | 高危在 session trust 下仍确认 | `TestPolicy_HighAlwaysConfirm` | Agent：`rm -rf /tmp/x` 每次确认 |
 | AG-5 | toolbox 只读子命令 Classify 为 Read | `TestToolbox_ReadAutoRun` | Agent：`aihost snapshot` 类只读自动执行 |
 | AG-6 | step limit 事件 kind 稳定 | `TestLoop_StepLimitEvent` | — |
+| AG-7 | 链式命令按最严 segment 判级：只读首词不掩盖后续破坏性/写命令 | `TestClassify_ChainedDestructiveNotRead`、`TestClassify_ChainedWriteNotRead`、`TestClassify_ChainedReadStaysRead` | Agent：`ls; rm -rf /tmp/x` 仍确认 |
+| AG-8 | 只读命令带写重定向不自动放行；`2>&1` / `/dev/null` 仍 Read | `TestClassify_RedirectNotRead`、`TestClassify_BenignRedirectStaysRead`、`TestHasUnsafeReadMeta` | Agent：`cat a > b` 需确认；`ls 2>/dev/null` 自动执行 |
+| AG-9 | 命令替换 / 后台化不 Read；任一 segment Interactive 优先 | `TestClassify_SubstitutionNotRead`、`TestClassify_ChainedInteractiveWins` | Agent：`ls && vim f` → 提示手动 |
+| AG-10 | 引号内元字符不切分、不破坏 Read；denylist 仍扫引号内文本（保守升级） | `TestSplitSegments_QuotesAndOperators`、`TestSplitSegments_Blank`、`TestSplitSegments_Capped`、`TestClassify_QuotedMetaStaysRead`、`TestClassify_QuotedDestructiveEscalates` | Agent：`grep 'a > b' f` 自动执行 |
+| AG-11 | 管道进 shell 为 High（跨 segment，整行匹配） | `TestClassify_PipeToShellHigh` | Agent：`curl … \| bash` 每次确认 |
+| AG-12 | 工具执行有墙钟上限（忽略 ctx 的 runner 亦不挂起）；ctx 取消原样返回；本机子进程期间让出 raw TTY 并吸收 Interrupt；远程 capture 保持 raw；`ai.agent.command_timeout` 可配 | `TestRunBoundedCapture_TimeoutOnBlockedRunner`、`TestRunBoundedCapture_PassesDeadlineToRunner`、`TestRunBoundedCapture_CallerCancel`、`TestAgentCommandTimeout_Default`、`TestWithTTYHandoff_SuspendsAndResumes`、`TestWithTTYHandoff_NilResume`、`TestWithLocalChildTTY_RemoteScopeKeepsRawMode`、`TestWithLocalChildTTY_DynamicRemoteKeepsRawMode`、`TestWithAbsorbedInterrupt_ReturnsFnError`、`TestWithAbsorbedInterrupt_Nested`、`TestAgentCommandTimeout_ParseClampDefault`、`TestAgentConfigNormalize_CommandTimeout`、`TestSetGetKey_AgentCommandTimeout`、`TestValidate_BadAgentCommandTimeout` | Agent：`ping example.com` 超时后返回观察值；执行中 Ctrl+C 终止命令而非退出 Loop |
+| AG-13 | step limit 提示经单一 line reader（raw TTY 回车不挂起）；continue 迭代不递归；空行重问、EOF 结束；TTY Loop 自绘提示符 | `TestParseContinueChoice`、`TestWaitContinueOrExit_CarriageReturnAnswer`、`TestWaitContinueOrExit_BlankThenEOF`、`TestWaitContinueOrExit_FreeFormGoal`、`TestWaitContinueOrExit_ExitEndsSession`、`TestWaitContinueOrExit_ContextCancelled`、`TestRunAgentTurn_ContinueIsIterative`、`TestLoopPrompt_ScopeAndHost` | `ait agent`：见 `AiT Agent>`；step limit 后回车即响应 |
 | AC-V4-1 | agentcore 不 import 产品包 | `TestAgentcore_NoProductImports` | — |
 | AC-V4-6 | 仓库无 `internal/pkg/aimode` | `TestRepo_NoAimodeImport` | — |
 
@@ -823,6 +830,13 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 - [ ] AG-4：高危始终确认（`TestPolicy_HighAlwaysConfirm`）
 - [ ] AG-5：toolbox 只读 Read（`TestToolbox_ReadAutoRun`）
 - [ ] AG-6：step limit 事件（`TestLoop_StepLimitEvent`）
+- [ ] AG-7：链式命令按最严 segment 判级（`TestClassify_ChainedDestructiveNotRead`、`TestClassify_ChainedWriteNotRead`、`TestClassify_ChainedReadStaysRead`）
+- [ ] AG-8：写重定向不 Read；benign 重定向仍 Read（`TestClassify_RedirectNotRead`、`TestClassify_BenignRedirectStaysRead`、`TestHasUnsafeReadMeta`）
+- [ ] AG-9：替换/后台化不 Read；Interactive 优先（`TestClassify_SubstitutionNotRead`、`TestClassify_ChainedInteractiveWins`）
+- [ ] AG-10：引号语义与 segment 上限（`TestSplitSegments_*`、`TestClassify_QuotedMetaStaysRead`、`TestClassify_QuotedDestructiveEscalates`）
+- [ ] AG-11：管道进 shell 为 High（`TestClassify_PipeToShellHigh`）
+- [ ] AG-12：命令超时 + TTY 让出 + `ai.agent.command_timeout`（`TestRunBoundedCapture_*`、`TestWithTTYHandoff_*`、`TestWithLocalChildTTY_*`、`TestWithAbsorbedInterrupt_*`、`TestAgentCommandTimeout_*`、`TestAgentConfigNormalize_CommandTimeout`、`TestSetGetKey_AgentCommandTimeout`、`TestValidate_BadAgentCommandTimeout`）
+- [ ] AG-13：continue 提示不挂起、不递归；TTY 提示符可见（`TestWaitContinueOrExit_*`、`TestParseContinueChoice`、`TestRunAgentTurn_ContinueIsIterative`、`TestLoopPrompt_ScopeAndHost`）
 - [ ] AC-V4-1 / AC-V4-6：agentcore 边界 + 无 aimode（`TestAgentcore_NoProductImports`、`TestRepo_NoAimodeImport`）
 - [ ] Confirm/Classify 回归：`TestConfirm_ReadAutoApproves`、`TestClassify_Read`、`TestClassify_Low`、`TestClassify_HighPatterns`、`TestConfirm_HighRiskIgnoresSession`
 - [ ] D1–D19：登录连接去重与已有连接更新（见 **D* 明细**）
@@ -924,9 +938,15 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 # 自然语言：查看进程          # AG-2
 run cp a b                  # AG-3：写命令仍需确认
 run rm -rf /tmp/test        # AG-4：高危仍每次确认
+# AiT Agent>                # AG-13：进 Loop 即见提示符（TTY / --plain 均有）
+# 自然语言：ls 后删除临时文件  # AG-7：`ls; rm -rf /tmp/x` 仍确认
+# 自然语言：把配置备份到文件    # AG-8：`cat a > b` 需确认
+# 自然语言：安装脚本一键执行    # AG-11：`curl … | bash` 每次确认
+# 长命令（如 ping）执行中 Ctrl+C # AG-12：终止命令，Loop 不退出
+# step limit 后回车            # AG-13：立即响应，不挂起
 
 # 远程
-./bin/ai connect user@host  # OA5：远程 Loop
+./bin/ai connect user@host  # OA5：远程 Loop（AG-12：远程超时兜底，Ctrl+C 走远端）
 ```
 
 手动烟雾（远程提示符，W*）：
@@ -1057,9 +1077,9 @@ aissh hostA                    # 无 --save
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
 | FB* | `ailog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |
-| AG* | Agent Loop / agentcore（替代 A20–A22） | `TestOpsAI_DefaultShowsHelp`、`TestPolicy_ReadAutoRun`、`TestPolicy_WriteConfirm`、`TestPolicy_HighAlwaysConfirm`、`TestToolbox_ReadAutoRun`、`TestLoop_StepLimitEvent` |
+| AG* | Agent Loop / agentcore（替代 A20–A22；含 AG-7…13 安全门） | `TestOpsAI_DefaultShowsHelp`、`TestPolicy_*`、`TestClassify_Chained*`、`TestRunBoundedCapture_*`、`TestWaitContinueOrExit_*`、`TestSetGetKey_AgentCommandTimeout` |
 | AC-V4* | v4 边界（无 aimode；agentcore 无产品 import） | `TestRepo_NoAimodeImport`、`TestAgentcore_NoProductImports` |
-| agentcore risk/approve | Classify / Confirm（AG-2…4 支撑） | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestIsRead_SudoPrefix`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |
+| agentcore risk/approve | Classify / Confirm（AG-2…11 支撑） | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestClassify_ChainedDestructiveNotRead`、`TestClassify_PipeToShellHigh`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |
 | W* | 远程提示符 cwd + Git + 目录显示模式 + nested ssh + login stdout flush | `TestRemoteFormat_WithAndWithoutBranch`、`TestFinishRemoteSetup_RefreshOnly`、`TestFinishRemoteSetup_EmitsBufferedPromptStdout`、`TestFinishRemoteSetup_RefreshPromptReachStdout`、`TestRemotePromptInitialCommands_LoginLoadSamePath`、`TestForwardStdin_SSHTriggersNestedPrompt`、`TestParseSSHCommandLine_PortAndUserHost`、`TestSingleHopPromptIdentityEqualsDial` |
 | NP* | 嵌套 SSH idle poll / MOTD fallback / ANSI / native-mode chain | `TestNestedPrompt_QuietIdleInjectsWithoutExtraChunk`、`TestNestedPrompt_ANSIZshPromptReady`、`TestNestedPrompt_MOTDTimeoutFallback`、`TestNestedPrompt_NativeModeChainWithoutPS1` |
 | PJ* | ProxyJump keep-alive + hop Resolve | `TestDialProxyJumpChain_KeepsJumpAlive`、`TestResolve_ProxyJumpHostAlias`、`TestDialChain_JumpUsesResolvedHostPort` |

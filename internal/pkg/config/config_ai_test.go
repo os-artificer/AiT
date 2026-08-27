@@ -66,6 +66,27 @@ func TestAgentCommandTimeout_ParseClampDefault(t *testing.T) {
 	}
 }
 
+// AG-12: config set/get round-trips a valid duration and rejects junk.
+func TestSetGetKey_AgentCommandTimeout(t *testing.T) {
+	cfg := &Config{}
+	if err := cfg.SetKey(keyAIAgentCommandTimeout, "10m"); err != nil {
+		t.Fatalf("SetKey: %v", err)
+	}
+	got, err := cfg.GetKey(keyAIAgentCommandTimeout)
+	if err != nil || got != "10m" {
+		t.Fatalf("GetKey: %q err=%v", got, err)
+	}
+	if d := cfg.AgentCommandTimeout(); d != 10*time.Minute {
+		t.Fatalf("AgentCommandTimeout=%v", d)
+	}
+	if err := cfg.SetKey(keyAIAgentCommandTimeout, "nope"); err == nil {
+		t.Fatal("SetKey should reject invalid duration")
+	}
+	if got, err := (&Config{}).GetKey(keyAIAgentCommandTimeout); err != nil || got != DefaultAgentCommandTimeoutYAML {
+		t.Fatalf("empty GetKey=%q err=%v", got, err)
+	}
+}
+
 // AG-12: Normalize clamps a saved out-of-range timeout and keeps bad input for Validate.
 func TestAgentConfigNormalize_CommandTimeout(t *testing.T) {
 	cases := []struct {

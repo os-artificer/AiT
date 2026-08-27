@@ -27,6 +27,7 @@ const (
 	introMain = "Check config.yaml for YAML syntax and configuration value errors. Does not create a missing file."
 	checks    = `  YAML syntax (line hints from the parser)
   session.auth_ttl          valid duration
+  ai.agent.command_timeout  valid duration
   ai.default / ai.fallback  known cloud providers
   ai.providers.*            base_url, api_style, model, models_dir
   ai.tiered.*               tiered routing fields

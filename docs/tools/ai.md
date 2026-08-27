@@ -40,6 +40,19 @@ ait agent [--plain] [goal...]          # Agent Loop (TTY default TUI; --plain fo
 ait> agent [goal...]                   # nested Loop from toolbox REPL
 ```
 
+## Command safety
+
+Read-only commands auto-run in Agent mode; write commands ask first. Two details matter in practice:
+
+- **A whole command line is judged by its riskiest part.** `ls; rm -rf /tmp/x` is not treated as a read because it starts with `ls` — each segment between `;`, `&&`, `||`, and `|` is classified separately and the strictest one wins. A read-only command that redirects into a file, substitutes another command, or backgrounds itself (`cat x > y`, `` echo `curl …` ``, `ping … &`) also loses the auto-run fast path. Searching for a dangerous string, as in `grep "rm -rf /" file`, prompts rather than running silently; that false positive is intentional.
+- **Every tool command is time-bounded.** The default limit is 2 minutes per command, after which the Agent receives a timeout observation and keeps going instead of hanging. Tune it with `ai.agent.command_timeout` (a duration such as `30s` or `10m`, clamped to 5s..1h):
+
+```bash
+aissh config set ai.agent.command_timeout 10m
+```
+
+While a local command runs, the terminal returns to normal mode, so Ctrl+C interrupts that command instead of leaving the Agent Loop. In a remote session Ctrl+C goes to the remote shell, and the timeout is what ends a stuck remote command.
+
 ## Remote connect
 
 `ai connect` (or bare destination) opens **`RunAgentSession`** and runs **`agentcore.RunLoop`** with remote Capture/`run` injection (no aissh meta scanner). Toolbox dispatch uses `aihost`, `ailog`, `aissh`, `aiimg` from PATH.

@@ -45,6 +45,22 @@ internal/pkg/config            → ai.experimental.enabled SSOT (+ env / CLI fla
 
 Loop meta verbs are `exit` / `clear` / `history` / `model` only (no `mode ask|agent`, `approve`, or `run` REPL verbs).
 
+## Execution safety
+
+Three gates sit between a model action and a running command.
+
+**Risk classification** (`agentcore/risk`). `Classify` splits the command line at unquoted shell operators (`;`, `;;`, `&&`, `||`, `|`, newline) via `SplitSegments` and classifies each segment on its own, taking the strictest result. Within a segment the destructive denylist is checked before the read-only fast path, and a segment only qualifies as `Read` when it also carries no writing metacharacter (`>`, `<`, `$(`, backtick, `&`); `2>&1` and `/dev/null` redirects are treated as benign. Fragments that straddle an operator, such as `| bash`, live in `pipeHighRiskFragments` and are matched against the whole line. The denylist deliberately also scans quoted text, so `grep "rm -rf /" file` escalates rather than auto-running.
+
+**Command timeout** (`agentcore/exec_capture.go`). `runBoundedCapture` derives a `context.WithTimeout` from `Config.CommandTimeout` (`ai.agent.command_timeout`, default 2m, clamped 5s..1h) and additionally bounds its own wait on a buffered channel, because the remote capture runner in `connect/run.go` wraps `RunPTYCapture`, which ignores ctx. Caller cancellation returns `ctx.Err()`; the bound returns a timeout string the model reads as an observation.
+
+**Terminal handoff** (`withLocalChildTTY`). Local shell, CLI, and toolbox executions run with raw mode released (`suspendRawTTY`) and parent `os.Interrupt` absorbed (`internal/pkg/procsig`), so Ctrl+C reaches the child as SIGINT instead of being read as a `0x03` byte by the line editor. Remote captures keep raw mode on purpose: there is no local child, and cooked mode would swallow the byte the remote PTY needs.
+
+## Loop input
+
+`sessionState.readLine` is the single input path for the Loop and its sub-prompts: `scannerLineReader` in cooked mode, `ttyLineReader` (the raw-mode line editor) when `runLoopTTY` owns the terminal. Mixing a `bufio.Scanner` with the line editor on one fd is what made the step-limit prompt hang, since raw-mode Enter arrives as a carriage return.
+
+`runAgentTurn` iterates over goals and `runAgentSteps` returns the next goal, so continuing past the step limit does not recurse. Both loops paint their own prompt; `lineedit.ReadLine` only redraws `Options.Prompt` after an edit.
+
 ## Remote connect (`ai connect` / bare destination)
 
 `connect.LooksLikeDestination` rejects reserved tokens and subcommands so they never bare-route to SSH dial (OA17).
@@ -78,6 +94,9 @@ Top-level: `internal/opsai/<cmd>/register.go` + `registry/all/imports.go`. Neste
 | OA14–OA17 | `opsai/oa_test.go`, `connect/run_test.go` |
 | OA16 | `ssh/client/agent_session_test.go` |
 | AG-2…6 | `agentcore/policy_test.go` |
+| AG-7…AG-11 | `agentcore/risk/risk_test.go`, `agentcore/risk/segments_test.go` |
+| AG-12 | `agentcore/exec_capture_test.go`, `procsig/interrupt_test.go`, `config/config_ai_test.go` |
+| AG-13 | `agentcore/loop_continue_test.go` |
 | AC-V4-1 / AC-V4-6 | `agentcore/import_boundary_test.go` |
 
 ## Related

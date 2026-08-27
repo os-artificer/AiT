@@ -19,6 +19,7 @@ package shared
 // KeysHelp is the shared configuration keys section for config subcommand help.
 const KeysHelp = `  session.auth_ttl              duration for session unlock (e.g. 168h, 7d)
   session.remote_prompt.path    short (last path segment) or absolute (full path, ~ for home)
+  ai.agent.command_timeout      duration bound for one Agent tool command (e.g. 2m, 30s)
   ai.default                    default AI provider (deepseek|minimax)
   ai.fallback                   comma-separated failover order (optional)
   ai.providers.<id>.base_url    provider API base URL
