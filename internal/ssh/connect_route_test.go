@@ -24,6 +24,7 @@ import (
 
 	_ "github.com/os-artificer/AiT/internal/ssh/registry/all"
 
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
 	pkghelpdoc "github.com/os-artificer/AiT/internal/pkg/helpdoc"
 )
 
@@ -70,6 +71,33 @@ func TestExecuteWriters_SSHDefaultConnect(t *testing.T) {
 		t.Fatalf("must route to SSH connect, not Cobra: %v", err)
 	}
 	if strings.Contains(err.Error(), `unknown command "user@example.com"`) {
+		t.Fatalf("must route to SSH connect, not Cobra: %v", err)
+	}
+}
+
+func TestExecuteWriters_UnknownFlagTryConnectHelp(t *testing.T) {
+	err := ExecuteWriters([]string{"-Z", "user@host"}, io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("expected unknown flag error")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "login") {
+		t.Fatalf("unknown-flag hint must not mention login: %q", msg)
+	}
+	if !strings.Contains(msg, clihints.TryConnectHelp) {
+		t.Fatalf("missing connect help try line: %q", msg)
+	}
+}
+
+func TestExecuteWriters_VerboseClusterRoutesConnect(t *testing.T) {
+	err := ExecuteWriters([]string{"-vvv", "user@example.com"}, io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("expected dial/resolve error without real host")
+	}
+	if strings.Contains(err.Error(), "unknown flag") {
+		t.Fatalf("-vvv must be accepted as ssh-compat no-op: %v", err)
+	}
+	if pkghelpdoc.IsUnknownCommand(err) {
 		t.Fatalf("must route to SSH connect, not Cobra: %v", err)
 	}
 }

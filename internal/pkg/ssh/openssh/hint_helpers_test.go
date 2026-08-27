@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/clihints"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestDestinationRequiredErr_Format(t *testing.T) {
@@ -62,5 +63,27 @@ func TestTransferPathCountErr_Format(t *testing.T) {
 	}
 	if !strings.Contains(sPut, clihints.TryPutHelp) {
 		t.Fatalf("missing put help try line: %q", sPut)
+	}
+}
+
+func TestUnknownFlagErr_ConnectHelp(t *testing.T) {
+	err := unknownFlagErr("-Z", "")
+	s := err.Error()
+	if strings.Contains(s, "login") {
+		t.Fatalf("connect unknown-flag hint must not mention login: %q", s)
+	}
+	if !strings.Contains(s, clihints.TryConnectHelp) {
+		t.Fatalf("missing connect help try line: %q", s)
+	}
+	if !strings.Contains(s, "See supported flags for "+toolname.AISsh+".") {
+		t.Fatalf("missing connect see-flags line: %q", s)
+	}
+}
+
+func TestUnknownFlagErr_GetHelp(t *testing.T) {
+	err := unknownFlagErr("-Z", "get")
+	s := err.Error()
+	if !strings.Contains(s, toolname.CLI("get --help")) {
+		t.Fatalf("get unknown-flag hint must keep get --help: %q", s)
 	}
 }

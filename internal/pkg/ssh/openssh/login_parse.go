@@ -43,6 +43,8 @@ var noopFlags = map[string]bool{
 	"-A": true, "-a": true, "-q": true, "-Q": true,
 }
 
+const connectArgvLabel = "" // default connect route; not the removed login subcommand
+
 // Spec holds parsed login arguments (OpenSSH + AiT extensions).
 type Spec struct {
 	Destination   string
@@ -67,7 +69,7 @@ type Spec struct {
 	LegacyIdentity string
 }
 
-// ParseLogin parses argv for aissh login (ssh-compatible flags + AiT extensions).
+// ParseLogin parses argv for the default aissh connect route (ssh-compatible flags + AiT extensions).
 // Flags may appear before or after destination until the first remote command
 // argument; after that, tokens are passed through to RemoteCommand unchanged.
 // Returns fmt.Errorf for unknown/unsupported flags, missing flag values, or invalid combinations.
@@ -88,7 +90,7 @@ func ParseLogin(argv []string) (Spec, error) {
 				s.RemoteCommand = append(s.RemoteCommand, arg)
 				continue
 			}
-			next, err := applyFlag(&s, argv, i, "login")
+			next, err := applyFlag(&s, argv, i, connectArgvLabel)
 			if err != nil {
 				return Spec{}, err
 			}

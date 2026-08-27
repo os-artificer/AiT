@@ -18,7 +18,11 @@ package parse
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/os-artificer/AiT/internal/pkg/clihints"
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 func TestParseSSHStyle(t *testing.T) {
@@ -136,6 +140,55 @@ func TestParseUnsupportedFlag(t *testing.T) {
 	_, err := Parse([]string{"-L", "8080:localhost:80", "host"})
 	if err == nil {
 		t.Fatal("expected error for -L")
+	}
+}
+
+func TestParseUnsupportedFlag_NamesAisshNotLogin(t *testing.T) {
+	_, err := Parse([]string{"-L", "8080:localhost:80", "host"})
+	if err == nil {
+		t.Fatal("expected error for -L")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "login") {
+		t.Fatalf("unsupported-flag hint must not mention login: %q", msg)
+	}
+	if !strings.Contains(msg, "not supported by "+toolname.AISsh) {
+		t.Fatalf("want aissh in unsupported hint, got %q", msg)
+	}
+}
+
+func TestParseUnknownFlagHint_ConnectHelp(t *testing.T) {
+	_, err := Parse([]string{"-Z", "user@host"})
+	if err == nil {
+		t.Fatal("expected error for -Z")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "login") {
+		t.Fatalf("unknown-flag hint must not mention login: %q", msg)
+	}
+	if !strings.Contains(msg, clihints.TryConnectHelp) {
+		t.Fatalf("missing connect help try line: %q", msg)
+	}
+	if !strings.Contains(msg, "Try:") {
+		t.Fatalf("missing Try block: %q", msg)
+	}
+}
+
+func TestParseVerboseCluster(t *testing.T) {
+	spec, err := Parse([]string{"-vvv", "user@host"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Destination != "user@host" {
+		t.Fatalf("spec=%+v", spec)
+	}
+
+	spec, err = Parse([]string{"-vq", "user@host"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Destination != "user@host" {
+		t.Fatalf("spec=%+v", spec)
 	}
 }
 

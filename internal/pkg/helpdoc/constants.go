@@ -49,7 +49,7 @@ const (
 
 // OpenSSH — blocks embedded by login and transfer help.
 var (
-	// SectionOpenSSHFlags is the shared OpenSSH-compatible flags block (same as aissh login --help).
+	// SectionOpenSSHFlags is the shared OpenSSH-compatible flags block (same as aissh --help connect flags).
 	SectionOpenSSHFlags = `  -p port         remote SSH port (overrides ssh_config and -o Port)
   -l user         remote username (same as ssh_config User)
   -i path         private key file (IdentityFile)
@@ -57,7 +57,7 @@ var (
   -J destination  ProxyJump host(s); comma-separated for a jump chain (e.g. -J bastion,internal)
   -o key=value    ssh_config option, repeatable (e.g. -o Port=22 -o User=deploy)
   -4, -6          address family hints (accepted; passed to ssh -G)
-  -t, -T, -C, -v  accepted for ssh compatibility (no extra effect in ` + toolname.AISsh + ` login)
+  -t, -T, -C, -v  accepted for ssh compatibility (no extra effect in ` + toolname.AISsh + `)
   -A, -a, -q, -Q  accepted for ssh compatibility
 `
 

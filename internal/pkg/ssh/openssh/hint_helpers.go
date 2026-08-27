@@ -64,8 +64,13 @@ func sessionFlagRequiresValueErr() error {
 }
 
 func unknownFlagErr(flag string, cmdLabel string) error {
+	see := toolname.CLI(cmdLabel)
+	tryHelp := clihints.TryConnectHelp
+	if cmdLabel != "" {
+		tryHelp = toolname.CLI(cmdLabel + " --help")
+	}
 	return errhint.WithTryMsg(fmt.Sprintf("unknown flag %q", flag),
-		fmt.Sprintf("See supported flags for %s.", toolname.CLI(cmdLabel)),
-		toolname.CLI(cmdLabel+" --help"),
+		fmt.Sprintf("See supported flags for %s.", see),
+		tryHelp,
 	)
 }

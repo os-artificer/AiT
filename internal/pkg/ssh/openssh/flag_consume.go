@@ -20,16 +20,18 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/os-artificer/AiT/internal/pkg/toolname"
 )
 
 // applyFlag consumes one flag at argv[i] and returns the index of the next token.
-// cmdLabel names the subcommand in error text (e.g. login, get, put).
+// cmdLabel names the subcommand in error text (empty for default connect; get/put for transfer).
 func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 	arg := argv[i]
 	if msg, ok := unsupportedFlags[arg]; ok {
-		return i, fmt.Errorf("%s is not supported by aissh %s; use the system ssh client", msg, cmdLabel)
+		return i, fmt.Errorf("%s is not supported by %s; use the system ssh client", msg, toolname.CLI(cmdLabel))
 	}
-	if noopFlags[arg] {
+	if noopFlags[arg] || isNoopFlagCluster(arg) {
 		return i, nil
 	}
 	if glued, err := applyGluedFlag(s, arg); glued {
@@ -112,6 +114,19 @@ func applyFlag(s *Spec, argv []string, i int, cmdLabel string) (int, error) {
 		}
 		return i, unknownFlagErr(arg, cmdLabel)
 	}
+}
+
+// isNoopFlagCluster reports whether arg is a cluster of OpenSSH no-op short flags (e.g. -vvv, -vq).
+func isNoopFlagCluster(arg string) bool {
+	if len(arg) < 3 || arg[0] != '-' || arg[1] == '-' {
+		return false
+	}
+	for i := 1; i < len(arg); i++ {
+		if !noopFlags["-"+arg[i:i+1]] {
+			return false
+		}
+	}
+	return true
 }
 
 func applyStringFlag(s *Spec, argv []string, i int, flag string, set func(string)) (int, error) {

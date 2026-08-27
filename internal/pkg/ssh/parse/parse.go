@@ -33,7 +33,7 @@ const OpPut = openssh.OpPut
 // TransferSpec holds parsed argv for aissh get or aissh put.
 type TransferSpec = openssh.TransferSpec
 
-// Parse parses argv for aissh login.
+// Parse parses argv for the default aissh connect route.
 func Parse(argv []string) (Spec, error) {
 	return openssh.ParseLogin(argv)
 }
