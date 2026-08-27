@@ -59,10 +59,21 @@ var readGitSubcommands = map[string]struct{}{
 	"ls-remote": {}, "ls-tree": {}, "whatchanged": {}, "name-rev": {},
 }
 
+// highRiskFragments are destructive or privileged fragments matched per command
+// segment. Fragments that span a segment operator belong in
+// pipeHighRiskFragments instead, because the operator is consumed as a
+// separator and can never appear inside a segment.
 var highRiskFragments = []string{
 	"rm -rf", "rm -fr", "mkfs", "dd if=", "shutdown", "reboot", "poweroff",
-	"halt", ":(){", "chmod -r 777", "chmod 777", "> /dev/", "| bash", "| sh",
-	"curl ", "| bash", "wget ", "| sh", "userdel", "passwd ", "chown -r",
+	"halt", ":(){", "chmod -r 777", "chmod 777", "> /dev/",
+	"curl ", "wget ", "userdel", "passwd ", "chown -r",
+}
+
+// pipeHighRiskFragments pipe untrusted output straight into a shell
+// interpreter. They straddle a segment operator, so Classify matches them
+// against the whole command line.
+var pipeHighRiskFragments = []string{
+	"| bash", "|bash", "| sh", "|sh", "| zsh", "|zsh",
 }
 
 var highRiskAitFragments = []string{
