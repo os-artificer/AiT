@@ -22,7 +22,7 @@ import (
 
 	"github.com/os-artificer/AiT/internal/pkg/config"
 	"github.com/os-artificer/AiT/internal/pkg/creds"
-	"github.com/os-artificer/AiT/internal/pkg/testhttp"
+	"github.com/os-artificer/AiT/pkg/testhttp"
 )
 
 func TestAssist_MockHTTP_OK(t *testing.T) {

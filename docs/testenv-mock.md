@@ -8,8 +8,8 @@ GitHub Releases for `ait> install` already have a separate mock: `internal/pkg/a
 
 | Path | Role |
 |------|------|
-| [`internal/pkg/testssh`](../internal/pkg/testssh) | Loopback SSH daemon (password + optional public key) with a small exec set and SFTP |
-| [`internal/pkg/testhttp`](../internal/pkg/testhttp) | Loopback HTTP: `/v1/chat/completions`, `/api/tags`, `/reverse` |
+| [`pkg/testssh`](../pkg/testssh) | Loopback SSH daemon (password + optional public key) with a small exec set and SFTP |
+| [`pkg/testhttp`](../pkg/testhttp) | Loopback HTTP: `/v1/chat/completions`, `/api/tags`, `/reverse` |
 | [`cmd/testenv-mock`](../cmd/testenv-mock) | Process wrapper: prints one JSON banner line, then waits for SIGINT/SIGTERM |
 | [`tests/lib/mockenv.py`](../tests/lib/mockenv.py) | Pytest helper that starts `bin/testenv-mock` |
 
@@ -20,7 +20,7 @@ Defaults (tests only): user `dev`, password `devpass`, hostname `mockhost.exampl
 Go (always on `make test`):
 
 ```bash
-go test ./internal/pkg/testssh/ ./internal/pkg/testhttp/
+go test ./pkg/testssh/ ./pkg/testhttp/
 go test ./internal/pkg/ssh/client/ ./internal/pkg/transfer/ ./internal/pkg/geocode/ ./internal/pkg/ollama/ ./internal/pkg/ai/client/
 ```
 

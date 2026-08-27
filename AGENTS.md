@@ -52,8 +52,8 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). ait: [`docs/t
 | `internal/pkg/aitrelease/` | GitHub Release fetch/extract/apply for REPL `install` / `update` / `upgrade` |
 | `internal/pkg/aitrelease/testrelease/` | httptest GitHub Releases fixture (`cmd/aitrelease-mock`) |
 | `cmd/testenv-mock/` | Test-only loopback SSH+HTTP mock daemon (JSON banner, SIGINT) |
-| `internal/pkg/testssh/` | Loopback mock sshd + SFTP for automated acceptance |
-| `internal/pkg/testhttp/` | Loopback mock OpenAI / Ollama `/api/tags` / Nominatim |
+| `pkg/testssh/` | Loopback mock sshd + SFTP for automated acceptance |
+| `pkg/testhttp/` | Loopback mock OpenAI / Ollama `/api/tags` / Nominatim |
 | `internal/pkg/pluginbin/` | `ExecPath` + optional Runner (TTY Restore) for discovered plugins |
 | `internal/img/` | `aiimg` CLI (package **`aiimg`**: `Run`, `Execute`, help, version ldflags) |
 | `internal/log/` | `ailog` CLI (package **`ailog`**: `Run`, `Execute`, view/search/sources/version) |
@@ -111,7 +111,7 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). ait: [`docs/t
 | `internal/pkg/config/` | YAML config (`Load`/`Save`/`EnsureFile`/`Validate`; `aissh config init/view/edit/validate`) |
 | `internal/pkg/creds/` | OS keyring (API key, session unlock) |
 | `internal/pkg/pathsafe/` | Session ID and path validation (scrollback sidecars) |
-| `pkg/` | Public importable libs; [`pkg/third-party/`](pkg/third-party/) vendored upstream Go sources (e.g. xiwh ZMODEM) |
+| `pkg/` | Public importable libs; [`pkg/testssh`](pkg/testssh), [`pkg/testhttp`](pkg/testhttp) (acceptance mocks); [`pkg/third-party/`](pkg/third-party/) vendored upstream Go sources (e.g. xiwh ZMODEM) |
 | `configs/` | `ait.example.yaml` |
 | `docs/` | [`architecture.md`](docs/architecture.md), [`tools/aissh.md`](docs/tools/aissh.md), [`tools/ai.md`](docs/tools/ai.md), … |
 | `.cursor/rules/` | Cursor rules; Go structure: [`go-structure.mdc`](.cursor/rules/go-structure.mdc) |

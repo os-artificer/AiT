@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/geocode"
-	"github.com/os-artificer/AiT/internal/pkg/testhttp"
+	"github.com/os-artificer/AiT/pkg/testhttp"
 )
 
 func TestReverse_MockOK(t *testing.T) {

@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/os-artificer/AiT/internal/pkg/testssh"
+	"github.com/os-artificer/AiT/pkg/testssh"
 )
 
 func TestDial_OneShotEcho(t *testing.T) {

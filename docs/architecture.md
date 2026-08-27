@@ -79,12 +79,12 @@ The toolbox currently ships `ait`, `aissh`, `ai`, `aiimg`, `ailog`, and `aihost`
 | `internal/<app>/` | Application layer for one toolbox tool (orchestration + subcommands) |
 | `internal/pkg/`   | Shared module-private libraries reused by app packages               |
 | `pkg/`            | Public importable packages for external consumers                    |
+| `pkg/testssh/`    | Loopback mock sshd + SFTP for automated acceptance                   |
+| `pkg/testhttp/`   | Loopback mock OpenAI / Ollama / Nominatim HTTP                       |
 | `configs/`        | Example configuration files                                          |
 | `docs/`           | Architecture, tool docs, and project docs                            |
 | `docs/tools/`     | Per-tool user guides and internals documents                         |
 | `cmd/testenv-mock/` | Test-only loopback SSH+HTTP mock daemon (JSON banner)              |
-| `internal/pkg/testssh/` | Mock sshd + SFTP for Go tests and `cmd/testenv-mock`          |
-| `internal/pkg/testhttp/` | Mock OpenAI / Ollama / Nominatim HTTP for Go tests           |
 
 
 Practical split:

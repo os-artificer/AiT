@@ -23,8 +23,8 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/ssh/client"
-	"github.com/os-artificer/AiT/internal/pkg/testssh"
 	"github.com/os-artificer/AiT/internal/pkg/transfer"
+	"github.com/os-artificer/AiT/pkg/testssh"
 )
 
 func TestGetPut_MockRoundtrip(t *testing.T) {

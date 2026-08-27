@@ -14,6 +14,7 @@
  * limitations under the License.
 **/
 
+// Package testssh provides a loopback SSH+SFTP daemon for automated acceptance tests.
 package testssh
 
 import (

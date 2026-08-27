@@ -27,8 +27,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/os-artificer/AiT/internal/pkg/testhttp"
-	"github.com/os-artificer/AiT/internal/pkg/testssh"
+	"github.com/os-artificer/AiT/pkg/testhttp"
+	"github.com/os-artificer/AiT/pkg/testssh"
 )
 
 func main() {

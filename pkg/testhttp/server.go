@@ -14,6 +14,7 @@
  * limitations under the License.
 **/
 
+// Package testhttp provides a loopback HTTP mock for OpenAI, Ollama, and Nominatim.
 package testhttp
 
 import (
