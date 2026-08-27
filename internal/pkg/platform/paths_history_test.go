@@ -23,6 +23,8 @@ import (
 )
 
 func TestHistoryPath_UnderDataDir(t *testing.T) {
+	isolatePlatformHome(t)
+
 	data, err := DataDir()
 	if err != nil {
 		t.Fatal(err)

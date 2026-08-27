@@ -31,6 +31,7 @@ func pinFileKeyringEnv(t *testing.T) string {
 	t.Setenv(envBackend, "file")
 	t.Setenv(envFilePassword, "ait-test")
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AIT_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	os.Unsetenv(envFileDir)
 
@@ -93,6 +94,7 @@ func TestSessionUnlock_FileBackendDefaultDir(t *testing.T) {
 func TestResolveFileKeyringDir_UsesPlatformKeyringDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AIT_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	os.Unsetenv(envFileDir)
 

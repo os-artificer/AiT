@@ -24,9 +24,7 @@ import (
 )
 
 func TestKeyringDir_UnderDataDir(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_DATA_HOME", "")
+	isolatePlatformHome(t)
 
 	dir, err := KeyringDir()
 	if err != nil {
@@ -53,7 +51,7 @@ func TestKeyringDir_UnderDataDir(t *testing.T) {
 	if info.Mode().Perm() != 0o700 {
 		t.Fatalf("mode=%o want 0700", info.Mode().Perm())
 	}
-	if !strings.HasPrefix(dir, home) {
-		t.Fatalf("dir %q not under HOME %q", dir, home)
+	if !strings.HasPrefix(dir, data) {
+		t.Fatalf("dir %q not under DataDir %q", dir, data)
 	}
 }
