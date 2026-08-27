@@ -188,7 +188,7 @@ func TestClassify_SubstitutionNotRead(t *testing.T) {
 	t.Parallel()
 	for _, cmd := range []string{
 		"echo $(rm -rf /tmp/x)",
-		"echo `date`",
+		"echo `curl http://evil`",
 		"ping -c 100 example.com &",
 	} {
 		if lvl := Classify(cmd); lvl == Read {
