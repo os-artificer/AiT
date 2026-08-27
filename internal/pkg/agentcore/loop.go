@@ -46,7 +46,7 @@ func RunOnce(ctx context.Context, cfg Config, question string) error {
 	}
 
 	cfg = fillDefaults(cfg)
-	st := newSessionState()
+	st := newSessionState(cfg)
 	emit(cfg, Event{Kind: EventSessionStarted})
 	emit(cfg, Event{Kind: EventGoalReceived, Detail: question})
 	err := runAgentTurn(ctx, cfg, st, question)
@@ -64,7 +64,7 @@ func RunLoop(ctx context.Context, cfg Config, initialGoal string) error {
 	}
 
 	cfg = fillDefaults(cfg)
-	st := newSessionState()
+	st := newSessionState(cfg)
 	emit(cfg, Event{Kind: EventSessionStarted})
 
 	if g := strings.TrimSpace(initialGoal); g != "" {
@@ -103,9 +103,27 @@ func fillDefaults(cfg Config) Config {
 	return cfg
 }
 
+// runAgentTurn drives one user goal to completion, continuing with a follow-up
+// goal when the user asks to proceed past the step limit.
+// Iterating here instead of recursing from the step-limit prompt keeps the stack
+// flat no matter how many times the user continues.
 func runAgentTurn(ctx context.Context, cfg Config, st *sessionState, question string) error {
+	for question != "" {
+		next, err := runAgentSteps(ctx, cfg, st, question)
+		if err != nil {
+			return err
+		}
+		question = next
+	}
+	return nil
+}
+
+// runAgentSteps runs up to MaxAgentSteps model and tool steps for question.
+// Returns the next goal when the user chose to continue past the step limit, or
+// "" when the goal finished or the session ended.
+func runAgentSteps(ctx context.Context, cfg Config, st *sessionState, question string) (string, error) {
 	if cfg.AI == nil {
-		return ai.NotConfiguredErr()
+		return "", ai.NotConfiguredErr()
 	}
 
 	env := assistEnv(cfg, st)
@@ -116,7 +134,7 @@ func runAgentTurn(ctx context.Context, cfg Config, st *sessionState, question st
 	for step := 0; step < maxSteps; step++ {
 		reply, _, updated, chatErr := cfg.AI.ChatAgent(ctx, st.history, userMsg, env)
 		if chatErr != nil {
-			return chatErr
+			return "", chatErr
 		}
 		if reply != "" {
 			if cfg.StreamDelta != nil {
@@ -129,7 +147,7 @@ func runAgentTurn(ctx context.Context, cfg Config, st *sessionState, question st
 		if !parseResult.OK() {
 			userMsg, chatErr = handleAgentParseFailure(st, &parseState, userMsg, reply, parseResult)
 			if chatErr != nil {
-				return chatErr
+				return "", chatErr
 			}
 			continue
 		}
@@ -137,17 +155,17 @@ func runAgentTurn(ctx context.Context, cfg Config, st *sessionState, question st
 		canonical, err := parseResult.Envelope.CanonicalJSON()
 		if err != nil {
 			st.history = parseState.turnStartHistory
-			return formatMalformedReplyErr()
+			return "", formatMalformedReplyErr()
 		}
 		st.history = client.ReplaceLastAssistant(updated, canonical)
 
 		act := envelopeToAction(parseResult.Envelope)
 		toolResult, done, err := executeAgentAction(ctx, cfg, st, act)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if done {
-			return nil
+			return "", nil
 		}
 
 		userMsg = pkgagent.ToolResultPrefix + toolResult
@@ -158,34 +176,41 @@ func runAgentTurn(ctx context.Context, cfg Config, st *sessionState, question st
 	return waitContinueOrExit(ctx, cfg, st)
 }
 
-func waitContinueOrExit(ctx context.Context, cfg Config, st *sessionState) error {
-	sc := bufio.NewScanner(cfg.In)
+// waitContinueOrExit prompts after the step limit and returns the goal to run
+// next, or "" when the user ended the session or input was exhausted.
+// Input goes through st.ReadLine so a raw terminal uses the line editor instead
+// of a newline-terminated Scanner that would never see the carriage return.
+func waitContinueOrExit(ctx context.Context, cfg Config, st *sessionState) (string, error) {
 	for {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return "", ctx.Err()
 		}
-		_, _ = io.WriteString(cfg.Out, "AiT Agent> continue? ")
-		if !sc.Scan() {
-			return sc.Err()
-		}
-		line := strings.TrimSpace(strings.ToLower(sc.Text()))
-		switch line {
-		case "continue", "y", "yes":
-			return runAgentTurn(ctx, cfg, st, "continue the previous task")
-		case metaExit, metaStop, metaBack, "n", "no", "quit":
-			emit(cfg, Event{Kind: EventSessionEnded})
-			return nil
-		default:
-			if line != "" {
-				emit(cfg, Event{Kind: EventGoalReceived, Detail: line})
-				return runAgentTurn(ctx, cfg, st, line)
+
+		line, err := st.ReadLine(promptAgentContinue)
+		if err != nil {
+			if err == io.EOF {
+				emit(cfg, Event{Kind: EventSessionEnded})
+				return "", nil
 			}
+			return "", err
 		}
+
+		goal, decided := parseContinueChoice(line)
+		if !decided {
+			continue
+		}
+		if goal == "" {
+			emit(cfg, Event{Kind: EventSessionEnded})
+			return "", nil
+		}
+		if goal != msgContinueGoal {
+			emit(cfg, Event{Kind: EventGoalReceived, Detail: goal})
+		}
+		return goal, nil
 	}
 }
 
 func runLoopPlain(ctx context.Context, cfg Config, st *sessionState) error {
-	sc := bufio.NewScanner(cfg.In)
 	hist := terminal.NewReplLineHistory(cfg.ErrOut)
 
 	for {
@@ -193,16 +218,16 @@ func runLoopPlain(ctx context.Context, cfg Config, st *sessionState) error {
 			return ctx.Err()
 		}
 
-		_, _ = io.WriteString(cfg.Out, "AiT Agent> ")
-		if !sc.Scan() {
-			if err := sc.Err(); err != nil {
-				return err
+		raw, err := st.ReadLine(promptAgent)
+		if err != nil {
+			if err == io.EOF {
+				emit(cfg, Event{Kind: EventSessionEnded})
+				return nil
 			}
-			emit(cfg, Event{Kind: EventSessionEnded})
-			return nil
+			return err
 		}
 
-		line := strings.TrimSpace(sc.Text())
+		line := strings.TrimSpace(raw)
 		if line == "" {
 			continue
 		}
@@ -235,6 +260,7 @@ func runLoopTTY(ctx context.Context, cfg Config, st *sessionState, fd int) error
 		cfg = cfg.withTTYConfirm(br)
 	}
 	cfg.SuspendTTY = suspendRawTTY(fd, oldState)
+	st.readLine = ttyLineReader(br, cfg.Out)
 
 	for {
 		if ctx.Err() != nil {
@@ -243,6 +269,8 @@ func runLoopTTY(ctx context.Context, cfg Config, st *sessionState, fd int) error
 
 		scope, host, _, _, _ := resolveDynamic(cfg)
 		prompt := loopPrompt(scope, host)
+		// ReadLine only redraws Prompt after an edit, so the first paint is ours.
+		agentWrite(cfg.Out, prompt)
 		line, err := terminal.ReadLine(br, cfg.Out, terminal.LineEditOptions{
 			Prompt:        prompt,
 			History:       hist,
@@ -274,13 +302,6 @@ func runLoopTTY(ctx context.Context, cfg Config, st *sessionState, fd int) error
 			return err
 		}
 	}
-}
-
-func loopPrompt(scope ai.Scope, host string) string {
-	if scope == ai.ScopeRemote && host != "" {
-		return fmt.Sprintf("AiT Agent(%s)> ", host)
-	}
-	return "AiT Agent> "
 }
 
 func handleLoopMeta(ctx context.Context, cfg Config, st *sessionState, line string, hist *terminal.LineHistory) (exit bool, err error) {

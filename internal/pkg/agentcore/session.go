@@ -17,6 +17,8 @@
 package agentcore
 
 import (
+	"io"
+
 	"github.com/os-artificer/AiT/internal/pkg/agentcore/approve"
 	"github.com/os-artificer/AiT/internal/pkg/ai/client"
 )
@@ -24,10 +26,24 @@ import (
 type sessionState struct {
 	history []client.ChatMessage
 	approve.Trust
+	// readLine is the single input path for the loop and its sub-prompts, so a
+	// raw terminal never mixes a Scanner with the line editor on one fd.
+	readLine func(prompt string) (string, error)
 }
 
-func newSessionState() *sessionState {
+func newSessionState(cfg Config) *sessionState {
 	return &sessionState{
-		Trust: approve.Trust{Policy: approve.PolicyPerCmd},
+		Trust:    approve.Trust{Policy: approve.PolicyPerCmd},
+		readLine: scannerLineReader(cfg.In, cfg.Out),
 	}
+}
+
+// ReadLine writes prompt and reads one line from the session input reader.
+// Returns io.EOF when input is exhausted or no reader is configured, or the
+// reader's error.
+func (st *sessionState) ReadLine(prompt string) (string, error) {
+	if st == nil || st.readLine == nil {
+		return "", io.EOF
+	}
+	return st.readLine(prompt)
 }
