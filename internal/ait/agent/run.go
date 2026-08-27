@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/agentcore"
 	"github.com/os-artificer/AiT/internal/pkg/agentops"
@@ -84,23 +85,26 @@ func RunLoop(ctx context.Context, opt Options) error {
 	envExtra := agentops.BuildContext(ctx, warn)
 
 	maxSteps := 0
+	var cmdTimeout time.Duration
 	if cfg != nil {
 		maxSteps = cfg.AgentMaxSteps()
+		cmdTimeout = cfg.AgentCommandTimeout()
 	}
 
 	acfg := agentcore.Config{
-		Scope:    pkgai.ScopeLocal,
-		AI:       aiClient,
-		CLI:      execAisshCLI,
-		Toolbox:  agentops.DispatchToolbox,
-		In:       in,
-		Out:      out,
-		ErrOut:   errOut,
-		MaxSteps: maxSteps,
-		Domain:   "ops",
-		Emitter:  renderer.NewEmitter(),
-		Nested:   opt.Nested,
-		EnvExtra: envExtra,
+		Scope:          pkgai.ScopeLocal,
+		AI:             aiClient,
+		CLI:            execAisshCLI,
+		Toolbox:        agentops.DispatchToolbox,
+		In:             in,
+		Out:            out,
+		ErrOut:         errOut,
+		MaxSteps:       maxSteps,
+		CommandTimeout: cmdTimeout,
+		Domain:         "ops",
+		Emitter:        renderer.NewEmitter(),
+		Nested:         opt.Nested,
+		EnvExtra:       envExtra,
 	}
 
 	goal := opt.Goal

@@ -104,6 +104,30 @@ func validateAI(cfg *Config) []ValidationIssue {
 	}
 
 	issues = append(issues, validateTiered(cfg)...)
+	issues = append(issues, validateAgent(cfg)...)
+	return issues
+}
+
+func validateAgent(cfg *Config) []ValidationIssue {
+	var issues []ValidationIssue
+
+	if cfg.AI.Agent.MaxSteps < 0 {
+		issues = append(issues, ValidationIssue{
+			Field:   "ai.agent.max_steps",
+			Message: "max_steps must be a non-negative integer",
+		})
+	}
+
+	raw := strings.TrimSpace(cfg.AI.Agent.CommandTimeout)
+	if raw != "" {
+		if _, err := time.ParseDuration(raw); err != nil {
+			issues = append(issues, ValidationIssue{
+				Field:   keyAIAgentCommandTimeout,
+				Message: fmt.Sprintf("invalid duration %q", cfg.AI.Agent.CommandTimeout),
+			})
+		}
+	}
+
 	return issues
 }
 

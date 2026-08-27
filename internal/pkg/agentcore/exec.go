@@ -144,7 +144,10 @@ func runAgentShell(ctx context.Context, cfg Config, st *sessionState, cmd string
 		return "skipped by user", false, nil
 	}
 
-	out, runErr := captureRun(ctx, cfg, cmd)
+	out, runErr := runToolCapture(ctx, cfg, cmd)
+	if ctx.Err() != nil {
+		return "", false, ctx.Err()
+	}
 	if runErr != nil {
 		result := fmt.Sprintf("exit error: %v\noutput:\n%s", runErr, out)
 		emit(cfg, Event{Kind: EventToolOutput, Tool: label, Output: result})
@@ -180,7 +183,9 @@ func runAgentAit(ctx context.Context, cfg Config, st *sessionState, argsLine str
 	}
 
 	var buf strings.Builder
-	err = cfg.CLI(strings.Fields(argsLine), &buf, cfg.ErrOut)
+	err = withTTYHandoff(cfg, func() error {
+		return cfg.CLI(strings.Fields(argsLine), &buf, cfg.ErrOut)
+	})
 	if err != nil {
 		result := fmt.Sprintf("error: %v", err)
 		emit(cfg, Event{Kind: EventToolOutput, Tool: label, Output: result})
@@ -223,7 +228,9 @@ func runAgentToolbox(ctx context.Context, cfg Config, st *sessionState, argsLine
 	}
 
 	var buf strings.Builder
-	err = cfg.Toolbox(argv, &buf, cfg.ErrOut)
+	err = withTTYHandoff(cfg, func() error {
+		return cfg.Toolbox(argv, &buf, cfg.ErrOut)
+	})
 	if err != nil {
 		result := fmt.Sprintf("error: %v", err)
 		emit(cfg, Event{Kind: EventToolOutput, Tool: label, Output: result})

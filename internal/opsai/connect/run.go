@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/opsai/deps"
 	"github.com/os-artificer/AiT/internal/opsai/runner"
@@ -102,9 +103,10 @@ func Run(ctx context.Context, cfg *config.Config, aiClient *pkgai.Client, argv [
 	}
 	defer client.Close()
 
-	maxSteps := 0
+	limits := agentLimits{}
 	if cfg != nil {
-		maxSteps = cfg.AgentMaxSteps()
+		limits.maxSteps = cfg.AgentMaxSteps()
+		limits.commandTimeout = cfg.AgentCommandTimeout()
 	}
 	if aiClient == nil {
 		aiClient, err = runner.NewAIClient(cfg, "")
@@ -116,13 +118,20 @@ func Run(ctx context.Context, cfg *config.Config, aiClient *pkgai.Client, argv [
 	return client.RunAgentSession(ctx, sshclient.AgentSessionOpts{
 		HostLabel: resolved.User + "@" + resolved.Host,
 		OnReady: func(ctx context.Context, h sshclient.AgentSessionHandles) error {
-			return runRemoteAgentLoop(ctx, aiClient, h, maxSteps, exec)
+			return runRemoteAgentLoop(ctx, aiClient, h, limits, exec)
 		},
 	})
 }
 
+// agentLimits bounds one Agent session: turns per goal and wall clock per tool
+// command. A zero field falls back to the agentcore default.
+type agentLimits struct {
+	maxSteps       int
+	commandTimeout time.Duration
+}
+
 // buildRemoteAgentConfig assembles agentcore.Config for a remote Agent session (OA5/OA6).
-func buildRemoteAgentConfig(aiClient *pkgai.Client, h sshclient.AgentSessionHandles, maxSteps int, exec deps.CLIExecutor) agentcore.Config {
+func buildRemoteAgentConfig(aiClient *pkgai.Client, h sshclient.AgentSessionHandles, limits agentLimits, exec deps.CLIExecutor) agentcore.Config {
 	out := os.Stdout
 	renderer := plain.Renderer{Out: out}
 	var remote agentcore.RemoteRunner
@@ -141,13 +150,14 @@ func buildRemoteAgentConfig(aiClient *pkgai.Client, h sshclient.AgentSessionHand
 		CLI: func(argv []string, o, e io.Writer) error {
 			return exec(argv, o, e)
 		},
-		Toolbox:  dispatchToolbox,
-		In:       os.Stdin,
-		Out:      out,
-		ErrOut:   os.Stderr,
-		MaxSteps: maxSteps,
-		Domain:   "ops",
-		Emitter:  renderer.NewEmitter(),
+		Toolbox:        dispatchToolbox,
+		In:             os.Stdin,
+		Out:            out,
+		ErrOut:         os.Stderr,
+		MaxSteps:       limits.maxSteps,
+		CommandTimeout: limits.commandTimeout,
+		Domain:         "ops",
+		Emitter:        renderer.NewEmitter(),
 	}
 }
 
@@ -163,11 +173,11 @@ func (r *ptyRemoteRunner) Run(cmd string) error {
 	return err
 }
 
-func runRemoteAgentLoop(ctx context.Context, aiClient *pkgai.Client, h sshclient.AgentSessionHandles, maxSteps int, exec deps.CLIExecutor) error {
+func runRemoteAgentLoop(ctx context.Context, aiClient *pkgai.Client, h sshclient.AgentSessionHandles, limits agentLimits, exec deps.CLIExecutor) error {
 	if aiClient == nil {
 		return pkgai.NotConfiguredErr()
 	}
-	cfg := buildRemoteAgentConfig(aiClient, h, maxSteps, exec)
+	cfg := buildRemoteAgentConfig(aiClient, h, limits, exec)
 	return agentcore.RunLoop(ctx, cfg, "")
 }
 

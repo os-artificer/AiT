@@ -61,6 +61,9 @@ func New(d deps.Deps) *cobra.Command {
 					maxSteps = cfg.AgentMaxSteps()
 				}
 				acfg := runner.LocalAgentConfig(client, maxSteps, d.Exec)
+				if cfg != nil {
+					acfg.CommandTimeout = cfg.AgentCommandTimeout()
+				}
 				if d.ApplyOpsDomain != nil {
 					acfg = d.ApplyOpsDomain(acfg)
 				}

@@ -16,20 +16,36 @@
 
 package agentcore
 
-import "github.com/os-artificer/AiT/internal/pkg/errhint"
+import (
+	"time"
+
+	"github.com/os-artificer/AiT/internal/pkg/errhint"
+)
 
 const (
 	defaultMaxSteps = 12
+
+	// defaultCommandTimeout bounds one tool execution when Config leaves
+	// CommandTimeout unset.
+	defaultCommandTimeout = 2 * time.Minute
 
 	msgAgentStepLimitFmt = "AiT Agent: step limit (%d) reached; type continue to proceed or exit to stop.\r\n"
 	msgSkipped           = "skipped.\r\n"
 	msgInteractiveSkip   = "interactive TUI commands are not auto-run; run manually.\r\n"
 	msgConversationClear = "conversation cleared.\r\n"
+	msgCommandTimeoutFmt = "timed out after %s (agent command timeout)"
+	// msgContinueGoal is the goal replayed when the user accepts the step-limit prompt.
+	msgContinueGoal = "continue the previous task"
 
-	metaExit  = "exit"
-	metaStop  = "stop"
-	metaBack  = "back"
-	metaModel = "model"
+	promptAgent         = "AiT Agent> "
+	promptAgentHostFmt  = "AiT Agent(%s)> "
+	promptAgentContinue = "AiT Agent> continue? "
+
+	metaExit     = "exit"
+	metaStop     = "stop"
+	metaBack     = "back"
+	metaModel    = "model"
+	metaContinue = "continue"
 )
 
 // ErrSessionEnded is returned when the agent loop exits normally.

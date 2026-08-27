@@ -16,11 +16,42 @@
 
 package config
 
+import (
+	"strings"
+	"time"
+)
+
 // Normalize fills defaults and clamps values for agent config.
+// An unparseable command_timeout is left as written so Validate can report the
+// field; AgentCommandTimeout falls back to the default meanwhile.
 func (a *AgentConfig) Normalize() {
 	if a.MaxSteps <= 0 {
 		a.MaxSteps = DefaultAgentMaxSteps
 	} else if a.MaxSteps > AgentMaxStepsLimit {
 		a.MaxSteps = AgentMaxStepsLimit
 	}
+
+	a.CommandTimeout = clampTimeoutString(a.CommandTimeout)
+}
+
+// clampTimeoutString returns raw clamped into the agent command timeout bounds,
+// or raw unchanged when it is blank or not a valid duration.
+func clampTimeoutString(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return raw
+	}
+
+	d, err := time.ParseDuration(trimmed)
+	if err != nil {
+		return raw
+	}
+
+	if d < MinAgentCommandTimeout {
+		return MinAgentCommandTimeout.String()
+	}
+	if d > MaxAgentCommandTimeout {
+		return MaxAgentCommandTimeout.String()
+	}
+	return trimmed
 }

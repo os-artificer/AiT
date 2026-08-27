@@ -98,6 +98,29 @@ func TestValidate_BadTTL(t *testing.T) {
 	}
 }
 
+// AG-12: a malformed ai.agent.command_timeout is reported with its field path.
+func TestValidate_BadAgentCommandTimeout(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("AIT_HOME", root)
+
+	path := filepath.Join(root, "config.yaml")
+	yaml := "ai:\n  agent:\n    command_timeout: nope\n  default: deepseek\n  providers:\n    deepseek:\n      model: deepseek-chat\n"
+	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := Validate(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.OK() {
+		t.Fatal("expected failure")
+	}
+	if !strings.Contains(report.Error(), "ai.agent.command_timeout") {
+		t.Fatalf("issues=%q", report.Error())
+	}
+}
+
 func TestValidate_BadMinimaxURL(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("AIT_HOME", root)

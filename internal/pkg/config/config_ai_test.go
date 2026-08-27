@@ -19,6 +19,7 @@ package config
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -35,6 +36,55 @@ func TestNormalizeAI_LegacyDeepseekM5(t *testing.T) {
 	p, ok := cfg.Provider(ProviderDeepseek)
 	if !ok || p.Model != "deepseek-chat" {
 		t.Fatalf("provider=%+v ok=%v", p, ok)
+	}
+}
+
+// AG-12: ai.agent.command_timeout parses, clamps, and falls back safely.
+func TestAgentCommandTimeout_ParseClampDefault(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want time.Duration
+	}{
+		{"", DefaultAgentCommandTimeout},
+		{"nope", DefaultAgentCommandTimeout},
+		{"90s", 90 * time.Second},
+		{"1s", MinAgentCommandTimeout},
+		{"24h", MaxAgentCommandTimeout},
+	}
+
+	for _, tc := range cases {
+		cfg := &Config{}
+		cfg.AI.Agent.CommandTimeout = tc.raw
+		if got := cfg.AgentCommandTimeout(); got != tc.want {
+			t.Fatalf("AgentCommandTimeout(%q) = %v, want %v", tc.raw, got, tc.want)
+		}
+	}
+
+	var nilCfg *Config
+	if got := nilCfg.AgentCommandTimeout(); got != DefaultAgentCommandTimeout {
+		t.Fatalf("nil config = %v, want %v", got, DefaultAgentCommandTimeout)
+	}
+}
+
+// AG-12: Normalize clamps a saved out-of-range timeout and keeps bad input for Validate.
+func TestAgentConfigNormalize_CommandTimeout(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{"", ""},
+		{"nope", "nope"},
+		{"90s", "90s"},
+		{"1s", MinAgentCommandTimeout.String()},
+		{"24h", MaxAgentCommandTimeout.String()},
+	}
+
+	for _, tc := range cases {
+		a := AgentConfig{CommandTimeout: tc.raw}
+		a.Normalize()
+		if a.CommandTimeout != tc.want {
+			t.Fatalf("Normalize(%q) = %q, want %q", tc.raw, a.CommandTimeout, tc.want)
+		}
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	pkgai "github.com/os-artificer/AiT/internal/pkg/ai"
 	sshclient "github.com/os-artificer/AiT/internal/pkg/ssh/client"
@@ -63,7 +64,10 @@ func TestRemoteAgentOptions_ScopeRemote(t *testing.T) {
 		RunCapture: func(cmd string) (string, error) {
 			return "out:" + cmd, nil
 		},
-	}, 5, nil)
+	}, agentLimits{maxSteps: 5, commandTimeout: time.Minute}, nil)
+	if cfg.CommandTimeout != time.Minute {
+		t.Fatalf("CommandTimeout=%v want 1m", cfg.CommandTimeout)
+	}
 	if cfg.Scope != pkgai.ScopeRemote {
 		t.Fatalf("Scope=%v want remote", cfg.Scope)
 	}
@@ -89,7 +93,7 @@ func TestRemoteAgentOptions_Capture(t *testing.T) {
 			}
 			return want, nil
 		},
-	}, 0, nil)
+	}, agentLimits{}, nil)
 	if cfg.Capture == nil {
 		t.Fatal("missing Capture")
 	}

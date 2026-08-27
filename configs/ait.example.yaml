@@ -25,6 +25,8 @@ ai:
   agent:
     # Maximum Agent mode turns (steps) per user request. 0 uses default (16). Max 64.
     max_steps: 16
+    # Wall-clock limit for one Agent tool command. Empty uses default (2m). Range 5s..1h.
+    command_timeout: 2m
   providers:
     ollama:
       enabled: true   # ai provider disable ollama to stop local routing

@@ -16,7 +16,11 @@
 
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // DefaultTieredComplexKeywords are substrings that force cloud routing when tiered routing is on.
 var DefaultTieredComplexKeywords = []string{
@@ -45,6 +49,15 @@ const (
 	AgentMaxStepsLimit           = 64
 )
 
+// Bounds for ai.agent.command_timeout, the wall-clock limit on one Agent tool
+// execution. The default is generous enough for package installs and builds
+// while still ending a command that blocks forever.
+const (
+	DefaultAgentCommandTimeout = 2 * time.Minute
+	MinAgentCommandTimeout     = 5 * time.Second
+	MaxAgentCommandTimeout     = time.Hour
+)
+
 // ProviderConfig holds per-provider AI endpoint settings.
 type ProviderConfig struct {
 	Enabled   *bool  `yaml:"enabled,omitempty"`
@@ -64,8 +77,10 @@ type TieredConfig struct {
 }
 
 // AgentConfig tunes the AI Agent mode behavior.
+// CommandTimeout is a duration string (e.g. "2m"); see AgentCommandTimeout.
 type AgentConfig struct {
-	MaxSteps int `yaml:"max_steps"`
+	MaxSteps       int    `yaml:"max_steps"`
+	CommandTimeout string `yaml:"command_timeout,omitempty"`
 }
 
 // ExperimentalConfig gates AI features that are opt-in for the ai plugin / ait agent (default off).
@@ -147,4 +162,28 @@ func (c *Config) AgentMaxSteps() int {
 		return DefaultAgentMaxSteps
 	}
 	return c.AI.Agent.MaxSteps
+}
+
+// AgentCommandTimeout parses ai.agent.command_timeout as a duration clamped to
+// MinAgentCommandTimeout..MaxAgentCommandTimeout.
+// Nil config, an empty value, or an unparseable value returns
+// DefaultAgentCommandTimeout; the parse error is reported by Validate rather
+// than here so a bad value never blocks an Agent run.
+func (c *Config) AgentCommandTimeout() time.Duration {
+	if c == nil || strings.TrimSpace(c.AI.Agent.CommandTimeout) == "" {
+		return DefaultAgentCommandTimeout
+	}
+
+	d, err := time.ParseDuration(c.AI.Agent.CommandTimeout)
+	if err != nil {
+		return DefaultAgentCommandTimeout
+	}
+
+	if d < MinAgentCommandTimeout {
+		return MinAgentCommandTimeout
+	}
+	if d > MaxAgentCommandTimeout {
+		return MaxAgentCommandTimeout
+	}
+	return d
 }

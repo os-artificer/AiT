@@ -234,6 +234,7 @@ func runLoopTTY(ctx context.Context, cfg Config, st *sessionState, fd int) error
 	if cfg.ConfirmRead == nil {
 		cfg = cfg.withTTYConfirm(br)
 	}
+	cfg.SuspendTTY = suspendRawTTY(fd, oldState)
 
 	for {
 		if ctx.Err() != nil {
