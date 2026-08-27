@@ -109,6 +109,7 @@ For local development, `make build` also produces `bin/aissh`, `bin/ai`, `bin/ai
 | aihost internals | [docs/tools/aihost-internals.md](docs/tools/aihost-internals.md) |
 | aihost guide | [docs/tools/aihost.md](docs/tools/aihost.md) |
 | Python E2E tests | [tests/README.md](tests/README.md) |
+| In-repo SSH/HTTP mock | [docs/testenv-mock.md](docs/testenv-mock.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Code layout | [AGENTS.md](AGENTS.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |

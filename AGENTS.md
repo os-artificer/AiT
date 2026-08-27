@@ -10,6 +10,7 @@ make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
 make test-cross  # five-platform go build ./... (linux/darwin/windows)
+make test-e2e-smoke  # pytest @smoke including in-repo testenv-mock (no real hosts)
 ./bin/ait           # toolbox REPL
 ./bin/aissh        # run SSH tool
 ./bin/ai           # Ops AI Agent (experimental)
@@ -49,6 +50,10 @@ Project structure: [`docs/architecture.md`](docs/architecture.md). ait: [`docs/t
 | `internal/opsai/` | Ops AI Agent CLI (package **`opsai`**: `Run`, `Execute`, ask/agent/provider/ollama/connect; experimental gate) |
 | `internal/pkg/aitplugin/` | Plugin Manifest v1, Discover (`plugins/<binary>/`), embedded SSOT manifests |
 | `internal/pkg/aitrelease/` | GitHub Release fetch/extract/apply for REPL `install` / `update` / `upgrade` |
+| `internal/pkg/aitrelease/testrelease/` | httptest GitHub Releases fixture (`cmd/aitrelease-mock`) |
+| `cmd/testenv-mock/` | Test-only loopback SSH+HTTP mock daemon (JSON banner, SIGINT) |
+| `internal/pkg/testssh/` | Loopback mock sshd + SFTP for automated acceptance |
+| `internal/pkg/testhttp/` | Loopback mock OpenAI / Ollama `/api/tags` / Nominatim |
 | `internal/pkg/pluginbin/` | `ExecPath` + optional Runner (TTY Restore) for discovered plugins |
 | `internal/img/` | `aiimg` CLI (package **`aiimg`**: `Run`, `Execute`, help, version ldflags) |
 | `internal/log/` | `ailog` CLI (package **`ailog`**: `Run`, `Execute`, view/search/sources/version) |

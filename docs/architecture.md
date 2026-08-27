@@ -43,6 +43,7 @@ Shared capabilities (not separate binaries) live under `internal/pkg/` and are c
 | [AGENTS.md](../AGENTS.md) | Agent-oriented build/test/layout orientation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor workflow and coding standards |
 | [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) | Merge gates and regression acceptance checklist |
+| [testenv-mock.md](testenv-mock.md) | In-repo loopback SSH+HTTP mocks for automated acceptance |
 
 
 ---
@@ -81,6 +82,9 @@ The toolbox currently ships `ait`, `aissh`, `ai`, `aiimg`, `ailog`, and `aihost`
 | `configs/`        | Example configuration files                                          |
 | `docs/`           | Architecture, tool docs, and project docs                            |
 | `docs/tools/`     | Per-tool user guides and internals documents                         |
+| `cmd/testenv-mock/` | Test-only loopback SSH+HTTP mock daemon (JSON banner)              |
+| `internal/pkg/testssh/` | Mock sshd + SFTP for Go tests and `cmd/testenv-mock`          |
+| `internal/pkg/testhttp/` | Mock OpenAI / Ollama / Nominatim HTTP for Go tests           |
 
 
 Practical split:
@@ -199,6 +203,7 @@ For a future toolbox tool `<tool>`:
 | [AGENTS.md](../AGENTS.md) | Agent entry point and codebase orientation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor process and standards |
 | [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) | Acceptance and regression checklist |
+| [testenv-mock.md](testenv-mock.md) | Loopback SSH+HTTP mocks for CI acceptance |
 | [go.mod](../go.mod) | Dependency and module version source |
 
 

@@ -162,9 +162,11 @@ test-e2e:
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
 
-# CI-safe smoke: help / config / session CLI / experimental-AI gate. Never dials real hosts.
+# CI-safe smoke: help / config / session CLI / experimental-AI gate / in-repo testenv-mock.
+# Never dials real hosts; SSH/HTTP scenarios use bin/testenv-mock (see docs/testenv-mock.md).
 test-e2e-smoke:
 	@test -x $(BUILD_DIR)/aissh || $(MAKE) build
+	go build -o $(BUILD_DIR)/testenv-mock ./cmd/testenv-mock
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m smoke

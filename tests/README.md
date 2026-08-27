@@ -6,7 +6,7 @@ Black-box end-to-end tests for the AiT CLIs (`aissh`, `ai`, `ait`) using pytest 
 
 | Target | Command | What runs |
 |--------|---------|-----------|
-| **GitHub Actions** | `make test-e2e-smoke` | `@smoke` only: help, config, session CLI, shell REPL, AI experimental gate. **No SSH / no real hosts.** |
+| **GitHub Actions** | `make test-e2e-smoke` | `@smoke` including in-repo `testenv-mock` SSH/HTTP scenarios. **No real SSH hosts.** |
 | **Local full** | `make test-e2e` | Smoke + `@ssh` / `@ai` / optional tmux·zmodem when configured in `config.local.yaml`. |
 
 On CI (`CI=true` / `GITHUB_ACTIONS`), `@pytest.mark.ssh` tests are always skipped even if a host config is present.
@@ -15,7 +15,7 @@ Real hostnames, ports, and keys belong only in **gitignored** `tests/config.loca
 
 ## Prerequisites
 
-- Go 1.25+ and `make build` → `bin/aissh`, `bin/ai`, `bin/ait`
+- Go 1.25+ and `make build` → `bin/aissh`, `bin/ai`, `bin/ait` (`make test-e2e-smoke` also builds `bin/testenv-mock`)
 - Python 3.10+
 - OpenSSH client (`ssh`) on PATH (for `ssh -G` resolution)
 - For SSH-marked tests (local): reachable host and credentials in `config.local.yaml`
@@ -56,6 +56,7 @@ make test-e2e
 
 # Direct pytest
 pytest tests/e2e -v -m smoke
+pytest tests/e2e -v -m mock
 pytest tests/e2e -m "ssh and not destructive" -v
 ```
 
@@ -81,6 +82,10 @@ Without `config.local.yaml`, SSH/AI integration tests are **skipped** with a mes
 | provider / ollama | `test_ai_provider.py` | smoke / ai |
 | tmux login | `test_tmux.py` | ssh, tmux (local) |
 | ZMODEM chain | `test_zmodem_chain.py` | ssh, zmodem (local) |
+| mock SSH oneshot / get/put / auth errors | `test_mock_ssh.py` | smoke, mock |
+| mock HTTP Nominatim / Ollama / OpenAI | `test_mock_http.py` | smoke, mock |
+
+Loopback mocks (no `config.local.yaml`): [docs/testenv-mock.md](../docs/testenv-mock.md).
 
 ## Isolation
 

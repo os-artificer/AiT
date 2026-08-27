@@ -589,6 +589,32 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 |----|----------|------------|----------|
 | M1 | `go.mod`/`go.sum` 无外部 `github.com/xiwh/zmodem`；空 cache 可 build | `TestGoMod_NoExternalXiwhZmodem`、`TestBuild_FreshModCache`（`cmd/aissh/build_gate_test.go`） | macOS：`go install github.com/os-artificer/AiT/cmd/aissh@latest` |
 
+### MS* 明细（in-repo testenv-mock：SSH+SFTP / HTTP）
+
+Loopback mocks for required external services (no real hosts or personal infra). See [docs/testenv-mock.md](../../docs/testenv-mock.md). GitHub Releases stay on `internal/pkg/aitrelease/testrelease`.
+
+| ID | 验收行为 | 自动化测试 | 手动烟雾 |
+|----|----------|------------|----------|
+| MS1 | mock sshd `echo` 成功 | `TestSSH_ExecEcho` | — |
+| MS2 | 错误密码 / `-reject-password` 拒绝 | `TestSSH_BadPassword`、`TestSSH_RejectPassword`、`TestDial_BadPassword` | pytest `test_bad_password` |
+| MS3 | 未知命令 exit 127 | `TestSSH_UnknownCommand`、`TestDial_UnknownCommandExit` | `test_oneshot_unknown_command` |
+| MS4 | `false` exit 1 | `TestSSH_FalseExit` | — |
+| MS5 | SFTP get 种子文件成功 | `TestSSH_SFTPGet`、`TestGetPut_MockRoundtrip` | `test_get_welcome` |
+| MS6 | SFTP / get 缺失文件报错 | `TestSSH_SFTPGetMissing`、`TestGet_MockMissing` | `test_get_missing` |
+| MS7 | SFTP put 后磁盘可读；get/put 往返 | `TestSSH_SFTPPutGet`、`TestGetPut_MockRoundtrip` | `test_put_then_get_roundtrip` |
+| MS8 | `client.Dial` oneshot `echo` | `TestDial_OneShotEcho` | `test_oneshot_echo` |
+| MS9 | `client.Dial` 错误密码 | `TestDial_BadPassword` | `test_bad_password` |
+| MS10 | Nominatim OK + Unable to geocode + HTTP 500 | `TestReverse_MockOK`、`TestReverse_MockUnableToGeocode`、`TestReverse_MockServerError` | `test_nominatim_ok` |
+| MS11 | Ollama `/api/tags` OK + 500 + malformed JSON | `TestFetchTags_MockOK`、`TestFetchTags_MockServerError`、`TestFetchTags_MockMalformed` | `test_ollama_tags_ok`、`test_http_server_error` |
+| MS12 | OpenAI chat OK + 401 + 429 | `TestHTTP_OpenAIChatOK`、`TestHTTP_OpenAIUnauthorized`、`TestHTTP_OpenAIRateLimited`、`TestAssist_MockHTTP_*` | `test_openai_chat_ok`、`test_http_unauthorized_chat` |
+| MS13 | CLI oneshot 远程 `echo` | `TestDial_OneShotEcho` | `test_oneshot_echo` |
+| MS14 | CLI `get`/`put` 经 mock SFTP | `TestGetPut_MockRoundtrip` | `test_get_welcome`、`test_put_then_get_roundtrip` |
+| MS15 | CLI 错误密码非 0 且无远端命令输出 | `TestSSH_RejectPassword` | `test_bad_password` |
+| MS16 | 连接拒绝 | `TestDial_ConnectionRefused` | `test_connection_refused` |
+| MS17 | HTTP hang 客户端超时 | `TestHTTP_HangTimesOut` | — |
+| MS18 | 公钥认证成功 | `TestSSH_PublicKeyAuth` | — |
+| MS19 | `Listen` 要求 `RootDir` | `TestListen_RootDirRequired` | — |
+
 ### EX* 明细（AI 公共能力剥离 + 实验门禁）
 
 | ID | 验收行为 | 自动化测试 |
@@ -815,6 +841,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
+- [ ] MS1–MS19：in-repo testenv-mock SSH+HTTP 成功与错误路径（见 **MS\*** 明细；`docs/testenv-mock.md`）
 - [ ] AT* / AP*：`ait` toolbox REPL + 插件发现（见 **AT\*** / **AP\*** 明细；含 **AT30a–f** Tab 首词补全、**AT31–AT48** install/update/upgrade；**OA9–OA10** `ai` 插件名）
 - [ ] AH1–AH63：`aihost` 主机监控（见 **AH\*** 明细）
 - [ ] OA1–OA17：Ops AI Agent 正向（见 **OA\***）；OA14 替代原 R15（`ai model list`）
@@ -1074,6 +1101,7 @@ aissh hostA                    # 无 --save
 | LG* | `ailog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources`、`TestCLI_FollowExpr`、`TestCLI_SearchExprOnly` |
 | AH* | `aihost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、… |
 | AT* / AP* | `ait` toolbox REPL + 插件发现 + install/update/upgrade | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestWithAbsorbedInterrupt_*`、`TestDiscover_*`、`TestWriteManifest_Builtin`、`TestCompleteFirstToken_*`、`TestReadLine_NilCompleterInsertsTab`、`TestPlan*`、`TestExecute_*`（aitrelease）、`TestExecuteLine_Install*`、`TestWriteManageHelp_*`、`TestOfficialPluginNames_ManifestsAligned` |
+| MS* | in-repo testenv-mock（SSH+SFTP / OpenAI / Ollama / Nominatim） | `TestSSH_*`、`TestDial_*`、`TestGetPut_MockRoundtrip`、`TestReverse_Mock*`、`TestFetchTags_Mock*`、`TestAssist_MockHTTP_*`、`TestHTTP_*`；pytest `test_mock_ssh.py` / `test_mock_http.py` |
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
 | FB* | `ailog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |
