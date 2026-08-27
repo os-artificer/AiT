@@ -35,27 +35,28 @@ const (
 )
 
 // Classify returns the risk Level of running cmd as a shell command.
-// Returns Low for empty input, Interactive when cmd launches a TTY UI,
-// Read when cmd is an observably read-only command,
-// High when cmd matches any denylist fragment, otherwise Low.
+// cmd is split into segments at unquoted shell operators (see SplitSegments) and
+// every segment is classified on its own; the strictest level wins, ordered
+// Interactive > High > Low > Read. Shell-pipe denylist fragments span an
+// operator and are matched against the whole line.
+// Returns Low for empty input, Interactive when a segment launches a TTY UI,
+// High when a segment is destructive, Read only when every segment is an
+// observably read-only command without redirection or substitution, else Low.
 func Classify(cmd string) Level {
-	cmd = strings.TrimSpace(cmd)
-	if cmd == "" {
+	segments := SplitSegments(cmd)
+	if len(segments) == 0 {
 		return Low
 	}
-	if IsInteractive(cmd) {
-		return Interactive
+
+	worst := Read
+	for _, seg := range segments {
+		worst = moreSevere(worst, classifySegment(seg))
 	}
-	if IsRead(cmd) {
-		return Read
+
+	if matchesPipeHighRisk(cmd) {
+		worst = moreSevere(worst, High)
 	}
-	lower := strings.ToLower(cmd)
-	for _, frag := range highRiskFragments {
-		if strings.Contains(lower, frag) {
-			return High
-		}
-	}
-	return Low
+	return worst
 }
 
 // IsRead reports whether cmd is an observably read-only command.

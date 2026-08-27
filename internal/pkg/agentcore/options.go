@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/os-artificer/AiT/internal/pkg/agentcore/approve"
 	"github.com/os-artificer/AiT/internal/pkg/agentcore/runner"
@@ -53,9 +54,15 @@ type Config struct {
 	ErrOut      io.Writer
 	ConfirmRead func(prompt string) (approve.Result, error)
 	MaxSteps    int
-	Domain      string
-	Emitter     Emitter
-	Dynamic     *DynamicRemote
+	// CommandTimeout bounds one tool execution; defaultCommandTimeout when unset.
+	CommandTimeout time.Duration
+	// SuspendTTY releases the loop's raw terminal mode for the duration of a child
+	// process and returns the resume function, or nil when the handoff failed.
+	// Set by the TTY loop so Ctrl+C reaches the child instead of being read as a byte.
+	SuspendTTY func() (resume func())
+	Domain     string
+	Emitter    Emitter
+	Dynamic    *DynamicRemote
 	// EnvExtra is appended to AssistEnv context on each turn (e.g. ops snapshot).
 	EnvExtra string
 	// StreamDelta receives incremental assistant text when providers stream (Phase 3).
@@ -139,4 +146,12 @@ func (cfg Config) MaxAgentSteps() int {
 		return cfg.MaxSteps
 	}
 	return defaultMaxSteps
+}
+
+// AgentCommandTimeout returns cfg.CommandTimeout if set, otherwise defaultCommandTimeout.
+func (cfg Config) AgentCommandTimeout() time.Duration {
+	if cfg.CommandTimeout > 0 {
+		return cfg.CommandTimeout
+	}
+	return defaultCommandTimeout
 }

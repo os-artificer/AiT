@@ -65,6 +65,12 @@ var highRiskFragments = []string{
 	"curl ", "| bash", "wget ", "| sh", "userdel", "passwd ", "chown -r",
 }
 
+// pipeHighRiskFragments pipe untrusted output straight into a shell interpreter.
+// They span a segment operator, so Classify matches them on the whole line.
+var pipeHighRiskFragments = []string{
+	"| bash", "|bash", "| sh", "|sh",
+}
+
 var highRiskAitFragments = []string{
 	"session delete", "session --delete", "login ", "config edit",
 }
