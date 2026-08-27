@@ -16,31 +16,11 @@
 
 package ait
 
-import (
-	"os"
-	"os/signal"
-)
+import "github.com/os-artificer/AiT/internal/pkg/procsig"
 
 // withAbsorbedInterrupt runs fn while the parent process absorbs os.Interrupt
-// (Ctrl+C) via Notify+drain so the REPL does not exit. Child processes started
-// inside fn still receive default SIGINT disposition after exec (AT29).
-// Do not use signal.Ignore here: Ignore before exec is inherited as SIG_IGN.
+// (Ctrl+C) so the REPL does not exit. Child processes started inside fn still
+// receive default SIGINT disposition after exec (AT29).
 func withAbsorbedInterrupt(fn func() error) error {
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
-	defer signal.Stop(ch)
-
-	done := make(chan struct{})
-	defer close(done)
-	go func() {
-		for {
-			select {
-			case <-ch:
-			case <-done:
-				return
-			}
-		}
-	}()
-
-	return fn()
+	return procsig.WithAbsorbedInterrupt(fn)
 }
