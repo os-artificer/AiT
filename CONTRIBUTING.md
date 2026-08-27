@@ -21,6 +21,7 @@ make vet         # go vet ./...
 make fmt         # go fmt ./...
 make test-cross  # cross-compile for Windows/macOS (compile only; does not run tests on those OSes)
 make test-e2e-smoke  # optional Python CLI smoke (no SSH); also run in CI after merge gate
+make test-e2e-mock   # full e2e against in-repo testenv-mock (GitHub CI)
 ./bin/aissh        # run the binary
 ```
 
@@ -38,6 +39,7 @@ Optional broader validation (requires `tests/config.local.yaml` for SSH):
 
 ```bash
 make test-e2e-smoke   # help, config, session hints, local AI non-hang
+make test-e2e-mock    # full e2e against loopback testenv-mock (same as GitHub CI)
 make test-e2e         # full E2E including SSH when configured
 ```
 

@@ -27,11 +27,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: E2E smoke (no SSH / no real hosts)
-        # Full host e2e (ssh marker) is local-only via tests/config.local.yaml.
+      - name: E2E against in-repo testenv-mock
+        # Full CLI suite (smoke + @ssh login/meta/get/put) against loopback mock sshd.
+        # tmux / zmodem / destructive stay excluded; nested/AI keys skip when unconfigured.
         env:
           CI: "true"
-        run: make test-e2e-smoke
+          AIT_TEST_USE_MOCK: "1"
+        run: make test-e2e-mock
 
   dupl-advisory:
     runs-on: ubuntu-latest

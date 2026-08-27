@@ -1,4 +1,4 @@
-.PHONY: all build build-cross install install-git-hooks release-archives test vet fmt clean test-cross test-e2e test-e2e-smoke dupl check-generate
+.PHONY: all build build-cross install install-git-hooks release-archives test vet fmt clean test-cross test-e2e test-e2e-smoke test-e2e-mock dupl check-generate
 
 TOOLS     := ai aissh aiimg ailog aihost ait
 BUILD_DIR := bin
@@ -170,6 +170,15 @@ test-e2e-smoke:
 	@python3 -m venv tests/.venv 2>/dev/null || true
 	tests/.venv/bin/pip install -r tests/requirements.txt -q
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m smoke
+
+# GitHub CI full e2e: start testenv-mock, inject ssh.primary, run @ssh against the mock.
+# Skips tmux / zmodem / destructive; nested/AI keys still skip when unconfigured (MS20).
+test-e2e-mock:
+	@test -x $(BUILD_DIR)/aissh || $(MAKE) build
+	go build -o $(BUILD_DIR)/testenv-mock ./cmd/testenv-mock
+	@python3 -m venv tests/.venv 2>/dev/null || true
+	tests/.venv/bin/pip install -r tests/requirements.txt -q
+	cd tests && AIT_TEST_USE_MOCK=1 ../tests/.venv/bin/pytest e2e -v -m "not destructive and not tmux and not zmodem"
 
 fmt:
 	go fmt ./...

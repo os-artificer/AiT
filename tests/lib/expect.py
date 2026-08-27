@@ -10,7 +10,7 @@ from typing import Sequence
 
 import pexpect
 
-from tests.lib.config import SSHTarget, TestConfig
+from tests.lib.config import SSHTarget, TestConfig, cli_base_env
 
 # oh-my-zsh / MOTD prompts that block the shell prompt after SSH login.
 _LOGIN_BLOCKER_PATTERNS = [
@@ -95,9 +95,6 @@ class AITExpectSession:
     ) -> AITExpectSession:
         tgt = target or cfg.primary
         argv = [str(cfg.binary), *tgt.login_argv(list(extra_login_args or []))]
-        if tgt.password:
-            argv.append("--password")
-            argv.append(tgt.password)
         child = pexpect.spawn(
             argv[0],
             argv[1:],
@@ -105,7 +102,8 @@ class AITExpectSession:
             timeout=timeout,
             env=runner_env,
         )
-        if tgt.password:
+        # --password on argv is consumed by aissh; do not wait 30s for a prompt.
+        if tgt.password and "--password" not in argv:
             idx = child.expect([r"[Pp]assword:", r"Password:", pexpect.TIMEOUT], timeout=30)
             if idx < 2:
                 child.sendline(tgt.password)
@@ -231,6 +229,7 @@ def runner_env_from(
     ai_experimental: bool = False,
 ) -> dict[str, str]:
     env = os.environ.copy()
+    env.update(cli_base_env(cfg, ait_home))
     env["AIT_HOME"] = str(ait_home)
     env["AIT_KEYRING_BACKEND"] = "file"
     env["AIT_KEYRING_DIR"] = str(ait_home / "keyring")

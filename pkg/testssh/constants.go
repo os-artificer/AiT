@@ -32,6 +32,7 @@ const (
 	// ProbeName is a second seeded file used by get/put roundtrips.
 	ProbeName = "probe.txt"
 	// ProbeBody matches the Python e2e transfer probe marker.
-	ProbeBody        = "ait-e2e-probe\n"
-	identityFileName = "id_ed25519"
+	ProbeBody           = "ait-e2e-probe\n"
+	identityFileName    = "id_ed25519"
+	promptReadySentinel = ".__AIT_PROMPT_READY__"
 )

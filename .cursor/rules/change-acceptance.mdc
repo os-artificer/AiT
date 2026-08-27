@@ -614,6 +614,10 @@ Loopback mocks for required external services (no real hosts or personal infra).
 | MS17 | HTTP hang 客户端超时 | `TestHTTP_HangTimesOut` | — |
 | MS18 | 公钥认证成功 | `TestSSH_PublicKeyAuth` | — |
 | MS19 | `Listen` 要求 `RootDir` | `TestListen_RootDirRequired` | — |
+| MS20 | GitHub CI `make test-e2e-mock`：注入 mock 为 `ssh.primary`，跑 `@ssh` 登录/会话/传输/meta | `tests/conftest.py` `testenv_mock`；CI `e2e-smoke` 调 `make test-e2e-mock` | `make test-e2e-mock` |
+| MS21 | mock 交互 shell 执行 `echo`；吞掉 PS1 setup 行 | `TestSSH_InteractiveEcho` | `test_login_shows_ait_prompt`、`test_remote_pwd_then_prompt` |
+| MS22 | `login_argv` / `connect_flags` 含 `-p` 与 `--password` | `test_login_argv_includes_password_and_port` | — |
+| MS23 | `AIT_TEST_USE_MOCK=1` 时 CI **不** skip `@ssh` | `pytest_collection_modifyitems` + `use_testenv_mock` | CI e2e-mock 日志含 login/get/put |
 
 ### EX* 明细（AI 公共能力剥离 + 实验门禁）
 
@@ -841,7 +845,7 @@ Loopback mocks for required external services (no real hosts or personal infra).
 ## 验收勾选（PR / Agent 交付）
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
-- [ ] MS1–MS19：in-repo testenv-mock SSH+HTTP 成功与错误路径（见 **MS\*** 明细；`docs/testenv-mock.md`）
+- [ ] MS1–MS23：in-repo testenv-mock SSH+HTTP 成功与错误路径 + CI 全量 mock e2e（见 **MS\*** 明细；`docs/testenv-mock.md`）
 - [ ] AT* / AP*：`ait` toolbox REPL + 插件发现（见 **AT\*** / **AP\*** 明细；含 **AT30a–f** Tab 首词补全、**AT31–AT48** install/update/upgrade；**OA9–OA10** `ai` 插件名）
 - [ ] AH1–AH63：`aihost` 主机监控（见 **AH\*** 明细）
 - [ ] OA1–OA17：Ops AI Agent 正向（见 **OA\***）；OA14 替代原 R15（`ai model list`）
@@ -1101,7 +1105,7 @@ aissh hostA                    # 无 --save
 | LG* | `ailog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources`、`TestCLI_FollowExpr`、`TestCLI_SearchExprOnly` |
 | AH* | `aihost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、… |
 | AT* / AP* | `ait` toolbox REPL + 插件发现 + install/update/upgrade | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestWithAbsorbedInterrupt_*`、`TestDiscover_*`、`TestWriteManifest_Builtin`、`TestCompleteFirstToken_*`、`TestReadLine_NilCompleterInsertsTab`、`TestPlan*`、`TestExecute_*`（aitrelease）、`TestExecuteLine_Install*`、`TestWriteManageHelp_*`、`TestOfficialPluginNames_ManifestsAligned` |
-| MS* | in-repo testenv-mock（SSH+SFTP / OpenAI / Ollama / Nominatim） | `TestSSH_*`、`TestDial_*`、`TestGetPut_MockRoundtrip`、`TestReverse_Mock*`、`TestFetchTags_Mock*`、`TestAssist_MockHTTP_*`、`TestHTTP_*`；pytest `test_mock_ssh.py` / `test_mock_http.py` |
+| MS* | in-repo testenv-mock（SSH+SFTP / OpenAI / Ollama / Nominatim）+ CI `test-e2e-mock` | `TestSSH_*`、`TestDial_*`、`TestGetPut_MockRoundtrip`、`TestReverse_Mock*`、`TestFetchTags_Mock*`、`TestAssist_MockHTTP_*`、`TestHTTP_*`、`TestSSH_InteractiveEcho`；pytest `test_mock_ssh.py` / `test_mock_http.py` / `test_connect_flags.py` / `@ssh` against mock |
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |
 | FB* | `ailog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |

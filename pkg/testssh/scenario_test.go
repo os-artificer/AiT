@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkg/sftp"
 
@@ -233,6 +234,86 @@ func mustExec(t *testing.T, srv *Server, password, cmd string) (string, int) {
 		}
 	}
 	return stdout.String(), code
+}
+
+func TestSSH_InteractiveEcho(t *testing.T) {
+	srv := Start(t, Config{})
+	conn := mustDial(t, srv, srv.Password())
+	defer conn.Close()
+
+	sess, err := conn.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close()
+
+	if err := sess.RequestPty("xterm", 24, 80, ssh.TerminalModes{}); err != nil {
+		t.Fatal(err)
+	}
+	stdin, err := sess.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, err := sess.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sess.Shell(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readUntilContains(t, stdout, "AiT ", 5*time.Second)
+	if !strings.Contains(got, srv.User()+"@") {
+		t.Fatalf("prompt=%q", got)
+	}
+
+	if _, err := io.WriteString(stdin, "export PS1='ignored'\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = readUntilContains(t, stdout, "AiT ", 5*time.Second)
+
+	if _, err := io.WriteString(stdin, "echo hello-interactive\n"); err != nil {
+		t.Fatal(err)
+	}
+	out := readUntilContains(t, stdout, "hello-interactive", 5*time.Second)
+	if strings.Contains(out, "command not found") {
+		t.Fatalf("setup leaked: %q", out)
+	}
+}
+
+func readUntilContains(t *testing.T, r io.Reader, substr string, timeout time.Duration) string {
+	t.Helper()
+
+	done := make(chan string, 1)
+	go func() {
+		var b strings.Builder
+		buf := make([]byte, 256)
+		for {
+			n, err := r.Read(buf)
+			if n > 0 {
+				b.Write(buf[:n])
+				if strings.Contains(b.String(), substr) {
+					done <- b.String()
+					return
+				}
+			}
+			if err != nil {
+				done <- b.String()
+				return
+			}
+		}
+	}()
+
+	select {
+	case s := <-done:
+		if !strings.Contains(s, substr) {
+			t.Fatalf("got %q want substring %q", s, substr)
+		}
+		return s
+	case <-time.After(timeout):
+		t.Fatalf("timeout waiting for %q", substr)
+	}
+	return ""
 }
 
 func TestRemotePath_Join(t *testing.T) {

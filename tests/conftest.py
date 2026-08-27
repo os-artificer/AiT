@@ -5,14 +5,31 @@ from __future__ import annotations
 import pytest
 
 from tests.lib.cli import AITRunner
-from tests.lib.config import TestConfig, config_skip_reason, load_config
-from tests.lib.envflags import AI_EXPERIMENTAL_ENV, running_on_ci
+from tests.lib.config import TestConfig, cli_base_env, config_skip_reason, load_config
+from tests.lib.envflags import AI_EXPERIMENTAL_ENV, running_on_ci, use_testenv_mock
 from tests.lib.expect import AITExpectSession, runner_env_from
+from tests.lib.mockenv import apply_mock_target, start_mock
 
 
 @pytest.fixture(scope="session")
-def test_config() -> TestConfig:
-    return load_config()
+def testenv_mock():
+    """Session-wide in-repo testenv-mock when AIT_TEST_USE_MOCK=1 (CI full e2e)."""
+    if not use_testenv_mock():
+        yield None
+        return
+    env = start_mock()
+    try:
+        yield env
+    finally:
+        env.close()
+
+
+@pytest.fixture(scope="session")
+def test_config(testenv_mock) -> TestConfig:
+    cfg = load_config()
+    if testenv_mock is not None:
+        apply_mock_target(cfg, testenv_mock.ssh)
+    return cfg
 
 
 @pytest.fixture(scope="session")
@@ -49,16 +66,7 @@ def ait_home(tmp_path) -> str:
 
 @pytest.fixture
 def runner(test_config: TestConfig, ait_bin: str, ait_home: str) -> AITRunner:
-    base = {
-        "LANG": test_config.lang,
-        "LC_ALL": test_config.lang,
-        "AIT_KEYRING_FILE_PASSWORD": test_config.keyring_password,
-        # Isolate from a developer shell that exported AIT_AI_EXPERIMENTAL=1.
-        "AIT_AI_EXPERIMENTAL": "",
-    }
-    if test_config.features.insecure_ssh:
-        base["AIT_SSH_INSECURE"] = "1"
-    return AITRunner(ait_bin, ait_home, base_env=base)
+    return AITRunner(ait_bin, ait_home, base_env=cli_base_env(test_config, ait_home))
 
 
 @pytest.fixture
@@ -83,13 +91,14 @@ def expect_env(test_config: TestConfig, ait_home: str) -> dict[str, str]:
 def pytest_collection_modifyitems(config, items):
     cfg = load_config()
     on_ci = running_on_ci()
+    mock = use_testenv_mock()
     for item in items:
         if item.get_closest_marker("ssh"):
-            if on_ci:
+            if on_ci and not mock:
                 item.add_marker(
                     pytest.mark.skip(reason="SSH/host e2e runs only locally (not on CI)"),
                 )
-            elif not cfg.is_ssh_configured():
+            elif not mock and not cfg.is_ssh_configured():
                 item.add_marker(
                     pytest.mark.skip(reason=config_skip_reason(cfg) or "SSH not configured"),
                 )
@@ -104,10 +113,8 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture(scope="module")
 def e2e_ssh_session(test_config: TestConfig, tmp_path_factory):
     """Shared login session for a module (one dial per file)."""
-    if running_on_ci():
-        pytest.skip("SSH/host e2e runs only locally (not on CI)")
     if not test_config.is_ssh_configured():
-        pytest.skip(config_skip_reason(test_config))
+        pytest.skip(config_skip_reason(test_config) or "SSH not configured")
     home = tmp_path_factory.mktemp("ssh_module_home")
     env = runner_env_from(test_config, home)
     sess = AITExpectSession.spawn_login(test_config, env)

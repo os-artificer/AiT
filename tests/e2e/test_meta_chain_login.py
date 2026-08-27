@@ -6,6 +6,8 @@ import uuid
 
 import pytest
 
+from tests.lib.cli import AITRunner
+from tests.lib.config import cli_base_env
 from tests.lib.expect import AITExpectSession, runner_env_from
 
 pytestmark = pytest.mark.ssh
@@ -30,10 +32,7 @@ def test_meta_suspend_lists_session(chain_env):
     runner = AITRunner(
         cfg.binary,
         __import__("pathlib").Path(env["AIT_HOME"]),
-        base_env={
-            "AIT_KEYRING_FILE_PASSWORD": cfg.keyring_password,
-            "LANG": cfg.lang,
-        },
+        base_env=cli_base_env(cfg, env["AIT_HOME"]),
     )
     runner.run_ok(
         cfg.primary.one_shot_login_argv(["echo", "chain"], ["--alias", alias]),

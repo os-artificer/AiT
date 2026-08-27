@@ -11,6 +11,7 @@ make vet         # go vet ./...
 make fmt         # go fmt ./...
 make test-cross  # five-platform go build ./... (linux/darwin/windows)
 make test-e2e-smoke  # pytest @smoke including in-repo testenv-mock (no real hosts)
+make test-e2e-mock   # GitHub CI full e2e against testenv-mock (`AIT_TEST_USE_MOCK=1`)
 ./bin/ait           # toolbox REPL
 ./bin/aissh        # run SSH tool
 ./bin/ai           # Ops AI Agent (experimental)

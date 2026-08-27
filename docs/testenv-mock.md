@@ -8,7 +8,7 @@ GitHub Releases for `ait> install` already have a separate mock: `internal/pkg/a
 
 | Path | Role |
 |------|------|
-| [`pkg/testssh`](../pkg/testssh) | Loopback SSH daemon (password + optional public key) with a small exec set and SFTP |
+| [`pkg/testssh`](../pkg/testssh) | Loopback SSH daemon (password + optional public key) with exec, interactive shell, and SFTP |
 | [`pkg/testhttp`](../pkg/testhttp) | Loopback HTTP: `/v1/chat/completions`, `/api/tags`, `/reverse` |
 | [`cmd/testenv-mock`](../cmd/testenv-mock) | Process wrapper: prints one JSON banner line, then waits for SIGINT/SIGTERM |
 | [`tests/lib/mockenv.py`](../tests/lib/mockenv.py) | Pytest helper that starts `bin/testenv-mock` |
@@ -28,7 +28,9 @@ CLI smoke against the daemon (CI-safe; no real SSH host):
 
 ```bash
 make test-e2e-smoke
-# or: pytest tests/e2e -v -m mock
+# GitHub CI / full mock-backed suite (login, session, get/put, meta):
+make test-e2e-mock
+# or: AIT_TEST_USE_MOCK=1 pytest tests/e2e -v -m "not destructive and not tmux and not zmodem"
 ```
 
 Manual daemon:
@@ -49,4 +51,6 @@ HTTP scenarios: `ok`, `unauthorized`, `rate_limited`, `server_error`, `not_found
 
 ## Acceptance (MS*)
 
-Success and error paths are both required. IDs live in [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) (**MS1–MS19**).
+Success and error paths are both required. IDs live in [change-acceptance.mdc](../.cursor/rules/change-acceptance.mdc) (**MS1–MS23**).
+
+GitHub Actions `e2e-smoke` runs `make test-e2e-mock` (`AIT_TEST_USE_MOCK=1`): pytest injects the mock as `ssh.primary` and executes `@ssh` login / session / get/put / meta against it. tmux, zmodem, nested hop, and destructive tests stay skipped.

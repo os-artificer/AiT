@@ -6,7 +6,7 @@ import uuid
 
 import pytest
 
-from tests.lib.config import load_config
+from tests.lib.config import cli_base_env
 from tests.lib.expect import AITExpectSession, runner_env_from
 
 pytestmark = pytest.mark.ssh
@@ -23,14 +23,7 @@ def persist_runner(test_config, tmp_path):
     env = runner_env_from(test_config, home)
     from tests.lib.cli import AITRunner
 
-    base = {
-        "LANG": test_config.lang,
-        "LC_ALL": test_config.lang,
-        "AIT_KEYRING_FILE_PASSWORD": test_config.keyring_password,
-    }
-    if test_config.features.insecure_ssh:
-        base["AIT_SSH_INSECURE"] = "1"
-    return AITRunner(test_config.binary, home, base_env=base), test_config, env
+    return AITRunner(test_config.binary, home, base_env=cli_base_env(test_config, home)), test_config, env
 
 
 def test_login_save_creates_session_row(persist_runner):

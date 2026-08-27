@@ -109,3 +109,24 @@ def ssh_connect_args(ssh: dict[str, Any], extra: list[str] | None = None) -> lis
     if extra:
         args.extend(extra)
     return args
+
+
+def apply_mock_target(cfg: Any, ssh: dict[str, Any]) -> None:
+    """Replace TestConfig.primary with the loopback testenv-mock sshd (MS20)."""
+    from tests.lib.config import SSHTarget
+
+    cfg.primary = SSHTarget(
+        host=str(ssh["host"]),
+        port=int(ssh["port"]),
+        user=str(ssh["user"]),
+        identity="",
+        password=str(ssh.get("password") or ""),
+    )
+    cfg.inner = SSHTarget()
+    cfg.jump_hosts = []
+    cfg.features.insecure_ssh = True
+    cfg.features.nested_ssh = False
+    cfg.features.tmux = False
+    cfg.features.lrzsz = False
+    cfg.features.zmodem_chain = False
+    cfg.using_mock = True

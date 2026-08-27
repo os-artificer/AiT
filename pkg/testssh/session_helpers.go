@@ -72,13 +72,18 @@ func handleSession(ch ssh.Channel, in <-chan *ssh.Request, cfg Config) {
 			if handleSubsystem(ch, req, cfg) {
 				return
 			}
-		case "pty-req", "env", "shell", "window-change":
+		case "pty-req", "env", "window-change":
 			if req.WantReply {
 				_ = req.Reply(true, nil)
 			}
-			if req.Type == "shell" {
-				_, _ = io.WriteString(ch, cfg.Hostname+" mock$ ")
+		case "shell":
+			if req.WantReply {
+				_ = req.Reply(true, nil)
 			}
+			go drainSessionRequests(in)
+			runInteractiveShell(ch, cfg)
+			_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+			return
 		default:
 			if req.WantReply {
 				_ = req.Reply(false, nil)

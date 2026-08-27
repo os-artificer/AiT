@@ -28,12 +28,19 @@ class SSHTarget:
             return f"{self.user}@{self.host}"
         return self.host
 
-    def login_argv(self, extra: list[str] | None = None) -> list[str]:
+    def connect_flags(self) -> list[str]:
+        """OpenSSH-style flags shared by connect, get, and put."""
         argv: list[str] = []
         if self.port and self.port != 22:
             argv.extend(["-p", str(self.port)])
         if self.identity:
             argv.extend(["-i", os.path.expanduser(self.identity)])
+        if self.password:
+            argv.extend(["--password", self.password])
+        return argv
+
+    def login_argv(self, extra: list[str] | None = None) -> list[str]:
+        argv: list[str] = self.connect_flags()
         if extra:
             argv.extend(extra)
         argv.append(self.destination)
@@ -81,6 +88,7 @@ class TestConfig:
     lang: str = "en_US.UTF-8"
     config_path: Path | None = None
     loaded: bool = False
+    using_mock: bool = False
 
     def is_ssh_configured(self) -> bool:
         return bool(self.primary.host)
@@ -159,6 +167,22 @@ def load_config(path: Path | None = None) -> TestConfig:
         cfg.ai.deepseek_key = os.environ["AIT_TEST_DEEPSEEK_KEY"].strip()
 
     return cfg
+
+
+def cli_base_env(cfg: TestConfig, ait_home: Path | str) -> dict[str, str]:
+    """Env overlay for AITRunner / pexpect against the configured SSH target."""
+    env = {
+        "LANG": cfg.lang,
+        "LC_ALL": cfg.lang,
+        "AIT_KEYRING_FILE_PASSWORD": cfg.keyring_password,
+        "AIT_AI_EXPERIMENTAL": "",
+    }
+    if cfg.features.insecure_ssh:
+        env["AIT_SSH_INSECURE"] = "1"
+    if cfg.using_mock:
+        env["SSH_AUTH_SOCK"] = ""
+        env["HOME"] = str(ait_home)
+    return env
 
 
 def config_skip_reason(cfg: TestConfig) -> str:
