@@ -768,6 +768,24 @@ Loopback mocks for required external services (no real hosts or personal infra).
 | AH61 | macOS `netstat -s` 单复数行 + `netstat -an` ESTABLISHED | `TestFillDarwinNetstat`、`TestFillDarwinNetstat_Singular`、`TestCountEstablishedTCP` |
 | AH62 | Linux proto counters 映射 InSegs/OutSegs 等 | `TestApplyLinuxProtoStat` |
 | AH63 | 默认磁盘挂载：Unix `/`、Windows `C:\` | `TestDefaultMount_Platform`、`TestSample_DiskMountMatchesPlatform` |
+| AH64 | 默认 `net` 仍为流量行（无 PROTO 表头） | `TestCLI_Net`、`TestCLI_NetTrafficNoConnHeader` |
+| AH65 | `net --conn` 表头含 PROTO/STATE/LOCAL/REMOTE/PID/PROCESS/AGE/CREATED | `TestCLI_NetConn`、net cmd table header tests |
+| AH66 | `net --conn --json` 为 `{time,connections}` 信封 | `TestCLI_NetConnJSON` |
+| AH67 | `--proto udp` 过滤；`--proto all`→inet（无 unix） | `TestNormalizeConnQuery_AllMapsInternally`、`TestCLI_NetConnProtoUDP` |
+| AH68 | `--state` / `--listen` 过滤 | `TestRunConnections_ListenFilter`、`TestConnMatchesQuery_ListenOnly` |
+| AH69 | `--port` 匹配本地或远端；`--pid` 过滤；非法 port/pid | `TestConnMatchesQuery_PortAndState`、`TestValidate_BadPort` |
+| AH70 | 无 `--conn` 时 Changed 的连接过滤器/`--limit` → errhint Try | `TestCLI_NetFiltersRequireConn` |
+| AH71 | Linux fd create time；`Pid<=0` nil；`Pid>0`+Fd=0 可；conntrack 解析；非 Linux nil | `TestCreatedAtFromFD_*`、`TestParseConntrackLine_*` |
+| AH72 | `net --help` 含 `--conn`、AGE 双时钟与 TCP LISTEN 说明 | `TestCLI_NetHelp`、`TestWriteHelp_IncludesConn` |
+| AH73 | `--listen`+`--state` 互斥 errhint | `TestValidate_ListenStateExclusive` |
+| AH74 | `net --conn --watch` human 含 `---`；JSON watch 无 `---` | `TestRunConnections_WatchHumanSeparator`、`TestRunConnections_WatchJSONNoSeparator` |
+| AH75 | 默认 limit 100；超 MaxConnLimit 截断 | `TestNormalizeConnQuery_Defaults`、`TestNormalizeConnQuery_AllMapsInternally` |
+| AH76 | 未知 → JSON `age_seconds` 与 `created_at` 均为 null | `TestWriteConnectionsJSON_NullAge` |
+| AH77 | 流量 `net --json` 仍为 `{time,net:...}` | `TestCLI_NetJSON` |
+| AH78 | enrichment 同时设置 CreatedAt + AgeSeconds（fd 与 conntrack 推导） | `TestEnrichConnAge_FDAndConntrackDerived` |
+| AH79 | help/docs 含 `--port` 示例、CREATED/created_at、默认 TCP | `TestCLI_NetHelp`、`TestWriteHelp_IncludesConn` |
+| AH80 | 进程名 Name 空时 cmdline basename 回退 | `TestProcessDisplayName_Fallback` |
+| AH81 | `net --conn --port` 表头含 CREATED | `TestCLI_NetConnPort` |
 
 ### AT* / AP* 明细（`ait` toolbox REPL + 插件发现）
 
@@ -830,7 +848,7 @@ Loopback mocks for required external services (no real hosts or personal infra).
 - [ ] KP1–KP8：`aitkeep` ping、资源动作、重启预算、单实例、硬帽、CLI、官方插件 `keep`（见 **KP\***）
 - [ ] MS1–MS23：in-repo testenv-mock SSH+HTTP 成功与错误路径 + CI 全量 mock e2e（见 **MS\*** 明细；`docs/testenv-mock.md`）
 - [ ] AT* / AP*：`ait` toolbox REPL + 插件发现（见 **AT\*** / **AP\*** 明细；含 **AT30a–f** Tab 首词补全、**AT31–AT48** install/update/upgrade；**OA9–OA10**）
-- [ ] AH1–AH63：`aihost` 主机监控（见 **AH\*** 明细）
+- [ ] AH1–AH81：`aihost` 主机监控（见 **AH\*** 明细；含 **AH64–AH81** `net --conn`）
 - [ ] OA1–OA17：Ops AI Agent 正向（见 **OA\***）；OA14 替代原 R15
 - [ ] OA20–OA25：aitssh 去 AI 负向（`aitssh ai` / `!!` AI / `!ait ai` 移除）
 - [ ] EX1–EX3：config 包实验门禁 SSOT；EX4+ 见 **EX\***；agentcore 边界（EX8/AC-V4）
@@ -1085,7 +1103,7 @@ aitssh hostA                    # 无 --save
 | OA* | Ops AI Agent（`ait agent`；正向 OA1–OA17；负向 OA20–OA25） | `TestOpsAI_*`、`TestAissh_AISubtreeRemoved`、`TestMetaScanner_BangBangForwardsPTY`、… |
 | EX* | AI 实验门禁（EX1–EX3 config；EX4+；EX5–EX6/11–12 删） | `TestAIExperimental_*`、`TestOpsAI_ExperimentalDisabled`、`TestAgentcore_NoProductImports` |
 | LG* | `ailog` CLI 查看/搜索系统日志 | `TestWriteRootHelp`、`TestCLI_BuiltinFileSearch`、`TestCLI_SearchRequiresKeyword`、`TestCLI_Sources`、`TestCLI_FollowExpr`、`TestCLI_SearchExprOnly` |
-| AH* | `aihost` 主机监控 CLI / top 仪表盘 | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、… |
+| AH* | `aihost` 主机监控 CLI / top 仪表盘（含 **AH64–AH81** `net --conn`） | `TestWriteRootHelp`、`TestCLI_Snapshot`、`TestCLI_Proc`、`TestCLI_NetConn`、… |
 | AT* / AP* | `ait` toolbox REPL + 插件发现 + install/update/upgrade | `TestExecuteWriters_*`、`TestExecuteLine_*`、`TestWithAbsorbedInterrupt_*`、`TestDiscover_*`、`TestWriteManifest_Builtin`、`TestCompleteFirstToken_*`、`TestReadLine_NilCompleterInsertsTab`、`TestPlan*`、`TestExecute_*`（aitrelease）、`TestExecuteLine_Install*`、`TestWriteManageHelp_*`、`TestOfficialPluginNames_ManifestsAligned` |
 | MS* | in-repo testenv-mock（SSH+SFTP / OpenAI / Ollama / Nominatim）+ CI `test-e2e-mock` | `TestSSH_*`、`TestDial_*`、`TestGetPut_MockRoundtrip`、`TestReverse_Mock*`、`TestFetchTags_Mock*`、`TestAssist_MockHTTP_*`、`TestHTTP_*`、`TestSSH_InteractiveEcho`；pytest `test_mock_ssh.py` / `test_mock_http.py` / `test_connect_flags.py` / `@ssh` against mock |
 | PG* | `internal/pkg/pager` less-like 分页 | `TestPage_Passthrough`、`TestViewport_Scroll`、`TestViewport_Search` |

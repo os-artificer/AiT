@@ -251,10 +251,10 @@ func TestFormatProcPeerLines_OnePerRecord(t *testing.T) {
 
 func TestAggregateProcPeers_Server(t *testing.T) {
 	got := aggregateProcPeers([]procConn{
-		{Pid: 1, Status: tcpStatusListen, LPort: 8080},
-		{Pid: 1, Status: tcpStatusListen, LPort: 443},
-		{Pid: 1, Status: tcpStatusEstablished, LPort: 8080, RIP: "1.1.1.1", RPort: 50000},
-		{Pid: 1, Status: tcpStatusEstablished, LPort: 8080, RIP: "2.2.2.2", RPort: 50001},
+		{Pid: 1, Status: ConnStatusListen, LPort: 8080},
+		{Pid: 1, Status: ConnStatusListen, LPort: 443},
+		{Pid: 1, Status: ConnStatusEstablished, LPort: 8080, RIP: "1.1.1.1", RPort: 50000},
+		{Pid: 1, Status: ConnStatusEstablished, LPort: 8080, RIP: "2.2.2.2", RPort: 50001},
 	})
 	p, ok := got[1]
 	if !ok {
@@ -273,8 +273,8 @@ func TestAggregateProcPeers_Server(t *testing.T) {
 
 func TestAggregateProcPeers_Client(t *testing.T) {
 	got := aggregateProcPeers([]procConn{
-		{Pid: 7, Status: tcpStatusEstablished, LPort: 54321, RIP: "8.8.8.8", RPort: 53},
-		{Pid: 7, Status: tcpStatusEstablished, LPort: 54322, RIP: "8.8.8.8", RPort: 53}, // same remote
+		{Pid: 7, Status: ConnStatusEstablished, LPort: 54321, RIP: "8.8.8.8", RPort: 53},
+		{Pid: 7, Status: ConnStatusEstablished, LPort: 54322, RIP: "8.8.8.8", RPort: 53}, // same remote
 	})
 	p, ok := got[7]
 	if !ok {
@@ -288,7 +288,7 @@ func TestAggregateProcPeers_Client(t *testing.T) {
 func TestAggregateProcPeers_Empty(t *testing.T) {
 	got := aggregateProcPeers([]procConn{
 		{Pid: 3, Status: "TIME_WAIT", LPort: 1},
-		{Pid: 0, Status: tcpStatusListen, LPort: 22},
+		{Pid: 0, Status: ConnStatusListen, LPort: 22},
 	})
 	if len(got) != 0 {
 		t.Fatalf("%+v", got)

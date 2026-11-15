@@ -29,7 +29,7 @@ func init() {
 }
 
 func (module) Name() string  { return Name }
-func (module) Short() string { return "network traffic, errors, and drops" }
+func (module) Short() string { return "network traffic or connections" }
 func (module) Order() int    { return 50 }
 func (module) NewCobra() *cobra.Command {
 	return New()

@@ -9,7 +9,7 @@ cmd/host/main.go
        → top (default empty-argv route + registered)
        → cpu / mem / disk / net / proto / proc / snapshot / sources / version
        → shared (flags facade; not registered)
-  → internal/pkg/hoststats   (Collector, Section, process sort/limit)
+  → internal/pkg/hoststats   (Collector, Section, process sort/limit, ListConnections)
   → internal/pkg/hostdash    (Panel + sparkline; Bubble Tea-free primitives)
   → internal/pkg/buildinfo
 ```
@@ -51,6 +51,8 @@ New top-level command:
 - Fuzzy match helpers: `MatchProc` / `FilterProcs`; tree helpers: `ProcAncestors` / `ProcChildren`
 - `KillProc(pid, force)` sends SIGTERM or SIGKILL (Windows: Terminate / Kill)
 - `Section` strategy: CPU/Mem/Disk/Net/Proto/Proc Human + JSON
+- `ListConnections` / `ConnQuery` power `aithost net --conn` (gopsutil tcp/udp/inet; sort then limit; `--listen` is TCP LISTEN only; `--port` matches local/remote with default proto tcp). Linux AGE/CREATED prefer `/proc/<pid>/fd` Ctim; on failure may use nf_conntrack `delta-time` (CREATED ≈ now−delta). Status aliases (e.g. Windows `SYN_RECEIVED`) normalize to Linux canonical names; `DELETE` stays distinct from `CLOSE`. Not embedded in `Snapshot` or `top`.
+- `shared.WatchEvery` / `shared.WatchSeparator` power section watch and `net --conn --watch` (human samples use `---`; JSON has no separator).
 
 ### hostdash
 
@@ -61,4 +63,4 @@ New top-level command:
 
 ### Acceptance IDs
 
-See change-acceptance.mdc: **AH1–AH63**.
+See change-acceptance.mdc: **AH1–AH81**.

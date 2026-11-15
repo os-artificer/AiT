@@ -29,7 +29,8 @@ import (
 	"golang.org/x/term"
 )
 
-const watchSeparator = "---\n"
+// WatchSeparator separates human --watch samples (JSON watch omits it).
+const WatchSeparator = "---\n"
 
 // BindJSONInterval adds --json, --interval, and --watch to cmd.
 func BindJSONInterval(cmd *cobra.Command, f *Flags) {
@@ -103,15 +104,17 @@ func WriterIsTerminal(w io.Writer) bool {
 	return term.IsTerminal(int(f.Fd()))
 }
 
-func watch(ctx context.Context, w io.Writer, col *hoststats.Collector, pq hoststats.ProcessQuery, f Flags, sections []hoststats.Section) error {
-	ticker := time.NewTicker(f.Interval)
+// WatchEvery calls writeOnce immediately, then again on each interval until ctx is done.
+// writeOnce should write one sample; for human multi-line output callers append WatchSeparator themselves.
+// Returns writeOnce errors; ctx cancel returns nil.
+func WatchEvery(ctx context.Context, interval time.Duration, writeOnce func() error) error {
+	if interval <= 0 {
+		interval = time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
-		snap, err := col.Sample(ctx, pq)
-		if err != nil {
-			return err
-		}
-		if err := writeWatchSample(w, snap, f, sections); err != nil {
+		if err := writeOnce(); err != nil {
 			return err
 		}
 		select {
@@ -122,6 +125,16 @@ func watch(ctx context.Context, w io.Writer, col *hoststats.Collector, pq hostst
 	}
 }
 
+func watch(ctx context.Context, w io.Writer, col *hoststats.Collector, pq hoststats.ProcessQuery, f Flags, sections []hoststats.Section) error {
+	return WatchEvery(ctx, f.Interval, func() error {
+		snap, err := col.Sample(ctx, pq)
+		if err != nil {
+			return err
+		}
+		return writeWatchSample(w, snap, f, sections)
+	})
+}
+
 func writeWatchSample(w io.Writer, snap hoststats.Snapshot, f Flags, sections []hoststats.Section) error {
 	if f.JSON {
 		return hoststats.WriteJSON(w, snap, sectionOrNil(sections))
@@ -129,7 +142,7 @@ func writeWatchSample(w io.Writer, snap hoststats.Snapshot, f Flags, sections []
 	if err := hoststats.WriteHuman(w, snap, sections); err != nil {
 		return err
 	}
-	_, err := io.WriteString(w, watchSeparator)
+	_, err := io.WriteString(w, WatchSeparator)
 	return err
 }
 

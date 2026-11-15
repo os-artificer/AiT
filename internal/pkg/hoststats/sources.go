@@ -24,7 +24,7 @@ func ListSources() []SourceDesc {
 		{ID: IDCPU, Name: "CPU usage", Status: "available", Notes: "aggregate percent via gopsutil"},
 		{ID: IDMem, Name: "Memory usage", Status: "available", Notes: "virtual memory used/total"},
 		{ID: IDDisk, Name: "Disk usage and IO", Status: "available", Notes: "default mount + IO byte rates"},
-		{ID: IDNet, Name: "Network traffic", Status: "available", Notes: "aggregate iface rates, errs, drops"},
+		{ID: IDNet, Name: "Network traffic", Status: "available", Notes: "aggregate iface rates, errs, drops; `net --conn` lists sockets"},
 		{ID: IDProto, Name: "Protocol stats", Status: "available", Notes: protoNotes()},
 		{
 			ID:     IDProc,

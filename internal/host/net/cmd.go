@@ -29,10 +29,10 @@ const Name = "net"
 
 // New builds the `aihost net` command.
 func New() *cobra.Command {
-	var f shared.Flags
+	var f netFlags
 	cmd := &cobra.Command{
 		Use:           Name + " [flags]",
-		Short:         "Show network traffic, errors, and drops",
+		Short:         "Show network traffic or connections",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
@@ -40,10 +40,16 @@ func New() *cobra.Command {
 			if pkghelpdoc.HasHelpArg(args) {
 				return WriteHelp(c.OutOrStdout())
 			}
-			return shared.RunSection(c.Context(), c.OutOrStdout(), Name, f)
+			if err := f.validate(c); err != nil {
+				return err
+			}
+			if f.Conn {
+				return RunConnections(c.Context(), c.OutOrStdout(), c, f)
+			}
+			return shared.RunSection(c.Context(), c.OutOrStdout(), Name, f.Flags)
 		},
 	}
-	shared.BindJSONInterval(cmd, &f)
+	bindNetFlags(cmd, &f)
 	pkghelpdoc.Bind(cmd, WriteHelp)
 	return cmd
 }

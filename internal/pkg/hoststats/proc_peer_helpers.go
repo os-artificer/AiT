@@ -24,11 +24,6 @@ import (
 	"github.com/shirou/gopsutil/v4/net"
 )
 
-const (
-	tcpStatusListen      = "LISTEN"
-	tcpStatusEstablished = "ESTABLISHED"
-)
-
 // procConn is a minimal TCP connection view for peer aggregation tests.
 type procConn struct {
 	Pid    int32
@@ -92,9 +87,9 @@ func aggregateProcPeers(conns []procConn) map[int32]procPeerAgg {
 			byPID[c.Pid] = b
 		}
 		switch c.Status {
-		case tcpStatusListen:
+		case ConnStatusListen:
 			b.listenPorts[c.LPort] = struct{}{}
-		case tcpStatusEstablished:
+		case ConnStatusEstablished:
 			recordEstablished(b, c)
 		}
 	}

@@ -178,6 +178,96 @@ func TestCLI_Net(t *testing.T) {
 	}
 }
 
+func TestCLI_NetTrafficNoConnHeader(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aihost.ExecuteWriters([]string{"net"}, &out, &errBuf); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.Contains(got, "PROTO") || strings.Contains(got, "PROCESS") {
+		t.Fatalf("traffic mode must not print conn table: %q", got)
+	}
+}
+
+func TestCLI_NetJSON(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aihost.ExecuteWriters([]string{"net", "--json"}, &out, &errBuf); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	if _, ok := got["net"]; !ok {
+		t.Fatalf("missing net key: %s", out.String())
+	}
+	if _, ok := got["connections"]; ok {
+		t.Fatal("connections key must not appear without --conn")
+	}
+}
+
+func TestCLI_NetHelp(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aihost.ExecuteWriters([]string{"net", "--help"}, &out, &errBuf); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{"--conn", "AGE", "CREATED", "Examples:", "nf_conntrack", "delta-time", "TCP LISTEN", "--port", "8080"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestCLI_NetConn(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aihost.ExecuteWriters([]string{"net", "--conn", "--limit", "5"}, &out, &errBuf); err != nil {
+		t.Fatalf("err=%v stderr=%s", err, errBuf.String())
+	}
+	got := out.String()
+	for _, want := range []string{"PROTO", "STATE", "LOCAL", "REMOTE", "PID", "PROCESS", "AGE", "CREATED"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestCLI_NetConnPort(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aihost.ExecuteWriters([]string{"net", "--conn", "--port", "1", "--limit", "5"}, &out, &errBuf); err != nil {
+		t.Fatalf("err=%v stderr=%s", err, errBuf.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "CREATED") {
+		t.Fatalf("missing CREATED header:\n%s", got)
+	}
+}
+
+func TestCLI_NetConnJSON(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := aihost.ExecuteWriters([]string{"net", "--conn", "--json", "--limit", "5"}, &out, &errBuf); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["connections"]; !ok {
+		t.Fatalf("%s", out.String())
+	}
+}
+
+func TestCLI_NetFiltersRequireConn(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	err := aihost.ExecuteWriters([]string{"net", "--pid", "1"}, &out, &errBuf)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "--conn") {
+		t.Fatalf("%v", err)
+	}
+}
+
 func TestCLI_Proto(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	if err := aihost.ExecuteWriters([]string{"proto"}, &out, &errBuf); err != nil {
