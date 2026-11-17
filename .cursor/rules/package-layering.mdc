@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Package layering (AiT toolbox — aissh)
 
-Authoritative detail: [docs/tools/aissh-internals.md#package-layering](../../docs/tools/aissh-internals.md#package-layering). Keep this rule in sync when that section changes.
+Authoritative detail: [docs/architecture/aissh.md#package-layering](../../docs/architecture/aissh.md#package-layering). Keep this rule in sync when that section changes.
 
 ## Call chain
 

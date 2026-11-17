@@ -67,9 +67,9 @@ AiT is a Go CLI; directories follow [golang-standards/project-layout](https://gi
 Conventions:
 
 - Prefer extending `internal/ssh/<cmd>` and `internal/pkg/*`; avoid adding top-level directories without reason.
-- **Package layering:** `cmd/ssh` → `internal/ssh` (package `aissh`) → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/tools/aissh-internals.md#package-layering`](docs/tools/aissh-internals.md#package-layering) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
+- **Package layering:** `cmd/ssh` → `internal/ssh` (package `aissh`) → subcommand packages; cross-command reuse in `internal/pkg`. Details: [`docs/architecture/aissh.md#package-layering`](docs/architecture/aissh.md#package-layering) (Cursor: [`.cursor/rules/package-layering.mdc`](.cursor/rules/package-layering.mdc)).
 - `internal/` is module-private — **must not** be imported from outside this module.
-- See [`AGENTS.md`](AGENTS.md) for package layout; see [`docs/architecture.md`](docs/architecture.md) for toolbox structure, [`docs/tools/aissh.md`](docs/tools/aissh.md) for aissh behavior, and [`docs/tools/aissh-internals.md`](docs/tools/aissh-internals.md) for aissh implementation.
+- See [`AGENTS.md`](AGENTS.md) for package layout; see [`docs/architecture/overview.md`](docs/architecture/overview.md) for toolbox structure, [`docs/guide/aissh.md`](docs/guide/aissh.md) for aissh behavior, and [`docs/architecture/aissh.md`](docs/architecture/aissh.md) for aissh implementation.
 
 
 ---
@@ -312,9 +312,9 @@ Canonical agent rule: [`.cursor/rules/commit-message.mdc`](.cursor/rules/commit-
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | This page: workflow and Go standards |
 | [`CHANGELOG.md`](CHANGELOG.md) | Product and CLI changelog |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Code of conduct |
-| [`docs/tools/aissh.md`](docs/tools/aissh.md) | aissh user guide |
-| [`docs/tools/aissh-internals.md`](docs/tools/aissh-internals.md) | aissh implementation (package layering, workflows) |
+| [`docs/guide/aissh.md`](docs/guide/aissh.md) | aissh user guide |
+| [`docs/architecture/aissh.md`](docs/architecture/aissh.md) | aissh implementation (package layering, workflows) |
 | [`AGENTS.md`](AGENTS.md) | Code layout and agent orientation |
-| [`docs/architecture.md`](docs/architecture.md) | AiT toolbox project structure |
+| [`docs/architecture/overview.md`](docs/architecture/overview.md) | AiT toolbox project structure |
 | [`.cursor/rules/go-structure.mdc`](.cursor/rules/go-structure.mdc) | Canonical Go rules (sync with Cursor / agents) |
 | [`.cursor/rules/project.mdc`](.cursor/rules/project.mdc) | Project scope and build conventions |

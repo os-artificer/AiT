@@ -573,7 +573,7 @@ raw 模式 TTY（`term.MakeRaw` 期间）下 `OPOST/ONLCR` 关闭，bare `\n` �
 
 ### MS* 明细（in-repo testenv-mock：SSH+SFTP / HTTP）
 
-Loopback mocks for required external services (no real hosts or personal infra). See [docs/testenv-mock.md](../../docs/testenv-mock.md). GitHub Releases stay on `mock/testrelease`.
+Loopback mocks for required external services (no real hosts or personal infra). See [docs/architecture/testenv-mock.md](../../docs/architecture/testenv-mock.md). GitHub Releases stay on `mock/testrelease`.
 
 | ID | 验收行为 | 自动化测试 | 手动烟雾 |
 |----|----------|------------|----------|
@@ -667,7 +667,7 @@ Loopback mocks for required external services (no real hosts or personal infra).
 | LG8 | `version` / `-V` | `TestCLI_Version`、`TestCLI_VersionFlag` |
 | LG9 | 坏 `--since` Try hint | `TestCLI_BadSince` |
 | LG10 | `--head -n` 取前 N | `TestCLI_Head` |
-| LG11–LG18 | regex/case/utc/raw/quiet/limit 语义 | `logsrc` + `cli_test` 覆盖；见 docs/tools/ailog-internals.md |
+| LG11–LG18 | regex/case/utc/raw/quiet/limit 语义 | `logsrc` + `cli_test` 覆盖；见 docs/architecture/ailog.md |
 | LG19 | 稀有关键字不挂起（macOS `--predicate` + 过滤窗口 ≤1h；墙钟 ≤45s） | `TestCLI_NativeRareKeywordBounded`、`TestBuildLogShowArgs_IncludesPredicateAndLast`、`TestLogShowWindowsFiltered_CapsAtOneHour` |
 | LG20a | `--expr` 解析 `&\|!` / `AND OR NOT` / 括号 / 短语 / `"AND"` 字面量 | `TestParseExpr_*` |
 | LG20b | `--expr` Eval 与大小写 | `TestParseExpr_CaseSensitiveEval`、`TestParseExpr_WordOps` |
@@ -846,7 +846,7 @@ Loopback mocks for required external services (no real hosts or personal infra).
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
 - [ ] KP1–KP8：`aitkeep` ping、资源动作、重启预算、单实例、硬帽、CLI、官方插件 `keep`（见 **KP\***）
-- [ ] MS1–MS23：in-repo testenv-mock SSH+HTTP 成功与错误路径 + CI 全量 mock e2e（见 **MS\*** 明细；`docs/testenv-mock.md`）
+- [ ] MS1–MS23：in-repo testenv-mock SSH+HTTP 成功与错误路径 + CI 全量 mock e2e（见 **MS\*** 明细；`docs/architecture/testenv-mock.md`）
 - [ ] AT* / AP*：`ait` toolbox REPL + 插件发现（见 **AT\*** / **AP\*** 明细；含 **AT30a–f** Tab 首词补全、**AT31–AT48** install/update/upgrade；**OA9–OA10**）
 - [ ] AH1–AH81：`aihost` 主机监控（见 **AH\*** 明细；含 **AH64–AH81** `net --conn`）
 - [ ] OA1–OA17：Ops AI Agent 正向（见 **OA\***）；OA14 替代原 R15
@@ -1067,8 +1067,8 @@ aitssh hostA                    # 无 --save
 ## 新功能
 
 - 须附专项验收项（如 A1–A19）并在 PR 中说明
-- 用户可见行为变更须同步 [docs/tools/aissh.md](docs/tools/aissh.md) 或 [docs/tools/ait.md](docs/tools/ait.md)（按工具）
-- package 分层/注册约定变更须同步 [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md) / [docs/tools/ait-internals.md](docs/tools/ait-internals.md) 与 [package-layering.mdc](package-layering.mdc)
+- 用户可见行为变更须同步 [docs/guide/aissh.md](docs/guide/aissh.md) 或 [docs/guide/ait.md](docs/guide/ait.md)（按工具）
+- package 分层/注册约定变更须同步 [docs/architecture/aissh.md](docs/architecture/aissh.md) / [docs/architecture/ait.md](docs/architecture/ait.md) 与 [package-layering.mdc](package-layering.mdc)
 - CLI 新命令遵守 [cli-help.mdc](cli-help.mdc)
 
 ### 验收清单维护（新功能实现时强制）
@@ -1081,7 +1081,7 @@ aitssh hostA                    # 无 --save
 | 2. 实现测试 | 每个 ID **至少一条** `*_test.go` 用例；测试名与 ID 在 PR 中可对照；禁止仅手测、零自动化的用户可见行为。 |
 | 3. 纳入交付勾选 | PR / Agent 交付清单须列出本功能全部 ID；`make test` 须覆盖这些测试。 |
 | 4. 纳入后续回归 | 合入后 ID 与测试并入**永久回归集**：此后每次 `make test`、合并前门禁及交付勾选均须仍通过；与 **OA\***、**AG\***、**AC-V4\***、**R1–R14** 同等。 |
-| 5. 文档与 help | 用户可见行为同步 `docs/tools/aissh.md` / `docs/tools/ait.md`（按工具）；CLI 同步 `internal/pkg/helpdoc` 与各命令 `help.go`。 |
+| 5. 文档与 help | 用户可见行为同步 `docs/guide/aissh.md` / `docs/guide/ait.md`（按工具）；CLI 同步 `internal/pkg/helpdoc` 与各命令 `help.go`。 |
 
 **示例（已登记专项，后续 PR 须继续验证）**
 

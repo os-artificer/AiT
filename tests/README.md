@@ -1,100 +1,100 @@
-# AiT Python E2E Tests
+# AiT Python E2E 测试
 
-Black-box end-to-end tests for the AiT CLIs (`aitssh`, `ait`, and related plugins) using pytest and pexpect. Complements Go unit tests (`make test`); does not replace them.
+面向 AiT CLI（`aitssh`、`ait` 及相关插件）的黑盒端到端测试，使用 pytest 与 pexpect。补充 Go 单元测试（`make test`），并不替代它们。
 
-## CI vs local
+## CI 与本地
 
-| Target | Command | What runs |
+| 目标 | 命令 | 运行内容 |
 |--------|---------|-----------|
-| **GitHub Actions** | `make test-e2e-mock` | Full non-host-specific suite against in-repo `testenv-mock` (`AIT_TEST_USE_MOCK=1`): `@smoke` + `@mock` + `@ssh` login/session/get/put/meta. Skips tmux, zmodem, destructive. Nested/AI still skip without keys. **No real SSH hosts.** |
-| **CI smoke only** | `make test-e2e-smoke` | `@smoke` including mock SSH/HTTP oneshot scenarios. |
-| **Local full** | `make test-e2e` | Smoke + `@ssh` / `@ai` / optional tmux·zmodem when configured in `config.local.yaml`. |
+| **GitHub Actions** | `make test-e2e-mock` | 对仓内 `testenv-mock` 跑全量非主机相关套件（`AIT_TEST_USE_MOCK=1`）：`@smoke` + `@mock` + `@ssh` 的 login/session/get/put/meta。跳过 tmux、zmodem、destructive。无密钥时 Nested/AI 仍会跳过。**不使用真实 SSH 主机。** |
+| **仅 CI smoke** | `make test-e2e-smoke` | `@smoke`，含 mock SSH/HTTP oneshot 场景。 |
+| **本地全量** | `make test-e2e` | Smoke + `@ssh` / `@ai` / 可选 tmux·zmodem（当 `config.local.yaml` 已配置时）。 |
 
-On CI without `AIT_TEST_USE_MOCK=1`, `@pytest.mark.ssh` tests are skipped. With the mock env var (GitHub CI default), `@ssh` runs against loopback mock sshd.
+CI 在未设置 `AIT_TEST_USE_MOCK=1` 时会跳过 `@pytest.mark.ssh`。设置该 mock 环境变量后（GitHub CI 默认），`@ssh` 对着回环 mock sshd 运行。
 
-Real hostnames, ports, and keys belong only in **gitignored** `tests/config.local.yaml` (or `AIT_TEST_*` env on your machine). Never commit personal domains into the repo.
+真实主机名、端口与密钥只应放在 **gitignore** 的 `tests/config.local.yaml`（或本机 `AIT_TEST_*` 环境变量）。切勿把个人域名提交进仓库。
 
-## Prerequisites
+## 前置条件
 
-- Go 1.25+ and `make build` → `bin/ait`, `bin/aitssh`, … (`make test-e2e-smoke` / `make test-e2e-mock` also build `bin/testenv-mock`)
+- Go 1.25+ 与 `make build` → `bin/ait`、`bin/aitssh`、…（`make test-e2e-smoke` / `make test-e2e-mock` 也会构建 `bin/testenv-mock`）
 - Python 3.10+
-- OpenSSH client (`ssh`) on PATH (for `ssh -G` resolution)
-- For SSH-marked tests (local, no mock): reachable host and credentials in `config.local.yaml`
-- For `@ai` tests: API keys and/or local Ollama per config; `ai_runner` fixture runs **`ait agent`** (argv prefix)
-- For tmux/zmodem tests: enable features in config and install tools on remote hosts
+- PATH 上有 OpenSSH 客户端（`ssh`），用于 `ssh -G` 解析
+- SSH 标记测试（本地、无 mock）：`config.local.yaml` 中需有可达主机与凭据
+- `@ai` 测试：按配置提供 API key 和/或本机 Ollama；`ai_runner` fixture 以 **`ait agent`** 为 argv 前缀运行
+- tmux/zmodem 测试：在配置中启用功能，并在远端主机安装对应工具
 
-## Setup
+## 准备
 
 ```bash
 cd /path/to/AiT
 make build
 cp tests/config.example.yaml tests/config.local.yaml
-# Edit config.local.yaml with your SSH host, keys, and feature flags (local only)
-make test-e2e-smoke   # @smoke only
-make test-e2e-mock    # CI-equivalent full suite against testenv-mock
-make test-e2e         # full local suite when config.local.yaml is filled
+# 仅在本地编辑 config.local.yaml：填入 SSH 主机、密钥与功能开关
+make test-e2e-smoke   # 仅 @smoke
+make test-e2e-mock    # 等价于 CI 的 testenv-mock 全量套件
+make test-e2e         # 填好 config.local.yaml 后的本地全量
 ```
 
-Optional environment overrides:
+可选环境变量覆盖：
 
-| Variable | Purpose |
+| 变量 | 用途 |
 |----------|---------|
-| `AIT_TEST_CONFIG` | Path to YAML config (default: `tests/config.local.yaml`) |
-| `AIT_TEST_SSH_HOST` | Override `ssh.primary.host` |
-| `AIT_TEST_SSH_PORT` | Override `ssh.primary.port` |
-| `AIT_TEST_SSH_INNER_HOST` | Override `ssh.inner.host` |
-| `AIT_TEST_DEEPSEEK_KEY` | Override `ai.deepseek_key` |
-| `AIT_KEYRING_FILE_PASSWORD` | Keyring file backend password |
-| `AIT_AI_EXPERIMENTAL` | Legacy env (optional); Agent is on by default via `ait` / `ait agent` |
-| `AIT_TEST_USE_MOCK` | Inject in-repo `testenv-mock` as `ssh.primary` and run `@ssh` against it |
+| `AIT_TEST_CONFIG` | YAML 配置路径（默认：`tests/config.local.yaml`） |
+| `AIT_TEST_SSH_HOST` | 覆盖 `ssh.primary.host` |
+| `AIT_TEST_SSH_PORT` | 覆盖 `ssh.primary.port` |
+| `AIT_TEST_SSH_INNER_HOST` | 覆盖 `ssh.inner.host` |
+| `AIT_TEST_DEEPSEEK_KEY` | 覆盖 `ai.deepseek_key` |
+| `AIT_KEYRING_FILE_PASSWORD` | 密钥环文件后端密码 |
+| `AIT_AI_EXPERIMENTAL` | 遗留环境变量（可选）；Agent 默认由 `ait` / `ait agent` 开启 |
+| `AIT_TEST_USE_MOCK` | 将仓内 `testenv-mock` 注入为 `ssh.primary`，并对它跑 `@ssh` |
 
-## Run
+## 运行
 
 ```bash
-# CI-safe smoke
+# CI 安全的 smoke
 make test-e2e-smoke
 
-# CI-equivalent full mock-backed suite
+# 等价于 CI 的全量 mock 套件
 make test-e2e-mock
 
-# Full local E2E (skips unconfigured / disabled features; never on CI hosts)
+# 本地全量 E2E（跳过未配置 / 未启用功能；从不在 CI 主机上跑）
 make test-e2e
 
-# Direct pytest
+# 直接 pytest
 pytest tests/e2e -v -m smoke
 pytest tests/e2e -v -m mock
 AIT_TEST_USE_MOCK=1 pytest tests/e2e -m "not destructive and not tmux and not zmodem" -v
 pytest tests/e2e -m "ssh and not destructive" -v
 ```
 
-Without `config.local.yaml` and without `AIT_TEST_USE_MOCK=1`, SSH/AI integration tests are **skipped** with a message (not failed).
+没有 `config.local.yaml` 且未设置 `AIT_TEST_USE_MOCK=1` 时，SSH/AI 集成测试会被 **跳过** 并给出提示（不会失败）。
 
-## Coverage matrix
+## 覆盖矩阵
 
-| Area | Test module | Marker |
+| 领域 | 测试模块 | Marker |
 |------|-------------|--------|
 | version / help | `test_version_help.py` | smoke |
 | config | `test_config.py` | smoke |
 | connect_flags / `--password` | `test_connect_flags.py` | smoke |
 | shell REPL | `test_shell_repl.py` | smoke |
 | session CLI | `test_session_cli.py` | smoke |
-| login / prompt | `test_login_ssh.py` | ssh (mock on CI; local host otherwise) |
+| login / prompt | `test_login_ssh.py` | ssh（CI 用 mock；否则用本地主机） |
 | persistence | `test_session_persist.py` | ssh |
 | get/put CLI | `test_transfer_cli.py` | ssh |
 | meta in session | `test_meta_in_session.py` | ssh |
 | chain login/switch | `test_meta_chain_login.py` | ssh |
-| nested ssh exit | `test_nested_ssh.py` | ssh (needs inner host; skipped on mock) |
+| nested ssh exit | `test_nested_ssh.py` | ssh（需要 inner host；mock 上跳过） |
 | local AI | `test_ai_local.py` | smoke / ai |
 | remote AI | `test_ai_remote.py` | ssh, ai |
 | agent REPL | `test_ai_repl_agent.py` | ai |
 | provider / ollama | `test_ai_provider.py` | smoke / ai |
-| tmux login | `test_tmux.py` | ssh, tmux (local) |
-| ZMODEM chain | `test_zmodem_chain.py` | ssh, zmodem (local) |
+| tmux login | `test_tmux.py` | ssh, tmux（本地） |
+| ZMODEM chain | `test_zmodem_chain.py` | ssh, zmodem（本地） |
 | mock SSH oneshot / get/put / auth errors | `test_mock_ssh.py` | smoke, mock |
 | mock HTTP Nominatim / Ollama / OpenAI | `test_mock_http.py` | smoke, mock |
 
-Loopback mocks (no `config.local.yaml`): [docs/testenv-mock.md](../docs/testenv-mock.md).
+回环 mock（无需 `config.local.yaml`）：[docs/architecture/testenv-mock.md](../docs/architecture/testenv-mock.md)。
 
-## Isolation
+## 隔离
 
-Each test uses an isolated `AIT_HOME` under pytest `tmp_path`. Keyring uses file backend with a test password. Destructive tests (`delete all`) are marked `@pytest.mark.destructive` and excluded by default in `make test-e2e` / `make test-e2e-mock`.
+每个测试在 pytest `tmp_path` 下使用独立的 `AIT_HOME`。密钥环使用带测试密码的文件后端。破坏性测试（`delete all`）标记为 `@pytest.mark.destructive`，在 `make test-e2e` / `make test-e2e-mock` 中默认排除。

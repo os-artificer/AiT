@@ -152,7 +152,7 @@ func TestView_FooterSearchHint(t *testing.T) {
 	m.width = 100
 	m.height = 24
 	view := ansiEscape.ReplaceAllString(m.View(), "")
-	for _, want := range []string{"/ search", "enter detail", "esc back", "x kill"} {
+	for _, want := range []string{"/ search", "j/k move", "enter detail", "esc/q leave search", "x kill", "q quit"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("missing %q in footer:\n%s", want, view)
 		}

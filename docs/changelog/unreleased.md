@@ -1,3 +1,9 @@
-# Unreleased
+# 未发布
 
-No product changes yet. When you ship a user-visible change, add a heading for the tool and one sentence prefixed with 【Added】, 【Changed】, or 【Fixed】. See [CHANGELOG.md](../../CHANGELOG.md).
+### aitkeep
+
+- 【Added】`aitkeep serve` 按 `keepalive.yaml` 监管进程，`GET /ping` 的响应正文是 `pong`。
+
+### aihost
+
+- 【Added】`aithost net --conn` 列出连接。表上有 PROTO、STATE、LOCAL、REMOTE、PID、PROCESS、AGE 和 CREATED。
