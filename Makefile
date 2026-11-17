@@ -166,7 +166,7 @@ test-e2e:
 	cd tests && ../tests/.venv/bin/pytest e2e -v -m "not destructive"
 
 # CI-safe smoke: help / config / session CLI / experimental-AI gate / in-repo testenv-mock.
-# Never dials real hosts; SSH/HTTP scenarios use bin/testenv-mock (see docs/testenv-mock.md).
+# Never dials real hosts; SSH/HTTP scenarios use bin/testenv-mock (see docs/architecture/testenv-mock.md).
 test-e2e-smoke:
 	@test -x $(BUILD_DIR)/aitssh || $(MAKE) build
 	go build -o $(BUILD_DIR)/testenv-mock ./mock/testenv-mock

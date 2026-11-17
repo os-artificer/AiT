@@ -1,5 +1,5 @@
 ---
-description: 归档 Cursor 执行方案到 docs/ 根目录；架构见 architecture.md
+description: 归档 Cursor 执行方案到 docs/ 根目录；架构见 architecture/overview.md
 alwaysApply: true
 ---
 
@@ -7,15 +7,15 @@ alwaysApply: true
 
 ## 架构文档
 
-产品工具箱结构以 [docs/architecture.md](docs/architecture.md) 为准；`aissh` 用户可见行为以 [docs/tools/aissh.md](docs/tools/aissh.md) 为准；`aissh` 实现与 package layering 以 [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md) 为准；Ops AI Agent 以 [docs/tools/ait.md](docs/tools/ait.md) / [docs/tools/ait-internals.md](docs/tools/ait-internals.md) 为准。
+产品工具箱结构以 [docs/architecture/overview.md](docs/architecture/overview.md) 为准；`aissh` 用户可见行为以 [docs/guide/aissh.md](docs/guide/aissh.md) 为准；`aissh` 实现与 package layering 以 [docs/architecture/aissh.md](docs/architecture/aissh.md) 为准；Ops AI Agent 以 [docs/guide/ait.md](docs/guide/ait.md) / [docs/architecture/ait.md](docs/architecture/ait.md) 为准。
 
-常驻文档索引见 `docs/` 目录。
+常驻文档索引见 [docs/README.md](docs/README.md)（`guide/` 用户手册、`changelog/` 变更记录、`architecture/` 系统架构）。
 
 ## 归档 Cursor 方案
 
 当用户要求**归档**方案，或已确认的计划实施完毕且用户需要保留文档时：
 
-1. 将方案正文写入 `docs/<name>.md`（仓库内副本）。
+1. 将方案正文写入 `docs/<name>.md`（仓库内副本，docs 根目录）。
 2. 文件名使用清晰的 `kebab-case` 英文；可选 `YYYY-MM-DD-topic.md`；避免与现有文件重名。
 3. 归档内容为可读的方案说明（目标、步骤、验收）；可省略 Cursor plan frontmatter 中的 `todos` 状态块。
 4. **不要**修改 `/root/.cursor/plans/` 或用户附件中的 plan 文件路径；仅在 `docs/` 根目录新建或更新归档文件。
@@ -23,17 +23,22 @@ alwaysApply: true
 
 **禁止覆盖的保留文件名**（不得用作归档目标）：
 
-- `architecture.md`
-- `tools/ait.md`
-- `tools/ait-internals.md`
-- `tools/aissh.md`
-- `tools/aissh-internals.md`
-- `tools/aihost.md`
-- `tools/aihost-internals.md`
-- `tools/aiimg.md`
-- `tools/aiimg-internals.md`
-- `tools/ailog.md`
-- `tools/ailog-internals.md`
 - `README.md`
+- `architecture/overview.md`
+- `architecture/ait.md`
+- `architecture/aissh.md`
+- `architecture/aihost.md`
+- `architecture/aiimg.md`
+- `architecture/ailog.md`
+- `architecture/aitkeep.md`
+- `architecture/testenv-mock.md`
+- `guide/ait.md`
+- `guide/aissh.md`
+- `guide/aihost.md`
+- `guide/aiimg.md`
+- `guide/ailog.md`
+- `guide/aitkeep.md`
+- `changelog/unreleased.md`
+- `changelog/v*.md`
 
-更新 `architecture.md`、`tools/aissh.md`、`tools/aissh-internals.md`、`tools/ait.md` 或 `tools/ait-internals.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[AGENTS.md](AGENTS.md) 中的相关链接。
+更新 `architecture/overview.md`、`guide/aissh.md`、`architecture/aissh.md`、`guide/ait.md` 或 `architecture/ait.md` 时仍视为产品文档变更，同步检查 [README.md](README.md)、[AGENTS.md](AGENTS.md) 中的相关链接。

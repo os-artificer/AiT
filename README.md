@@ -1,88 +1,88 @@
 # AiT
 
-**AiT** is a cross-platform (Linux / macOS / Windows) AI-enhanced command-line **toolbox** for operations engineers—terminal and SSH workflows today, more tools over time.
+**AiT** 是面向运维的跨平台（Linux / macOS / Windows）命令行工具箱。当前覆盖终端与 SSH 工作流，并随版本继续增加工具。
 
-**Tools:**
+**工具：**
 
-- [`ait`](cmd/ait) — Agent interaction entry (Loop by default; `ait agent` admin; `ait shell` toolbox REPL). Guide: [ait](docs/tools/ait.md).
-- [`aitssh`](cmd/ssh) — SSH client (product docs: [aissh](docs/tools/aissh.md); plugin command `ssh`; Go package `aissh`; **no AI**).
-- [`aitimg`](cmd/img) — image metadata extractor (EXIF, GPS, reverse-geocoded address). Guide: [aiimg](docs/tools/aiimg.md) (plugin `img`).
-- [`aitlog`](cmd/log) — system log viewer and search (Linux/macOS/Windows). Guide: [ailog](docs/tools/ailog.md) (plugin `log`).
-- [`aithost`](cmd/host) — live host CPU/mem/disk/net/process monitor. Guide: [aihost](docs/tools/aihost.md) (plugin `host`).
-- [`aitkeep`](cmd/keep) — process supervisor (`keep` plugin command; `GET /ping` → `pong`). Guide: [aitkeep](docs/tools/aitkeep.md).
+- [`ait`](cmd/ait) — Agent 交互入口（默认进入 Loop；`ait agent` 管理命令；`ait shell` 为工具箱 REPL）。说明见 [ait](docs/guide/ait.md)。
+- [`aitssh`](cmd/ssh) — SSH 客户端（产品文档标题 [aissh](docs/guide/aissh.md)；插件命令 `ssh`；Go 包名 `aissh`；不含 AI）。
+- [`aitimg`](cmd/img) — 图像元数据提取（EXIF、GPS、逆地理编码地址）。说明见 [aiimg](docs/guide/aiimg.md)（插件 `img`）。
+- [`aitlog`](cmd/log) — 系统日志查看与搜索（Linux / macOS / Windows）。说明见 [ailog](docs/guide/ailog.md)（插件 `log`）。
+- [`aithost`](cmd/host) — 主机 CPU / 内存 / 磁盘 / 网络 / 进程监视。说明见 [aihost](docs/guide/aihost.md)（插件 `host`）。
+- [`aitkeep`](cmd/keep) — 进程监管（插件命令 `keep`；`GET /ping` 返回 `pong`）。说明见 [aitkeep](docs/guide/aitkeep.md)。
 
-## What you get
+## 能力概览
 
-- OpenSSH-compatible connect (`-J`, config Host aliases, `ssh -G` resolution)
-- Session bookmarks: `--alias`, `session --load`, `session --switch`
-- In-session `!ait` meta commands (suspend, chain hop, transfer)
-- Default AiT-managed remote prompt (`AiT user@host:…>`); set `AIT_REMOTE_SYSTEM_PROMPT=1` for the native shell prompt
-- Ops AI Agent via **`ait`** / **`ait agent`** (Agent Loop, connect, model, provider, ollama, config); `aitssh` has no AI subtree
-- `!ait get` / `!ait put` on the live SSH session, standalone `aitssh get` / `put` via SFTP
-- Optional `--tmux` to keep remote shells alive after disconnect
-- Local `aitssh shell` REPL with history and UTF-8 line editing
+- 兼容 OpenSSH 的连接方式（`-J`、config Host 别名、经 `ssh -G` 解析）
+- 会话书签：`--alias`、`session --load`、`session --switch`
+- 会话内 `!ait` 元命令（挂起、链式跳转、传输）
+- 默认由 AiT 管理远程提示符（`AiT user@host:…>`）；设置 `AIT_REMOTE_SYSTEM_PROMPT=1` 可保留远端原生提示符
+- 运维 Agent 经 **`ait`** / **`ait agent`** 进入（Agent Loop、connect、model、provider、ollama、config）；`aitssh` 不含 AI 子树
+- 当前 SSH 会话上的 `!ait get` / `!ait put`，以及独立的 `aitssh get` / `put`（SFTP）
+- 可选 `--tmux`，断开后仍保持远端 shell
+- 本地 `aitssh shell` REPL，支持历史与 UTF-8 行编辑
 
-## Examples
+## 示例
 
 ```bash
-# 1) Bookmark a host and resume later (OpenSSH-style flags still work)
+# 1）给主机起别名，之后可恢复
 aitssh deploy@prod --alias prod
 aitssh session --list
 aitssh session --load prod
 
-# 2) Jump host in one command (same as ssh -J; Host aliases resolve via ssh -G)
+# 2）经跳板机连接（与 ssh -J 相同；Host 别名经 ssh -G 解析）
 aitssh -J bastion app.internal
 
-# 3) Agent Loop and remote connect via ait
+# 3）经 ait 进入 Agent Loop 或远程连接
 ait agent config init
 ait agent model list
-ait                              # local Agent Loop
-ait agent connect user@host      # remote Agent
+ait                              # 本机 Agent Loop
+ait agent connect user@host      # 远程 Agent
 
-# 4) Transfer over the current session (single-arg defaults to ./basename)
+# 4）在当前会话中传输（单参数时本地目标默认为 ./basename）
 !ait get ./build/app-linux-amd64
 !ait put ./patch.tar.gz
 
-# 5) tmux keep-alive: remote work survives disconnect
+# 5）tmux 保活：断开后远端工作仍在
 aitssh devhost --tmux
-# Later: aitssh session --load devhost --tmux
+# 之后：aitssh session --load devhost --tmux
 
-# 6) Interactive Agent Loop (on by default; re-enable only if you turned it off)
+# 6）交互式 Agent Loop（默认开启；仅在关闭后需要再打开）
 ait agent "summarize this log pattern: connection reset"
 ```
 
-## Installation
+## 安装
 
-**Prerequisites:** Go **1.25+** if building from source; **OpenSSH client** (`ssh`) on PATH for `aitssh` connect/`load` to resolve `~/.ssh/config`.
+**前置条件：** 从源码构建需要 Go **1.25+**；`aitssh` 的 connect / `load` 解析 `~/.ssh/config` 时，PATH 上需要 **OpenSSH 客户端**（`ssh`）。
 
-### Install `ait`
+### 安装 `ait`
 
 ```bash
 go install github.com/os-artificer/AiT/cmd/ait@latest
 ait --help
 ```
 
-Ensure `$(go env GOPATH)/bin` is on your PATH.
+请确认 `$(go env GOPATH)/bin` 已加入 PATH。
 
-### Install official plugins (`ssh`, `log`, `img`, `host`, `keep`)
+### 安装官方插件（`ssh`、`log`、`img`、`host`、`keep`）
 
-After a [GitHub Release](https://github.com/os-artificer/AiT/releases) is available, open the toolbox REPL with `ait shell` (bare `ait` starts the Agent Loop, or exits with the not-configured hint when AI is unset):
+有可用的 [GitHub Release](https://github.com/os-artificer/AiT/releases) 后，用 `ait shell` 打开工具箱 REPL。无参的 `ait` 会进入 Agent Loop；未配置 AI 时会退出并打印未配置提示：
 
 ```bash
 ait shell
 ```
 
 ```text
-ait> install              # all official plugins
-ait> install ssh keep     # one or more by plugin command name
-ait> update               # update installed plugins
-ait> upgrade              # update ait + installed plugins
+ait> install              # 全部官方插件
+ait> install ssh keep     # 按插件命令名安装一个或多个
+ait> update               # 更新已安装的插件
+ait> upgrade              # 更新 ait 与已安装的插件
 ait> help install
 ```
 
-Legacy install aliases such as `aissh` → `ssh` still resolve. Binaries land next to the running `ait` executable (same layout as `make install`). Details: [docs/tools/ait.md](docs/tools/ait.md#install--update--upgrade).
+遗留安装名（例如 `aissh` → `ssh`）仍可解析。二进制放在正在运行的 `ait` 可执行文件旁（布局与 `make install` 相同）。细节见 [docs/guide/ait.md](docs/guide/ait.md#install--update--upgrade)。
 
-### Build from source (development)
+### 从源码构建（开发）
 
 ```bash
 git clone https://github.com/os-artificer/AiT.git
@@ -91,28 +91,28 @@ make build
 ./bin/ait --help
 ```
 
-For local development, `make build` also produces `bin/aitssh`, `bin/aitimg`, `bin/aitlog`, `bin/aithost`, and `bin/aitkeep`. To install plugins into `bin/` without a Release, run `make install`. Once a Release exists, run `ait shell` and then `install` at the `ait>` prompt. See [CONTRIBUTING.md](CONTRIBUTING.md).
+本地开发时，`make build` 还会产出 `bin/aitssh`、`bin/aitimg`、`bin/aitlog`、`bin/aithost`、`bin/aitkeep`。若要在没有 Release 的情况下把插件装进 `bin/`，运行 `make install`。有 Release 之后，先运行 `ait shell`，再在 `ait>` 提示符下执行 `install`。见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## Documentation
+## 文档
 
-| Document | Path |
-|----------|------|
-| Project structure | [docs/architecture.md](docs/architecture.md) |
-| aissh internals | [docs/tools/aissh-internals.md](docs/tools/aissh-internals.md) |
-| aissh guide | [docs/tools/aissh.md](docs/tools/aissh.md) |
-| ait internals | [docs/tools/ait-internals.md](docs/tools/ait-internals.md) |
-| ait guide | [docs/tools/ait.md](docs/tools/ait.md) |
-| aiimg internals | [docs/tools/aiimg-internals.md](docs/tools/aiimg-internals.md) |
-| aiimg guide | [docs/tools/aiimg.md](docs/tools/aiimg.md) |
-| ailog internals | [docs/tools/ailog-internals.md](docs/tools/ailog-internals.md) |
-| ailog guide | [docs/tools/ailog.md](docs/tools/ailog.md) |
-| aihost internals | [docs/tools/aihost-internals.md](docs/tools/aihost-internals.md) |
-| aihost guide | [docs/tools/aihost.md](docs/tools/aihost.md) |
-| aitkeep internals | [docs/tools/aitkeep-internals.md](docs/tools/aitkeep-internals.md) |
-| aitkeep guide | [docs/tools/aitkeep.md](docs/tools/aitkeep.md) |
-| Python E2E tests | [tests/README.md](tests/README.md) |
-| In-repo SSH/HTTP mock | [docs/testenv-mock.md](docs/testenv-mock.md) |
-| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Code layout | [AGENTS.md](AGENTS.md) |
-| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+| 文档 | 路径 |
+|------|------|
+| 项目结构 | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| aissh 实现 | [docs/architecture/aissh.md](docs/architecture/aissh.md) |
+| aissh 使用说明 | [docs/guide/aissh.md](docs/guide/aissh.md) |
+| ait 实现 | [docs/architecture/ait.md](docs/architecture/ait.md) |
+| ait 使用说明 | [docs/guide/ait.md](docs/guide/ait.md) |
+| aiimg 实现 | [docs/architecture/aiimg.md](docs/architecture/aiimg.md) |
+| aiimg 使用说明 | [docs/guide/aiimg.md](docs/guide/aiimg.md) |
+| ailog 实现 | [docs/architecture/ailog.md](docs/architecture/ailog.md) |
+| ailog 使用说明 | [docs/guide/ailog.md](docs/guide/ailog.md) |
+| aihost 实现 | [docs/architecture/aihost.md](docs/architecture/aihost.md) |
+| aihost 使用说明 | [docs/guide/aihost.md](docs/guide/aihost.md) |
+| aitkeep 实现 | [docs/architecture/aitkeep.md](docs/architecture/aitkeep.md) |
+| aitkeep 使用说明 | [docs/guide/aitkeep.md](docs/guide/aitkeep.md) |
+| Python E2E 测试 | [tests/README.md](tests/README.md) |
+| 仓库内 SSH/HTTP mock | [docs/architecture/testenv-mock.md](docs/architecture/testenv-mock.md) |
+| 贡献指南 | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 代码布局 | [AGENTS.md](AGENTS.md) |
+| 行为准则 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| 变更记录 | [CHANGELOG.md](CHANGELOG.md) |

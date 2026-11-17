@@ -32,7 +32,7 @@ func WriteHelp(w io.Writer) error {
 		"The header shows USER, OS/arch, CPU count, memory total, kernel, and datetime (wraps on narrow terminals).",
 		"PROC samples all processes by default (optional --limit caps the sample); the panel fills from the window height.",
 		"The PROC table includes PEER and the latest system-log line; enter opens a detail overlay with matching log records.",
-		"Keys: / search processes, enter detail overlay, x kill (SIGTERM confirm; SIGKILL on failure), esc back, q quit.",
+		"Keys: / enters search; in search use arrows/j/k, enter for detail, x to kill (SIGTERM confirm; SIGKILL on failure); q/esc leave search; q quits outside search.",
 		"Requires a TTY. Without one, use snapshot or proc instead.",
 	); err != nil {
 		return err

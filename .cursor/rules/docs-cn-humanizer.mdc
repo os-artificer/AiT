@@ -1,0 +1,16 @@
+---
+description: docs 中文改写/去 AI 味时加载 cn-humanizer
+globs:
+  - docs/**/*.md
+alwaysApply: false
+---
+
+# docs 中文文风与去 AI 味
+
+改写、精简或「去 AI 味」`docs/` 下中文产品文档时：
+
+1. 先 Read `~/.cursor/skills/cn-humanizer/SKILL.md`（源：`/data/workspace/os-artificer/agent-skills/cn-humanizer`）。
+2. 按该 skill 五步执行：通读 → Grep 检测 → 清除 → 复扫 → 摘要。
+3. 额外要求言简意赅：删元叙述（「本文说明…」「面向…」）、一句一事、少空壳过渡词。
+4. **不改**：命令/旗标/路径等事实、相对链接目标、`docs/changelog/` 发版条目。
+5. **不用**微信公众号排版约束（`md-to-wechat` / `tech-article-writer` 排版）；产品 CLI 文档只走 cn-humanizer + 上列短句准则。

@@ -1,5 +1,5 @@
 # AiT example configuration
-# Copy to AppRoot as config.yaml (see docs/tools/aissh.md#data-directory); or: aitssh config init / aitssh config edit / aitssh config validate
+# Copy to AppRoot as config.yaml (see docs/guide/aissh.md#data-directory); or: aitssh config init / aitssh config edit / aitssh config validate
 
 session:
   # Authentication cache TTL for load/switch without re-entering password
@@ -47,7 +47,8 @@ ai:
 # API keys (OS keyring, not in this file):
 #   ait agent config set ai.deepseek.api_key <key>
 #   ait agent config set ai.minimax.api_key <key>
-# Ollama does not need a key when tiered is enabled.
+# Ollama needs no cloud API key; tiered still requires a reachable local Ollama
+# (and ollama enabled / models available). Use ait agent ollama setup.
 # Quick setup: ait agent ollama setup   (choose models_dir; or --models-dir)
 # Providers: ait agent provider enable|disable <deepseek|minimax|ollama>
 # Status/service: ait agent ollama status | start --wait | stop | disable

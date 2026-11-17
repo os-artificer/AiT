@@ -25,7 +25,7 @@ const (
 	keyQuit        = "q"
 	keyCtrlC       = "ctrl+c"
 	viewLoading    = "loading…"
-	footerHintFmt  = " q quit · / search · enter detail · esc back · x kill · interval %s · rows %s · sort %s"
+	footerHintFmt  = " / search · j/k move · enter detail · esc/q leave search · x kill · q quit · interval %s · rows %s · sort %s"
 )
 
 // panelRowHeights splits termH into top/mid/proto/proc row heights plus headerH and footer.
