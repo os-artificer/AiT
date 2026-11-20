@@ -70,8 +70,18 @@ func exactConfigKeyHandlers() map[string]configKeyHandler {
 		keyAIDefault:               {set: setAIDefault, get: getAIDefault},
 		keyAIFallback:              {set: setAIFallback, get: getAIFallback},
 		keyAIExperimentalEnabled:   {set: setAIExperimentalEnabled, get: getAIExperimentalEnabled},
+		keyAIVisionModel:           {set: setAIVisionModel, get: getAIVisionModel},
 		keyAIAgentCommandTimeout:   {set: setAgentCommandTimeout, get: getAgentCommandTimeout},
 	}
+}
+
+func setAIVisionModel(c *Config, value string) error {
+	c.AI.Vision.Model = strings.TrimSpace(value)
+	return nil
+}
+
+func getAIVisionModel(c *Config) (string, error) {
+	return c.AI.Vision.Model, nil
 }
 
 func setSessionAuthTTL(c *Config, value string) error {

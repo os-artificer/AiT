@@ -39,17 +39,30 @@ import (
 
 func TestMain(m *testing.M) {
 	_ = os.Setenv("AIT_AI_EXPERIMENTAL", "1")
+	// Never touch the macOS login keychain during go test (avoids interactive prompts).
+	_ = os.Setenv("AIT_KEYRING_BACKEND", "file")
+	_ = os.Setenv("AIT_KEYRING_DIR", os.TempDir())
+	_ = os.Setenv("AIT_KEYRING_FILE_PASSWORD", "ait-test")
 	os.Exit(m.Run())
 }
 
-// TestOpsAI_ExperimentalDisabled (OA2) connect no longer blocked by experimental gate when off.
+// TestOpsAI_ExperimentalDisabled (OA2) model list is not blocked by experimental gate when off.
 func TestOpsAI_ExperimentalDisabled(t *testing.T) {
+	t.Setenv("AIT_HOME", t.TempDir())
 	t.Setenv("AIT_AI_EXPERIMENTAL", "0")
 	config.SetAIExperimentalCLI(false)
 
-	err := agent.RunAdmin([]string{"model", "list"}, ioDiscard{}, ioDiscard{})
-	if err != nil && strings.Contains(strings.ToLower(err.Error()), "experimental") {
-		t.Fatalf("model list should not be experimental-blocked: %v", err)
+	done := make(chan error, 1)
+	go func() {
+		done <- agent.RunAdmin([]string{"model", "list"}, ioDiscard{}, ioDiscard{})
+	}()
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatal("model list hung >5s")
+	case err := <-done:
+		if err != nil && strings.Contains(strings.ToLower(err.Error()), "experimental") {
+			t.Fatalf("model list should not be experimental-blocked: %v", err)
+		}
 	}
 }
 
@@ -59,11 +72,20 @@ func (ioDiscard) Write(p []byte) (int, error) { return len(p), nil }
 
 // TestOpsAI_ExperimentalCLIFlag (OA13) agent admin no longer uses --ai-experimental gate.
 func TestOpsAI_ExperimentalCLIFlag(t *testing.T) {
+	t.Setenv("AIT_HOME", t.TempDir())
 	t.Setenv("AIT_AI_EXPERIMENTAL", "0")
 	config.SetAIExperimentalCLI(false)
-	err := agent.RunAdmin([]string{"model", "list"}, ioDiscard{}, ioDiscard{})
-	if err != nil && strings.Contains(strings.ToLower(err.Error()), "experimental") {
-		t.Fatalf("still experimental-blocked: %v", err)
+	done := make(chan error, 1)
+	go func() {
+		done <- agent.RunAdmin([]string{"model", "list"}, ioDiscard{}, ioDiscard{})
+	}()
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatal("model list hung >5s")
+	case err := <-done:
+		if err != nil && strings.Contains(strings.ToLower(err.Error()), "experimental") {
+			t.Fatalf("still experimental-blocked: %v", err)
+		}
 	}
 }
 
@@ -179,6 +201,7 @@ func TestToolbox_DispatchAIHost(t *testing.T) {
 
 // TestOpsAI_ModelListNoTTY (OA14) — non-TTY model list finishes quickly and is not unknown-command.
 func TestOpsAI_ModelListNoTTY(t *testing.T) {
+	t.Setenv("AIT_HOME", t.TempDir())
 	done := make(chan error, 1)
 	go func() {
 		done <- agent.RunAdmin([]string{"model", "list"}, ioDiscard{}, ioDiscard{})

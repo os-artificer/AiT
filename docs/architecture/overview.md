@@ -10,12 +10,13 @@ Go 命令行工具箱，模块路径 `github.com/os-artificer/AiT`。
 
 已发布工具（二进制 / 插件；文档里常用 aissh 等产品标题）：
 
-- `ait`：Agent 入口。无参 `ait` / `ait agent` 进 Loop；`ait shell` 为工具箱 REPL；顶层分发插件（`ait ssh`、`ait log`、`ait img`、`ait host`、`ait keep`）。
+- `ait`：Agent 入口。无参 `ait` / `ait agent` 进 Loop；`ait shell` 为工具箱 REPL；顶层分发插件（`ait ssh`、`ait log`、`ait img`、`ait host`、`ait keep`、`ait vid`）。
 - `aitssh`（`ssh`）：SSH 客户端，会话持久化、传输、shell / meta（无 AI 子树）；包名 `aissh`。
 - `aitimg`（`img`）：图像 EXIF / GPS / Nominatim 逆地理。
 - `aitlog`（`log`）：系统日志查看与搜索（Linux / macOS / Windows），优先系统工具，有内置回退。
 - `aithost`（`host`）：CPU / 内存 / 磁盘 / 网络 / 协议 / 进程监视（Bubble Tea）。
 - `aitkeep`（`keep`）：进程监管；`GET /ping`；CPU / 内存 / 磁盘限制。
+- `aitvid`（`vid`）：视频 OCR / 可选 VLM 检索；命中关键帧落盘。
 
 共享库在 `internal/pkg/`。Agent Loop 内核：`agentcore`（引擎 `ai`；运维 `agentops` + `tooldispatch`；接线 `agentwire`；界面 `agentui`）。管理 CLI 与 connect：`internal/ait/agent`；路由：`internal/ait/router`。
 
@@ -38,6 +39,8 @@ Go 命令行工具箱，模块路径 `github.com/os-artificer/AiT`。
 | [aihost.md](aihost.md) | `aihost` 实现 |
 | [../guide/aitkeep.md](../guide/aitkeep.md) | `aitkeep` CLI |
 | [aitkeep.md](aitkeep.md) | `aitkeep` 实现 |
+| [../guide/aitvid.md](../guide/aitvid.md) | `aitvid` CLI |
+| [aitvid.md](aitvid.md) | `aitvid` 实现 |
 | [AGENTS.md](../../AGENTS.md) | Agent 构建 / 测试 / 布局 |
 | [CONTRIBUTING.md](../../CONTRIBUTING.md) | 贡献流程 |
 | [change-acceptance.mdc](../../.cursor/rules/change-acceptance.mdc) | 合并门禁与回归 |
@@ -55,8 +58,9 @@ Go 命令行工具箱，模块路径 `github.com/os-artificer/AiT`。
 | `ailog` | 已发布 | `bin/aitlog` | `log` | `internal/log` | [../guide/ailog.md](../guide/ailog.md) | [ailog.md](ailog.md) |
 | `aihost` | 已发布 | `bin/aithost` | `host` | `internal/host` | [../guide/aihost.md](../guide/aihost.md) | [aihost.md](aihost.md) |
 | `aitkeep` | 已发布 | `bin/aitkeep` | `keep` | `internal/pkg/keepalive` | [../guide/aitkeep.md](../guide/aitkeep.md) | [aitkeep.md](aitkeep.md) |
+| `aitvid` | 已发布 | `bin/aitvid` | `vid` | `internal/vid`（包 `aivid`） | [../guide/aitvid.md](../guide/aitvid.md) | [aitvid.md](aitvid.md) |
 
-薄 `cmd/<dir>/main.go` → `internal/<app>/`（aitkeep 在 `keepalive`）→ `internal/pkg/*`。Agent 管理在 `internal/ait/agent`。发布二进制：`ait`、`aitssh`、`aitimg`、`aitlog`、`aithost`、`aitkeep`。`cmd/keep` 只调 `keepalive.Run`。
+薄 `cmd/<dir>/main.go` → `internal/<app>/`（aitkeep 在 `keepalive`）→ `internal/pkg/*`。Agent 管理在 `internal/ait/agent`。发布二进制：`ait`、`aitssh`、`aitimg`、`aitlog`、`aithost`、`aitkeep`、`aitvid`。`cmd/keep` 只调 `keepalive.Run`。
 
 ---
 

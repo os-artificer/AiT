@@ -31,6 +31,8 @@ const (
 	Host = "host"
 	// Keep is the ait keepalive plugin command name.
 	Keep = "keep"
+	// Vid is the ait video search plugin command name.
+	Vid = "vid"
 
 	// Agent is the ait agent admin subcommand (ait agent …).
 	Agent = "agent"
@@ -45,6 +47,8 @@ const (
 	AITHost = "aithost"
 	// AITKeep is the shipped keepalive binary basename.
 	AITKeep = "aitkeep"
+	// AITVid is the shipped video search binary basename.
+	AITVid = "aitvid"
 
 	// MetaPrefix is the in-session SSH meta opener without a trailing space (!ait).
 	MetaPrefix = "!ait"
@@ -105,6 +109,11 @@ func ImgCLI(subcmd string) string {
 // KeepCLI returns the user-visible keepalive prefix: "aitkeep" or "keep" when dispatched via ait, plus optional subcmd.
 func KeepCLI(subcmd string) string {
 	return PluginCLI(AITKeep, Keep, subcmd)
+}
+
+// VidCLI returns the user-visible aitvid prefix: "aitvid" or "vid" when dispatched via ait, plus optional subcmd.
+func VidCLI(subcmd string) string {
+	return PluginCLI(AITVid, Vid, subcmd)
 }
 
 // MetaLine returns the in-session SSH meta prefix "!ait" or "!ait <rest>" when rest is non-empty.

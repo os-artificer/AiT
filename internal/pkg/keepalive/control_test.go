@@ -180,7 +180,7 @@ func TestServe_BadListen(t *testing.T) {
 	}
 }
 
-func TestServe_StatusIncludesMockSample(t *testing.T) {
+func TestServe_StatusSample(t *testing.T) {
 	prev := sampleHook
 	sampleHook = func(int, *ReadWrite) Usage { return Usage{CPUPercent: 12.5} }
 	t.Cleanup(func() { sampleHook = prev })

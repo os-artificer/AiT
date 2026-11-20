@@ -60,7 +60,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | OA6 | 远程 Capture | `TestOpsAI_RemoteCapture` |
 | OA7 | `DynamicRemote.SetLocal` API；connect teardown 关 Client | `TestDynamicRemote_SetLocal`（agentcore）；connect Run 测例 |
 | OA8 | ops system prompt | `TestSystemPrompt_OpsDomain` |
-| OA9 | OfficialPluginNames 含 `ssh`、`log`、`img`、`host`、`keep` | `TestOfficialPluginNames_ManifestsAligned` |
+| OA9 | OfficialPluginNames 含 `ssh`、`log`、`img`、`host`、`keep`、`vid` | `TestOfficialPluginNames_ManifestsAligned` |
 | OA10 | Tab：`ag`→`agent`；`ho`→`host` | `TestCompleteFirstToken_AgentPrefix`、`TestCompleteFirstToken_HoToHost` |
 | OA11 | test-cross 含 cmd/ait | merge gate |
 | OA12 | agentcore 不 import 产品包（v4） | `TestAgentcore_NoProductImports`（= AC-V4-1） |
@@ -1135,6 +1135,31 @@ aitssh hostA                    # 无 --save
 | EX* | AI 实验门禁（EX1–EX3 config；EX4+） | `TestAIExperimental_*`、`TestOpsAI_ExperimentalDisabled`、`TestAgentcore_NoProductImports` |
 | OA* | Ops AI Agent（`ait agent`） | `TestOpsAI_*`、`TestAissh_AISubtreeRemoved`、`TestMetaScanner_BangBangForwardsPTY`、`TestExecute_AIMetaUnknownHint` |
 
+### VD* 明细（`aitvid` / 包 `aivid` + `vidsearch`）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|---|
+| VD1 | `ait-plugin-manifest` 含 `vid`/`aitvid` | `TestCLI_PluginManifest` |
+| VD2 | 缺 ffmpeg → sentinel + Try 含 `deps --install` | `TestCheck_MissingFFmpeg` |
+| VD3 | `deps --install` 假 runner；非 TTY 无 `--yes` 拒绝 | `TestInstall_FakeRunner`、`TestInstall_NeedsYesNonTTY` |
+| VD4 | 目录发现：一层 / `-r` / 空目录 hint | `TestListVideos_*` |
+| VD5 | 默认不限数量；仅显式 `--max-videos N>0` 时超限报错 | `TestListVideos_MaxVideos`、`TestListVideos_UnlimitedDefault` |
+| VD6 | 抽帧尊重 max-frames | `TestExtract_RespectsMaxFrames` |
+| VD7 | 命中人类/`--json` 契约 | `TestWriteHuman_*`、`TestWriteNDJSON_*` |
+| VD7b | `--json` 零命中 → stdout 空 | `TestWriteNDJSON_Empty`、`TestRunSearch_JSONZeroHitsEmptyStdout` |
+| VD8 | 部分失败 exit 语义 | `ErrPartialFailure` 路径 |
+| VD9 | `--local-only` 无 tesseract → 失败 | `TestLocalOnly_MissingTesseract` |
+| VD10 | test-cross 含 `cmd/vid`；OA9 含 `vid` | merge gate / OfficialPluginNames |
+| VD11 | 非 vision 模型发图 → errhint | `TestNewClient_RejectsTextModel` |
+| VD12 | `auto` OCR 命中不调 VLM | `TestAuto_OCRHitSkipsVLM` |
+| VD13 | `auto` OCR 未命中调 VLM | `TestAuto_OCRMissCallsVLM` |
+| VD14 | `object` + mock HTTP 命中 | `TestAnalyze_MockHTTPHit` |
+| VD15 | `deps --install` / 默认 `search` 为 Low；`search --no-save-hits` 为 Read | `TestClassify_ToolboxRead` |
+| VD16 | guide 含隐私 / `--local-only` / 尽力而为 | `TestGuide_AitvidPrivacy` |
+| VD17 | 命中落盘 jpg+侧车 | `TestSaveHitFrame_Annotate` |
+| VD17b | annotate / `--no-annotate` | `TestSaveHitFrame_Annotate`、`TestSaveHitFrame_NoAnnotate` |
+| VD17c | camera_id 启发式 | `TestResolveCameraID` |
+
 ### KP* 明细（`aitkeep` / 包 `keepalive`）
 
 | ID | 验收行为 | 自动化测试 |
@@ -1144,7 +1169,7 @@ aitssh hostA                    # 无 --save
 | KP3 | 非 0 退出会重启，0 不重启；预算与稳定重置；磁盘仍超限不重启；遍历触顶视为超限；退避睡眠可取消 | `TestWatch_AbnormalRestartsCleanExitDoesNot`、`TestWatch_BudgetAndStableReset`、`TestWatch_DiskStillOverDoesNotRestart`、`TestWatch_DiskPercentStillOverDoesNotRestart`、`TestDirUsage_BudgetIsOver`、`TestWatch_SleepHonorsCancel` |
 | KP4 | 同一 AppRoot 第二次 `serve` 返回 `ErrAlreadyRunning`；管道名随 AppRoot 变化 | `TestAcquire_SecondFails`、`TestPipeName_DependsOnRoot` |
 | KP5 | `cpu.max` 允许大于 1 核；`memory.max` / `io.max` 写入；Windows `cpuRateFromCores` 在超过整机 100% 时拒绝 | `TestWriteCPUMax_AboveOneCore`、`TestWriteCPUMax_FakeSysfs`、`TestWriteIOMax_AndMemoryMax`、`TestCPURateFromCores_AboveMachine` |
-| KP6 | 无参 help；`serve` 取消后退出；未运行 `status` 为 `ErrDaemonDown`；运行中的 status 含采样；监听失败返回错误 | `TestCLI_NoArgsHelp`、`TestServe_CancelReturns`、`TestCLI_StatusDaemonDown`、`TestFormatStatusLine_Samples`、`TestServe_StatusIncludesMockSample`、`TestServe_BadListen` |
+| KP6 | 无参 help；`serve` 取消后退出；未运行 `status` 为 `ErrDaemonDown`；运行中的 status 含采样；监听失败返回错误 | `TestCLI_NoArgsHelp`、`TestServe_CancelReturns`、`TestCLI_StatusDaemonDown`、`TestFormatStatusLine_Samples`、`TestServe_StatusSample`、`TestServe_BadListen` |
 | KP7 | manifest 含 `"binary": "aitkeep"`；官方插件名含 `keep`；release stub 含 `aitkeep` 且可安装 | `TestCLI_Manifest`、`TestDiscover_OnceCached`、`TestPlanInstall_AllOfficial`、`TestWriteBundleTree_IncludesKeep`、`TestExecute_InstallKeep` |
 | KP8 | `add`/`remove` 读写 yaml；非法名字 `ErrBadName`；调和不重启未变更 unit；过期代际不能把新 unit 写成 stopped | `TestCLI_AddRemove`、`TestUpsert_RoundTrip`、`TestReconcile_LeavesUnchanged`、`TestReconcile_StaleGenerationKeepsRunning` |
 

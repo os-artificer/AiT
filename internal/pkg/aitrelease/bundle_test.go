@@ -42,8 +42,8 @@ func TestPlanInstall_AllOfficial(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Tools) != 5 {
-		t.Fatalf("tools=%v", plan.Tools)
+	if len(plan.Tools) != len(aitplugin.BuiltinBinaryNames) {
+		t.Fatalf("tools=%v want %d", plan.Tools, len(aitplugin.BuiltinBinaryNames))
 	}
 }
 
