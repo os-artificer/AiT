@@ -26,26 +26,7 @@ import (
 	"github.com/os-artificer/AiT/internal/pkg/vidsearch"
 	"github.com/os-artificer/AiT/internal/pkg/vidsearch/frames"
 	"github.com/os-artificer/AiT/internal/pkg/vidsearch/hit"
-	"github.com/os-artificer/AiT/internal/pkg/vidsearch/vision"
 )
-
-type countingVision struct {
-	calls int
-	hits  []hit.Hit
-}
-
-func (c *countingVision) Analyze(ctx context.Context, req vision.Request) ([]hit.Hit, error) {
-	c.calls++
-	return c.hits, nil
-}
-
-func lookAllOK(name string) (string, error) { return "/bin/" + name, nil }
-
-func stubExtract(_ context.Context, _ string, opts frames.Options) ([]frames.Frame, error) {
-	p := filepath.Join(opts.OutDir, "frame_0001.jpg")
-	_ = os.WriteFile(p, []byte("x"), 0o644)
-	return []frames.Frame{{Path: p, TSec: 1.0}}, nil
-}
 
 func TestAuto_OCRHitSkipsVLM(t *testing.T) {
 	vid := filepath.Join(t.TempDir(), "a.mp4")
@@ -65,8 +46,8 @@ func TestAuto_OCRHitSkipsVLM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fv.calls != 0 {
-		t.Fatalf("vision calls=%d", fv.calls)
+	if fv.calls.Load() != 0 {
+		t.Fatalf("vision calls=%d", fv.calls.Load())
 	}
 	if !bytes.Contains(out.Bytes(), []byte("京A12345")) {
 		t.Fatalf("stdout=%s", out.String())
@@ -85,16 +66,14 @@ func TestAuto_OCRMissCallsVLM(t *testing.T) {
 	err := vidsearch.RunSearch(context.Background(), vidsearch.SearchOptions{
 		Path: vid, Query: "bike", Mode: vidsearch.ModeAuto, JSON: true, SaveHits: false,
 		LookPath: lookAllOK, Vision: fv, Extract: stubExtract,
-		OCRSearch: func(ctx context.Context, fr []frames.Frame, query, mode string) []hit.Hit {
-			return nil
-		},
-		Stdout: &out, Stderr: &bytes.Buffer{},
+		OCRSearch: ocrMiss(),
+		Stdout:    &out, Stderr: &bytes.Buffer{},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fv.calls != 1 {
-		t.Fatalf("vision calls=%d", fv.calls)
+	if fv.calls.Load() != 1 {
+		t.Fatalf("vision calls=%d", fv.calls.Load())
 	}
 	if !bytes.Contains(out.Bytes(), []byte("red bike")) {
 		t.Fatalf("stdout=%s", out.String())

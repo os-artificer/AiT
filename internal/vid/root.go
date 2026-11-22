@@ -18,19 +18,13 @@
 package aivid
 
 import (
-	"errors"
 	"os"
-
-	"github.com/os-artificer/AiT/internal/pkg/errhint"
-	"github.com/os-artificer/AiT/internal/pkg/vidsearch"
 )
 
 // Run is the application entry invoked from cmd/vid.
 func Run(args []string) error {
 	if err := Execute(args); err != nil {
-		if !errors.Is(err, vidsearch.ErrPartialFailure) {
-			errhint.Print(os.Stderr, errhint.SurfaceCLI, err)
-		}
+		printRunErr(os.Stderr, err)
 		return err
 	}
 	return nil

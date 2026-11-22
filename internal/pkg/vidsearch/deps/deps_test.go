@@ -93,6 +93,21 @@ func TestInstallCommand_DarwinBrew(t *testing.T) {
 	}
 }
 
+func TestFormatStatus_Missing(t *testing.T) {
+	look := func(string) (string, error) { return "", errors.New("missing") }
+	rep := deps.Check(deps.Need{Frames: true, OCR: true}, look)
+	s := deps.FormatStatus(rep)
+	if !strings.Contains(s, "missing") {
+		t.Fatalf("status=%s", s)
+	}
+	if !strings.Contains(s, "ffmpeg") {
+		t.Fatalf("missing ffmpeg line: %s", s)
+	}
+	if !strings.Contains(s, "deps --install") {
+		t.Fatalf("missing install try: %s", s)
+	}
+}
+
 type fakeRunner struct {
 	look  deps.LookPathFunc
 	onRun func(name string, args []string)

@@ -64,6 +64,23 @@ func TestExtract_CleansCallerTemp(t *testing.T) {
 	}
 }
 
+func TestProbe_Duration(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not on PATH")
+	}
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		t.Skip("ffprobe not on PATH")
+	}
+	video := synthesizeTinyMP4(t)
+	info, err := frames.Probe(context.Background(), video, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.DurationSec <= 0 {
+		t.Fatalf("duration=%v", info.DurationSec)
+	}
+}
+
 func synthesizeTinyMP4(t *testing.T) string {
 	t.Helper()
 	dst := filepath.Join(t.TempDir(), "tiny.mp4")

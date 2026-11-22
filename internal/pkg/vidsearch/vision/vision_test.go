@@ -86,6 +86,41 @@ func TestAnalyze_MockHTTPHit(t *testing.T) {
 	}
 }
 
+func TestAnalyze_BatchesFour(t *testing.T) {
+	var requests int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{{
+				"message": map[string]string{"content": `[]`},
+			}},
+		})
+	}))
+	defer srv.Close()
+
+	c, err := vision.NewClient(vision.Config{
+		BaseURL:     srv.URL,
+		Model:       "gpt-4o-mini",
+		ForceVision: true,
+		HTTPClient:  srv.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fr := make([]frames.Frame, 9)
+	for i := range fr {
+		fr[i] = frames.Frame{Path: writeJPEG(t), TSec: float64(i)}
+	}
+	if _, err := c.Analyze(context.Background(), vision.Request{
+		Query: "x", Frames: fr, Mode: hit.ModeObject,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 3 {
+		t.Fatalf("batches=%d want 3", requests)
+	}
+}
+
 func writeJPEG(t *testing.T) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "f.jpg")

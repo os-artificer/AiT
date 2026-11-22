@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/os-artificer/AiT/internal/pkg/vidsearch"
+	"github.com/os-artificer/AiT/internal/pkg/vidsearch/deps"
 	"github.com/os-artificer/AiT/internal/pkg/vidsearch/export"
 )
 
@@ -41,6 +42,18 @@ func TestResolveCameraID(t *testing.T) {
 	vid := filepath.Join(camDir, "clip.mp4")
 	if got := export.ResolveCameraID("", vid); got != "cam12" {
 		t.Fatalf("heuristic: %s", got)
+	}
+}
+
+func TestResolveCameraID_FromEnv(t *testing.T) {
+	t.Setenv(deps.EnvCameraID, "envcam")
+	dir := filepath.Join(t.TempDir(), "camera_99")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	vid := filepath.Join(dir, "clip.mp4")
+	if got := export.ResolveCameraID("", vid); got != "envcam" {
+		t.Fatalf("got %q", got)
 	}
 }
 

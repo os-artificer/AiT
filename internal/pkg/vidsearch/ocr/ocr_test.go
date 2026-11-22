@@ -47,3 +47,34 @@ func TestSearch_NoMatch(t *testing.T) {
 		t.Fatalf("got %v", hits)
 	}
 }
+
+func TestSearch_PlateRegex(t *testing.T) {
+	idx := ocr.Index{
+		ByFrame: map[string]string{"/tmp/f.jpg": "vehicle 京A12345 parked"},
+		Frames:  []frames.Frame{{Path: "/tmp/f.jpg", TSec: 2}},
+	}
+	hits := ocr.Search(idx, "车牌", hit.ModeText)
+	if len(hits) != 1 {
+		t.Fatalf("hits=%v", hits)
+	}
+	if hits[0].Kind != hit.KindRegex {
+		t.Fatalf("kind=%s", hits[0].Kind)
+	}
+	if hits[0].Snippet == "" {
+		t.Fatal("empty snippet")
+	}
+}
+
+func TestSearch_PhoneRegex(t *testing.T) {
+	idx := ocr.Index{
+		ByFrame: map[string]string{"/tmp/f.jpg": "call 138-1234-5678 now"},
+		Frames:  []frames.Frame{{Path: "/tmp/f.jpg", TSec: 3}},
+	}
+	hits := ocr.Search(idx, "电话", hit.ModeText)
+	if len(hits) != 1 {
+		t.Fatalf("hits=%v", hits)
+	}
+	if hits[0].Kind != hit.KindRegex {
+		t.Fatalf("kind=%s", hits[0].Kind)
+	}
+}

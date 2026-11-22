@@ -41,4 +41,13 @@ internal/pkg/vidsearch/vision   → OpenAI-compatible 多模态 Analyze
 
 ## 验收
 
-见 [change-acceptance.mdc](../../.cursor/rules/change-acceptance.mdc) **VD\***（P0 VD1–VD10 + VD17*；P1 VD11–VD16）。
+见 [change-acceptance.mdc](../../.cursor/rules/change-acceptance.mdc) **VD\***：
+
+| 范围 | ID |
+|------|-----|
+| 插件 / deps / discover / 抽帧 / 输出 | VD1–VD7b、VD9–VD10、VD17* |
+| 部分失败 / fail-fast | **VD8a–c** |
+| 管道 mode / timeout / save / camera | **VD18–VD26** |
+| OCR 正则 / vision 分批 / FormatStatus / Probe | **VD27–VD30** |
+| CLI ExecuteWriters / Run errhint | **VD31–VD37** |
+| Vision / Agent / 隐私 | VD11–VD16 |
