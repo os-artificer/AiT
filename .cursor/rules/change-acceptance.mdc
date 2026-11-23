@@ -60,7 +60,7 @@ Agent 完成实现后须实际运行上述命令；失败须修复后再交付�
 | OA6 | 远程 Capture | `TestOpsAI_RemoteCapture` |
 | OA7 | `DynamicRemote.SetLocal` API；connect teardown 关 Client | `TestDynamicRemote_SetLocal`（agentcore）；connect Run 测例 |
 | OA8 | ops system prompt | `TestSystemPrompt_OpsDomain` |
-| OA9 | OfficialPluginNames 含 `ssh`、`log`、`img`、`host`、`keep` | `TestOfficialPluginNames_ManifestsAligned` |
+| OA9 | OfficialPluginNames 含 `ssh`、`log`、`img`、`host`、`keep`、`vid` | `TestOfficialPluginNames_ManifestsAligned` |
 | OA10 | Tab：`ag`→`agent`；`ho`→`host` | `TestCompleteFirstToken_AgentPrefix`、`TestCompleteFirstToken_HoToHost` |
 | OA11 | test-cross 含 cmd/ait | merge gate |
 | OA12 | agentcore 不 import 产品包（v4） | `TestAgentcore_NoProductImports`（= AC-V4-1） |
@@ -846,6 +846,7 @@ Loopback mocks for required external services (no real hosts or personal infra).
 
 - [ ] `make fmt && make vet && make test && make build && make test-cross`
 - [ ] KP1–KP8：`aitkeep` ping、资源动作、重启预算、单实例、硬帽、CLI、官方插件 `keep`（见 **KP\***）
+- [ ] VD1–VD37：`aitvid` 插件 manifest / deps / discover / search 管道 / CLI（见 **VD\***；含 **VD8a–c**、**VD18–VD37**）
 - [ ] MS1–MS23：in-repo testenv-mock SSH+HTTP 成功与错误路径 + CI 全量 mock e2e（见 **MS\*** 明细；`docs/architecture/testenv-mock.md`）
 - [ ] AT* / AP*：`ait` toolbox REPL + 插件发现（见 **AT\*** / **AP\*** 明细；含 **AT30a–f** Tab 首词补全、**AT31–AT48** install/update/upgrade；**OA9–OA10**）
 - [ ] AH1–AH81：`aihost` 主机监控（见 **AH\*** 明细；含 **AH64–AH81** `net --conn`）
@@ -1110,6 +1111,7 @@ aitssh hostA                    # 无 --save
 | FB* | `ailog` 无外部工具时 builtin 兜底 | `TestResolver_BuiltinNoLookPath`、`TestFileSource_Builtin`、`TestBuildJournalctlArgs` |
 | BI* | `internal/pkg/buildinfo` 三工具 version 共用 | `TestFormat_LdflagsWin`、`TestShort_DevFallback` |
 | KP* | `aitkeep` 常驻与资源限制 | `TestPing_PongAndNotFound`、`TestDecide_MemoryDoesNotThrottle`、`TestWatch_BudgetAndStableReset`、`TestReconcile_StaleGenerationKeepsRunning`、`TestCLI_Manifest` |
+| VD* | `aitvid` 视频检索（含 **VD8a–c**、**VD18–VD37**） | `TestCLI_*`、`TestRunSearch_*`、`TestAuto_*`、`TestAnalyze_*`、`TestSaveHitFrame_*`、`TestSearch_PlateRegex` |
 | AG* | Agent Loop / agentcore（替代 A20–A22；含 AG-7…13 安全门） | `TestOpsAI_DefaultShowsHelp`、`TestPolicy_*`、`TestClassify_Chained*`、`TestRunBoundedCapture_*`、`TestWaitContinueOrExit_*`、`TestSetGetKey_AgentCommandTimeout` |
 | AC-V4* | v4 边界（无 aimode；agentcore 无产品 import） | `TestRepo_NoAimodeImport`、`TestAgentcore_NoProductImports` |
 | agentcore risk/approve | Classify / Confirm（AG-2…11 支撑） | `TestClassify_Read`、`TestClassify_GitRead`、`TestClassify_GitWrite`、`TestClassify_ChainedDestructiveNotRead`、`TestClassify_PipeToShellHigh`、`TestConfirm_ReadAutoApproves`、`TestClassify_Low` |
@@ -1135,6 +1137,53 @@ aitssh hostA                    # 无 --save
 | EX* | AI 实验门禁（EX1–EX3 config；EX4+） | `TestAIExperimental_*`、`TestOpsAI_ExperimentalDisabled`、`TestAgentcore_NoProductImports` |
 | OA* | Ops AI Agent（`ait agent`） | `TestOpsAI_*`、`TestAissh_AISubtreeRemoved`、`TestMetaScanner_BangBangForwardsPTY`、`TestExecute_AIMetaUnknownHint` |
 
+### VD* 明细（`aitvid` / 包 `aivid` + `vidsearch`）
+
+| ID | 验收行为 | 自动化测试 |
+|----|----------|---|
+| VD1 | `ait-plugin-manifest` 含 `vid`/`aitvid` | `TestCLI_PluginManifest` |
+| VD2 | 缺 ffmpeg → sentinel + Try 含 `deps --install` | `TestCheck_MissingFFmpeg` |
+| VD3 | `deps --install` 假 runner；非 TTY 无 `--yes` 拒绝 | `TestInstall_FakeRunner`、`TestInstall_NeedsYesNonTTY` |
+| VD4 | 目录发现：一层 / `-r` / 空目录 hint | `TestListVideos_*` |
+| VD5 | 默认不限数量；仅显式 `--max-videos N>0` 时超限报错 | `TestListVideos_MaxVideos`、`TestListVideos_UnlimitedDefault` |
+| VD6 | 抽帧尊重 max-frames | `TestExtract_RespectsMaxFrames` |
+| VD7 | 命中人类/`--json` 契约 | `TestWriteHuman_*`、`TestWriteNDJSON_*` |
+| VD7b | `--json` 零命中 → stdout 空（含管道成功后零命中） | `TestWriteNDJSON_Empty`、`TestRunSearch_JSONZeroHitsEmptyStdout`、`TestRunSearch_JSONZeroHits_AfterPipeline` |
+| VD8a | 多视频一败一成 → `ErrPartialFailure`，stdout 仍有命中 | `TestRunSearch_PartialFailure_SomeFail` |
+| VD8b | 全部失败 → `ErrPartialFailure` 且含 `all videos failed` | `TestRunSearch_PartialFailure_AllFail` |
+| VD8c | `--fail-fast` 首败即停 | `TestRunSearch_FailFast_StopsEarly` |
+| VD9 | `--local-only` 无 tesseract → 失败 | `TestLocalOnly_MissingTesseract` |
+| VD10 | test-cross 含 `cmd/vid`；OA9 含 `vid` | merge gate / OfficialPluginNames |
+| VD11 | 非 vision 模型发图 → errhint | `TestNewClient_RejectsTextModel` |
+| VD12 | `auto` OCR 命中不调 VLM | `TestAuto_OCRHitSkipsVLM` |
+| VD13 | `auto` OCR 未命中调 VLM | `TestAuto_OCRMissCallsVLM` |
+| VD14 | `object` + mock HTTP 命中 | `TestAnalyze_MockHTTPHit` |
+| VD15 | `deps --install` / 默认 `search` 为 Low；`search --no-save-hits` 为 Read | `TestClassify_ToolboxRead` |
+| VD16 | guide 含隐私 / `--local-only` / 尽力而为 | `TestGuide_AitvidPrivacy` |
+| VD17 | 命中落盘 jpg+侧车 | `TestSaveHitFrame_Annotate` |
+| VD17b | annotate / `--no-annotate` | `TestSaveHitFrame_Annotate`、`TestSaveHitFrame_NoAnnotate` |
+| VD17c | camera_id 启发式 | `TestResolveCameraID` |
+| VD18 | `Timeout` 短超时取消管道 | `TestRunSearch_Timeout_Cancels` |
+| VD19 | `ModeText` 不调 Vision | `TestRunSearch_ModeText_NoVision` |
+| VD20 | `ModeObject` + mock Vision 命中 | `TestRunSearch_ModeObject_WithVision` |
+| VD21 | `ModeAuto` OCR miss、Vision=nil → stderr OCR-only notice | `TestRunSearch_Auto_NoticeOCROnly` |
+| VD22 | `SaveHits`+annotate 落盘 jpg+sidecar | `TestRunSearch_SaveHits_Annotate` |
+| VD23 | `SaveHits`+`Annotate:false` | `TestRunSearch_SaveHits_NoAnnotate` |
+| VD24 | 路径启发式 camera_id 写入 Hit | `TestRunSearch_CameraID_FromPath` |
+| VD25 | `AIT_VID_CAMERA_ID` 优先于路径 | `TestResolveCameraID_FromEnv` |
+| VD26 | 空目录 → `ErrNoVideos` + Try | `TestRunSearch_ErrNoVideos` |
+| VD27 | OCR 车牌/电话正则 | `TestSearch_PlateRegex`、`TestSearch_PhoneRegex` |
+| VD28 | Vision >4 帧分批 | `TestAnalyze_BatchesFour` |
+| VD29 | `FormatStatus` 缺依赖文案 | `TestFormatStatus_Missing` |
+| VD30 | `Probe` 时长（无 ffmpeg 则 Skip） | `TestProbe_Duration` |
+| VD31 | 无参 / `--help` 含 Usage/Commands/Examples | `TestCLI_NoArgs`、`TestCLI_Help` |
+| VD32 | `version` stdout 非空 | `TestCLI_Version` |
+| VD33 | `deps` 人类状态与 `--json` | `TestCLI_Deps`、`TestCLI_DepsJSON` |
+| VD34 | `search` 缺 `--query` 失败 | `TestCLI_SearchRequiresQuery` |
+| VD35 | `object --local-only` → vision/ffmpeg/tesseract sentinel | `TestCLI_ObjectModeLocalOnlyHint` |
+| VD36 | `ErrPartialFailure` 不打印 errhint；其它 sentinel 有 Try | `TestRun_PartialFailure_NoErrhint`、`TestRun_MissingFFmpeg_Errhint` |
+| VD37 | `search`/`frames`/`deps --help` | `TestCLI_SearchHelp`、`TestCLI_FramesHelp`、`TestCLI_DepsHelp` |
+
 ### KP* 明细（`aitkeep` / 包 `keepalive`）
 
 | ID | 验收行为 | 自动化测试 |
@@ -1144,7 +1193,7 @@ aitssh hostA                    # 无 --save
 | KP3 | 非 0 退出会重启，0 不重启；预算与稳定重置；磁盘仍超限不重启；遍历触顶视为超限；退避睡眠可取消 | `TestWatch_AbnormalRestartsCleanExitDoesNot`、`TestWatch_BudgetAndStableReset`、`TestWatch_DiskStillOverDoesNotRestart`、`TestWatch_DiskPercentStillOverDoesNotRestart`、`TestDirUsage_BudgetIsOver`、`TestWatch_SleepHonorsCancel` |
 | KP4 | 同一 AppRoot 第二次 `serve` 返回 `ErrAlreadyRunning`；管道名随 AppRoot 变化 | `TestAcquire_SecondFails`、`TestPipeName_DependsOnRoot` |
 | KP5 | `cpu.max` 允许大于 1 核；`memory.max` / `io.max` 写入；Windows `cpuRateFromCores` 在超过整机 100% 时拒绝 | `TestWriteCPUMax_AboveOneCore`、`TestWriteCPUMax_FakeSysfs`、`TestWriteIOMax_AndMemoryMax`、`TestCPURateFromCores_AboveMachine` |
-| KP6 | 无参 help；`serve` 取消后退出；未运行 `status` 为 `ErrDaemonDown`；运行中的 status 含采样；监听失败返回错误 | `TestCLI_NoArgsHelp`、`TestServe_CancelReturns`、`TestCLI_StatusDaemonDown`、`TestFormatStatusLine_Samples`、`TestServe_StatusIncludesMockSample`、`TestServe_BadListen` |
+| KP6 | 无参 help；`serve` 取消后退出；未运行 `status` 为 `ErrDaemonDown`；运行中的 status 含采样；监听失败返回错误 | `TestCLI_NoArgsHelp`、`TestServe_CancelReturns`、`TestCLI_StatusDaemonDown`、`TestFormatStatusLine_Samples`、`TestServe_StatusSample`、`TestServe_BadListen` |
 | KP7 | manifest 含 `"binary": "aitkeep"`；官方插件名含 `keep`；release stub 含 `aitkeep` 且可安装 | `TestCLI_Manifest`、`TestDiscover_OnceCached`、`TestPlanInstall_AllOfficial`、`TestWriteBundleTree_IncludesKeep`、`TestExecute_InstallKeep` |
 | KP8 | `add`/`remove` 读写 yaml；非法名字 `ErrBadName`；调和不重启未变更 unit；过期代际不能把新 unit 写成 stopped | `TestCLI_AddRemove`、`TestUpsert_RoundTrip`、`TestReconcile_LeavesUnchanged`、`TestReconcile_StaleGenerationKeepsRunning` |
 

@@ -5,11 +5,11 @@ alwaysApply: true
 
 # AiT project rules
 
-Go CLI **toolbox** (**AiT**; binaries: **ait**, **aitssh**, **aitimg**, **aitlog**, **aithost**, **aitkeep**; plugin commands: **ssh**, **img**, **log**, **host**, **keep**). Module: `github.com/os-artificer/AiT`.
+Go CLI **toolbox** (**AiT**; binaries: **ait**, **aitssh**, **aitimg**, **aitlog**, **aithost**, **aitkeep**, **aitvid**; plugin commands: **ssh**, **img**, **log**, **host**, **keep**, **vid**). Module: `github.com/os-artificer/AiT`.
 
 ## Commands
 
-- `make build` → `bin/ait`, `bin/aitssh`, `bin/aitimg`, `bin/aitlog`, `bin/aithost`, `bin/aitkeep`, and `bin/plugins/<cmd>/` from `./cmd/<tool>`
+- `make build` → `bin/ait`, `bin/aitssh`, `bin/aitimg`, `bin/aitlog`, `bin/aithost`, `bin/aitkeep`, `bin/aitvid`, and `bin/plugins/<cmd>/` from `./cmd/<tool>`
 - `make test` / `make vet` / `make fmt` — run after Go edits
 
 ## Layout
@@ -20,7 +20,9 @@ Go CLI **toolbox** (**AiT**; binaries: **ait**, **aitssh**, **aitimg**, **aitlog
 - `cmd/log`: minimal `main` only (delegates to `ailog.Run`; binary `aitlog`)
 - `cmd/host`: minimal `main` only (delegates to `aihost.Run`; binary `aithost`)
 - `cmd/keep`: minimal `main` only (delegates to `keepalive.Run`; binary `aitkeep`)
+- `cmd/vid`: minimal `main` only (delegates to `aivid.Run`; binary `aitvid`)
 - `internal/ait`: toolbox REPL (Go package `ait`); plugin discovery via `internal/pkg/aitplugin`; interactive Agent Loop via `internal/ait/agent`
+- `internal/vid`: video search CLI (Go package `aivid`)
 - `internal/ssh`: application entry (Go package `aissh`; **no AI subtree**)
 - `pkg/`: only code meant for external import
 - Product docs: [AGENTS.md](AGENTS.md), [docs/README.md](docs/README.md), [docs/architecture/overview.md](docs/architecture/overview.md), [docs/guide/ait.md](docs/guide/ait.md), [docs/architecture/ait.md](docs/architecture/ait.md), [docs/guide/aissh.md](docs/guide/aissh.md), [docs/architecture/aissh.md](docs/architecture/aissh.md); archive Cursor plans to `docs/<kebab-case>.md` per [docs-exec-plans.mdc](docs-exec-plans.mdc)

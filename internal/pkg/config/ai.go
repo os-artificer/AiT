@@ -91,6 +91,11 @@ type ExperimentalConfig struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+// VisionConfig selects a vision-capable model for aitvid / multimodal analysis.
+type VisionConfig struct {
+	Model string `yaml:"model,omitempty"`
+}
+
 // AIConfig groups default provider, optional fallback order, tiered routing, provider map, and agent settings.
 type AIConfig struct {
 	Default      string                    `yaml:"default"`
@@ -98,6 +103,7 @@ type AIConfig struct {
 	Tiered       TieredConfig              `yaml:"tiered"`
 	Agent        AgentConfig               `yaml:"agent"`
 	Experimental ExperimentalConfig        `yaml:"experimental"`
+	Vision       VisionConfig              `yaml:"vision"`
 	Providers    map[string]ProviderConfig `yaml:"providers"`
 }
 

@@ -31,6 +31,7 @@ alwaysApply: true
 - `architecture/aiimg.md`
 - `architecture/ailog.md`
 - `architecture/aitkeep.md`
+- `architecture/aitvid.md`
 - `architecture/testenv-mock.md`
 - `guide/ait.md`
 - `guide/aissh.md`
@@ -38,6 +39,7 @@ alwaysApply: true
 - `guide/aiimg.md`
 - `guide/ailog.md`
 - `guide/aitkeep.md`
+- `guide/aitvid.md`
 - `changelog/unreleased.md`
 - `changelog/v*.md`
 

@@ -350,9 +350,10 @@ func TestDiscover_OnceCached(t *testing.T) {
 
 	_ = aitplugin.Discover(context.Background())
 	_ = aitplugin.Discover(context.Background())
-	if calls != 5 {
+	want := len(aitplugin.BuiltinBinaryNames)
+	if calls != want {
 		// official binaries looked up once
-		t.Fatalf("LookPath calls = %d, want 5", calls)
+		t.Fatalf("LookPath calls = %d, want %d", calls, want)
 	}
 }
 

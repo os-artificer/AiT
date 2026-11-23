@@ -22,6 +22,7 @@ const (
 	keyAIDefault               = "ai.default"
 	keyAIFallback              = "ai.fallback"
 	keyAIExperimentalEnabled   = "ai.experimental.enabled"
+	keyAIVisionModel           = "ai.vision.model"
 	keyAIAgentCommandTimeout   = "ai.agent.command_timeout"
 	keyAIProvidersPrefix       = "ai.providers."
 	keyAITieredPrefix          = "ai.tiered."

@@ -1,0 +1,26 @@
+{
+  "apiVersion": 1,
+  "name": "vid",
+  "binary": "aitvid",
+  "short": "Search video content (OCR, objects, save hit frames)",
+  "order": 35,
+  "usage": "vid search <path> --query <text> [flags]",
+  "flags": [
+    {
+      "name": "json",
+      "type": "bool",
+      "help": "NDJSON hit output"
+    },
+    {
+      "name": "help",
+      "short": "h",
+      "type": "bool",
+      "help": "help for vid"
+    }
+  ],
+  "examples": [
+    "vid search ./clip.mp4 --query plate --mode text --local-only",
+    "vid search ./clips -r --query bike --camera-id cam03",
+    "vid deps --install"
+  ]
+}

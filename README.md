@@ -10,6 +10,7 @@
 - [`aitlog`](cmd/log) — 系统日志查看与搜索（Linux / macOS / Windows）。说明见 [ailog](docs/guide/ailog.md)（插件 `log`）。
 - [`aithost`](cmd/host) — 主机 CPU / 内存 / 磁盘 / 网络 / 进程监视。说明见 [aihost](docs/guide/aihost.md)（插件 `host`）。
 - [`aitkeep`](cmd/keep) — 进程监管（插件命令 `keep`；`GET /ping` 返回 `pong`）。说明见 [aitkeep](docs/guide/aitkeep.md)。
+- [`aitvid`](cmd/vid) — 视频内容检索（OCR / 可选 VLM；插件 `vid`）。说明见 [aitvid](docs/guide/aitvid.md)。
 
 ## 能力概览
 
@@ -91,7 +92,7 @@ make build
 ./bin/ait --help
 ```
 
-本地开发时，`make build` 还会产出 `bin/aitssh`、`bin/aitimg`、`bin/aitlog`、`bin/aithost`、`bin/aitkeep`。若要在没有 Release 的情况下把插件装进 `bin/`，运行 `make install`。有 Release 之后，先运行 `ait shell`，再在 `ait>` 提示符下执行 `install`。见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+本地开发时，`make build` 还会产出 `bin/aitssh`、`bin/aitimg`、`bin/aitlog`、`bin/aithost`、`bin/aitkeep`、`bin/aitvid`。若要在没有 Release 的情况下把插件装进 `bin/`，运行 `make install`。有 Release 之后，先运行 `ait shell`，再在 `ait>` 提示符下执行 `install`。见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 文档
 
@@ -110,6 +111,8 @@ make build
 | aihost 使用说明 | [docs/guide/aihost.md](docs/guide/aihost.md) |
 | aitkeep 实现 | [docs/architecture/aitkeep.md](docs/architecture/aitkeep.md) |
 | aitkeep 使用说明 | [docs/guide/aitkeep.md](docs/guide/aitkeep.md) |
+| aitvid 实现 | [docs/architecture/aitvid.md](docs/architecture/aitvid.md) |
+| aitvid 使用说明 | [docs/guide/aitvid.md](docs/guide/aitvid.md) |
 | Python E2E 测试 | [tests/README.md](tests/README.md) |
 | 仓库内 SSH/HTTP mock | [docs/architecture/testenv-mock.md](docs/architecture/testenv-mock.md) |
 | 贡献指南 | [CONTRIBUTING.md](CONTRIBUTING.md) |

@@ -16,6 +16,7 @@
 | [ailog](guide/ailog.md) | 系统日志 |
 | [aihost](guide/aihost.md) | 主机监视 |
 | [aitkeep](guide/aitkeep.md) | 进程监管 |
+| [aitvid](guide/aitvid.md) | 视频内容检索（OCR / VLM） |
 
 ## 变更记录
 
@@ -33,6 +34,7 @@
 | [ailog](architecture/ailog.md) | `ailog` 实现 |
 | [aihost](architecture/aihost.md) | `aihost` 实现 |
 | [aitkeep](architecture/aitkeep.md) | `aitkeep` 实现 |
+| [aitvid](architecture/aitvid.md) | `aitvid` 实现 |
 | [testenv-mock](architecture/testenv-mock.md) | 仓内回环 SSH/HTTP mock |
 
 方案归档：`docs/<kebab>.md`（见 [docs-exec-plans](../.cursor/rules/docs-exec-plans.mdc)）。

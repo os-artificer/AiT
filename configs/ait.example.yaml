@@ -26,6 +26,9 @@ ai:
     max_steps: 16
     # Wall-clock limit for one Agent tool command. Empty uses default (2m). Range 5s..1h.
     command_timeout: 2m
+  # Vision model for aitvid object/auto search (do not reuse a text-only chat model).
+  vision:
+    model: ""
   providers:
     ollama:
       enabled: true   # ait agent provider disable ollama to stop local routing

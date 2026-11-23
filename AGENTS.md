@@ -1,11 +1,11 @@
 # AiT — Agent 导读
 
-**AiT** 是一套 Go **工具箱**（模块 `github.com/os-artificer/AiT`）。已发布二进制：**`ait`**（Agent 交互入口 + 工具箱 shell）、**`aitssh`**（SSH；插件 `ssh`；文档与包名 aissh；**无 AI**）、**`aitimg`** / **`aitlog`** / **`aithost`**，以及 **`aitkeep`**（插件 `keep`）。目录布局遵循 [golang-standards/project-layout](https://github.com/golang-standards/project-layout)。
+**AiT** 是一套 Go **工具箱**（模块 `github.com/os-artificer/AiT`）。已发布二进制：**`ait`**（Agent 交互入口 + 工具箱 shell）、**`aitssh`**（SSH；插件 `ssh`；文档与包名 aissh；**无 AI**）、**`aitimg`** / **`aitlog`** / **`aithost`**、**`aitkeep`**（插件 `keep`）、以及 **`aitvid`**（插件 `vid`）。目录布局遵循 [golang-standards/project-layout](https://github.com/golang-standards/project-layout)。
 
 ## 构建与测试
 
 ```bash
-make build       # → bin/ait, bin/aitssh, bin/aitimg, bin/aitlog, bin/aithost, bin/aitkeep（+ bin/plugins/*）
+make build       # → bin/ait, bin/aitssh, bin/aitimg, bin/aitlog, bin/aithost, bin/aitkeep, bin/aitvid（+ bin/plugins/*）
 make test        # go test ./...
 make vet         # go vet ./...
 make fmt         # go fmt ./...
@@ -19,6 +19,7 @@ make test-e2e-mock   # GitHub CI 全量 e2e，对 testenv-mock（`AIT_TEST_USE_M
 ./bin/aitlog       # 运行日志查看工具
 ./bin/aithost      # 运行主机监控
 ./bin/aitkeep      # 进程守护（插件命令：keep）
+./bin/aitvid       # 视频内容检索（插件命令：vid）
 ```
 
 需要 **Go 1.25+**（见 `go.mod`）。Windows 交叉编译：`GOOS=windows GOARCH=amd64 go build -o bin/aitssh.exe ./cmd/ssh`。
@@ -36,8 +37,9 @@ make test-e2e-mock   # GitHub CI 全量 e2e，对 testenv-mock（`AIT_TEST_USE_M
 - **系统日志（`aitlog` / 插件 `log`）**：经 `internal/pkg/logsrc` 查看/搜索（原生工具 + 内置兜底），经 `internal/pkg/pager` 做类似 less 的分页；指南见 [docs/guide/ailog.md](docs/guide/ailog.md)
 - **主机监控（`aithost` / 插件 `host`）**：基于 Bubble Tea 的实时多面板仪表盘（页眉：USER/OS/CPU/MEM/KERNEL + 日期时间；窄终端换行；面板：居中标题、淡色百分比、Braille 曲线（DISK/NET 双速率）、`HH:MM:SS` 横轴；TCP/UDP/ARP/ICMP 协议行；PROC 默认采样全部进程并按窗口高度填满，含 PEER 监听/远端与 LOG（最新系统日志行）列；`/` 模糊搜索 + Enter 详情浮层（匹配日志与完整 peer 列表）；`x` 杀进程需 SIGTERM 确认 / 可选 SIGKILL）；指标经 `internal/pkg/hoststats`，面板在 `internal/pkg/hostdash`。支持 Linux、macOS、Windows（`CGO_ENABLED=0`）；协议/日志后端按操作系统区分（见 [docs/guide/aihost.md](docs/guide/aihost.md)）。
 - **进程守护（`aitkeep` / `ait keep`）**：`GET /ping` 返回 `pong`；`serve` 按 `keepalive.yaml` 中的 unit 做 CPU、内存、磁盘空间与磁盘 IO 限制（见 [docs/guide/aitkeep.md](docs/guide/aitkeep.md)）。CLI 与守护进程共用 `internal/pkg/keepalive`。
+- **视频检索（`aitvid` / 插件 `vid`）**：PATH 上的 ffmpeg/tesseract 抽帧与 OCR；可选 `ai.vision.model` 多模态物体检索；默认落盘命中关键帧（见 [docs/guide/aitvid.md](docs/guide/aitvid.md)）。
 
-项目结构：[`docs/architecture/overview.md`](docs/architecture/overview.md)。ait：[`docs/guide/ait.md`](docs/guide/ait.md)、[`docs/architecture/ait.md`](docs/architecture/ait.md)。aissh：[`docs/guide/aissh.md`](docs/guide/aissh.md)、[`docs/architecture/aissh.md`](docs/architecture/aissh.md)。aiimg：[`docs/guide/aiimg.md`](docs/guide/aiimg.md)、[`docs/architecture/aiimg.md`](docs/architecture/aiimg.md)。ailog：[`docs/guide/ailog.md`](docs/guide/ailog.md)、[`docs/architecture/ailog.md`](docs/architecture/ailog.md)。aihost：[`docs/guide/aihost.md`](docs/guide/aihost.md)、[`docs/architecture/aihost.md`](docs/architecture/aihost.md)。aitkeep：[`docs/guide/aitkeep.md`](docs/guide/aitkeep.md)、[`docs/architecture/aitkeep.md`](docs/architecture/aitkeep.md)。示例配置：[`configs/ait.example.yaml`](configs/ait.example.yaml)。按 [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc) 将 Cursor 方案归档到 `docs/<kebab-case>.md`。
+项目结构：[`docs/architecture/overview.md`](docs/architecture/overview.md)。ait：[`docs/guide/ait.md`](docs/guide/ait.md)、[`docs/architecture/ait.md`](docs/architecture/ait.md)。aissh：[`docs/guide/aissh.md`](docs/guide/aissh.md)、[`docs/architecture/aissh.md`](docs/architecture/aissh.md)。aiimg：[`docs/guide/aiimg.md`](docs/guide/aiimg.md)、[`docs/architecture/aiimg.md`](docs/architecture/aiimg.md)。ailog：[`docs/guide/ailog.md`](docs/guide/ailog.md)、[`docs/architecture/ailog.md`](docs/architecture/ailog.md)。aihost：[`docs/guide/aihost.md`](docs/guide/aihost.md)、[`docs/architecture/aihost.md`](docs/architecture/aihost.md)。aitkeep：[`docs/guide/aitkeep.md`](docs/guide/aitkeep.md)、[`docs/architecture/aitkeep.md`](docs/architecture/aitkeep.md)。aitvid：[`docs/guide/aitvid.md`](docs/guide/aitvid.md)、[`docs/architecture/aitvid.md`](docs/architecture/aitvid.md)。示例配置：[`configs/ait.example.yaml`](configs/ait.example.yaml)。按 [`docs-exec-plans.mdc`](.cursor/rules/docs-exec-plans.mdc) 将 Cursor 方案归档到 `docs/<kebab-case>.md`。
 
 ## 代码所在位置
 
@@ -49,6 +51,9 @@ make test-e2e-mock   # GitHub CI 全量 e2e，对 testenv-mock（`AIT_TEST_USE_M
 | `cmd/log/main.go` | 薄 `main` — 委托给 `ailog.Run`（二进制 `aitlog`） |
 | `cmd/host/main.go` | 薄 `main` — 委托给 `aihost.Run`（二进制 `aithost`） |
 | `cmd/keep/main.go` | 薄 `main` — 委托给 `keepalive.Run`（二进制 `aitkeep`） |
+| `cmd/vid/main.go` | 薄 `main` — 委托给 `aivid.Run`（二进制 `aitvid`） |
+| `internal/vid/` | `aitvid` CLI（包 **`aivid`**：search/frames/deps/version） |
+| `internal/pkg/vidsearch/` | 视频发现、抽帧、OCR、export、format、vision |
 | `internal/ait/` | `ait` 入口（包 **`ait`**：`Run`、`Execute`、router）；**`ait/agent`** Loop + 管理 CLI |
 | `internal/pkg/aitplugin/` | 插件 Manifest v1、Discover（`plugins/<plugin-command>/`，如 `plugins/ssh/aitssh`）、内嵌 SSOT manifest |
 | `internal/pkg/aitrelease/` | 为 REPL `install` / `update` / `upgrade` 拉取/解压/应用 GitHub Release |
@@ -169,6 +174,7 @@ Ops AI 管理命令位于 **`internal/ait/agent/`**（不在 `internal/ssh`）�
 - **`internal/`**：模块私有 — 不得从本模块外导入。
 - **依赖**：按需添加；见 `go.mod`（cobra、modernc sqlite、x/crypto/ssh、x/term、keyring、uuid、sftp、cloudwego/eino、yaml）。
 - **机密**：API key 与 SSH 密码放在 OS 密钥环（`creds`）；切勿提交或记录。不要把密码存进 SQLite。
+- **测试与密钥**：需要真实 API key / 本机登录钥匙串的测试一律 `t.Skip`（或 `creds.SkipIfNeedsSecrets`）；密钥环单测只用 `AIT_KEYRING_BACKEND=file`（`creds.UseFileBackend`），禁止弹出 macOS 钥匙串对话框。见 [`.cursor/rules/skip-secret-tests.mdc`](.cursor/rules/skip-secret-tests.mdc)。
 - **提交**：仅在用户明确要求时提交；切勿改 git 配置或提交机密（`.env`）。
 
 ## CLI 速查
